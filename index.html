@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Meus Gastos</title>
+<meta name="description" content="Controle de gastos pessoal: lance no dia a dia, acompanhe o custo do mês e a projeção, gastos fixos e faturas de cartão.">
+<meta name="theme-color" content="#1f3a5f">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meus Gastos">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="css/style.css">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+<script type="module" src="js/app.js"></script>
+</head>
+<body>
+
+<!-- Tela de entrada -->
+<main id="auth" class="auth" hidden>
+  <div class="auth-card">
+    <img src="icons/icon-192.png" alt="" width="56" height="56" class="auth-logo">
+    <h1>Meus Gastos</h1>
+    <p class="auth-sub">Lance seus gastos no dia a dia e veja quanto o mês vai custar.</p>
+    <form id="authForm" class="auth-form" autocomplete="on">
+      <label class="f">E-mail<input class="in" id="aEmail" type="email" autocomplete="email" required></label>
+      <label class="f">Senha<input class="in" id="aSenha" type="password" autocomplete="current-password" minlength="6" required></label>
+      <div class="auth-actions">
+        <button class="btn primary" type="submit" id="aEntrar">Entrar</button>
+        <button class="btn" type="button" id="aCriar">Criar conta</button>
+      </div>
+      <button class="link" type="button" id="aEsqueci">Esqueci minha senha</button>
+    </form>
+    <p class="auth-msg" id="authMsg" role="status"></p>
+    <div class="auth-demo">
+      <button class="btn ghost" type="button" id="aDemo">Ver demonstração sem criar conta</button>
+      <p class="hint" id="demoHint">Usa dados de exemplo guardados só neste aparelho.</p>
+    </div>
+  </div>
+</main>
+
+<!-- App -->
+<div id="app" class="wrap" hidden>
+  <div class="top">
+    <div>
+      <div class="eyebrow">Meus gastos</div>
+      <div class="monthnav">
+        <button class="iconbtn" id="prev" type="button" aria-label="Mês anterior">‹</button>
+        <h1 id="mesTitulo">—</h1>
+        <button class="iconbtn" id="next" type="button" aria-label="Próximo mês">›</button>
+        <button class="today" id="hoje" type="button">Mês atual</button>
+      </div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="btnInstall" type="button" hidden>📲 Instalar app</button>
+      <button class="btn" id="btnImport" type="button">⬆ Importar Excel</button>
+      <button class="btn" id="btnExport" type="button">⬇ Baixar Excel</button>
+      <input type="file" id="fileIn" accept=".xlsx,.xls" hidden>
+      <span class="who"><span id="whoName"></span><button class="link" id="btnSair" type="button">Sair</button></span>
+    </div>
+  </div>
+
+  <div class="banner" id="banner" role="status" hidden></div>
+
+  <section class="panel quick" aria-label="Lançar">
+    <div class="quick-head">
+      <h2>Lançar</h2>
+      <div class="seg" role="group" aria-label="Tipo de lançamento" id="tipoSeg">
+        <button type="button" data-t="Despesa" aria-pressed="true">Gasto</button>
+        <button type="button" data-t="Receita" aria-pressed="false">Entrada</button>
+        <button type="button" data-t="Reserva" aria-pressed="false">Guardar na reserva</button>
+      </div>
+    </div>
+    <form id="formLanc" class="fields" autocomplete="off">
+      <label class="f">Valor (R$)<input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
+      <label class="f desc">Descrição<input class="in" id="fDesc" placeholder="Ex.: mercado, uber, farmácia" maxlength="80"></label>
+      <label class="f">Categoria<select class="in" id="fCat"></select></label>
+      <label class="f" id="fFormaWrap">Forma de pagamento<select class="in" id="fForma"></select></label>
+      <label class="f">Data<input class="in" type="date" id="fData" required></label>
+      <button class="btn primary" id="fOk" type="submit">Lançar gasto</button>
+    </form>
+    <div class="flash" id="flash" aria-live="polite"></div>
+  </section>
+
+  <section class="kpis" id="kpis" aria-label="Resumo do mês"></section>
+  <p class="insight" id="insight"></p>
+
+  <div class="two">
+    <section class="panel">
+      <h2>Custo acumulado no mês</h2>
+      <p class="hint">Gastos do dia a dia somados aos fixos no dia do vencimento.</p>
+      <div class="legend"><span><i></i>Custo até agora</span><span id="lgProj"><i class="d"></i>Projeção</span><span><i class="r"></i>Entradas do mês</span></div>
+      <div class="chart" id="chCusto"></div>
+    </section>
+    <section class="panel">
+      <h2>Por categoria</h2>
+      <p class="hint">Gastos do dia a dia e fixos do mês.</p>
+      <div class="chart" id="chCat"></div>
+    </section>
+  </div>
+
+  <section class="panel">
+    <div class="tabs" role="tablist">
+      <button role="tab" id="tab-l" aria-selected="true" data-tab="l">Lançamentos</button>
+      <button role="tab" id="tab-f" aria-selected="false" data-tab="f">Gastos fixos</button>
+      <button role="tab" id="tab-c" aria-selected="false" data-tab="c">Cartões</button>
+    </div>
+    <div id="pane-l" role="tabpanel"></div>
+    <div id="pane-f" role="tabpanel" hidden></div>
+    <div id="pane-c" role="tabpanel" hidden></div>
+  </section>
+
+  <p class="foot">Compras no cartão de crédito entram no custo do mês em que você compra. A aba Cartões serve para acompanhar quanto falta pagar de fatura; ela não soma de novo no custo.</p>
+</div>
+
+<dialog id="dlg"><div id="dlgBody"></div></dialog>
+</body>
+</html>
