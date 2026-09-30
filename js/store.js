@@ -4,7 +4,7 @@
 // Interface comum:
 //   loadAll()                      → { lancamentos, fixos, pagos, faturas }
 //   addLancamentos(rows)           → linhas inseridas (ignora import_key repetido)
-//   deleteLancamento(id)
+//   updateLancamento(id, patch) / deleteLancamento(id)
 //   addFixo(row) / updateFixo(id, patch) / deleteFixo(id)
 //   setPago(fixoId, mes, pago)
 //   addFatura(row) / updateFatura(id, patch) / deleteFatura(id)
@@ -32,6 +32,7 @@ export function createSupabaseStore(client) {
         .upsert(withKey, { onConflict: "user_id,import_key", ignoreDuplicates: true }).select()));
       return out.map(num);
     },
+    async updateLancamento(id, patch) { ok(await client.from("lancamentos").update(patch).eq("id", id)); },
     async deleteLancamento(id) { ok(await client.from("lancamentos").delete().eq("id", id)); },
     async addFixo(row) { return num(ok(await client.from("fixos").insert(row).select().single())); },
     async updateFixo(id, patch) { ok(await client.from("fixos").update(patch).eq("id", id)); },
@@ -63,7 +64,8 @@ export function createLocalStore(key, seedFn) {
         .map((r) => ({ ...r, id: uuid(), created_at: new Date().toISOString() }));
       db.lancamentos.push(...out); persist(); return structuredClone(out);
     },
-    async deleteLancamento(id) { db.lancamentos = db.lancamentos.filter((r) => r.id !== id); persist(); },
+    async updateLancamento(id, patch) { Object.assign(db.lancamentos.find((r) => r.id === id) || {}, patch); persist(); },
+    async deleteLancamento(id) { db.lancamentos =db.lancamentos.filter((r) => r.id !== id); persist(); },
     async addFixo(row) { const r = { ...row, id: uuid() }; db.fixos.push(r); persist(); return { ...r }; },
     async updateFixo(id, patch) { Object.assign(db.fixos.find((r) => r.id === id) || {}, patch); persist(); },
     async deleteFixo(id) { db.fixos = db.fixos.filter((r) => r.id !== id); db.pagos = db.pagos.filter((p) => p.fixo_id !== id); persist(); },

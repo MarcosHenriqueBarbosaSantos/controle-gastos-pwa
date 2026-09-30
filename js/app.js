@@ -23,7 +23,21 @@ const S = {
 /* ================= inicialização e login ================= */
 const configured = () => Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 
+// Quando um link do e-mail (nova senha, confirmação) falha, o Supabase volta
+// para o site com o erro no endereço: #error=...&error_code=otp_expired
+function erroDoLink() {
+  const p = new URLSearchParams(location.hash.slice(1));
+  const codigo = p.get("error_code") || p.get("error");
+  if (!codigo) return;
+  // Limpa o endereço para o erro não voltar a aparecer ao recarregar a página.
+  history.replaceState(null, "", location.pathname + location.search);
+  authMsg(codigo === "otp_expired"
+    ? "Esse link expirou ou já foi usado. Clique em Esqueci minha senha para receber um novo e use sempre o e-mail mais recente."
+    : "Não foi possível usar o link do e-mail. Peça um novo em Esqueci minha senha.", "err");
+}
+
 async function boot() {
+  erroDoLink();
   if (!configured()) {
     $("authForm").hidden = true;
     $("authMsg").textContent = "Login ainda não configurado neste endereço. Você pode testar tudo na demonstração.";
@@ -58,24 +72,50 @@ const traduzErro = (e) => {
   return "Não deu certo: " + m;
 };
 
+const emailDigitado = () => $("aEmail").value.trim().toLowerCase();
+
+// Botão "Mostrar/Ocultar" dos campos de senha. Um único ouvinte no documento
+// atende a todos, inclusive os que aparecem depois (como o da nova senha).
+function mostrarSenha(botao, mostrar) {
+  const campo = botao.previousElementSibling;
+  campo.type = mostrar ? "text" : "password";
+  botao.textContent = mostrar ? "Ocultar" : "Mostrar";
+  botao.setAttribute("aria-pressed", String(mostrar));
+  botao.setAttribute("aria-label", mostrar ? "Ocultar senha" : "Mostrar senha");
+}
+document.addEventListener("click", (e) => {
+  const botao = e.target.closest(".olho");
+  if (!botao) return;
+  e.preventDefault();
+  mostrarSenha(botao, botao.getAttribute("aria-pressed") !== "true");
+  botao.previousElementSibling.focus();
+});
+
+// "Entrar" e "Criar conta" enviam o mesmo formulário: assim o navegador
+// oferece salvar a senha nos dois casos.
 $("authForm").addEventListener("submit", async (e) => {
   e.preventDefault();
+  // Volta a esconder a senha ao enviar, para ela não ficar exposta na tela.
+  mostrarSenha($("authForm").querySelector(".olho"), false);
+  if (e.submitter?.id === "aCriar") return criarConta();
   authMsg("Entrando…");
-  const { error } = await S.client.auth.signInWithPassword({ email: $("aEmail").value.trim(), password: $("aSenha").value });
+  const { error } = await S.client.auth.signInWithPassword({ email: emailDigitado(), password: $("aSenha").value });
   if (error) authMsg(traduzErro(error), "err");
 });
-$("aCriar").addEventListener("click", async () => {
-  if (!$("authForm").reportValidity()) return;
+async function criarConta() {
   authMsg("Criando sua conta…");
   const { data, error } = await S.client.auth.signUp({
-    email: $("aEmail").value.trim(), password: $("aSenha").value,
+    email: emailDigitado(), password: $("aSenha").value,
     options: { emailRedirectTo: location.origin + location.pathname },
   });
   if (error) return authMsg(traduzErro(error), "err");
+  // Com confirmação de e-mail ligada, o Supabase não dá erro para e-mail repetido:
+  // devolve um usuário sem identidades. Cada e-mail só pode ter uma conta.
+  if (data.user && data.user.identities?.length === 0) return authMsg("Esse e-mail já tem conta. Use Entrar ou Esqueci minha senha.", "err");
   if (!data.session) authMsg("Conta criada. Abra o e-mail de confirmação que enviamos e depois volte para entrar.", "ok");
-});
+}
 $("aEsqueci").addEventListener("click", async () => {
-  const email = $("aEmail").value.trim();
+  const email = emailDigitado();
   if (!email) { $("aEmail").focus(); return authMsg("Digite seu e-mail acima para receber o link de nova senha."); }
   const { error } = await S.client.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
   authMsg(error ? traduzErro(error) : "Enviamos um link para criar uma nova senha no seu e-mail.", error ? "err" : "ok");
@@ -88,7 +128,7 @@ $("btnSair").addEventListener("click", async () => {
 
 function pedirNovaSenha() {
   openDlg(`<h3>Criar nova senha</h3><form id="novaSenha" style="display:grid;gap:12px">
-    <label class="f">Nova senha<input class="in" id="ns1" type="password" minlength="6" required autocomplete="new-password"></label>
+    <label class="f">Nova senha<span class="pw"><input class="in" id="ns1" type="password" minlength="6" required autocomplete="new-password"><button class="olho" type="button" aria-pressed="false" aria-label="Mostrar senha">Mostrar</button></span></label>
     <div class="actions"><button class="btn primary" type="submit">Salvar senha</button></div><p class="auth-msg" id="nsMsg"></p></form>`);
   $("novaSenha").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -273,7 +313,8 @@ function paneL(c) {
     it.map((x) => `<tr><td class="d">${ddmm(x.data)}</td><td>${esc(x.descricao || x.categoria)}</td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(x.forma || "—") : x.tipo === "Receita" ? "Entrada" : "Reserva"}</td>
       <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? "→ " : "− "}${brl(x.valor)}</td>
-      <td style="text-align:right"><button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody></table></div>`;
+      <td style="text-align:right;white-space:nowrap">${btnEditar(x.id)}<button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody></table></div>`;
+  ligarEditar("pane-l", (id) => editarLancamento(S.data.lancamentos.find((x) => x.id === id)));
   $("pane-l").querySelectorAll("[data-del]").forEach((b) => armDelete(b, async () => {
     const id = b.dataset.del;
     if (await grava(() => S.store.deleteLancamento(id))) { S.data.lancamentos = S.data.lancamentos.filter((x) => x.id !== id); render(); }
@@ -286,7 +327,7 @@ function paneF(c) {
     const p = c.pagosSet.has(f.id);
     return `<tr><td class="d">dia ${pad(f.dia || 1)}</td><td>${esc(f.descricao)}</td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num">${brl(f.valor)}</td>
       <td><button type="button" class="chk ${p ? "on" : "off"}" data-pago="${esc(f.id)}" data-v="${p ? 0 : 1}">${p ? "✓ Pago" : "○ A pagar"}</button></td>
-      <td style="text-align:right;white-space:nowrap"><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
+      <td style="text-align:right;white-space:nowrap">${btnEditar(f.id)}<button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
   }).join("");
   $("pane-f").innerHTML = `<p class="hint" style="margin-top:0">Cadastre uma vez as contas que se repetem todo mês. Elas entram no custo de cada mês sozinhas; é só marcar quando pagar.</p>
    ${fx.length ? `<div class="tbl"><table><thead><tr><th>Vence</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="num">Valor</th><th>${MES3[Number(S.mes.slice(5)) - 1]}</th><th></th></tr></thead><tbody>${rows}</tbody>
@@ -300,6 +341,7 @@ function paneF(c) {
      <label class="f">Pagamento<select class="in" id="xForma">${FORMAS.map((k) => `<option>${esc(k)}</option>`).join("")}</select></label>
      <button class="btn primary" type="submit">Adicionar fixo</button>
    </form>`;
+  ligarEditar("pane-f", (id) => editarFixo(S.data.fixos.find((z) => z.id === id)));
   $("pane-f").querySelectorAll("[data-pago]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.pago, pago = b.dataset.v === "1", mes = S.mes + "-01";
     b.disabled = true;
@@ -332,7 +374,7 @@ function paneC(c) {
    ${vis.length ? `<div class="tbl"><table><thead><tr><th>Vence</th><th>Cartão</th><th class="num">Fatura</th><th>Status</th><th></th></tr></thead><tbody>${
      vis.map((x) => `<tr><td class="d">${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</td><td>${esc(x.cartao)}</td><td class="num">${brl(x.valor)}</td>
        <td><button type="button" class="chk ${x.status === "Paga" ? "on" : "off"}" data-st="${esc(x.id)}">${x.status === "Paga" ? "✓ Paga" : "○ Em aberto"}</button></td>
-       <td style="text-align:right"><button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody>
+       <td style="text-align:right;white-space:nowrap">${btnEditar(x.id)}<button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody>
      <tfoot><tr><td></td><td style="font-weight:600">Em aberto</td><td class="num" style="font-weight:600">${brl(c.ccAberto)}</td><td colspan="2"></td></tr></tfoot></table></div>`
      : `<div class="empty">Nenhuma fatura em aberto.</div>`}
    <form class="addrow cc" id="formCc" autocomplete="off">
@@ -342,6 +384,7 @@ function paneC(c) {
      <label class="f">Status<select class="in" id="cSt"><option>Aberta</option><option>Paga</option></select></label>
      <button class="btn primary" type="submit">Adicionar fatura</button>
    </form>`;
+  ligarEditar("pane-c", (id) => editarFatura(S.data.faturas.find((z) => z.id === id)));
   $("pane-c").querySelectorAll("[data-st]").forEach((b) => b.addEventListener("click", async () => {
     const f = S.data.faturas.find((z) => z.id === b.dataset.st); const status = f.status === "Paga" ? "Aberta" : "Paga";
     b.disabled = true;
@@ -357,6 +400,79 @@ function paneC(c) {
     const v = parseMoney($("cVal").value); if (!(v > 0)) { $("cVal").focus(); return; }
     const row = { cartao: $("cNome").value.trim(), vencimento: $("cVenc").value, valor: round2(v), status: $("cSt").value };
     let novo; if (await grava(async () => { novo = await S.store.addFatura(row); })) { S.data.faturas.push(novo); render(); }
+  });
+}
+
+/* ================= editar itens já salvos ================= */
+const btnEditar = (id) => `<button class="edt" type="button" data-edit="${esc(id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">✎</span></button>`;
+function ligarEditar(pane, abrir) {
+  $(pane).querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => abrir(b.dataset.edit)));
+}
+// Valor em número (1234.5) → texto do campo ("1234,50"), no formato que parseMoney entende.
+const valorCampo = (v) => Number(v).toFixed(2).replace(".", ",");
+const opcoes = (lista, atual) => lista.map((k) => `<option${k === atual ? " selected" : ""}>${esc(k)}</option>`).join("");
+
+// Abre a janela com o formulário já preenchido. Ao salvar, lê os campos,
+// grava no banco e só então atualiza a tela.
+function janelaEditar(titulo, campos, salvar) {
+  openDlg(`<h3>${titulo}</h3><form id="formEd" style="display:grid;gap:12px" autocomplete="off">${campos}
+    <p class="auth-msg err" id="edMsg"></p>
+    <div class="actions"><button class="btn primary" type="submit">Salvar</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
+  $("formEd").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const v = parseMoney($("eVal").value);
+    if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 25,90."; $("eVal").focus(); return; }
+    if (await salvar(round2(v))) { $("dlg").close(); render(); }
+  });
+}
+
+function editarLancamento(x) {
+  if (!x) return;
+  janelaEditar("Editar lançamento", `
+    <label class="f">Valor (R$)<input class="in money" id="eVal" inputmode="decimal" required value="${valorCampo(x.valor)}"></label>
+    <label class="f">Descrição<input class="in" id="eDesc" maxlength="80" value="${esc(x.descricao)}"></label>
+    <label class="f">Categoria<select class="in" id="eCat">${opcoes(CATS[x.tipo] || CATS.Despesa, x.categoria)}</select></label>
+    ${x.tipo === "Despesa" ? `<label class="f">Forma de pagamento<select class="in" id="eForma">${opcoes(FORMAS, x.forma)}</select></label>` : ""}
+    <label class="f">Data<input class="in" type="date" id="eData" required value="${esc(x.data)}"></label>`,
+  async (valor) => {
+    const patch = { valor, descricao: $("eDesc").value.trim(), categoria: $("eCat").value, data: $("eData").value,
+      forma: x.tipo === "Despesa" ? $("eForma").value : "" };
+    const ok = await grava(() => S.store.updateLancamento(x.id, patch));
+    if (ok) Object.assign(x, patch);
+    return ok;
+  });
+}
+
+function editarFixo(f) {
+  if (!f) return;
+  janelaEditar("Editar gasto fixo", `
+    <label class="f">Descrição<input class="in" id="eDesc" required maxlength="60" value="${esc(f.descricao)}"></label>
+    <label class="f">Categoria<select class="in" id="eCat">${opcoes(CATS.Despesa, f.categoria)}</select></label>
+    <label class="f">Dia do vencimento<input class="in" id="eDia" type="number" min="1" max="31" required value="${f.dia || 1}"></label>
+    <label class="f">Valor (R$)<input class="in money" id="eVal" inputmode="decimal" required value="${valorCampo(f.valor)}"></label>
+    <label class="f">Pagamento<select class="in" id="eForma">${opcoes(FORMAS, f.forma)}</select></label>
+    <p class="hint" style="margin:0">A mudança vale para todos os meses deste gasto fixo.</p>`,
+  async (valor) => {
+    const patch = { valor, descricao: $("eDesc").value.trim(), categoria: $("eCat").value, forma: $("eForma").value,
+      dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)) };
+    const ok = await grava(() => S.store.updateFixo(f.id, patch));
+    if (ok) Object.assign(f, patch);
+    return ok;
+  });
+}
+
+function editarFatura(x) {
+  if (!x) return;
+  janelaEditar("Editar fatura", `
+    <label class="f">Cartão<input class="in" id="eNome" required maxlength="40" value="${esc(x.cartao)}"></label>
+    <label class="f">Vencimento<input class="in" id="eVenc" type="date" required value="${esc(x.vencimento)}"></label>
+    <label class="f">Valor da fatura<input class="in money" id="eVal" inputmode="decimal" required value="${valorCampo(x.valor)}"></label>
+    <label class="f">Status<select class="in" id="eSt">${opcoes(["Aberta", "Paga"], x.status)}</select></label>`,
+  async (valor) => {
+    const patch = { valor, cartao: $("eNome").value.trim(), vencimento: $("eVenc").value, status: $("eSt").value };
+    const ok = await grava(() => S.store.updateFatura(x.id, patch));
+    if (ok) Object.assign(x, patch);
+    return ok;
   });
 }
 
@@ -384,7 +500,20 @@ $("prev").onclick = () => { S.mes = addM(S.mes, -1); render(); };
 $("next").onclick = () => { S.mes = addM(S.mes, 1); render(); };
 $("hoje").onclick = () => { S.mes = mKey(hoje()); render(); };
 document.querySelector(".tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tab = b.dataset.tab; render(); });
-let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => !$("app").hidden && render(), 150); });
+// Ao mudar o tamanho da tela, só os gráficos precisam ser redesenhados (eles
+// dependem da largura). Redesenhar tudo recriava os formulários e apagava o que
+// estava sendo digitado. No celular, abrir o teclado muda só a ALTURA da tela,
+// então ignoramos mudanças que não alteram a largura.
+let rt, larguraAntes = innerWidth;
+addEventListener("resize", () => {
+  clearTimeout(rt);
+  rt = setTimeout(() => {
+    if ($("app").hidden || innerWidth === larguraAntes) return;
+    larguraAntes = innerWidth;
+    const c = calcMes(S.data, S.mes, hoje());
+    renderCusto(c); renderCat(c);
+  }, 150);
+});
 
 /* ================= Excel ================= */
 $("btnImport").onclick = () => $("fileIn").click();
