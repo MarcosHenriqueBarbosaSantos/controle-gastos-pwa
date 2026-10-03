@@ -1,7 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, CARTAO } from "./calc.js";
+  categoriasIniciais, primeiroMes, saldoAnterior, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
 import { parseWorkbook, buildWorkbook, importKey, norm } from "./excel.js";
 
@@ -113,7 +113,7 @@ function pedirNovaSenha() {
 
 function startDemo() {
   try { localStorage.setItem("cg-modo", "demo"); } catch { /* nada */ }
-  const store = createLocalStore("cg-demo-v4", demoSeed(hoje()));
+  const store = createLocalStore("cg-demo-v6", demoSeed(hoje()));
   startApp(store, "Demonstração");
   showBanner(`Modo demonstração: dados de exemplo guardados só neste aparelho.`, [["Recomeçar exemplo", () => { store.reset(); startDemo(); }]]);
 }
@@ -185,7 +185,12 @@ function renderForm() {
   // Opção de já cadastrar como fixo (repete todo mês). Não vale para dinheiro guardado.
   const fixo = S.tipo !== "Reserva" && $("fFixo").checked;
   $("fFixoWrap").hidden = S.tipo === "Reserva";
-  $("fFixoLbl").textContent = S.tipo === "Receita" ? "Repete todo mês (entrada fixa, como o salário)" : "Repete todo mês (gasto fixo, como o aluguel)";
+  $("fFixoLbl").textContent = S.tipo === "Receita" ? "Repete sempre (entrada fixa, como o salário)" : "Repete sempre (gasto fixo, como aluguel ou Uber de toda sexta)";
+  // Quando é fixo, a pessoa escolhe se repete todo mês ou toda semana; o dia vem da data escolhida.
+  const fr = $("fRepete"), dt = fd.value || hoje();
+  fr.hidden = !fixo;
+  fr.options[0].textContent = `Todo mês, no dia ${dt.slice(8, 10)}`;
+  fr.options[1].textContent = `Toda semana, ${DIAS_SEMANA[diaDaSemana(dt)] === "sábado" || DIAS_SEMANA[diaDaSemana(dt)] === "domingo" ? "no" : "na"} ${DIAS_SEMANA[diaDaSemana(dt)]}`;
   $("fOk").textContent = fixo ? (S.tipo === "Receita" ? "Cadastrar entrada fixa" : "Cadastrar gasto fixo")
     : S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : "Lançar";
 }
@@ -233,7 +238,7 @@ function renderVenc() {
   host.innerHTML = cab(`${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`) +
     `<ul class="venc">${l.map((x, i) => `<li>
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
-      <span class="oque"><b>${esc(x.titulo)}</b><span>${x.tipo === "fatura" ? "Fatura de cartão" : "Gasto fixo"}</span></span>
+      <span class="oque"><b>${esc(x.titulo)}</b><span>${x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Gasto fixo · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Gasto fixo"}</span></span>
       <span class="quando ${cls(x.dias)}">${quando(x.dias)}</span>
       <span class="valor">${brl(x.valor)}</span>
       <button class="btn sm" type="button" data-pg="${i}">Marcar como pago</button></li>`).join("")}</ul>`;
@@ -241,7 +246,7 @@ function renderVenc() {
     const x = l[Number(b.dataset.pg)]; b.disabled = true;
     if (x.tipo === "fatura") {
       if (await grava(() => S.store.updateFatura(x.id, { status: "Paga" }))) { const f = S.data.faturas.find((z) => z.id === x.id); if (f) f.status = "Paga"; }
-    } else if (await grava(() => S.store.setPago(x.id, x.mes + "-01", true))) S.data.pagos.push({ fixo_id: x.id, mes: x.mes + "-01" });
+    } else if (await grava(() => S.store.setPago(x.id, x.chave, true))) S.data.pagos.push({ fixo_id: x.id, mes: x.chave });
     render();
   }));
 }
@@ -345,8 +350,8 @@ function armDelete(b, fn) {
 
 function paneL(c) {
   // Entradas fixas aparecem na lista como lançamentos automáticos do mês.
-  const auto = c.fr.map((f) => { const d = Math.min(c.n, Math.max(1, f.dia || 1));
-    return { auto: true, id: f.id, data: `${S.mes}-${pad(d)}`, descricao: f.descricao, categoria: f.categoria, tipo: "Receita", valor: f.valor,
+  const auto = c.fr.map((f) => { const d = Number(f.data.slice(8, 10));
+    return { auto: true, id: f.id, data: f.data, descricao: f.descricao, categoria: f.categoria, tipo: "Receita", valor: f.valor,
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
   const it = [...c.it, ...auto].sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
   if (!it.length) {
@@ -371,36 +376,40 @@ function paneL(c) {
 
 function paneF(c, tipo) {
   const ent = tipo === "Receita", host = $(ent ? "pane-r" : "pane-f");
-  const fx = (ent ? c.fr : c.fx).slice().sort((a, b) => (a.dia || 0) - (b.dia || 0));
+  const fx = ent ? c.fr : c.fx;   // uma linha por ocorrência: os semanais aparecem uma vez por semana
   const rows = fx.map((f) => {
-    const p = c.pagosSet.has(f.id), d = Math.min(c.n, Math.max(1, f.dia || 1));
+    const p = c.pagosSet.has(f.id + "|" + f.chave), d = Number(f.data.slice(8, 10)), sem = f.repete === "semanal";
+    const quando = sem ? `${DIAS3[diaDaSemana(f.data)]} ${ddmm(f.data)}` : `dia ${pad(f.dia || 1)}`;
     const chegou = c.fase === "passado" || (c.fase === "atual" && d <= c.dias);
     const status = ent ? `<span class="chk ${chegou ? "on" : ""}">${chegou ? "✓ Recebida" : "Dia " + pad(d)}</span>`
-      : `<button type="button" class="chk ${p ? "on" : "off"}" data-pago="${esc(f.id)}" data-v="${p ? 0 : 1}">${p ? "✓ Pago" : "○ A pagar"}</button>`;
-    return `<tr><td class="d">dia ${pad(f.dia || 1)}</td><td>${esc(f.descricao)}<span class="sub">dia ${pad(f.dia || 1)} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(f.forma) : ""}</span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
+      : `<button type="button" class="chk ${p ? "on" : "off"}" data-pago="${esc(f.id)}" data-chave="${esc(f.chave)}" data-v="${p ? 0 : 1}">${p ? "✓ Pago" : "○ A pagar"}</button>`;
+    return `<tr><td class="d">${quando}</td><td>${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(f.forma) : ""}</span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
       <td class="st">${status}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(f.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">✎</span></button><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
   }).join("");
   host.innerHTML = `<p class="hint" style="margin-top:0">${ent
-      ? "Cadastre uma vez o que você recebe todo mês, como o salário. A entrada é lançada sozinha em cada mês, no dia que você escolher."
-      : "Cadastre uma vez as contas que se repetem todo mês. Elas entram no custo de cada mês sozinhas; é só marcar quando pagar."}</p>
+      ? "Cadastre uma vez o que você recebe sempre, como o salário. A entrada é lançada sozinha, todo mês ou toda semana, no dia que você escolher."
+      : "Cadastre uma vez o que se repete: todo mês, como o aluguel, ou toda semana, como o Uber de sexta ou a terapia. Entra no custo sozinho; é só marcar quando pagar."}</p>
    ${fx.length ? `<div class="tbl"><table class="cards"><thead><tr><th>${ent ? "Recebe" : "Vence"}</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="num">Valor</th><th>${MES3[Number(S.mes.slice(5)) - 1]}</th><th></th></tr></thead><tbody>${rows}</tbody>
      <tfoot><tr><td class="d"></td><td style="font-weight:600">Total</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(ent ? c.frT : c.fxT)}</td><td colspan="2" class="vazio"></td></tr></tfoot></table></div>`
      : `<div class="empty">${ent ? "Nenhuma entrada fixa neste mês. Adicione seu salário, aposentadoria, aluguel que recebe…" : "Nenhum gasto fixo neste mês. Adicione aluguel, condomínio, internet, faculdade, parcelas…"}</div>`}
    <form class="addrow ${ent ? "fr" : "fx"}" id="formFx" autocomplete="off">
      <label class="f">Descrição<input class="in" id="xDesc" required maxlength="60" placeholder="${ent ? "Ex.: Salário" : "Ex.: Condomínio"}"></label>
      <label class="f">Categoria<select class="in" id="xCat">${opts(cats(tipo), ent ? "Salário" : "Moradia")}</select></label>
-     <label class="f">${ent ? "Dia que recebe" : "Dia venc."}<input class="in" id="xDia" type="number" min="1" max="31" value="${ent ? 5 : 10}" required></label>
-     <label class="f">Valor (R$)<input class="in money" id="xVal" inputmode="decimal" placeholder="0,00" required></label>
+     <label class="f">Repete<select class="in" id="xRep"><option value="mensal">Todo mês</option><option value="semanal">Toda semana</option></select></label>
+     <label class="f" id="xDiaWrap">${ent ? "Dia que recebe" : "Dia venc."}<input class="in" id="xDia" type="number" min="1" max="31" value="${ent ? 5 : 10}" required></label>
+     <label class="f" id="xSemWrap" hidden>Dia da semana<select class="in" id="xSem">${DIAS_SEMANA.map((d, i) => `<option value="${i}"${i === 5 ? " selected" : ""}>${d}</option>`).join("")}</select></label>
+     <label class="f">Valor${ent ? "" : " por vez"} (R$)<input class="in money" id="xVal" inputmode="decimal" placeholder="0,00" required></label>
      ${ent ? "" : `<label class="f">Pagamento<select class="in" id="xForma">${opts(FORMAS)}</select></label>`}
      <button class="btn primary" type="submit">${ent ? "Adicionar entrada fixa" : "Adicionar fixo"}</button>
    </form>`;
+  $("xRep").onchange = () => { const sem = $("xRep").value === "semanal"; $("xDiaWrap").hidden = sem; $("xSemWrap").hidden = !sem; };
   host.querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
   host.querySelectorAll("[data-pago]").forEach((b) => b.addEventListener("click", async () => {
-    const id = b.dataset.pago, pago = b.dataset.v === "1", mes = S.mes + "-01";
+    const id = b.dataset.pago, pago = b.dataset.v === "1", mes = b.dataset.chave;
     b.disabled = true;
     if (await grava(() => S.store.setPago(id, mes, pago))) {
-      S.data.pagos = S.data.pagos.filter((p) => !(p.fixo_id === id && mKey(p.mes) === S.mes));
+      S.data.pagos = S.data.pagos.filter((p) => !(p.fixo_id === id && p.mes === mes));
       if (pago) S.data.pagos.push({ fixo_id: id, mes });
     }
     render();
@@ -416,9 +425,17 @@ function paneF(c, tipo) {
   $("formFx").addEventListener("submit", async (e) => {
     e.preventDefault();
     const v = parseMoney($("xVal").value); if (!(v > 0)) { $("xVal").focus(); return; }
-    const row = { tipo, descricao: $("xDesc").value.trim(), categoria: $("xCat").value, dia: Math.min(31, Math.max(1, Number($("xDia").value) || 1)),
-      valor: round2(v), forma: ent ? "" : $("xForma").value, desde: S.mes + "-01", ate: null };
-    let novo; if (await grava(async () => { novo = await S.store.addFixo(row); })) { S.data.fixos.push(novo); render(); }
+    const sem = $("xRep").value === "semanal";
+    // Semanal começa a contar de hoje (ou do dia 1, se a pessoa está olhando outro mês).
+    const row = { tipo, descricao: $("xDesc").value.trim(), categoria: $("xCat").value, dia: sem ? 1 : Math.min(31, Math.max(1, Number($("xDia").value) || 1)),
+      valor: round2(v), forma: ent ? "" : $("xForma").value, desde: sem && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", ate: null,
+      ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : {}) };
+    let novo; if (await grava(async () => { novo = await S.store.addFixo(row); })) {
+      S.data.fixos.push(novo); render();
+      // Confirma na tela e volta para o topo da lista, onde o item novo aparece.
+      const msg = `${ent ? "Entrada fixa adicionada" : "Gasto fixo adicionado"}: ${row.descricao} · ${brl(row.valor)}.`;
+      if (noCelular()) { toast(msg); $("listas").scrollIntoView({ block: "start" }); } else { $("flash").style.color = "var(--good)"; $("flash").textContent = msg; }
+    }
   });
 }
 
@@ -461,6 +478,7 @@ function paneC(c) {
 /* ================= lançamento rápido ================= */
 $("tipoSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tipo = b.dataset.t; renderForm(); });
 $("fFixo").addEventListener("change", renderForm);
+$("fData").addEventListener("change", renderForm);
 
 /* ================= celular: navegação, lançamento em tela cheia e menu ================= */
 let toastT;
@@ -504,17 +522,17 @@ $("formLanc").addEventListener("submit", async (e) => {
   const data = $("fData").value || hoje();
   if (S.tipo !== "Reserva" && $("fFixo").checked) {
     // Vira um fixo: conta em todo mês a partir do mês da data, no mesmo dia.
-    const dia = Number(data.slice(8, 10)), ent = S.tipo === "Receita";
-    const fx = { tipo: S.tipo, descricao: $("fDesc").value.trim() || $("fCat").value, categoria: $("fCat").value, dia, valor: round2(v),
-      forma: ent ? "" : $("fForma").value, desde: mKey(data) + "-01", ate: null };
+    const dia = Number(data.slice(8, 10)), ent = S.tipo === "Receita", sem = $("fRepete").value === "semanal", wd = diaDaSemana(data);
+    const fx = { tipo: S.tipo, descricao: $("fDesc").value.trim() || $("fCat").value, categoria: $("fCat").value, dia: sem ? 1 : dia, valor: round2(v),
+      forma: ent ? "" : $("fForma").value, desde: sem ? data : mKey(data) + "-01", ate: null, ...(sem ? { repete: "semanal", dia_semana: wd } : {}) };
     $("fOk").disabled = true;
     let novo; const ok = await grava(async () => { novo = await S.store.addFixo(fx); });
     $("fOk").disabled = false;
     if (!ok) return;
     S.data.fixos.push(novo);
     flash.style.color = "var(--good)";
-    flash.textContent = `${ent ? "Entrada fixa cadastrada" : "Gasto fixo cadastrado"}: ${fx.descricao} · ${brl(fx.valor)}, todo dia ${pad(dia)}. Para alterar, use a aba ${ent ? "Entradas fixas" : "Gastos fixos"}.`;
-    $("fValor").value = ""; $("fDesc").value = ""; $("fFixo").checked = false;
+    flash.textContent = `${ent ? "Entrada fixa cadastrada" : "Gasto fixo cadastrado"}: ${fx.descricao} · ${brl(fx.valor)}, ${sem ? "toda semana, " + DIAS_SEMANA[wd] : "todo dia " + pad(dia)}. Para alterar, use a aba ${ent ? "Entradas fixas" : "Gastos fixos"}.`;
+    $("fValor").value = ""; $("fDesc").value = ""; $("fFixo").checked = false; $("fRepete").value = "mensal";
     aposLancar(flash.textContent);
     return render();
   }
@@ -536,7 +554,16 @@ $("prev").onclick = () => { S.mes = addM(S.mes, -1); render(); };
 $("next").onclick = () => { S.mes = addM(S.mes, 1); render(); };
 $("hoje").onclick = () => { S.mes = mKey(hoje()); render(); };
 document.querySelector(".tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tab = b.dataset.tab; render(); });
-let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => !$("app").hidden && render(), 150); });
+// Ao mudar a LARGURA da tela (girar o celular, redimensionar a janela), só os gráficos são redesenhados.
+// Mudança de altura é ignorada: no celular ela acontece quando o teclado abre, e redesenhar a tela
+// nesse momento apagaria o campo em que a pessoa está digitando.
+let rt, larguraAtual = innerWidth;
+addEventListener("resize", () => {
+  if (innerWidth === larguraAtual) return;
+  larguraAtual = innerWidth;
+  clearTimeout(rt);
+  rt = setTimeout(() => { if ($("app").hidden) return; const c = calcMes(S.data, S.mes, hoje()); renderCusto(c); renderCat(c); }, 150);
+});
 
 /* ================= Excel ================= */
 $("btnImport").onclick = () => $("fileIn").click();
@@ -572,7 +599,8 @@ $("fileIn").addEventListener("change", async (e) => {
       const ano = (meses[meses.length - 1] || S.mes).slice(0, 4);
       for (const z of fxNovos) {
         const desde = z.mesesPagos.length ? `${ano}-${pad(Math.min(...z.mesesPagos))}-01` : S.mes + "-01";
-        const novo = await S.store.addFixo({ tipo: z.tipo, descricao: z.descricao, categoria: z.categoria, dia: z.dia, valor: z.valor, forma: z.forma, desde, ate: z.ativo ? null : addM(S.mes, -1) + "-01" });
+        const novo = await S.store.addFixo({ tipo: z.tipo, descricao: z.descricao, categoria: z.categoria, dia: z.dia, valor: z.valor, forma: z.forma, desde, ate: z.ativo ? null : addM(S.mes, -1) + "-01",
+          ...(z.repete === "semanal" ? { repete: "semanal", dia_semana: z.dia_semana } : {}) });
         S.data.fixos.push(novo);
         for (const mm of z.mesesPagos) { const mes = `${ano}-${pad(mm)}-01`; await S.store.setPago(novo.id, mes, true); S.data.pagos.push({ fixo_id: novo.id, mes }); }
       }
@@ -636,11 +664,12 @@ function editarLancamento(id) {
 }
 function editarFixo(id) {
   const f = S.data.fixos.find((z) => z.id === id); if (!f) return;
-  const ent = f.tipo === "Receita", l = cats(ent ? "Receita" : "Despesa");
+  const ent = f.tipo === "Receita", l = cats(ent ? "Receita" : "Despesa"), sem = f.repete === "semanal";
   openDlg(`<h3>${ent ? "Editar entrada fixa" : "Editar gasto fixo"}</h3><p class="hint">A mudança vale para todos os meses em que ${ent ? "essa entrada" : "esse fixo"} conta.</p><form id="edForm" class="dlg-form" autocomplete="off">
     <label class="f wide">Descrição<input class="in" id="eDesc" required maxlength="60" value="${esc(f.descricao)}"></label>
     <label class="f">Valor (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${esc(f.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}"></label>
-    <label class="f">${ent ? "Dia que recebe" : "Dia do vencimento"}<input class="in" id="eDia" type="number" min="1" max="31" required value="${esc(f.dia)}"></label>
+    ${sem ? `<label class="f">Dia da semana<select class="in" id="eSem">${DIAS_SEMANA.map((d, i) => `<option value="${i}"${i === Number(f.dia_semana) ? " selected" : ""}>${d}</option>`).join("")}</select></label>`
+      : `<label class="f">${ent ? "Dia que recebe" : "Dia do vencimento"}<input class="in" id="eDia" type="number" min="1" max="31" required value="${esc(f.dia)}"></label>`}
     <label class="f">Categoria<select class="in" id="eCat">${opts(l.includes(f.categoria) ? l : [f.categoria, ...l], f.categoria)}</select></label>
     ${ent ? "" : `<label class="f">Pagamento<select class="in" id="eForma">${opts(FORMAS, f.forma)}</select></label>`}
     <p class="auth-msg err wide" id="edMsg"></p>
@@ -649,7 +678,8 @@ function editarFixo(id) {
     e.preventDefault();
     const v = parseMoney($("eValor").value);
     if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 350,00."; return; }
-    const patch = { descricao: $("eDesc").value.trim(), categoria: $("eCat").value, dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)), valor: round2(v), forma: ent ? "" : $("eForma").value };
+    const patch = { descricao: $("eDesc").value.trim(), categoria: $("eCat").value, valor: round2(v), forma: ent ? "" : $("eForma").value,
+      ...(sem ? { dia_semana: Number($("eSem").value) } : { dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)) }) };
     if (await grava(() => S.store.updateFixo(id, patch))) { Object.assign(f, patch); $("dlg").close(); render(); }
   });
 }

@@ -86,7 +86,10 @@
       <label class="f" id="fFormaWrap"><span id="fFormaLbl">Forma de pagamento</span><select class="in" id="fForma"></select></label>
       <label class="f">Data<input class="in" type="date" id="fData" required></label>
       <button class="btn primary" id="fOk" type="submit">Lançar gasto</button>
-      <label class="check fixo" id="fFixoWrap"><input type="checkbox" id="fFixo"> <span id="fFixoLbl">Repete todo mês (gasto fixo)</span></label>
+      <div class="fixo-linha" id="fFixoWrap">
+        <label class="check"><input type="checkbox" id="fFixo"> <span id="fFixoLbl">Repete sempre (gasto fixo)</span></label>
+        <select class="in" id="fRepete" aria-label="Com que frequência repete" hidden><option value="mensal">Todo mês</option><option value="semanal">Toda semana</option></select>
+      </div>
     </form>
     <div class="flash" id="flash" aria-live="polite"></div>
   </section>

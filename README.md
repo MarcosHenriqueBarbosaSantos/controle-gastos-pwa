@@ -20,7 +20,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 
 - **Lançamento rápido** de gastos, entradas e dinheiro guardado, com categoria e forma de pagamento. Todo lançamento pode ser **editado** ou excluído.
 - **Custo do mês em tempo real** e **previsão de fechamento**, que mistura o ritmo atual com a média dos meses anteriores e não repete compras pontuais grandes.
-- **Gastos fixos** cadastrados uma vez e contados todo mês, com marcação de "pago" por mês.
+- **Gastos fixos** cadastrados uma vez: mensais (aluguel, internet) ou semanais (Uber de toda sexta, terapia), com marcação de "pago" a cada ocorrência.
 - **Entradas fixas**, como o salário: cadastradas uma vez, são lançadas sozinhas em todo mês, no dia escolhido.
 - **Cartão de crédito pela fatura**: o que é comprado no cartão só pesa no mês em que a fatura vence.
 - **Próximos vencimentos**: quadro com as contas dos próximos 30 dias ("em 10 dias vence a fatura, R$ 299"), com aviso de atraso e botão para marcar como pago.

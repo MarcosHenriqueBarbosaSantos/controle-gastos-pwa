@@ -1,6 +1,6 @@
 // Service worker: guarda os arquivos do app para abrir rápido e funcionar como app instalado.
 // Os dados (Supabase) sempre vêm da internet. Ao mudar arquivos, aumente a VERSAO.
-const VERSAO = "meus-gastos-v6";
+const VERSAO = "meus-gastos-v9";
 const ARQUIVOS = [
   "./", "index.html", "css/style.css", "manifest.webmanifest",
   "js/app.js", "js/calc.js", "js/store.js", "js/excel.js", "js/config.js",

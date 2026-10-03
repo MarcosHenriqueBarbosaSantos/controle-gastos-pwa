@@ -3,7 +3,7 @@
 //   Lançamentos | Gastos Fixos | Entradas Fixas | Cartões (+ Resumo, só na exportação)
 // Também lê a planilha "antiga" livre, com colunas DIA | RECEITA/DESPESA | VALOR.
 
-import { FORMAS, RETIRADA, MES3, pad, mKey, parseMoney, round2 } from "./calc.js";
+import { FORMAS, RETIRADA, MES3, DIAS_SEMANA, pad, mKey, parseMoney, round2 } from "./calc.js";
 
 export const norm = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
@@ -50,6 +50,13 @@ function findHeader(rows, keys) {
   return -1;
 }
 const col = (hdr, key) => hdr.findIndex((c) => norm(c).startsWith(key));
+/** Lê as colunas "Repete" e "Dia da semana" de um fixo, se existirem. */
+function leRepete(H, r) {
+  const iR = col(H, "repete"), iS = H.findIndex((c) => norm(c) === "dia da semana");
+  if (iR < 0 || !norm(r[iR]).startsWith("seman")) return {};
+  const wd = DIAS_SEMANA.findIndex((d) => norm(d).startsWith(norm(r[iS]).slice(0, 3)) && norm(r[iS]).length >= 3);
+  return wd < 0 ? {} : { repete: "semanal", dia_semana: wd };
+}
 
 /**
  * Lê um workbook do SheetJS.
@@ -97,6 +104,7 @@ export function parseWorkbook(XLSX, wb) {
           ativo: ci.a < 0 || norm(r[ci.a]) !== "nao",
           forma: FORMAS.find((f) => norm(f) === norm(r[ci.f])) || "",
           mesesPagos: mcols.map((ix, i) => (ix >= 0 && norm(r[ix]) === "pago" ? i + 1 : null)).filter(Boolean),
+          ...leRepete(H, r),
         });
       });
     }
@@ -111,7 +119,7 @@ export function parseWorkbook(XLSX, wb) {
         const descricao = String(r[ci.ds] ?? "").trim(), v = parseMoney(r[ci.v]);
         if (!descricao || !(v > 0) || norm(descricao).startsWith("total")) return;
         out.fixos.push({ tipo: "Receita", descricao, categoria: String(r[ci.c] ?? "").trim() || guessCat(descricao, "Receita"),
-          dia: Math.min(31, Math.max(1, Number(r[ci.d]) || 1)), valor: round2(v), ativo: ci.a < 0 || norm(r[ci.a]) !== "nao", forma: "", mesesPagos: [] });
+          dia: Math.min(31, Math.max(1, Number(r[ci.d]) || 1)), valor: round2(v), ativo: ci.a < 0 || norm(r[ci.a]) !== "nao", forma: "", mesesPagos: [], ...leRepete(H, r) });
       });
     }
   }
@@ -158,12 +166,14 @@ export function buildWorkbook(XLSX, st, ano, calcMes, hoje) {
   [...st.lancamentos].sort((a, b) => a.data.localeCompare(b.data))
     .forEach((x) => L.push([br(x.data), x.descricao, tipoParaPlanilha(x.tipo), x.categoria, x.forma, x.valor]));
   const pagos = new Set(st.pagos.map((p) => p.fixo_id + "|" + mKey(p.mes)));
-  const F = [["Descrição", "Categoria", "Dia do vencimento", "Valor mensal (R$)", "Ativo?", "Forma de pagamento", ...MES3]];
+  const F = [["Descrição", "Categoria", "Dia do vencimento", "Valor (R$)", "Ativo?", "Forma de pagamento", ...MES3, "Repete", "Dia da semana"]];
   const ativo = (f) => (f.ate && mKey(f.ate) < mKey(hoje) ? "Não" : "Sim");
-  const E = [["Descrição", "Categoria", "Dia do recebimento", "Valor mensal (R$)", "Ativa?"]];
-  st.fixos.filter((f) => f.tipo === "Receita").forEach((f) => E.push([f.descricao, f.categoria, f.dia, f.valor, ativo(f)]));
-  st.fixos.filter((f) => f.tipo !== "Receita").forEach((f) => F.push([f.descricao, f.categoria, f.dia, f.valor, f.ate && mKey(f.ate) < mKey(hoje) ? "Não" : "Sim", f.forma,
-    ...MES3.map((_, i) => (pagos.has(`${f.id}|${ano}-${pad(i + 1)}`) ? "Pago" : ""))]));
+  const rep = (f) => (f.repete === "semanal" ? ["Semanal", DIAS_SEMANA[Number(f.dia_semana)]] : ["Mensal", ""]);
+  const E = [["Descrição", "Categoria", "Dia do recebimento", "Valor (R$)", "Ativa?", "Repete", "Dia da semana"]];
+  st.fixos.filter((f) => f.tipo === "Receita").forEach((f) => E.push([f.descricao, f.categoria, f.repete === "semanal" ? "" : f.dia, f.valor, ativo(f), ...rep(f)]));
+  // A grade de meses "Pago" vale para os mensais; os semanais são pagos por semana, dentro do app.
+  st.fixos.filter((f) => f.tipo !== "Receita").forEach((f) => F.push([f.descricao, f.categoria, f.repete === "semanal" ? "" : f.dia, f.valor, ativo(f), f.forma,
+    ...MES3.map((_, i) => (f.repete !== "semanal" && pagos.has(`${f.id}|${ano}-${pad(i + 1)}`) ? "Pago" : "")), ...rep(f)]));
   const C = [["Cartão", "Vencimento", "Valor da fatura (R$)", "Status"]];
   st.faturas.forEach((c) => C.push([c.cartao, br(c.vencimento), c.valor, c.status]));
   const R = [["Mês", "Entradas", "Gastos do dia a dia (fora do cartão)", "Gastos fixos (fora do cartão)", "Faturas de cartão", "Custo do mês", "Guardado no mês", "Saldo"]];
@@ -175,8 +185,8 @@ export function buildWorkbook(XLSX, st, ano, calcMes, hoje) {
   const add = (rows, name, w) => { const ws = XLSX.utils.aoa_to_sheet(rows); ws["!cols"] = w.map((x) => ({ wch: x })); XLSX.utils.book_append_sheet(wb, ws, name); };
   add(R, "Resumo", [12, 14, 30, 26, 18, 14, 18, 14]);
   add(L, "Lançamentos", [12, 30, 10, 24, 20, 12]);
-  add(F, "Gastos Fixos", [26, 24, 10, 16, 8, 18, ...MES3.map(() => 6)]);
-  add(E, "Entradas Fixas", [26, 24, 12, 16, 8]);
+  add(F, "Gastos Fixos", [26, 24, 10, 16, 8, 18, ...MES3.map(() => 6), 10, 16]);
+  add(E, "Entradas Fixas", [26, 24, 12, 16, 8, 10, 16]);
   add(C, "Cartões", [20, 12, 18, 10]);
   return wb;
 }

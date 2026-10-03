@@ -51,6 +51,31 @@ export function fixosDoMes(fixos, m, tipo = "Despesa") {
   return fixos.filter((f) => (f.tipo || "Despesa") === tipo && mKey(f.desde) <= m && (!f.ate || m <= mKey(f.ate)));
 }
 
+export const DIAS_SEMANA = ["domingo", "segunda-feira", "terça-feira", "quarta-feira", "quinta-feira", "sexta-feira", "sábado"];
+export const DIAS3 = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+/** Dia da semana (0 = domingo) de uma data "AAAA-MM-DD". */
+export const diaDaSemana = (iso) => new Date(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10))).getDay();
+
+/**
+ * Ocorrências dos fixos no mês m: cada vez que um fixo acontece.
+ * - Mensal: uma vez, no dia do vencimento. A chave de "pago" é o dia 1 do mês.
+ * - Semanal (repete = "semanal"): uma vez em cada dia da semana escolhido, a partir da data de início.
+ *   A chave de "pago" é a própria data.
+ * Cada ocorrência traz os campos do fixo mais `data` e `chave`.
+ */
+export function ocorrencias(fixos, m, tipo = "Despesa") {
+  const n = dim(m), out = [];
+  fixosDoMes(fixos, m, tipo).forEach((f) => {
+    if (f.repete === "semanal") {
+      for (let d = 1; d <= n; d++) {
+        const data = `${m}-${pad(d)}`;
+        if (diaDaSemana(data) === Number(f.dia_semana) && data >= f.desde) out.push({ ...f, data, chave: data });
+      }
+    } else out.push({ ...f, data: `${m}-${pad(Math.min(n, Math.max(1, f.dia || 1)))}`, chave: `${m}-01` });
+  });
+  return out.sort((a, b) => a.data.localeCompare(b.data));
+}
+
 export const CARTAO = "Cartão de crédito";
 export const CAT_FATURA = "Faturas de cartão";
 const noCartao = (x) => x.forma === CARTAO;
@@ -69,7 +94,7 @@ export function calcMes(st, m, hoje) {
   const sum = (a) => round2(a.reduce((s, x) => s + Number(x.valor), 0));
   const it = st.lancamentos.filter((x) => mKey(x.data) === m);
   const recLanc = sum(it.filter((x) => x.tipo === "Receita"));   // entradas lançadas à mão
-  const fr = fixosDoMes(st.fixos, m, "Receita");                  // entradas fixas: entram sozinhas todo mês
+  const fr = ocorrencias(st.fixos, m, "Receita");                 // entradas fixas: entram sozinhas, por mês ou por semana
   const frT = sum(fr);
   const rec = round2(recLanc + frT);
   const desp = it.filter((x) => x.tipo === "Despesa");
@@ -79,12 +104,12 @@ export function calcMes(st, m, hoje) {
   const resIn = sum(it.filter((x) => x.tipo === "Reserva" && x.forma !== RETIRADA));
   const resOut = sum(it.filter((x) => x.tipo === "Reserva" && x.forma === RETIRADA));
   const res = round2(resIn - resOut);
-  const fx = fixosDoMes(st.fixos, m);
+  const fx = ocorrencias(st.fixos, m);                          // cada vez que um gasto fixo acontece no mês
   const fxT = sum(fx);                                          // todos os fixos do mês
   const fxCartao = sum(fx.filter(noCartao));                    // fixos cobrados na fatura
   const fxCusto = round2(fxT - fxCartao);                       // fixos pagos fora do cartão
-  const pagosSet = new Set(st.pagos.filter((p) => mKey(p.mes) === m).map((p) => p.fixo_id));
-  const fxPend = sum(fx.filter((f) => !pagosSet.has(f.id)));
+  const pagosSet = new Set(st.pagos.map((p) => p.fixo_id + "|" + p.mes));   // "id|chave" de cada ocorrência paga
+  const fxPend = sum(fx.filter((o) => !pagosSet.has(o.id + "|" + o.chave)));
   const fat = st.faturas.filter((c) => mKey(c.vencimento) === m);   // faturas que vencem neste mês
   const fatT = sum(fat);
   const fatAberta = sum(fat.filter((c) => c.status !== "Paga"));
@@ -97,7 +122,7 @@ export function calcMes(st, m, hoje) {
     ? round2(projetaDiaADia(st, m, desp.filter((x) => !noCartao(x)), dias, n) + fxCusto + fatT) : custo;
   const ccAberto = sum(st.faturas.filter((c) => c.status !== "Paga"));   // todas as faturas em aberto
   // Entradas fixas que ainda não chegaram: no mês atual, as de dia posterior a hoje; em mês futuro, todas.
-  const frAReceber = fase === "futuro" ? frT : fase === "atual" ? sum(fr.filter((f) => Math.min(n, f.dia || 1) > dias)) : 0;
+  const frAReceber = fase === "futuro" ? frT : fase === "atual" ? sum(fr.filter((o) => Number(o.data.slice(8, 10)) > dias)) : 0;
   return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
     fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj, ccAberto };
 }
@@ -152,7 +177,7 @@ export function custoAcumulado(c) {
     byDay[d] += Number(x.valor); det[d].push([x.descricao || x.categoria, Number(x.valor)]);
   });
   c.fx.filter((f) => !noCartao(f)).forEach((f) => {
-    const d = dia(f.dia);
+    const d = Number(f.data.slice(8, 10));
     byDay[d] += Number(f.valor); det[d].push([`${f.descricao} (fixo)`, Number(f.valor)]);
   });
   c.fat.forEach((f) => {
@@ -213,7 +238,7 @@ export function diasEntre(a, b) {
 /**
  * Contas a vencer: faturas em aberto e gastos fixos ainda não pagos, do mês atual e do próximo,
  * que vencem em até `janela` dias (as atrasadas também entram). Ordenadas pela data.
- * @returns {{tipo:"fatura"|"fixo", id:string, titulo:string, valor:number, data:string, dias:number, mes:string}[]}
+ * @returns {{tipo:"fatura"|"fixo", id:string, titulo:string, valor:number, data:string, dias:number, mes:string, chave?:string}[]}
  */
 export function proximosVencimentos(st, hoje, janela = 30) {
   const out = [], cur = mKey(hoje);
@@ -221,12 +246,12 @@ export function proximosVencimentos(st, hoje, janela = 30) {
     const dias = diasEntre(hoje, f.vencimento);
     if (dias <= janela) out.push({ tipo: "fatura", id: f.id, titulo: `Fatura ${f.cartao}`, valor: Number(f.valor), data: f.vencimento, dias, mes: mKey(f.vencimento) });
   });
-  const pagos = new Set(st.pagos.map((p) => p.fixo_id + "|" + mKey(p.mes)));
+  const pagos = new Set(st.pagos.map((p) => p.fixo_id + "|" + p.mes));
   [cur, addM(cur, 1)].forEach((m) => {
-    fixosDoMes(st.fixos, m).forEach((f) => {
-      if (pagos.has(f.id + "|" + m)) return;
-      const data = `${m}-${pad(Math.min(dim(m), Math.max(1, f.dia || 1)))}`, dias = diasEntre(hoje, data);
-      if (dias <= janela) out.push({ tipo: "fixo", id: f.id, titulo: f.descricao, valor: Number(f.valor), data, dias, mes: m });
+    ocorrencias(st.fixos, m).forEach((o) => {
+      if (pagos.has(o.id + "|" + o.chave)) return;
+      const dias = diasEntre(hoje, o.data);
+      if (dias <= janela) out.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias, mes: m, chave: o.chave, semanal: o.repete === "semanal" });
     });
   });
   return out.sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));

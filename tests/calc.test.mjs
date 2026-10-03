@@ -230,3 +230,33 @@ test("entradas fixas entram sozinhas todo mês e não se misturam com os gastos 
   assert.ok(!proximosVencimentos(st, "2026-09-29", 30).some((x) => x.titulo === "Salário"));
   assert.ok(categoriasIniciais(st).Receita.includes("Salário"));
 });
+
+import { ocorrencias, diaDaSemana } from "../js/calc.js";
+
+test("fixo semanal: uma ocorrência em cada dia da semana escolhido, a partir do início", () => {
+  assert.equal(diaDaSemana("2026-10-02"), 5);         // sexta-feira
+  const st = { lancamentos: [], pagos: [], faturas: [], fixos: [
+    { id: "u", tipo: "Despesa", repete: "semanal", dia_semana: 5, descricao: "Uber", categoria: "Transporte", dia: 1, valor: 30, forma: "Pix", desde: "2026-10-09", ate: null },
+    { id: "a", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 10, valor: 1000, forma: "Boleto", desde: "2026-10-01", ate: null },
+  ] };
+  // sextas de outubro/2026: 02, 09, 16, 23, 30 — começa em 09, então 4 vezes
+  assert.deepEqual(ocorrencias(st.fixos, "2026-10").filter((o) => o.id === "u").map((o) => o.data), ["2026-10-09", "2026-10-16", "2026-10-23", "2026-10-30"]);
+  // novembro/2026 tem 4 sextas: 06, 13, 20, 27
+  assert.equal(ocorrencias(st.fixos, "2026-11").filter((o) => o.id === "u").length, 4);
+  assert.equal(ocorrencias(st.fixos, "2026-09").length, 0);
+  const c = calcMes(st, "2026-10", "2026-10-12");
+  assert.equal(c.fxT, 1000 + 4 * 30);
+  assert.equal(c.custo, 1120);
+  assert.deepEqual(catMap(c), [["Moradia", 1000], ["Transporte", 120]]);
+  const { cum } = custoAcumulado(c);
+  assert.equal(cum[8], 0); assert.equal(cum[9], 30); assert.equal(cum[10], 1030); assert.equal(cum[31], 1120);
+  // pagar uma sexta não paga as outras
+  st.pagos.push({ fixo_id: "u", mes: "2026-10-09" });
+  assert.equal(calcMes(st, "2026-10", "2026-10-12").fxPend, 1000 + 3 * 30);
+  const v = proximosVencimentos(st, "2026-10-12", 10);
+  assert.deepEqual(v.map((x) => [x.titulo, x.data, x.dias]), [["Aluguel", "2026-10-10", -2], ["Uber", "2026-10-16", 4]]);
+  assert.equal(v[1].chave, "2026-10-16");
+  // encerrado no fim de outubro
+  st.fixos[0].ate = "2026-10-01";
+  assert.equal(ocorrencias(st.fixos, "2026-11").filter((o) => o.id === "u").length, 0);
+});
