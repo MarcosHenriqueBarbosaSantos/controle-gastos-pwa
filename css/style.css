@@ -94,7 +94,8 @@ td.d{color:var(--ink-2);font-family:var(--mono);font-size:13px;white-space:nowra
 .del:hover{background:var(--bad-soft);color:var(--bad)} .del.arm{background:var(--bad);color:#fff}
 .chk{display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;border:1px solid var(--border);border-radius:999px;padding:3px 10px;background:transparent;white-space:nowrap}
 .chk.on{background:var(--good-soft);color:var(--good);border-color:transparent}
-.chk.off{color:var(--bad)}
+.chk.off{color:var(--ink-2)}            /* a pagar, ainda no prazo: neutro */
+.chk.late{color:var(--bad)}   /* atrasado: só o texto em vermelho, sem contorno colorido */
 .addrow{display:grid;gap:10px;align-items:end;margin-top:12px;padding-top:12px;border-top:1px dashed var(--grid)}
 .addrow.fx{grid-template-columns:minmax(0,1.8fr) minmax(0,1.3fr) 125px 130px 125px minmax(0,1.1fr) auto}
 .addrow.fr{grid-template-columns:minmax(0,2fr) minmax(0,1.4fr) 125px 135px 130px auto}
@@ -118,11 +119,8 @@ span.chk{border-color:var(--border);color:var(--ink-2)}
 .venc .quando{font-family:var(--mono);font-size:12px;padding:4px 11px;border-radius:999px;white-space:nowrap}
 .venc .quando.ok{background:var(--good-soft);color:var(--good)} .venc .quando.warn{background:var(--warn-soft);color:var(--warn)} .venc .quando.bad{background:var(--bad-soft);color:var(--bad)}
 .venc li.vazio{display:block;color:var(--ink-2);font-size:13px}
-/* Avisos no topo: mesmos cartões dos vencimentos, sem a data grande */
-.venc.avisos li.aviso{grid-template-columns:auto minmax(0,1fr) auto auto}
-.venc.avisos li.aviso.bad{border-color:var(--bad)}
-.tudo-ok{margin:0;font-size:13px;color:var(--ink-2);display:flex;gap:10px;align-items:center;flex-wrap:wrap}
-.tudo-ok .quando{font-family:var(--mono);font-size:12px;padding:4px 11px;border-radius:999px;background:var(--good-soft);color:var(--good)}
+.venc li.alerta{grid-template-columns:auto minmax(0,1fr)}
+.txt-bad{color:var(--bad)}
 .btn.sm{padding:5px 10px;font-size:12px}
 .acts{text-align:right;white-space:nowrap}
 .act{border:0;background:none;color:var(--ink-2);font-size:12px;padding:4px 6px;border-radius:6px}
@@ -222,15 +220,11 @@ span.chk{border-color:var(--border);color:var(--ink-2)}
   .btn{min-height:40px}
   .addrow.fx,.addrow.fr,.addrow.cc{grid-template-columns:1fr 1fr}
   .addrow>label:first-child,.addrow>button{grid-column:1/-1}
-  .venc li{grid-template-columns:44px minmax(0,1fr) auto;gap:8px 12px;padding:12px 14px}
+  .venc li{grid-template-columns:44px minmax(0,1fr) auto;gap:4px 12px;padding:10px 12px}
+  .venc .btn.sm{min-height:34px;padding:4px 12px}
   .venc .oque b{white-space:normal}
-  /* avisos compactos: situação e valor em cima, nome e botão embaixo */
-  .venc.avisos li.aviso{grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;padding:10px 12px}
-  .venc.avisos .quando{grid-column:1;grid-row:1;justify-self:start}
-  .venc.avisos .valor{grid-column:2;grid-row:1;justify-self:end}
-  .venc.avisos .oque{grid-column:1;grid-row:2}
-  .venc.avisos .btn{grid-column:2;grid-row:2;justify-self:end}
-  .venc.avisos li.aviso:not(:has(.btn)) .oque{grid-column:1/-1}
+  /* cartões compactos: data, nome e prazo na primeira linha; valor e botão na segunda */
+  .venc li.alerta{grid-template-columns:minmax(0,1fr)} .venc li.alerta .quando{justify-self:start}
   .venc .valor{grid-column:2;grid-row:2;align-self:center}.venc .btn{grid-column:2/4;grid-row:2;justify-self:end}
   /* barra de navegação */
   .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--surface);

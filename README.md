@@ -23,8 +23,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Gastos fixos** cadastrados uma vez: mensais (aluguel, internet) ou semanais (Uber de toda sexta, terapia), com marcação de "pago" a cada ocorrência.
 - **Entradas fixas**, como o salário: cadastradas uma vez, são lançadas sozinhas em todo mês, no dia escolhido.
 - **Cartão de crédito pela fatura**: o que é comprado no cartão só pesa no mês em que a fatura vence.
-- **Avisos no topo**: contas atrasadas ou vencendo em até 3 dias, com botão "Já paguei", e alerta quando o mês está ou vai fechar no vermelho.
-- **Próximos vencimentos**: quadro com as contas dos próximos 30 dias ("em 10 dias vence a fatura, R$ 299"), com aviso de atraso e botão para marcar como pago.
+- **Próximos vencimentos no topo**: a primeira coisa da tela são as contas dos próximos 30 dias, com as atrasadas em destaque, contagem de dias ("em 10 dias vence a fatura, R$ 299"), botão "Já paguei" e alerta quando o mês está ou vai fechar no vermelho.
 - **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
 - **Saldo acumulado**: o que sobrou ou faltou passa para o mês seguinte, se a pessoa quiser.
 - **Categorias personalizáveis** por usuário, na tela de Ajustes.

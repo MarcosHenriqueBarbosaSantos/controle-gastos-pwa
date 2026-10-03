@@ -187,7 +187,7 @@ function render() {
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
-  renderForm(); renderAvisos(); renderKpis(c); renderVenc(); renderCusto(c); renderCat(c); renderTabs(c);
+  renderForm(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderTabs(c);
 }
 
 function renderForm() {
@@ -248,21 +248,31 @@ function renderVenc() {
   const host = $("venc"), l = S.loaded ? proximosVencimentos(S.data, hoje(), 30) : [];
   const total = round2(l.reduce((t, x) => t + x.valor, 0));
   const cab = (dir) => `<div class="sec-head"><h2>Próximos vencimentos</h2><span>${dir}</span></div>`;
+  // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
+  const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
+  const alerta = !sd ? "" : `<li class="alerta ${sd.nivel}"><span class="quando ${sd.nivel}">${sd.tipo === "vermelho" ? "no vermelho" : "atenção"}</span>
+      <span class="oque"><b>${sd.tipo === "vermelho" ? `Este mês já está ${brl(sd.valor)} no vermelho` : `No ritmo atual, o mês fecha ${brl(sd.valor)} no vermelho`}</b>
+      <span>${sd.tipo === "vermelho" ? "As saídas do mês passaram das entradas." : "Ainda dá tempo de segurar os gastos do dia a dia."}</span></span></li>`;
   if (!l.length) {
-    host.innerHTML = cab("Contagem calculada pela data de hoje.") + `<ul class="venc"><li class="vazio">${S.loaded
-      ? "Nenhuma conta para os próximos 30 dias. Cadastre seus gastos fixos e as faturas do cartão para ser avisado aqui." : "Carregando…"}</li></ul>`;
+    const temDados = S.data.lancamentos.length || S.data.fixos.length || S.data.faturas.length;
+    host.innerHTML = cab("Contagem calculada pela data de hoje.") + `<ul class="venc">${alerta}<li class="vazio">${!S.loaded ? "Carregando…"
+      : temDados ? "Nenhuma conta para os próximos 30 dias. Tudo em dia."
+      : "Nenhuma conta para os próximos 30 dias. Cadastre seus gastos fixos e as faturas do cartão para ser avisado aqui."}</li></ul>`;
     return;
   }
-  const quando = quandoVence;
   const cls = (d) => (d < 0 ? "bad" : d <= 7 ? "warn" : "ok");
+  // No topo aparecem só as primeiras (3 no celular, 5 no computador); o resto abre no "Ver todas".
+  const MAX = noCelular() ? 3 : 5, vis = S.vencTodas ? l : l.slice(0, MAX);
   host.innerHTML = cab(`${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`) +
-    `<ul class="venc">${l.map((x, i) => `<li>
+    `<ul class="venc">${alerta}${vis.map((x, i) => `<li>
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
       <span class="oque"><b>${esc(x.titulo)}</b><span>${x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Gasto fixo · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Gasto fixo"}</span></span>
-      <span class="quando ${cls(x.dias)}">${quando(x.dias)}</span>
+      <span class="quando ${cls(x.dias)}">${quandoVence(x.dias)}</span>
       <span class="valor">${brl(x.valor)}</span>
-      <button class="btn sm" type="button" data-pg="${i}">Já paguei</button></li>`).join("")}</ul>`;
-  host.querySelectorAll("[data-pg]").forEach((b) => (b.onclick = () => { b.disabled = true; pagarConta(l[Number(b.dataset.pg)]); }));
+      <button class="btn sm" type="button" data-pg="${i}">Já paguei</button></li>`).join("")}
+      ${l.length > MAX ? `<li class="vazio"><button class="link" type="button" id="vencMais">${S.vencTodas ? "Mostrar só as próximas" : `Ver todas as ${l.length} contas`}</button></li>` : ""}</ul>`;
+  host.querySelectorAll("[data-pg]").forEach((b) => (b.onclick = () => { b.disabled = true; pagarConta(vis[Number(b.dataset.pg)]); }));
+  if ($("vencMais")) $("vencMais").onclick = () => { S.vencTodas = !S.vencTodas; renderVenc(); };
 }
 /** Marca uma conta (fatura ou ocorrência de fixo) como paga e atualiza a tela. */
 async function pagarConta(x) {
@@ -271,34 +281,8 @@ async function pagarConta(x) {
   } else if (await grava(() => S.store.setPago(x.id, x.chave, true))) S.data.pagos.push({ fixo_id: x.id, mes: x.chave });
   render();
 }
-const quandoVence = (d) => d < 0 ? `atrasada ${-d} ${-d === 1 ? "dia" : "dias"}` : d === 0 ? "vence hoje" : d === 1 ? "amanhã" : `em ${d} dias`;
-
-/** Avisos no topo: só o que pede atenção agora (contas atrasadas ou perto de vencer, e mês no vermelho). */
-function renderAvisos() {
-  const host = $("avisos");
-  if (!S.loaded) { host.innerHTML = ""; return; }
-  const a = avisosDeHoje(S.data, hoje(), 3), n = a.contas.length + (a.saldo ? 1 : 0);
-  if (!n) {
-    const temDados = S.data.lancamentos.length || S.data.fixos.length || S.data.faturas.length;
-    host.innerHTML = temDados ? `<p class="tudo-ok"><span class="quando ok">✓ em dia</span> Nenhuma conta atrasada nem vencendo nos próximos 3 dias.</p>` : "";
-    return;
-  }
-  const MAX = 4, vis = a.contas.slice(0, MAX), resto = a.contas.length - vis.length;
-  const saldo = !a.saldo ? "" : `<li class="aviso ${a.saldo.nivel}">
-      <span class="quando ${a.saldo.nivel}">${a.saldo.tipo === "vermelho" ? "no vermelho" : "atenção"}</span>
-      <span class="oque"><b>${a.saldo.tipo === "vermelho" ? `Este mês já está ${brl(a.saldo.valor)} no vermelho` : `No ritmo atual, o mês fecha ${brl(a.saldo.valor)} no vermelho`}</b>
-      <span>${a.saldo.tipo === "vermelho" ? "As saídas do mês passaram das entradas." : "Ainda dá tempo de segurar os gastos do dia a dia."}</span></span></li>`;
-  host.innerHTML = `<div class="sec-head"><h2>Avisos</h2><span>${a.atrasadas ? `${a.atrasadas} ${a.atrasadas === 1 ? "conta atrasada" : "contas atrasadas"}` : a.contas.length ? `${brl(a.totalContas)} vencendo em até 3 dias` : "Sobre este mês"}</span></div>
-    <ul class="venc avisos">${vis.map((x, i) => `<li class="aviso ${x.dias < 0 ? "bad" : "warn"}">
-      <span class="quando ${x.dias < 0 ? "bad" : "warn"}">${quandoVence(x.dias)}</span>
-      <span class="oque"><b>${esc(x.titulo)}</b><span>${ddmm(x.data)} · ${x.tipo === "fatura" ? "fatura de cartão" : "gasto fixo"}</span></span>
-      <span class="valor">${brl(x.valor)}</span>
-      <button class="btn sm" type="button" data-av="${i}">Já paguei</button></li>`).join("")}
-      ${resto > 0 ? `<li class="vazio"><button class="link" type="button" id="avMais">Ver mais ${resto} ${resto === 1 ? "conta" : "contas"} em Próximos vencimentos</button></li>` : ""}
-      ${saldo}</ul>`;
-  host.querySelectorAll("[data-av]").forEach((b) => (b.onclick = () => { b.disabled = true; pagarConta(vis[Number(b.dataset.av)]); }));
-  if ($("avMais")) $("avMais").onclick = () => $("venc").scrollIntoView({ behavior: "smooth", block: "start" });
-}
+// Contagem de dias; o que já passou do dia aparece como atrasada, em vermelho (só o texto, sem contorno).
+const quandoVence = (d) => d < 0 ? `atrasada há ${-d} ${-d === 1 ? "dia" : "dias"}` : d === 0 ? "vence hoje" : d === 1 ? "amanhã" : `em ${d} dias`;
 
 const el = (t, a = {}, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
 function niceStep(raw) { if (raw <= 0) return 100; const p = Math.pow(10, Math.floor(Math.log10(raw))); const f = raw / p; return (f <= 1 ? 1 : f <= 2 ? 2 : f <= 2.5 ? 2.5 : f <= 5 ? 5 : 10) * p; }
@@ -431,7 +415,7 @@ function paneF(c, tipo) {
     const quando = sem ? `${DIAS3[diaDaSemana(f.data)]} ${ddmm(f.data)}` : `dia ${pad(f.dia || 1)}`;
     const chegou = c.fase === "passado" || (c.fase === "atual" && d <= c.dias);
     const status = ent ? `<span class="chk ${chegou ? "on" : ""}">${chegou ? "✓ Recebida" : "Dia " + pad(d)}</span>`
-      : `<button type="button" class="chk ${p ? "on" : "off"}" data-pago="${esc(f.id)}" data-chave="${esc(f.chave)}" data-v="${p ? 0 : 1}">${p ? "✓ Pago" : "○ A pagar"}</button>`;
+      : `<button type="button" class="chk ${p ? "on" : f.data < hoje() ? "late" : "off"}" data-pago="${esc(f.id)}" data-chave="${esc(f.chave)}" data-v="${p ? 0 : 1}">${p ? "✓ Pago" : f.data < hoje() ? "○ Atrasado" : "○ A pagar"}</button>`;
     return `<tr><td class="d">${quando}</td><td>${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(f.forma) : ""}</span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
       <td class="st">${status}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(f.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">✎</span></button><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
@@ -494,10 +478,10 @@ function paneC(c) {
   const atrasadas = round2(vis.filter((x) => mKey(x.vencimento) < S.mes).reduce((t, x) => t + x.valor, 0));
   $("pane-c").innerHTML = `<p class="hint" style="margin-top:0">Lance cada fatura com o valor total e a data de vencimento. Ela entra no custo do mês em que vence. Aparecem as faturas deste mês e as de meses anteriores que ainda estão em aberto.</p>
    ${vis.length ? `<div class="tbl"><table class="cards"><thead><tr><th>Vence</th><th>Cartão</th><th class="num">Fatura</th><th>Status</th><th></th></tr></thead><tbody>${
-     vis.map((x) => `<tr><td class="d">${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</td><td>${esc(x.cartao)}${mKey(x.vencimento) < S.mes ? ` <span class="tag">atrasada</span>` : ""}<span class="sub">vence em ${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</span></td><td class="num">${brl(x.valor)}</td>
-       <td class="st"><button type="button" class="chk ${x.status === "Paga" ? "on" : "off"}" data-st="${esc(x.id)}">${x.status === "Paga" ? "✓ Paga" : "○ Em aberto"}</button></td>
+     vis.map((x) => `<tr><td class="d">${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</td><td>${esc(x.cartao)}${mKey(x.vencimento) < S.mes ? ` <span class="tag">mês anterior</span>` : ""}<span class="sub">vence em ${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</span></td><td class="num">${brl(x.valor)}</td>
+       <td class="st"><button type="button" class="chk ${x.status === "Paga" ? "on" : x.vencimento < hoje() ? "late" : "off"}" data-st="${esc(x.id)}">${x.status === "Paga" ? "✓ Paga" : x.vencimento < hoje() ? "○ Atrasada" : "○ Em aberto"}</button></td>
        <td class="acts"><button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody>
-     <tfoot><tr><td class="d"></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} atrasadas</span>` : ""}</td></tr></tfoot></table></div>`
+     <tfoot><tr><td class="d"></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} de meses anteriores</span>` : ""}</td></tr></tfoot></table></div>`
      : `<div class="empty">Nenhuma fatura com vencimento em ${nomeMes(S.mes)}.</div>`}
    <form class="addrow cc" id="formCc" autocomplete="off">
      <label class="f">Cartão<input class="in" id="cNome" required maxlength="40" placeholder="Ex.: Nubank"></label>
@@ -534,13 +518,13 @@ let toastT;
 function toast(t) { const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), 3500); }
 function abrirLancar() {
   document.body.classList.add("lancando"); $("flash").textContent = "";
-  if (!history.state?.lanc) history.pushState({ lanc: true }, "");   // o botão Voltar do celular fecha a tela
+  try { if (!history.state?.lanc) history.pushState({ lanc: true }, ""); } catch { /* sem histórico: o ✕ fecha */ }   // o botão Voltar do celular fecha a tela
   setTimeout(() => $("fValor").focus(), 50);
 }
 function fecharLancar(viaVoltar = false) {
   if (!document.body.classList.contains("lancando")) return;
   document.body.classList.remove("lancando");
-  if (!viaVoltar && history.state?.lanc) history.back();
+  try { if (!viaVoltar && history.state?.lanc) history.back(); } catch { /* nada */ }
 }
 /** Depois de salvar: no celular fecha a tela e mostra um aviso; no computador volta o foco para o valor. */
 function aposLancar(texto) { if (noCelular()) { fecharLancar(); toast(texto); } else $("fValor").focus(); }
