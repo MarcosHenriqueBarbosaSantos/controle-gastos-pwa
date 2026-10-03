@@ -426,3 +426,18 @@ test("Excel: cartões, parcelas e faturas vão e voltam pela planilha", () => {
   assert.equal(r.fixos.find((x) => x.descricao === "Streaming").cartao, "Roxo");
   assert.deepEqual(r.faturas.map((x) => x.cartao), ["Loja"]);            // as calculadas não são importadas como fatura
 });
+
+import { itensDoCusto } from "../js/calc.js";
+
+test("detalhe do custo: os itens de cada categoria somam o total da categoria e o custo do mês", () => {
+  const st = comCartao();
+  st.lancamentos.push({ id: "p", data: "2026-10-06", descricao: "Feira", tipo: "Despesa", categoria: "Mercado", forma: "Pix", valor: 70 });
+  st.fixos.push({ id: "al", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 10, valor: 1000, forma: "Boleto", desde: "2026-10-01", ate: null });
+  st.faturas.push({ id: "m1", cartao: "Loja", vencimento: "2026-10-20", valor: 80, status: "Aberta" });
+  const c = calcMes(st, "2026-10", "2026-10-20"), itens = itensDoCusto(c);
+  assert.equal(Math.round(itens.reduce((t, i) => t + i.valor, 0) * 100) / 100, c.custo);
+  for (const [cat, total] of catMap(c)) assert.equal(Math.round(itens.filter((i) => i.categoria === cat).reduce((t, i) => t + i.valor, 0) * 100) / 100, total);
+  assert.deepEqual(itens.filter((i) => i.categoria === "Mercado").map((i) => [i.descricao, i.valor, i.origem]), [["Feira", 70, "gasto"], ["Mercado", 200, "cartao"]]);
+  assert.deepEqual(itens.filter((i) => i.categoria === "Faturas de cartão").map((i) => [i.descricao, i.valor]), [["Fatura Loja", 80]]);
+  assert.equal(itens.find((i) => i.descricao === "Geladeira").de, 3);
+});

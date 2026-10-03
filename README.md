@@ -28,6 +28,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Saldo acumulado**: o que sobrou ou faltou passa para o mês seguinte, se a pessoa quiser, partindo de um **saldo inicial** (quanto ela já tinha, ou devia, quando começou).
 - **Categorias personalizáveis** por usuário, na tela de Ajustes.
 - **Gráficos**: custo acumulado no mês comparado às entradas, e custo por categoria.
+- **Detalhe com um toque**: tocar em um quadro (custo, entradas, saldo, guardado, fixos, faturas) ou em uma categoria do gráfico abre a lista do que compõe aquele valor.
 - **Importar e exportar Excel**: lê o modelo da pasta [`modelo/`](modelo/) e também planilhas antigas em formato livre. Reimportar a mesma planilha não duplica lançamentos.
 - **Login por e-mail** com Supabase Auth e isolamento de dados por usuário, via Row Level Security no PostgreSQL.
 - **Feito para o celular**: uma tela por vez, barra de navegação embaixo, botão "+" para lançar em tela cheia com teclado numérico e listas em formato de cartão. No computador, o mesmo app vira um painel completo.

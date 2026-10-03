@@ -256,20 +256,33 @@ export function projetaDiaADia(st, m, gastos, dias, n) {
   return total + (rotina / dias) * (n - dias);
 }
 
-/** Para onde foi o custo do mês: dia a dia e fixos fora do cartão, mais o que veio nas faturas. Do maior para o menor. */
-export function catMap(c) {
-  const m = {};
-  c.it.filter((x) => x.tipo === "Despesa" && !noCartao(x)).forEach((x) => { m[x.categoria] = (m[x.categoria] || 0) + Number(x.valor); });
-  c.fx.filter((f) => !noCartao(f)).forEach((f) => { m[f.categoria] = (m[f.categoria] || 0) + Number(f.valor); });
-  // Fatura calculada: o app sabe o que tem dentro, então cada compra vai para a sua categoria.
-  // Fatura lançada à mão (ou a diferença de um valor corrigido) fica em "Faturas de cartão".
-  const add = (k, v) => { m[k] = (m[k] || 0) + v; };
+/**
+ * Tudo o que compõe o custo do mês, item por item, cada um com a sua categoria.
+ * - Gastos do dia a dia e fixos pagos fora do cartão.
+ * - Fatura calculada: o app sabe o que tem dentro, então cada compra entra na sua categoria; se o valor foi
+ *   corrigido para mais, a diferença fica em "Faturas de cartão".
+ * - Fatura lançada à mão (ou corrigida para menos que a soma): entra inteira em "Faturas de cartão".
+ * origem: "gasto" | "fixo" | "cartao" (compra dentro de uma fatura) | "fatura".
+ */
+export function itensDoCusto(c) {
+  const out = [];
+  c.it.filter((x) => x.tipo === "Despesa" && !noCartao(x)).forEach((x) =>
+    out.push({ origem: "gasto", data: x.data, descricao: x.descricao || x.categoria, categoria: x.categoria, valor: Number(x.valor), forma: x.forma || "" }));
+  c.fx.filter((f) => !noCartao(f)).forEach((f) =>
+    out.push({ origem: "fixo", data: f.data, descricao: f.descricao, categoria: f.categoria, valor: Number(f.valor), forma: f.forma || "" }));
   c.fat.forEach((f) => {
     const dif = f.auto ? round2(f.valor - f.calculado) : 0;
-    if (!f.auto || dif < 0) return add(CAT_FATURA, f.valor);
-    f.itens.forEach((i) => add(i.categoria, i.valor));
-    if (dif > 0) add(CAT_FATURA, dif);
+    if (!f.auto || dif < 0) return out.push({ origem: "fatura", data: f.vencimento, descricao: `Fatura ${f.cartao}`, categoria: CAT_FATURA, valor: Number(f.valor), cartao: f.cartao });
+    f.itens.forEach((i) => out.push({ origem: "cartao", data: i.data, descricao: i.descricao, categoria: i.categoria, valor: i.valor, cartao: f.cartao, parcela: i.parcela, de: i.de }));
+    if (dif > 0) out.push({ origem: "fatura", data: f.vencimento, descricao: `Fatura ${f.cartao}: diferença do valor corrigido`, categoria: CAT_FATURA, valor: dif, cartao: f.cartao });
   });
+  return out;
+}
+
+/** Para onde foi o custo do mês, por categoria, do maior para o menor. */
+export function catMap(c) {
+  const m = {};
+  itensDoCusto(c).forEach((i) => { m[i.categoria] = (m[i.categoria] || 0) + i.valor; });
   return Object.entries(m).map(([k, v]) => [k, round2(v)]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]);
 }
 

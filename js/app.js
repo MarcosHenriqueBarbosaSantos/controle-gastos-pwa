@@ -1,7 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
+  categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
 import { parseWorkbook, buildWorkbook, importKey, norm } from "./excel.js";
@@ -257,12 +257,12 @@ function renderKpis(c) {
   const resMes = c.res > 0 ? `+ ${brl0(c.res)} neste mês` : c.res < 0 ? `− ${brl0(-c.res)} neste mês` : "Nada guardado neste mês";
   const resLinhas = destinos.length > 1 ? `<ul class="dest">${destinos.map(([k, v]) => `<li><span>${esc(k)}</span><b>${brl0(v)}</b></li>`).join("")}</ul>` : destinos.length === 1 ? `<span class="n">${esc(destinos[0][0])}</span>` : "";
   $("kpis").innerHTML = `
-   <div class="kpi hero"><span class="l">Custo do mês</span><span class="v">${brl(c.custo)}</span><span class="n">${projTxt}</span></div>
-   <div class="kpi"><span class="l">Entradas</span><span class="v">${brl(c.rec)}</span>${c.frAReceber ? `<span class="pill warn">${brl0(c.frAReceber)} a receber</span>` : ""}<span class="n">${c.frT ? `${brl0(c.frT)} de entradas fixas` : "Salário e outras entradas"}</span></div>
-   <div class="kpi"><span class="l">Saldo do mês</span><span class="v" style="color:${c.saldo < 0 ? "var(--bad)" : "var(--good)"}">${sgn(c.saldo)}</span>${saldoPill}${acum !== c.saldo ? `<span class="n">Saldo acumulado: <b>${sgn(acum)}</b></span>` : ""}</div>
-   <div class="kpi reserva"><span class="l">Dinheiro guardado</span><span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
-   <div class="kpi"><span class="l">Gastos fixos</span><span class="v">${brl(c.fxT)}</span>${c.fxPend ? `<span class="pill warn">${brl0(c.fxPend)} a pagar</span>` : (c.fx.length ? `<span class="pill good">✓ Todos pagos</span>` : `<span class="n">Nenhum cadastrado</span>`)}${c.fxCartao ? `<span class="n">${brl0(c.fxCartao)} no cartão</span>` : ""}</div>
-   <div class="kpi"><span class="l">Faturas do mês</span><span class="v">${brl(c.fatT)}</span>${c.fatAberta ? `<span class="pill warn">${brl0(c.fatAberta)} a pagar</span>` : (c.fat.length ? `<span class="pill good">✓ Pagas</span>` : `<span class="n">Nenhuma fatura neste mês</span>`)}${noCartao ? `<span class="n">${brl0(noCartao)} em compras no cartão neste mês</span>` : ""}</div>`;
+   <div class="kpi hero" data-det="custo" role="button" tabindex="0"><span class="l">Custo do mês<i aria-hidden="true">›</i></span><span class="v">${brl(c.custo)}</span><span class="n">${projTxt}</span></div>
+   <div class="kpi" data-det="entradas" role="button" tabindex="0"><span class="l">Entradas<i aria-hidden="true">›</i></span><span class="v">${brl(c.rec)}</span>${c.frAReceber ? `<span class="pill warn">${brl0(c.frAReceber)} a receber</span>` : ""}<span class="n">${c.frT ? `${brl0(c.frT)} de entradas fixas` : "Salário e outras entradas"}</span></div>
+   <div class="kpi" data-det="saldo" role="button" tabindex="0"><span class="l">Saldo do mês<i aria-hidden="true">›</i></span><span class="v" style="color:${c.saldo < 0 ? "var(--bad)" : "var(--good)"}">${sgn(c.saldo)}</span>${saldoPill}${acum !== c.saldo ? `<span class="n">Saldo acumulado: <b>${sgn(acum)}</b></span>` : ""}</div>
+   <div class="kpi reserva" data-det="guardado" role="button" tabindex="0"><span class="l">Dinheiro guardado<i aria-hidden="true">›</i></span><span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
+   <div class="kpi" data-det="fixos" role="button" tabindex="0"><span class="l">Gastos fixos<i aria-hidden="true">›</i></span><span class="v">${brl(c.fxT)}</span>${c.fxPend ? `<span class="pill warn">${brl0(c.fxPend)} a pagar</span>` : (c.fx.length ? `<span class="pill good">✓ Todos pagos</span>` : `<span class="n">Nenhum cadastrado</span>`)}${c.fxCartao ? `<span class="n">${brl0(c.fxCartao)} no cartão</span>` : ""}</div>
+   <div class="kpi" data-det="faturas" role="button" tabindex="0"><span class="l">Faturas do mês<i aria-hidden="true">›</i></span><span class="v">${brl(c.fatT)}</span>${c.fatAberta ? `<span class="pill warn">${brl0(c.fatAberta)} a pagar</span>` : (c.fat.length ? `<span class="pill good">✓ Pagas</span>` : `<span class="n">Nenhuma fatura neste mês</span>`)}${noCartao ? `<span class="n">${brl0(noCartao)} em compras no cartão neste mês</span>` : ""}</div>`;
   let t = "";
   if (!S.loaded) t = "Carregando seus lançamentos…";
   else if (!c.it.length && !c.fx.length && !c.fr.length) t = "Nenhum lançamento neste mês ainda. Use o formulário acima ou importe sua planilha do Excel.";
@@ -397,10 +397,15 @@ function renderCat(c) {
   cats.forEach(([k, v], i) => {
     const yy = i * rowH + 6, h = 20, w = Math.max(4, (v / max) * bw);
     const mc = Math.floor((labW - 8) / 7);
-    const t = el("text", { x: 0, y: yy + 14, "font-size": 12.5, fill: "var(--ink)" }, svg); t.textContent = k.length > mc ? k.slice(0, mc - 1) + "…" : k;
-    el("path", { d: `M${labW},${yy} H${labW + w - 4} q4,0 4,4 V${yy + h - 4} q0,4 -4,4 H${labW} Z`, fill: "var(--series)" }, svg);
-    const vt = el("text", { x: labW + w + 8, y: yy + 14, "font-size": 12, fill: "var(--ink-2)", "font-family": "IBM Plex Mono, monospace" }, svg);
+    // Cada linha é um botão: tocar abre a lista dos gastos daquela categoria.
+    const g = el("g", { class: "cat-row", role: "button", tabindex: 0, "aria-label": `${k}: ${brl0(v)}. Ver os gastos` }, svg);
+    el("rect", { class: "bg", x: 0, y: i * rowH + 1, width: W, height: rowH - 2, rx: 6, fill: "transparent" }, g);
+    const t = el("text", { x: 4, y: yy + 14, "font-size": 12.5, fill: "var(--ink)" }, g); t.textContent = k.length > mc ? k.slice(0, mc - 1) + "…" : k;
+    el("path", { d: `M${labW},${yy} H${labW + w - 4} q4,0 4,4 V${yy + h - 4} q0,4 -4,4 H${labW} Z`, fill: "var(--series)" }, g);
+    const vt = el("text", { x: labW + w + 8, y: yy + 14, "font-size": 12, fill: "var(--ink-2)", "font-family": "IBM Plex Mono, monospace" }, g);
     vt.textContent = `${brl0(v)} · ${Math.round((v / tot) * 100)}%`;
+    g.addEventListener("click", () => detalheCategoria(k));
+    g.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); detalheCategoria(k); } });
   });
   cartaoDoMes(c, host);
 }
@@ -988,6 +993,83 @@ function editarFixo(id) {
     if (ok) toastOuFlash(`Alterado de ${mesTxt} em diante. Os meses anteriores continuam como estavam.`);
   });
 }
+
+/* ================= detalhes: tocar em um quadro ou em uma categoria mostra do que o valor é feito ================= */
+const linhasDet = (l, vazio = "Nada por aqui neste mês.") => l.length
+  ? `<ul class="itens">${l.map((i) => `<li><span class="d">${i.d}</span><span>${esc(i.t)}${i.tag ? ` <span class="tag ${i.tagCls || ""}">${esc(i.tag)}</span>` : ""}${i.s ? `<span class="mini">${esc(i.s)}</span>` : ""}</span><b class="${i.cls || ""}">${i.v}</b></li>`).join("")}</ul>`
+  : `<p class="hint" style="margin:6px 0 10px">${vazio}</p>`;
+/** Abre o quadro de detalhes. secoes: [{titulo?, total?, itens?, vazio?, html?}]; ir: [rótulo do botão, aba para abrir]. */
+function abreDetalhe(titulo, sub, secoes, ir) {
+  openDlg(`<h3>${titulo}</h3>${sub ? `<p class="hint" style="margin:0 0 4px;font-size:13px">${sub}</p>` : ""}
+    <div class="det">${secoes.map((s) => `${s.titulo ? `<h4><span>${s.titulo}</span><b>${s.total ?? ""}</b></h4>` : ""}${s.html ?? linhasDet(s.itens, s.vazio)}`).join("")}</div>
+    <div class="actions">${ir ? `<button class="btn primary" type="button" id="detIr">${ir[0]}</button>` : ""}<button class="btn" type="button" data-close>Fechar</button></div>`);
+  if (ir) $("detIr").onclick = () => { $("dlg").close(); S.view = "listas"; S.tab = ir[1]; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
+}
+const porData = (a, b) => a.data.localeCompare(b.data);
+const origemTxt = (i) => i.origem === "cartao" ? `na fatura do ${i.cartao}` : i.origem === "fixo" ? `gasto fixo${i.forma ? " · " + i.forma : ""}` : i.origem === "fatura" ? "fatura de cartão" : i.forma || "";
+const linhaCusto = (i) => ({ d: ddmm(i.data), t: i.descricao, tag: i.de > 1 ? `${i.parcela}/${i.de}` : "", s: [i.categoria, origemTxt(i)].filter(Boolean).join(" · "), v: brl(i.valor) });
+
+function detalheKpi(tipo) {
+  if (!S.loaded) return;
+  const hj = hoje(), c = calcMes(S.data, S.mes, hj), mes = nomeMes(S.mes);
+  if (tipo === "entradas") {
+    const l = [...c.fr.map((f) => ({ data: f.data, t: f.descricao, s: f.categoria + " · entrada fixa", valor: f.valor,
+        tag: c.fase === "futuro" || (c.fase === "atual" && f.data > hj) ? "a receber" : "" })),
+      ...c.it.filter((x) => x.tipo === "Receita").map((x) => ({ data: x.data, t: x.descricao || x.categoria, s: x.categoria, valor: x.valor, tag: "" }))].sort(porData);
+    return abreDetalhe(`Entradas de ${mes}`, `Total do mês: <b>${brl(c.rec)}</b>${c.frAReceber ? ` · ${brl(c.frAReceber)} ainda a receber` : ""}`,
+      [{ itens: l.map((i) => ({ d: ddmm(i.data), t: i.t, tag: i.tag, s: i.s, v: "+ " + brl(i.valor), cls: "pos" })), vazio: "Nenhuma entrada neste mês." }], ["Ver nos lançamentos", "l"]);
+  }
+  if (tipo === "custo") {
+    const it = itensDoCusto(c), de = (o) => it.filter((i) => i.origem === o).sort(porData).map(linhaCusto);
+    return abreDetalhe(`Custo de ${mes}`, `Total: <b>${brl(c.custo)}</b>${c.fase === "atual" ? ` · previsão de fechar em ${brl0(c.proj)}` : ""}`, [
+      { titulo: "Gastos do dia a dia", total: brl(c.vari), itens: de("gasto"), vazio: "Nenhum gasto lançado fora do cartão." },
+      { titulo: "Gastos fixos", total: brl(c.fxCusto), itens: de("fixo"), vazio: "Nenhum gasto fixo fora do cartão." },
+      { titulo: "Faturas de cartão", total: brl(c.fatT), itens: c.fat.map(linhaFaturaDet(hj)), vazio: "Nenhuma fatura vence neste mês." }], ["Ver nos lançamentos", "l"]);
+  }
+  if (tipo === "saldo") {
+    const ini = Number(S.prefs.saldoInicial) || 0, ant = S.prefs.levarSaldo ? saldoAnterior(S.data, S.mes, hj, S.prefs.saldoDesde) : 0;
+    const acum = S.prefs.levarSaldo ? saldoAcumulado(S.data, S.mes, hj, { desde: S.prefs.saldoDesde, inicial: ini }) : c.saldo, iniVale = round2(acum - ant - c.saldo);
+    const li = (t, v, forte = false) => `<li class="${forte ? "tot" : ""}"><span></span><span>${t}</span><b>${v}</b></li>`;
+    return abreDetalhe(`Saldo de ${mes}`, "Entradas menos o custo do mês e menos o que você guardou.", [
+      { html: `<ul class="itens">${li("Entradas", "+ " + brl(c.rec))}${li("Custo do mês", "− " + brl(c.custo))}${c.res ? li(c.res > 0 ? "Guardado neste mês" : "Retirado do guardado", (c.res > 0 ? "− " : "+ ") + brl(Math.abs(c.res))) : ""}${li("Saldo do mês", sgn(c.saldo), true)}</ul>` },
+      ...(S.prefs.levarSaldo ? [{ titulo: "Saldo acumulado", total: sgn(acum),
+        html: `<ul class="itens">${iniVale ? li("Saldo inicial", sgn(iniVale)) : ""}${li("Saldo dos meses anteriores", sgn(ant))}${li(`Saldo de ${mes}`, sgn(c.saldo))}${li("Saldo acumulado", sgn(acum), true)}</ul>` }] : [])]);
+  }
+  if (tipo === "guardado") {
+    const dest = guardadoPorDestino(S.data, S.mes), mov = c.it.filter((x) => x.tipo === "Reserva").sort(porData);
+    return abreDetalhe("Dinheiro guardado", `Total até ${mes}: <b>${brl(reservaAcumulada(S.data, S.mes))}</b>`, [
+      { titulo: "Onde está", itens: dest.map(([k, v]) => ({ d: "", t: k, v: brl(v) })), vazio: "Nada guardado até aqui." },
+      { titulo: `Movimentos de ${mes}`, total: sgn(c.res), itens: mov.map((x) => ({ d: ddmm(x.data), t: x.descricao || x.categoria, s: x.categoria,
+          tag: x.forma === RETIRADA ? "retirou" : "guardou", v: (x.forma === RETIRADA ? "− " : "+ ") + brl(x.valor), cls: "res" })), vazio: "Nada guardado nem retirado neste mês." }], ["Ver nos lançamentos", "l"]);
+  }
+  if (tipo === "fixos") {
+    const st = (f) => f.forma === CARTAO ? ["na fatura", ""] : c.pagosSet.has(f.id + "|" + f.chave) ? ["pago", "ok"] : f.data < hj ? ["atrasado", "bad"] : ["a pagar", ""];
+    return abreDetalhe(`Gastos fixos de ${mes}`, `Total: <b>${brl(c.fxT)}</b>${c.fxPend ? ` · ${brl(c.fxPend)} ainda a pagar` : ""}`,
+      [{ itens: c.fx.map((f) => ({ d: ddmm(f.data), t: f.descricao, tag: st(f)[0], tagCls: st(f)[1], s: f.categoria + (f.forma ? " · " + pagoCom({ ...f, parcelas: 1 }) : ""), v: brl(f.valor) })),
+        vazio: "Nenhum gasto fixo neste mês." }], ["Abrir gastos fixos", "f"]);
+  }
+  if (tipo === "faturas") {
+    const compras = c.it.filter((x) => x.tipo === "Despesa" && x.forma === CARTAO).sort(porData), tot = round2(c.comprasCartao + c.fxCartao);
+    const fixosCc = c.fx.filter((f) => f.forma === CARTAO).map((f) => ({ d: ddmm(f.data), t: f.descricao, tag: "fixo", s: f.categoria + " · " + pagoCom({ ...f, parcelas: 1 }), v: brl(f.valor) }));
+    return abreDetalhe(`Faturas de ${mes}`, `Vencem neste mês: <b>${brl(c.fatT)}</b>${c.fatAberta ? ` · ${brl(c.fatAberta)} ainda a pagar` : ""}`, [
+      { itens: c.fat.map(linhaFaturaDet(hj)), vazio: "Nenhuma fatura vence neste mês." },
+      { titulo: "Compras no cartão neste mês", total: brl(tot), itens: [...compras.map((x) => ({ d: ddmm(x.data), t: x.descricao || x.categoria, s: x.categoria + " · " + pagoCom(x), v: brl(x.valor) })), ...fixosCc],
+        vazio: "Nenhuma compra no cartão neste mês." }], ["Abrir cartões", "c"]);
+  }
+}
+const linhaFaturaDet = (hj) => (f) => ({ d: ddmm(f.vencimento), t: `Fatura ${f.cartao}`, v: brl(f.valor),
+  tag: f.status === "Paga" ? "paga" : f.vencimento < hj ? "atrasada" : "em aberto", tagCls: f.status === "Paga" ? "ok" : f.vencimento < hj ? "bad" : "",
+  s: f.auto ? `${f.itens.length} ${f.itens.length === 1 ? "compra" : "compras"}${f.valor_fixo ? " · valor corrigido" : ""}` : "lançada à mão" });
+
+/** Gastos de uma categoria no mês: o que aparece na barra do gráfico "Por categoria". */
+function detalheCategoria(nome) {
+  const c = calcMes(S.data, S.mes, hoje()), l = itensDoCusto(c).filter((i) => i.categoria === nome).sort(porData);
+  const total = round2(l.reduce((t, i) => t + i.valor, 0));
+  abreDetalhe(`${esc(nome)} em ${nomeMes(S.mes)}`, `Total: <b>${brl(total)}</b>${c.custo ? ` · ${Math.round((total / c.custo) * 100)}% do custo do mês` : ""} · ${l.length} ${l.length === 1 ? "item" : "itens"}`,
+    [{ itens: l.map((i) => ({ ...linhaCusto(i), s: origemTxt(i) })) }], ["Ver nos lançamentos", "l"]);
+}
+$("kpis").addEventListener("click", (e) => { const k = e.target.closest("[data-det]"); if (k) detalheKpi(k.dataset.det); });
+$("kpis").addEventListener("keydown", (e) => { const k = e.target.closest("[data-det]"); if (k && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); detalheKpi(k.dataset.det); } });
 
 /* ================= ajustes e boas-vindas ================= */
 const suporteHtml = () => {

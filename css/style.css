@@ -57,6 +57,18 @@ input.money{font-family:var(--mono);font-weight:500}
 .kpi .l{font-size:12px;color:var(--ink-2);font-weight:500}
 .kpi .v{font-size:20px;font-weight:700;letter-spacing:-.01em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .kpi .n{font-size:12px;color:var(--muted)}
+.kpi[data-det]{cursor:pointer;transition:border-color .12s}
+.kpi[data-det]:hover{border-color:var(--series)}
+.kpi .l{display:flex;justify-content:space-between;gap:6px}
+.kpi .l i{font-style:normal;font-size:15px;line-height:1;opacity:.55}
+.cat-row{cursor:pointer;outline:none} .cat-row:hover .bg,.cat-row:focus-visible .bg{fill:var(--sunk)}
+/* quadro de detalhes: do que um valor é feito */
+.det{max-height:56vh;overflow:auto;margin:8px 0 14px}
+.det .itens{max-height:none;overflow:visible;margin:0 0 6px}
+.det h4{display:flex;justify-content:space-between;gap:10px;margin:14px 0 2px;font-size:13px;font-weight:600}
+.det h4:first-child{margin-top:4px} .det h4 b{font-family:var(--mono);font-weight:500}
+.itens .mini{display:block;font-size:12px;color:var(--muted)}
+.itens .tag.ok{color:var(--good)} .itens .tag.bad{color:var(--bad)}
 .kpi.hero{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .kpi.hero .l,.kpi.hero .n{color:inherit;opacity:.75}
 .kpi.reserva{background:var(--series-soft);border-color:transparent}
