@@ -43,9 +43,12 @@ export function parseMoney(s) {
 }
 export const round2 = (v) => Math.round(v * 100) / 100;
 
-/** Fixos que contam no mês m ("AAAA-MM"). desde/ate são datas "AAAA-MM-01". */
-export function fixosDoMes(fixos, m) {
-  return fixos.filter((f) => mKey(f.desde) <= m && (!f.ate || m <= mKey(f.ate)));
+/**
+ * Fixos que contam no mês m ("AAAA-MM"). desde/ate são datas "AAAA-MM-01".
+ * tipo "Despesa" = gastos fixos; tipo "Receita" = entradas fixas (ex.: salário todo dia 30).
+ */
+export function fixosDoMes(fixos, m, tipo = "Despesa") {
+  return fixos.filter((f) => (f.tipo || "Despesa") === tipo && mKey(f.desde) <= m && (!f.ate || m <= mKey(f.ate)));
 }
 
 export const CARTAO = "Cartão de crédito";
@@ -65,7 +68,10 @@ const noCartao = (x) => x.forma === CARTAO;
 export function calcMes(st, m, hoje) {
   const sum = (a) => round2(a.reduce((s, x) => s + Number(x.valor), 0));
   const it = st.lancamentos.filter((x) => mKey(x.data) === m);
-  const rec = sum(it.filter((x) => x.tipo === "Receita"));
+  const recLanc = sum(it.filter((x) => x.tipo === "Receita"));   // entradas lançadas à mão
+  const fr = fixosDoMes(st.fixos, m, "Receita");                  // entradas fixas: entram sozinhas todo mês
+  const frT = sum(fr);
+  const rec = round2(recLanc + frT);
   const desp = it.filter((x) => x.tipo === "Despesa");
   const vari = sum(desp.filter((x) => !noCartao(x)));          // dia a dia pago fora do cartão
   const comprasCartao = sum(desp.filter(noCartao));            // vai para uma fatura futura
@@ -90,7 +96,9 @@ export function calcMes(st, m, hoje) {
   const proj = fase === "atual" && dias > 0
     ? round2(projetaDiaADia(st, m, desp.filter((x) => !noCartao(x)), dias, n) + fxCusto + fatT) : custo;
   const ccAberto = sum(st.faturas.filter((c) => c.status !== "Paga"));   // todas as faturas em aberto
-  return { it, rec, vari, comprasCartao, res, resIn, resOut, fx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
+  // Entradas fixas que ainda não chegaram: no mês atual, as de dia posterior a hoje; em mês futuro, todas.
+  const frAReceber = fase === "futuro" ? frT : fase === "atual" ? sum(fr.filter((f) => Math.min(n, f.dia || 1) > dias)) : 0;
+  return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
     fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj, ccAberto };
 }
 
@@ -161,7 +169,7 @@ export function categoriasIniciais(st) {
   const out = { Despesa: [...CATS_PADRAO.Despesa], Receita: [...CATS_PADRAO.Receita], Reserva: [...CATS_PADRAO.Reserva] };
   const add = (tipo, c) => { if (c && out[tipo] && !out[tipo].includes(c)) out[tipo].push(c); };
   st.lancamentos.forEach((x) => add(x.tipo, x.categoria));
-  st.fixos.forEach((f) => add("Despesa", f.categoria));
+  st.fixos.forEach((f) => add(f.tipo === "Receita" ? "Receita" : "Despesa", f.categoria));
   return out;
 }
 

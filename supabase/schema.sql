@@ -20,10 +20,11 @@ create table if not exists public.lancamentos (
 );
 create index if not exists lancamentos_user_data_idx on public.lancamentos (user_id, data);
 
--- Gastos fixos: contas que se repetem todo mês
+-- Fixos: contas (Despesa) e entradas (Receita) que se repetem todo mês
 create table if not exists public.fixos (
   id          uuid primary key default gen_random_uuid(),
   user_id     uuid not null default auth.uid() references auth.users (id) on delete cascade,
+  tipo        text not null default 'Despesa' check (tipo in ('Despesa', 'Receita')),  -- Receita = entrada fixa (ex.: salário)
   descricao   text not null,
   categoria   text not null,
   dia         smallint not null check (dia between 1 and 31),
@@ -33,6 +34,11 @@ create table if not exists public.fixos (
   ate         date,                       -- último mês em que conta (null = ainda ativo)
   created_at  timestamptz not null default now()
 );
+
+-- Para bancos criados antes das entradas fixas: acrescenta a coluna "tipo"
+alter table public.fixos add column if not exists tipo text not null default 'Despesa';
+alter table public.fixos drop constraint if exists fixos_tipo_check;
+alter table public.fixos add constraint fixos_tipo_check check (tipo in ('Despesa', 'Receita'));
 
 -- Marcação de "pago" de cada fixo em cada mês
 create table if not exists public.fixos_pagos (

@@ -106,7 +106,6 @@ export function demoSeed(hojeISO) {
     const L = [], add = (mm, dia, descricao, tipo, categoria, forma, valor) =>
       L.push({ id: uuid(), data: `${mm}-${String(dia).padStart(2, "0")}`, descricao, tipo, categoria, forma, valor, import_key: null });
     // mês anterior (completo)
-    add(prev, 5, "Salário", "Receita", "Salário", "", 3200);
     add(prev, 20, "Freela de planilha", "Receita", "Renda extra", "", 450);
     add(prev, 3, "Mercado do mês", "Despesa", "Mercado", "Débito", 612.4);
     add(prev, 8, "Uber", "Despesa", "Transporte", "Pix", 38.9);
@@ -117,7 +116,7 @@ export function demoSeed(hojeISO) {
     add(prev, 28, "Reserva do mês", "Reserva", "Reserva de emergência", "", 300);
     add(prev, 28, "Tesouro Direto", "Reserva", "Investimentos", "", 200);
     // mês atual (só até hoje)
-    const cand = [[1, "Salário", "Receita", "Salário", "", 3200], [1, "Padaria", "Despesa", "Alimentação", "Pix", 18.5],
+    const cand = [[1, "Padaria", "Despesa", "Alimentação", "Pix", 18.5],
       [2, "Mercado do mês", "Despesa", "Mercado", "Débito", 578.2], [3, "Farmácia", "Despesa", "Saúde", "Pix", 42.9], [6, "Reserva do mês", "Reserva", "Reserva de emergência", "", 150], [7, "Gasolina", "Despesa", "Transporte", "Cartão de crédito", 150],
       [9, "Delivery", "Despesa", "Alimentação", "Cartão de crédito", 62.9], [13, "Presente de aniversário", "Despesa", "Outros", "Pix", 95],
       [16, "Show", "Despesa", "Lazer", "Cartão de crédito", 140], [19, "Uber", "Despesa", "Transporte", "Pix", 27.6],
@@ -125,11 +124,12 @@ export function demoSeed(hojeISO) {
     cand.filter((c) => c[0] <= d).forEach((c) => add(cur, ...c));
     const F = [["Aluguel", "Moradia", 10, 1100, "Boleto"], ["Internet", "Contas da casa", 15, 99.9, "Débito"],
       ["Faculdade", "Educação", 20, 349, "Boleto"], ["Celular", "Contas da casa", 12, 55, "Cartão de crédito"]]
-      .map(([descricao, categoria, dia, valor, forma]) => ({ id: uuid(), descricao, categoria, dia, valor, forma, desde: `${prev}-01`, ate: null }));
+      .map(([descricao, categoria, dia, valor, forma]) => ({ id: uuid(), tipo: "Despesa", descricao, categoria, dia, valor, forma, desde: `${prev}-01`, ate: null }));
+    const salario = { id: uuid(), tipo: "Receita", descricao: "Salário", categoria: "Salário", dia: 5, valor: 3200, forma: "", desde: `${prev}-01`, ate: null };
     const P = [];
     F.forEach((f) => { P.push({ fixo_id: f.id, mes: `${prev}-01` }); if (f.dia <= d) P.push({ fixo_id: f.id, mes: `${cur}-01` }); });
     const C = [{ id: uuid(), cartao: "Cartão roxo", vencimento: `${cur}-08`, valor: 326.4, status: d >= 8 ? "Paga" : "Aberta" },
       { id: uuid(), cartao: "Cartão roxo", vencimento: `${mes(1)}-08`, valor: 407.9, status: "Aberta" }];
-    return { lancamentos: L, fixos: F, pagos: P, faturas: C };
+    return { lancamentos: L, fixos: [...F, salario], pagos: P, faturas: C };
   };
 }

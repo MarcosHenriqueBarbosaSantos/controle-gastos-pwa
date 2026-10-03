@@ -10,6 +10,8 @@ App web instalável no celular para **lançar gastos no dia a dia e acompanhar q
   <img src="docs/screenshot-mobile.png" alt="Tela principal no celular, tema escuro" width="24%">
 </p>
 
+<p align="center"><img src="docs/telas-celular.png" alt="Telas no celular: início, lançar, lançamentos, fixos e cartões" width="100%"></p>
+
 ## O problema
 
 Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois que o mês acabava. Queria ver **durante o mês** quanto já tinha gasto, quanto ainda ia pagar de contas fixas e cartão, e para onde o dinheiro estava indo. Também queria lançar tudo pelo celular, na hora do gasto.
@@ -19,6 +21,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Lançamento rápido** de gastos, entradas e dinheiro guardado, com categoria e forma de pagamento. Todo lançamento pode ser **editado** ou excluído.
 - **Custo do mês em tempo real** e **previsão de fechamento**, que mistura o ritmo atual com a média dos meses anteriores e não repete compras pontuais grandes.
 - **Gastos fixos** cadastrados uma vez e contados todo mês, com marcação de "pago" por mês.
+- **Entradas fixas**, como o salário: cadastradas uma vez, são lançadas sozinhas em todo mês, no dia escolhido.
 - **Cartão de crédito pela fatura**: o que é comprado no cartão só pesa no mês em que a fatura vence.
 - **Próximos vencimentos**: quadro com as contas dos próximos 30 dias ("em 10 dias vence a fatura, R$ 299"), com aviso de atraso e botão para marcar como pago.
 - **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
@@ -27,6 +30,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Gráficos**: custo acumulado no mês comparado às entradas, e custo por categoria.
 - **Importar e exportar Excel**: lê o modelo da pasta [`modelo/`](modelo/) e também planilhas antigas em formato livre. Reimportar a mesma planilha não duplica lançamentos.
 - **Login por e-mail** com Supabase Auth e isolamento de dados por usuário, via Row Level Security no PostgreSQL.
+- **Feito para o celular**: uma tela por vez, barra de navegação embaixo, botão "+" para lançar em tela cheia com teclado numérico e listas em formato de cartão. No computador, o mesmo app vira um painel completo.
 - **PWA**: instalável no Android e no iPhone, abre em tela cheia e tem tema claro e escuro.
 - **Modo demonstração** com dados de exemplo guardados só no aparelho, para quem quiser testar sem criar conta.
 
@@ -59,6 +63,7 @@ A tela não sabe onde os dados estão guardados: ela usa a interface de `store.j
 
 - **Custo do mês** = gastos do dia a dia fora do cartão + gastos fixos fora do cartão + faturas de cartão que vencem no mês.
 - **Cartão**: compras e fixos no cartão não entram no custo na hora. A cobrança entra no mês de vencimento da fatura.
+- **Entradas** = entradas lançadas + entradas fixas do mês.
 - **Saldo do mês** = entradas − custo − dinheiro guardado no mês (guardou menos retirou).
 - **Dinheiro guardado** = soma de tudo que foi guardado menos o que foi retirado, por destino.
 - **Previsão** (mês atual): com histórico, mistura o ritmo do mês com a média dos últimos 3 meses, dando mais peso ao histórico no começo do mês. Sem histórico, mantém a média diária sem repetir compras pontuais grandes.

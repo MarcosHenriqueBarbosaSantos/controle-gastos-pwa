@@ -16,7 +16,7 @@ const hoje = () => toISO(new Date());
 const nomeMes = (m) => MESES[Number(m.slice(5)) - 1];
 
 const S = {
-  mes: mKey(hoje()), tipo: "Despesa", tab: "l",
+  mes: mKey(hoje()), tipo: "Despesa", tab: "l", view: "inicio",   // view só vale no celular: "inicio" ou "listas"
   data: { lancamentos: [], fixos: [], pagos: [], faturas: [] },
   store: null, client: null, loaded: false,
   prefs: prefsPadrao(),
@@ -26,6 +26,7 @@ function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde
 function cats(tipo) {
   return S.prefs.categorias?.[tipo]?.length ? S.prefs.categorias[tipo] : CATS_PADRAO[tipo];
 }
+const noCelular = () => matchMedia("(max-width:700px)").matches;
 const salvaPrefs = () => grava(() => S.store.savePrefs(S.prefs));
 const MOVS = ["Guardar", "Retirar"];
 const formaDe = (tipo, v) => (tipo === "Despesa" ? v : tipo === "Reserva" && v === "Retirar" ? RETIRADA : "");
@@ -57,7 +58,7 @@ function semSessao() {
 }
 
 function showAuth() {
-  S.store = null; $("app").hidden = true; $("auth").hidden = false;
+  S.store = null; $("app").hidden = true; $("bnav").hidden = true; $("auth").hidden = false; fecharLancar();
 }
 function authMsg(t, kind = "") { const m = $("authMsg"); m.textContent = t; m.className = "auth-msg " + kind; }
 const traduzErro = (e) => {
@@ -112,14 +113,14 @@ function pedirNovaSenha() {
 
 function startDemo() {
   try { localStorage.setItem("cg-modo", "demo"); } catch { /* nada */ }
-  const store = createLocalStore("cg-demo-v3", demoSeed(hoje()));
+  const store = createLocalStore("cg-demo-v4", demoSeed(hoje()));
   startApp(store, "Demonstração");
   showBanner(`Modo demonstração: dados de exemplo guardados só neste aparelho.`, [["Recomeçar exemplo", () => { store.reset(); startDemo(); }]]);
 }
 
 async function startApp(store, quem) {
   S.store = store; S.loaded = false;
-  $("auth").hidden = true; $("app").hidden = false;
+  $("auth").hidden = true; $("app").hidden = false; $("bnav").hidden = false;
   $("whoName").textContent = quem;
   $("btnSair").textContent = store.kind === "supabase" ? "Sair" : "Sair da demonstração";
   showBanner("");
@@ -147,6 +148,7 @@ async function grava(fn) {
   try { await fn(); return true; }
   catch (e) {
     console.error(e);
+    if (/column|schema cache|relation/i.test(String(e?.message))) return showBanner("O banco de dados precisa ser atualizado para esta versão. Rode o arquivo supabase/schema.sql no Supabase."), false;
     showBanner(/fetch|network/i.test(String(e?.message)) ? "Sem internet: o último lançamento não foi salvo. Tente de novo quando a conexão voltar."
       : "Não foi possível salvar. Recarregue a página e tente de novo.");
     return false;
@@ -159,6 +161,12 @@ function render() {
   $("mesTitulo").textContent = `${MESES[mo - 1]} ${y}`;
   $("hoje").hidden = S.mes === mKey(hoje());
   const c = calcMes(S.data, S.mes, hoje());
+  // No celular aparece uma tela por vez; a barra de baixo mostra onde a pessoa está.
+  const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab;
+  const onde = S.view === "inicio" ? "inicio" : S.tab === "r" ? "f" : S.tab;
+  document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : "";
+  $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   renderForm(); renderKpis(c); renderVenc(); renderCusto(c); renderCat(c); renderTabs(c);
 }
 
@@ -174,7 +182,12 @@ function renderForm() {
   $("fFormaLbl").textContent = modo === "mov" ? "Movimento" : "Forma de pagamento";
   $("fFormaWrap").style.visibility = S.tipo === "Receita" ? "hidden" : "visible";
   const fd = $("fData"); if (!fd.value || mKey(fd.value) !== S.mes) fd.value = mKey(hoje()) === S.mes ? hoje() : S.mes + "-01";
-  $("fOk").textContent = S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : "Lançar";
+  // Opção de já cadastrar como fixo (repete todo mês). Não vale para dinheiro guardado.
+  const fixo = S.tipo !== "Reserva" && $("fFixo").checked;
+  $("fFixoWrap").hidden = S.tipo === "Reserva";
+  $("fFixoLbl").textContent = S.tipo === "Receita" ? "Repete todo mês (entrada fixa, como o salário)" : "Repete todo mês (gasto fixo, como o aluguel)";
+  $("fOk").textContent = fixo ? (S.tipo === "Receita" ? "Cadastrar entrada fixa" : "Cadastrar gasto fixo")
+    : S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : "Lançar";
 }
 
 function renderKpis(c) {
@@ -187,14 +200,14 @@ function renderKpis(c) {
   const resLinhas = destinos.length > 1 ? `<ul class="dest">${destinos.map(([k, v]) => `<li><span>${esc(k)}</span><b>${brl0(v)}</b></li>`).join("")}</ul>` : destinos.length === 1 ? `<span class="n">${esc(destinos[0][0])}</span>` : "";
   $("kpis").innerHTML = `
    <div class="kpi hero"><span class="l">Custo do mês</span><span class="v">${brl(c.custo)}</span><span class="n">${projTxt}</span></div>
-   <div class="kpi"><span class="l">Entradas</span><span class="v">${brl(c.rec)}</span><span class="n">Salário e outras entradas</span></div>
+   <div class="kpi"><span class="l">Entradas</span><span class="v">${brl(c.rec)}</span>${c.frAReceber ? `<span class="pill warn">${brl0(c.frAReceber)} a receber</span>` : ""}<span class="n">${c.frT ? `${brl0(c.frT)} de entradas fixas` : "Salário e outras entradas"}</span></div>
    <div class="kpi"><span class="l">Saldo do mês</span><span class="v" style="color:${c.saldo < 0 ? "var(--bad)" : "var(--good)"}">${sgn(c.saldo)}</span>${saldoPill}${S.prefs.levarSaldo && ant !== 0 ? `<span class="n">Com meses anteriores: <b>${sgn(acum)}</b></span>` : ""}</div>
    <div class="kpi reserva"><span class="l">Dinheiro guardado</span><span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
    <div class="kpi"><span class="l">Gastos fixos</span><span class="v">${brl(c.fxT)}</span>${c.fxPend ? `<span class="pill warn">${brl0(c.fxPend)} a pagar</span>` : (c.fx.length ? `<span class="pill good">✓ Todos pagos</span>` : `<span class="n">Nenhum cadastrado</span>`)}${c.fxCartao ? `<span class="n">${brl0(c.fxCartao)} no cartão</span>` : ""}</div>
    <div class="kpi"><span class="l">Faturas do mês</span><span class="v">${brl(c.fatT)}</span>${c.fatAberta ? `<span class="pill warn">${brl0(c.fatAberta)} a pagar</span>` : (c.fat.length ? `<span class="pill good">✓ Pagas</span>` : `<span class="n">Nenhuma fatura neste mês</span>`)}${noCartao ? `<span class="n">${brl0(noCartao)} em compras para a próxima</span>` : ""}</div>`;
   let t = "";
   if (!S.loaded) t = "Carregando seus lançamentos…";
-  else if (!c.it.length && !c.fx.length) t = "Nenhum lançamento neste mês ainda. Use o formulário acima ou importe sua planilha do Excel.";
+  else if (!c.it.length && !c.fx.length && !c.fr.length) t = "Nenhum lançamento neste mês ainda. Use o formulário acima ou importe sua planilha do Excel.";
   else if (c.fase === "atual") {
     const med = c.dias ? c.vari / c.dias : 0;
     t = `Em ${c.dias} ${c.dias === 1 ? "dia" : "dias"} você gastou <strong>${brl(c.vari)}</strong> no dia a dia, média de ${brl(med)} por dia. Somando os fixos${c.fatT ? " e as faturas" : ""}, <strong>o mês deve fechar com custo de ${brl0(c.proj)}</strong>${c.rec ? ` e saldo de ${sgn(round2(c.rec - c.proj - c.res))}` : ""}.${c.comprasCartao ? ` As compras no cartão (${brl0(c.comprasCartao)}) entram no mês em que a fatura vencer.` : ""}`;
@@ -208,19 +221,21 @@ function renderKpis(c) {
 /** Quadro de contas a vencer nos próximos 30 dias (não depende do mês que está na tela). */
 function renderVenc() {
   const host = $("venc"), l = S.loaded ? proximosVencimentos(S.data, hoje(), 30) : [];
+  const total = round2(l.reduce((t, x) => t + x.valor, 0));
+  const cab = (dir) => `<div class="sec-head"><h2>Próximos vencimentos</h2><span>${dir}</span></div>`;
   if (!l.length) {
-    host.innerHTML = `<h2>Próximos vencimentos</h2><p class="hint" style="margin-bottom:0">${S.loaded ? "Nenhuma conta para os próximos 30 dias. Cadastre seus gastos fixos e as faturas do cartão para ser avisado aqui." : "Carregando…"}</p>`;
+    host.innerHTML = cab("Contagem calculada pela data de hoje.") + `<ul class="venc"><li class="vazio">${S.loaded
+      ? "Nenhuma conta para os próximos 30 dias. Cadastre seus gastos fixos e as faturas do cartão para ser avisado aqui." : "Carregando…"}</li></ul>`;
     return;
   }
-  const quando = (d) => d < 0 ? `Atrasada há ${-d} ${-d === 1 ? "dia" : "dias"}` : d === 0 ? "Vence hoje" : d === 1 ? "Vence amanhã" : `Em ${d} dias`;
-  const cls = (d) => (d < 0 ? "bad" : d <= 3 ? "warn" : "ok");
-  const total = round2(l.reduce((t, x) => t + x.valor, 0)), atras = l.filter((x) => x.dias < 0).length;
-  host.innerHTML = `<div class="venc-head"><div><h2>Próximos vencimentos</h2>
-      <p class="hint" style="margin-bottom:0">${l.length} ${l.length === 1 ? "conta" : "contas"} nos próximos 30 dias, somando <b>${brl(total)}</b>${atras ? `. ${atras} ${atras === 1 ? "está atrasada" : "estão atrasadas"}` : ""}.</p></div></div>
-    <ul class="venc">${l.map((x, i) => `<li>
+  const quando = (d) => d < 0 ? `atrasada ${-d} ${-d === 1 ? "dia" : "dias"}` : d === 0 ? "vence hoje" : d === 1 ? "amanhã" : `em ${d} dias`;
+  const cls = (d) => (d < 0 ? "bad" : d <= 7 ? "warn" : "ok");
+  host.innerHTML = cab(`${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`) +
+    `<ul class="venc">${l.map((x, i) => `<li>
+      <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
+      <span class="oque"><b>${esc(x.titulo)}</b><span>${x.tipo === "fatura" ? "Fatura de cartão" : "Gasto fixo"}</span></span>
       <span class="quando ${cls(x.dias)}">${quando(x.dias)}</span>
-      <span class="oque"><b>${esc(x.titulo)}</b><span>${ddmm(x.data)} · ${x.tipo === "fatura" ? "cartão" : "gasto fixo"}</span></span>
-      <span class="num">${brl(x.valor)}</span>
+      <span class="valor">${brl(x.valor)}</span>
       <button class="btn sm" type="button" data-pg="${i}">Marcar como pago</button></li>`).join("")}</ul>`;
   host.querySelectorAll("[data-pg]").forEach((b) => (b.onclick = async () => {
     const x = l[Number(b.dataset.pg)]; b.disabled = true;
@@ -268,7 +283,7 @@ function renderCusto(c) {
   if (c.fase === "atual" && lastDay < n) {
     el("path", { d: `M${x(lastDay)},${y(cum[lastDay])} L${x(n)},${y(c.proj)}`, stroke: "var(--series)", "stroke-width": 2, "stroke-dasharray": "5 4", fill: "none" }, svg);
     const perto = c.rec > 0 && Math.abs(y(c.proj) - y(c.rec)) < 18;
-    const t = el("text", { x: x(n), y: y(c.proj) + (perto ? 18 : -8), "text-anchor": "end", "font-size": 12, "font-weight": 600, fill: "var(--ink)" }, svg); t.textContent = brl0(c.proj);
+    const t = el("text", { x: x(n), y: (perto ? Math.min(y(c.proj), y(c.rec)) : y(c.proj)) - 8, "text-anchor": "end", "font-size": 12, "font-weight": 600, fill: "var(--ink)" }, svg); t.textContent = brl0(c.proj);
   } else if (endD >= 1) {
     const t = el("text", { x: x(endD) - 6, y: y(cum[endD]) - 9, "text-anchor": "end", "font-size": 12, "font-weight": 600, fill: "var(--ink)" }, svg); t.textContent = brl0(cum[endD]);
   }
@@ -316,8 +331,9 @@ function cartaoDoMes(c, host) {
 /* ================= abas ================= */
 function renderTabs(c) {
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === S.tab));
-  ["l", "f", "c"].forEach((k) => ($("pane-" + k).hidden = S.tab !== k));
-  if (S.tab === "l") paneL(c); else if (S.tab === "f") paneF(c); else paneC(c);
+  // Só a aba ativa fica montada: as abas de fixos usam os mesmos campos.
+  ["l", "f", "r", "c"].forEach((k) => { const p = $("pane-" + k); p.hidden = S.tab !== k; if (S.tab !== k) p.innerHTML = ""; });
+  if (S.tab === "l") paneL(c); else if (S.tab === "f") paneF(c, "Despesa"); else if (S.tab === "r") paneF(c, "Receita"); else paneC(c);
 }
 function armDelete(b, fn) {
   b.addEventListener("click", () => {
@@ -328,16 +344,24 @@ function armDelete(b, fn) {
 }
 
 function paneL(c) {
-  const it = [...c.it].sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  // Entradas fixas aparecem na lista como lançamentos automáticos do mês.
+  const auto = c.fr.map((f) => { const d = Math.min(c.n, Math.max(1, f.dia || 1));
+    return { auto: true, id: f.id, data: `${S.mes}-${pad(d)}`, descricao: f.descricao, categoria: f.categoria, tipo: "Receita", valor: f.valor,
+      previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
+  const it = [...c.it, ...auto].sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
   if (!it.length) {
     $("pane-l").innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)}.</b> Anote cada gasto no formulário lá em cima assim que ele acontecer. O custo do mês e a projeção se atualizam na hora.</p><p>Já tem uma planilha? Use <b>Importar Excel</b> para trazer os lançamentos dela.</p></div>`;
     return;
   }
   $("pane-l").innerHTML = `<div class="tbl"><table><thead><tr><th>Dia</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="hide-sm">Pagamento</th><th class="num">Valor</th><th></th></tr></thead><tbody>${
-    it.map((x) => `<tr><td class="d">${ddmm(x.data)}</td><td>${esc(x.descricao || x.categoria)}</td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
+    it.map((x) => x.auto ? `<tr class="${x.previsto ? "previsto" : ""}"><td class="d">${ddmm(x.data)}</td><td>${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub">Entrada fixa</span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
+      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>
+      <td class="acts"><button class="act" type="button" data-ir="r">Alterar</button></td></tr>`
+    : `<tr><td class="d">${ddmm(x.data)}</td><td>${esc(x.descricao || x.categoria)}<span class="sub">${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(x.forma) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? (x.forma === CARTAO ? "Cartão · na fatura" : esc(x.forma || "—")) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : "Guardou"}</td>
       <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "← " : "→ ") : "− "}${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-ed="${esc(x.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">✎</span></button><button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody></table></div>`;
+  $("pane-l").querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { S.view = "listas"; S.tab = b.dataset.ir; render(); }));
   $("pane-l").querySelectorAll("[data-ed]").forEach((b) => (b.onclick = () => editarLancamento(b.dataset.ed)));
   $("pane-l").querySelectorAll("[data-del]").forEach((b) => armDelete(b, async () => {
     const id = b.dataset.del;
@@ -345,28 +369,34 @@ function paneL(c) {
   }));
 }
 
-function paneF(c) {
-  const fx = c.fx.slice().sort((a, b) => (a.dia || 0) - (b.dia || 0));
+function paneF(c, tipo) {
+  const ent = tipo === "Receita", host = $(ent ? "pane-r" : "pane-f");
+  const fx = (ent ? c.fr : c.fx).slice().sort((a, b) => (a.dia || 0) - (b.dia || 0));
   const rows = fx.map((f) => {
-    const p = c.pagosSet.has(f.id);
-    return `<tr><td class="d">dia ${pad(f.dia || 1)}</td><td>${esc(f.descricao)}</td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num">${brl(f.valor)}</td>
-      <td><button type="button" class="chk ${p ? "on" : "off"}" data-pago="${esc(f.id)}" data-v="${p ? 0 : 1}">${p ? "✓ Pago" : "○ A pagar"}</button></td>
+    const p = c.pagosSet.has(f.id), d = Math.min(c.n, Math.max(1, f.dia || 1));
+    const chegou = c.fase === "passado" || (c.fase === "atual" && d <= c.dias);
+    const status = ent ? `<span class="chk ${chegou ? "on" : ""}">${chegou ? "✓ Recebida" : "Dia " + pad(d)}</span>`
+      : `<button type="button" class="chk ${p ? "on" : "off"}" data-pago="${esc(f.id)}" data-v="${p ? 0 : 1}">${p ? "✓ Pago" : "○ A pagar"}</button>`;
+    return `<tr><td class="d">dia ${pad(f.dia || 1)}</td><td>${esc(f.descricao)}<span class="sub">dia ${pad(f.dia || 1)} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(f.forma) : ""}</span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
+      <td class="st">${status}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(f.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">✎</span></button><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
   }).join("");
-  $("pane-f").innerHTML = `<p class="hint" style="margin-top:0">Cadastre uma vez as contas que se repetem todo mês. Elas entram no custo de cada mês sozinhas; é só marcar quando pagar.</p>
-   ${fx.length ? `<div class="tbl"><table><thead><tr><th>Vence</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="num">Valor</th><th>${MES3[Number(S.mes.slice(5)) - 1]}</th><th></th></tr></thead><tbody>${rows}</tbody>
-     <tfoot><tr><td></td><td style="font-weight:600">Total</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(c.fxT)}</td><td colspan="2"></td></tr></tfoot></table></div>`
-     : `<div class="empty">Nenhum gasto fixo neste mês. Adicione aluguel, condomínio, internet, faculdade, parcelas…</div>`}
-   <form class="addrow fx" id="formFx" autocomplete="off">
-     <label class="f">Descrição<input class="in" id="xDesc" required maxlength="60" placeholder="Ex.: Condomínio"></label>
-     <label class="f">Categoria<select class="in" id="xCat">${opts(cats("Despesa"), "Moradia")}</select></label>
-     <label class="f">Dia venc.<input class="in" id="xDia" type="number" min="1" max="31" value="10" required></label>
+  host.innerHTML = `<p class="hint" style="margin-top:0">${ent
+      ? "Cadastre uma vez o que você recebe todo mês, como o salário. A entrada é lançada sozinha em cada mês, no dia que você escolher."
+      : "Cadastre uma vez as contas que se repetem todo mês. Elas entram no custo de cada mês sozinhas; é só marcar quando pagar."}</p>
+   ${fx.length ? `<div class="tbl"><table class="cards"><thead><tr><th>${ent ? "Recebe" : "Vence"}</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="num">Valor</th><th>${MES3[Number(S.mes.slice(5)) - 1]}</th><th></th></tr></thead><tbody>${rows}</tbody>
+     <tfoot><tr><td class="d"></td><td style="font-weight:600">Total</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(ent ? c.frT : c.fxT)}</td><td colspan="2" class="vazio"></td></tr></tfoot></table></div>`
+     : `<div class="empty">${ent ? "Nenhuma entrada fixa neste mês. Adicione seu salário, aposentadoria, aluguel que recebe…" : "Nenhum gasto fixo neste mês. Adicione aluguel, condomínio, internet, faculdade, parcelas…"}</div>`}
+   <form class="addrow ${ent ? "fr" : "fx"}" id="formFx" autocomplete="off">
+     <label class="f">Descrição<input class="in" id="xDesc" required maxlength="60" placeholder="${ent ? "Ex.: Salário" : "Ex.: Condomínio"}"></label>
+     <label class="f">Categoria<select class="in" id="xCat">${opts(cats(tipo), ent ? "Salário" : "Moradia")}</select></label>
+     <label class="f">${ent ? "Dia que recebe" : "Dia venc."}<input class="in" id="xDia" type="number" min="1" max="31" value="${ent ? 5 : 10}" required></label>
      <label class="f">Valor (R$)<input class="in money" id="xVal" inputmode="decimal" placeholder="0,00" required></label>
-     <label class="f">Pagamento<select class="in" id="xForma">${FORMAS.map((k) => `<option>${esc(k)}</option>`).join("")}</select></label>
-     <button class="btn primary" type="submit">Adicionar fixo</button>
+     ${ent ? "" : `<label class="f">Pagamento<select class="in" id="xForma">${opts(FORMAS)}</select></label>`}
+     <button class="btn primary" type="submit">${ent ? "Adicionar entrada fixa" : "Adicionar fixo"}</button>
    </form>`;
-  $("pane-f").querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
-  $("pane-f").querySelectorAll("[data-pago]").forEach((b) => b.addEventListener("click", async () => {
+  host.querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
+  host.querySelectorAll("[data-pago]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.pago, pago = b.dataset.v === "1", mes = S.mes + "-01";
     b.disabled = true;
     if (await grava(() => S.store.setPago(id, mes, pago))) {
@@ -375,7 +405,7 @@ function paneF(c) {
     }
     render();
   }));
-  $("pane-f").querySelectorAll("[data-end]").forEach((b) => armDelete(b, async () => {
+  host.querySelectorAll("[data-end]").forEach((b) => armDelete(b, async () => {
     const f = S.data.fixos.find((z) => z.id === b.dataset.end); if (!f) return;
     const ate = addM(S.mes, -1);
     if (ate < mKey(f.desde)) {
@@ -386,8 +416,8 @@ function paneF(c) {
   $("formFx").addEventListener("submit", async (e) => {
     e.preventDefault();
     const v = parseMoney($("xVal").value); if (!(v > 0)) { $("xVal").focus(); return; }
-    const row = { descricao: $("xDesc").value.trim(), categoria: $("xCat").value, dia: Math.min(31, Math.max(1, Number($("xDia").value) || 1)),
-      valor: round2(v), forma: $("xForma").value, desde: S.mes + "-01", ate: null };
+    const row = { tipo, descricao: $("xDesc").value.trim(), categoria: $("xCat").value, dia: Math.min(31, Math.max(1, Number($("xDia").value) || 1)),
+      valor: round2(v), forma: ent ? "" : $("xForma").value, desde: S.mes + "-01", ate: null };
     let novo; if (await grava(async () => { novo = await S.store.addFixo(row); })) { S.data.fixos.push(novo); render(); }
   });
 }
@@ -397,11 +427,11 @@ function paneC(c) {
     .sort((a, b) => a.vencimento.localeCompare(b.vencimento));
   const atrasadas = round2(vis.filter((x) => mKey(x.vencimento) < S.mes).reduce((t, x) => t + x.valor, 0));
   $("pane-c").innerHTML = `<p class="hint" style="margin-top:0">Lance cada fatura com o valor total e a data de vencimento. Ela entra no custo do mês em que vence. Aparecem as faturas deste mês e as de meses anteriores que ainda estão em aberto.</p>
-   ${vis.length ? `<div class="tbl"><table><thead><tr><th>Vence</th><th>Cartão</th><th class="num">Fatura</th><th>Status</th><th></th></tr></thead><tbody>${
-     vis.map((x) => `<tr><td class="d">${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</td><td>${esc(x.cartao)}${mKey(x.vencimento) < S.mes ? ` <span class="tag">atrasada</span>` : ""}</td><td class="num">${brl(x.valor)}</td>
-       <td><button type="button" class="chk ${x.status === "Paga" ? "on" : "off"}" data-st="${esc(x.id)}">${x.status === "Paga" ? "✓ Paga" : "○ Em aberto"}</button></td>
+   ${vis.length ? `<div class="tbl"><table class="cards"><thead><tr><th>Vence</th><th>Cartão</th><th class="num">Fatura</th><th>Status</th><th></th></tr></thead><tbody>${
+     vis.map((x) => `<tr><td class="d">${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</td><td>${esc(x.cartao)}${mKey(x.vencimento) < S.mes ? ` <span class="tag">atrasada</span>` : ""}<span class="sub">vence em ${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</span></td><td class="num">${brl(x.valor)}</td>
+       <td class="st"><button type="button" class="chk ${x.status === "Paga" ? "on" : "off"}" data-st="${esc(x.id)}">${x.status === "Paga" ? "✓ Paga" : "○ Em aberto"}</button></td>
        <td class="acts"><button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody>
-     <tfoot><tr><td></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} atrasadas</span>` : ""}</td></tr></tfoot></table></div>`
+     <tfoot><tr><td class="d"></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} atrasadas</span>` : ""}</td></tr></tfoot></table></div>`
      : `<div class="empty">Nenhuma fatura com vencimento em ${nomeMes(S.mes)}.</div>`}
    <form class="addrow cc" id="formCc" autocomplete="off">
      <label class="f">Cartão<input class="in" id="cNome" required maxlength="40" placeholder="Ex.: Nubank"></label>
@@ -430,11 +460,64 @@ function paneC(c) {
 
 /* ================= lançamento rápido ================= */
 $("tipoSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tipo = b.dataset.t; renderForm(); });
+$("fFixo").addEventListener("change", renderForm);
+
+/* ================= celular: navegação, lançamento em tela cheia e menu ================= */
+let toastT;
+function toast(t) { const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), 3500); }
+function abrirLancar() {
+  document.body.classList.add("lancando"); $("flash").textContent = "";
+  if (!history.state?.lanc) history.pushState({ lanc: true }, "");   // o botão Voltar do celular fecha a tela
+  setTimeout(() => $("fValor").focus(), 50);
+}
+function fecharLancar(viaVoltar = false) {
+  if (!document.body.classList.contains("lancando")) return;
+  document.body.classList.remove("lancando");
+  if (!viaVoltar && history.state?.lanc) history.back();
+}
+/** Depois de salvar: no celular fecha a tela e mostra um aviso; no computador volta o foco para o valor. */
+function aposLancar(texto) { if (noCelular()) { fecharLancar(); toast(texto); } else $("fValor").focus(); }
+addEventListener("popstate", () => fecharLancar(true));
+$("lancFechar").onclick = () => fecharLancar();
+$("bnav").addEventListener("click", (e) => {
+  const b = e.target.closest("button"); if (!b) return;
+  const n = b.dataset.nav;
+  if (n === "mais") return abrirLancar();
+  if (n === "inicio") S.view = "inicio";
+  else { S.view = "listas"; S.tab = n === "f" && S.tab === "r" ? "r" : n; }
+  render(); scrollTo(0, 0);
+});
+$("btnMenu").onclick = () => {
+  openDlg(`<h3>Menu</h3><p class="hint" style="margin:0 0 12px">${esc($("whoName").textContent)}</p><div class="menu-lista">
+    <button class="btn" data-go="btnAjustes">⚙ Ajustes e categorias</button>
+    <button class="btn" data-go="btnImport">⬆ Importar Excel</button>
+    <button class="btn" data-go="btnExport">⬇ Baixar Excel</button>
+    ${$("btnInstall").hidden ? "" : `<button class="btn" data-go="btnInstall">📲 Instalar app</button>`}
+    <button class="btn" data-go="btnSair">${esc($("btnSair").textContent)}</button>
+    <button class="btn ghost" data-close>Fechar</button></div>`);
+  $("dlgBody").querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { $("dlg").close(); $(b.dataset.go).click(); }));
+};
 $("formLanc").addEventListener("submit", async (e) => {
   e.preventDefault();
   const flash = $("flash"), v = parseMoney($("fValor").value);
   if (!(v > 0)) { flash.style.color = "var(--bad)"; flash.textContent = "Digite um valor maior que zero, por exemplo 25,90."; $("fValor").focus(); return; }
   const data = $("fData").value || hoje();
+  if (S.tipo !== "Reserva" && $("fFixo").checked) {
+    // Vira um fixo: conta em todo mês a partir do mês da data, no mesmo dia.
+    const dia = Number(data.slice(8, 10)), ent = S.tipo === "Receita";
+    const fx = { tipo: S.tipo, descricao: $("fDesc").value.trim() || $("fCat").value, categoria: $("fCat").value, dia, valor: round2(v),
+      forma: ent ? "" : $("fForma").value, desde: mKey(data) + "-01", ate: null };
+    $("fOk").disabled = true;
+    let novo; const ok = await grava(async () => { novo = await S.store.addFixo(fx); });
+    $("fOk").disabled = false;
+    if (!ok) return;
+    S.data.fixos.push(novo);
+    flash.style.color = "var(--good)";
+    flash.textContent = `${ent ? "Entrada fixa cadastrada" : "Gasto fixo cadastrado"}: ${fx.descricao} · ${brl(fx.valor)}, todo dia ${pad(dia)}. Para alterar, use a aba ${ent ? "Entradas fixas" : "Gastos fixos"}.`;
+    $("fValor").value = ""; $("fDesc").value = ""; $("fFixo").checked = false;
+    aposLancar(flash.textContent);
+    return render();
+  }
   const row = { data, descricao: $("fDesc").value.trim(), tipo: S.tipo, categoria: $("fCat").value,
     forma: formaDe(S.tipo, $("fForma").value), valor: round2(v), import_key: null };
   $("fOk").disabled = true;
@@ -445,7 +528,8 @@ $("formLanc").addEventListener("submit", async (e) => {
   S.data.lancamentos.push(...novos);
   flash.style.color = "var(--good)";
   flash.textContent = `Lançado: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}${mKey(data) !== S.mes ? " (outro mês)" : ""}.`;
-  $("fValor").value = ""; $("fDesc").value = ""; $("fValor").focus();
+  $("fValor").value = ""; $("fDesc").value = "";
+  aposLancar(flash.textContent);
   render();
 });
 $("prev").onclick = () => { S.mes = addM(S.mes, -1); render(); };
@@ -464,8 +548,8 @@ $("fileIn").addEventListener("change", async (e) => {
   catch { return openDlg(`<h3>Não consegui ler esse arquivo</h3><p>Confira se é uma planilha .xlsx e tente de novo.</p><div class="actions"><button class="btn" data-close>Fechar</button></div>`); }
   const existentes = new Set(S.data.lancamentos.map((x) => x.import_key || importKey(x)));
   const novos = res.lancamentos.map((x) => ({ ...x, import_key: importKey(x) })).filter((x) => !existentes.has(x.import_key));
-  const fxAtuais = new Set(S.data.fixos.map((z) => norm(z.descricao)));
-  const fxNovos = res.fixos.filter((z) => !fxAtuais.has(norm(z.descricao)));
+  const fxAtuais = new Set(S.data.fixos.map((z) => (z.tipo || "Despesa") + "|" + norm(z.descricao)));
+  const fxNovos = res.fixos.filter((z) => !fxAtuais.has(z.tipo + "|" + norm(z.descricao)));
   const ccAtuais = new Set(S.data.faturas.map((z) => z.cartao + z.vencimento + z.valor));
   const ccNovos = res.faturas.filter((z) => !ccAtuais.has(z.cartao + z.vencimento + z.valor));
   const meses = [...new Set(novos.map((x) => mKey(x.data)))].sort();
@@ -475,7 +559,8 @@ $("fileIn").addEventListener("change", async (e) => {
   const plural = (n, s, p) => `${n} ${n > 1 ? p : s}`;
   openDlg(`<h3>Importar "${esc(f.name)}"</h3><p style="color:var(--ink-2);margin:0">Encontrei:</p><ul>
     ${novos.length ? `<li>${plural(novos.length, "lançamento", "lançamentos")} (${meses.map((m) => nomeMes(m) + "/" + m.slice(2, 4)).join(", ")})</li>` : ""}
-    ${fxNovos.length ? `<li>${plural(fxNovos.length, "gasto fixo", "gastos fixos")}</li>` : ""}
+    ${fxNovos.some((z) => z.tipo === "Despesa") ? `<li>${plural(fxNovos.filter((z) => z.tipo === "Despesa").length, "gasto fixo", "gastos fixos")}</li>` : ""}
+    ${fxNovos.some((z) => z.tipo === "Receita") ? `<li>${plural(fxNovos.filter((z) => z.tipo === "Receita").length, "entrada fixa", "entradas fixas")}</li>` : ""}
     ${ccNovos.length ? `<li>${plural(ccNovos.length, "fatura de cartão", "faturas de cartão")}</li>` : ""}</ul>
     ${res.formato === "antigo" ? `<p class="hint">As categorias foram escolhidas pela descrição. Tudo entra como gasto do dia a dia; depois você pode cadastrar os fixos na aba Gastos fixos.</p>` : ""}
     <p class="hint">Lançamentos que já existem aqui são ignorados, então pode importar a mesma planilha de novo sem duplicar.</p>
@@ -487,7 +572,7 @@ $("fileIn").addEventListener("change", async (e) => {
       const ano = (meses[meses.length - 1] || S.mes).slice(0, 4);
       for (const z of fxNovos) {
         const desde = z.mesesPagos.length ? `${ano}-${pad(Math.min(...z.mesesPagos))}-01` : S.mes + "-01";
-        const novo = await S.store.addFixo({ descricao: z.descricao, categoria: z.categoria, dia: z.dia, valor: z.valor, forma: z.forma, desde, ate: z.ativo ? null : addM(S.mes, -1) + "-01" });
+        const novo = await S.store.addFixo({ tipo: z.tipo, descricao: z.descricao, categoria: z.categoria, dia: z.dia, valor: z.valor, forma: z.forma, desde, ate: z.ativo ? null : addM(S.mes, -1) + "-01" });
         S.data.fixos.push(novo);
         for (const mm of z.mesesPagos) { const mes = `${ano}-${pad(mm)}-01`; await S.store.setPago(novo.id, mes, true); S.data.pagos.push({ fixo_id: novo.id, mes }); }
       }
@@ -551,20 +636,20 @@ function editarLancamento(id) {
 }
 function editarFixo(id) {
   const f = S.data.fixos.find((z) => z.id === id); if (!f) return;
-  const l = cats("Despesa");
-  openDlg(`<h3>Editar gasto fixo</h3><p class="hint">A mudança vale para todos os meses em que esse fixo conta.</p><form id="edForm" class="dlg-form" autocomplete="off">
+  const ent = f.tipo === "Receita", l = cats(ent ? "Receita" : "Despesa");
+  openDlg(`<h3>${ent ? "Editar entrada fixa" : "Editar gasto fixo"}</h3><p class="hint">A mudança vale para todos os meses em que ${ent ? "essa entrada" : "esse fixo"} conta.</p><form id="edForm" class="dlg-form" autocomplete="off">
     <label class="f wide">Descrição<input class="in" id="eDesc" required maxlength="60" value="${esc(f.descricao)}"></label>
     <label class="f">Valor (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${esc(f.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}"></label>
-    <label class="f">Dia do vencimento<input class="in" id="eDia" type="number" min="1" max="31" required value="${esc(f.dia)}"></label>
+    <label class="f">${ent ? "Dia que recebe" : "Dia do vencimento"}<input class="in" id="eDia" type="number" min="1" max="31" required value="${esc(f.dia)}"></label>
     <label class="f">Categoria<select class="in" id="eCat">${opts(l.includes(f.categoria) ? l : [f.categoria, ...l], f.categoria)}</select></label>
-    <label class="f">Pagamento<select class="in" id="eForma">${opts(FORMAS, f.forma)}</select></label>
+    ${ent ? "" : `<label class="f">Pagamento<select class="in" id="eForma">${opts(FORMAS, f.forma)}</select></label>`}
     <p class="auth-msg err wide" id="edMsg"></p>
     <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
   $("edForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const v = parseMoney($("eValor").value);
     if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 350,00."; return; }
-    const patch = { descricao: $("eDesc").value.trim(), categoria: $("eCat").value, dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)), valor: round2(v), forma: $("eForma").value };
+    const patch = { descricao: $("eDesc").value.trim(), categoria: $("eCat").value, dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)), valor: round2(v), forma: ent ? "" : $("eForma").value };
     if (await grava(() => S.store.updateFixo(id, patch))) { Object.assign(f, patch); $("dlg").close(); render(); }
   });
 }
@@ -612,7 +697,7 @@ function ajustes() {
 function boasVindas() {
   openDlg(`<h3>Bem-vindo ao Meus Gastos</h3><p style="color:var(--ink-2);margin:0 0 10px">Em poucos passos você passa a ver quanto o seu mês vai custar.</p>
     <ol class="passos">
-      <li><b>Cadastre seus gastos fixos.</b> Aluguel, internet, faculdade, parcelas. Eles entram sozinhos em todo mês.</li>
+      <li><b>Cadastre o que é fixo.</b> Gastos como aluguel, internet e parcelas, e entradas como o salário. Eles entram sozinhos em todo mês.</li>
       <li><b>Lance cada gasto na hora.</b> Valor, descrição e categoria, pelo formulário no topo. Entradas também.</li>
       <li><b>Registre o que você guarda.</b> Reserva de emergência, investimentos ou outro destino. Esse dinheiro sai do saldo e fica somado em um quadro separado.</li>
       <li><b>Lance as faturas do cartão.</b> O que você compra no cartão só pesa no mês em que a fatura vence.</li>
@@ -622,7 +707,7 @@ function boasVindas() {
     ${suporteHtml()}
     <div class="actions"><button class="btn primary" id="bvFixos">Cadastrar meus fixos</button><button class="btn" data-close>Começar a lançar</button></div>`);
   const visto = () => { if (!S.prefs.boasVindas) { S.prefs.boasVindas = true; salvaPrefs(); } };
-  $("bvFixos").onclick = () => { $("dlg").close(); S.tab = "f"; render(); $("xDesc")?.focus(); };
+  $("bvFixos").onclick = () => { $("dlg").close(); S.view = "listas"; S.tab = "f"; render(); $("xDesc")?.focus(); };
   $("dlg").addEventListener("close", visto, { once: true });
 }
 $("btnAjustes").onclick = ajustes;

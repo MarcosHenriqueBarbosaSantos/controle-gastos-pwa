@@ -56,6 +56,7 @@
         <button class="today" id="hoje" type="button">Mês atual</button>
       </div>
     </div>
+    <button class="iconbtn so-mobile" id="btnMenu" type="button" aria-label="Menu">☰</button>
     <div class="actions">
       <button class="btn" id="btnInstall" type="button" hidden>📲 Instalar app</button>
       <button class="btn" id="btnImport" type="button">⬆ Importar Excel</button>
@@ -71,6 +72,7 @@
   <section class="panel quick" aria-label="Lançar">
     <div class="quick-head">
       <h2>Lançar</h2>
+      <button class="iconbtn so-mobile" id="lancFechar" type="button" aria-label="Fechar">✕</button>
       <div class="seg" role="group" aria-label="Tipo de lançamento" id="tipoSeg">
         <button type="button" data-t="Despesa" aria-pressed="true">Gasto</button>
         <button type="button" data-t="Receita" aria-pressed="false">Entrada</button>
@@ -84,16 +86,17 @@
       <label class="f" id="fFormaWrap"><span id="fFormaLbl">Forma de pagamento</span><select class="in" id="fForma"></select></label>
       <label class="f">Data<input class="in" type="date" id="fData" required></label>
       <button class="btn primary" id="fOk" type="submit">Lançar gasto</button>
+      <label class="check fixo" id="fFixoWrap"><input type="checkbox" id="fFixo"> <span id="fFixoLbl">Repete todo mês (gasto fixo)</span></label>
     </form>
     <div class="flash" id="flash" aria-live="polite"></div>
   </section>
 
-  <section class="kpis" id="kpis" aria-label="Resumo do mês"></section>
-  <p class="insight" id="insight"></p>
+  <section class="kpis v-inicio" id="kpis" aria-label="Resumo do mês"></section>
+  <p class="insight v-inicio" id="insight"></p>
 
-  <section class="panel" id="venc" aria-label="Próximos vencimentos"></section>
+  <section class="v-inicio" id="venc" aria-label="Próximos vencimentos"></section>
 
-  <div class="two">
+  <div class="two v-inicio">
     <section class="panel">
       <h2>Custo acumulado no mês</h2>
       <p class="hint">Gastos do dia a dia, fixos e faturas de cartão, no dia em que são cobrados.</p>
@@ -107,19 +110,32 @@
     </section>
   </div>
 
-  <section class="panel">
+  <section class="panel v-listas" id="listas">
+    <h2 class="so-mobile" id="listaTitulo"></h2>
     <div class="tabs" role="tablist">
       <button role="tab" id="tab-l" aria-selected="true" data-tab="l">Lançamentos</button>
       <button role="tab" id="tab-f" aria-selected="false" data-tab="f">Gastos fixos</button>
+      <button role="tab" id="tab-r" aria-selected="false" data-tab="r">Entradas fixas</button>
       <button role="tab" id="tab-c" aria-selected="false" data-tab="c">Cartões</button>
     </div>
     <div id="pane-l" role="tabpanel"></div>
     <div id="pane-f" role="tabpanel" hidden></div>
+    <div id="pane-r" role="tabpanel" hidden></div>
     <div id="pane-c" role="tabpanel" hidden></div>
   </section>
 
-  <p class="foot">Compras no cartão de crédito não entram no custo na hora: a cobrança entra no mês em que a fatura vence, quando você lança a fatura na aba Cartões. O dinheiro que você guarda (reserva, investimentos e outros) sai do saldo do mês e fica somado no quadro Dinheiro guardado.</p>
+  <p class="foot v-inicio">Compras no cartão de crédito não entram no custo na hora: a cobrança entra no mês em que a fatura vence, quando você lança a fatura na aba Cartões. O dinheiro que você guarda (reserva, investimentos e outros) sai do saldo do mês e fica somado no quadro Dinheiro guardado.</p>
 </div>
+
+<!-- Navegação do celular -->
+<nav class="bnav" id="bnav" aria-label="Navegação" hidden>
+  <button type="button" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>Início</button>
+  <button type="button" data-nav="l"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Lançamentos</button>
+  <button type="button" data-nav="mais" class="mais" aria-label="Lançar"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span></button>
+  <button type="button" data-nav="f"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a8 8 0 0 1 14-4l2 2M20 4v4h-4M20 15a8 8 0 0 1-14 4l-2-2M4 20v-4h4"/></svg>Fixos</button>
+  <button type="button" data-nav="c"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10h18M7 15h3"/></svg>Cartões</button>
+</nav>
+<div class="toast" id="toast" role="status" hidden></div>
 
 <dialog id="dlg"><div id="dlgBody"></div></dialog>
 </body>

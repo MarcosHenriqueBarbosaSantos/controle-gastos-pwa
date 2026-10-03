@@ -211,3 +211,22 @@ test("previsão: compra pontual grande não é repetida; com histórico, mistura
   const out2 = st.lancamentos.filter((x) => x.data.startsWith("2026-10"));
   assert.ok(projetaDiaADia(st, "2026-10", out2, 3, 31) >= 5660);
 });
+
+test("entradas fixas entram sozinhas todo mês e não se misturam com os gastos fixos", () => {
+  const st = base();
+  st.fixos.push({ id: "r1", tipo: "Receita", descricao: "Salário", categoria: "Salário", dia: 30, valor: 3000, forma: "", desde: "2026-04-01", ate: null });
+  const mar = calcMes(st, "2026-03", "2026-09-29"), abr = calcMes(st, "2026-04", "2026-09-29");
+  assert.equal(mar.rec, 1600);                       // ainda não tinha a entrada fixa
+  assert.equal(abr.frT, 3000);
+  assert.equal(abr.rec, 3000);
+  assert.equal(abr.fxT, 350);                        // gastos fixos não mudam
+  assert.equal(abr.saldo, 3000 - (350 + 800));
+  assert.equal(abr.frAReceber, 0);                   // mês fechado: já recebeu
+  const hoje = calcMes(st, "2026-09", "2026-09-29");
+  assert.equal(hoje.frAReceber, 3000);               // dia 30 ainda não chegou
+  assert.equal(calcMes(st, "2026-09", "2026-09-30").frAReceber, 0);
+  assert.equal(calcMes(st, "2026-11", "2026-09-29").frAReceber, 3000);
+  assert.equal(calcMes(st, "2027-02", "2027-02-28").frAReceber, 0);   // dia 30 em fevereiro conta no último dia
+  assert.ok(!proximosVencimentos(st, "2026-09-29", 30).some((x) => x.titulo === "Salário"));
+  assert.ok(categoriasIniciais(st).Receita.includes("Salário"));
+});
