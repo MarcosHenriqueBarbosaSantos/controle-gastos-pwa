@@ -1,7 +1,8 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana } from "./calc.js";
+  categoriasIniciais, primeiroMes, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
+  faturasAte, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
 import { parseWorkbook, buildWorkbook, importKey, norm } from "./excel.js";
 
@@ -12,16 +13,17 @@ const brl0 = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BR
 const sgn = (v) => (v < 0 ? "− " : "") + brl(Math.abs(v));
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const ddmm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+const ddmmaa = (iso) => `${ddmm(iso)}/${iso.slice(2, 4)}`;
 const hoje = () => toISO(new Date());
 const nomeMes = (m) => MESES[Number(m.slice(5)) - 1];
 
 const S = {
   mes: mKey(hoje()), tipo: "Despesa", tab: "l", view: "inicio",   // view só vale no celular: "inicio" ou "listas"
-  data: { lancamentos: [], fixos: [], pagos: [], faturas: [] },
+  data: { lancamentos: [], fixos: [], pagos: [], faturas: [], cartoes: [] },
   store: null, client: null, loaded: false,
   prefs: prefsPadrao(),
 };
-function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, boasVindas: false }; }
+function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, saldoInicial: 0, boasVindas: false }; }
 /** Categorias disponíveis para um tipo: as da pessoa, ou as padrão. */
 function cats(tipo) {
   return S.prefs.categorias?.[tipo]?.length ? S.prefs.categorias[tipo] : CATS_PADRAO[tipo];
@@ -31,6 +33,23 @@ const salvaPrefs = () => grava(() => S.store.savePrefs(S.prefs));
 const MOVS = ["Guardar", "Retirar"];
 const formaDe = (tipo, v) => (tipo === "Despesa" ? v : tipo === "Reserva" && v === "Retirar" ? RETIRADA : "");
 const opts = (lista, atual) => lista.map((c) => `<option${c === atual ? " selected" : ""}>${esc(c)}</option>`).join("");
+/* Cartões cadastrados: os ativos aparecem para novas compras; os desativados só mantêm as faturas antigas. */
+const cartoesAtivos = () => S.data.cartoes.filter((k) => k.ativo !== false);
+const cartaoPorId = (id) => S.data.cartoes.find((k) => k.id === id) || null;
+const optsCartao = (atual, vazio = "") => {
+  const l = cartoesAtivos(), fora = atual && !l.some((k) => k.id === atual) ? cartaoPorId(atual) : null;
+  return (vazio ? `<option value="">${esc(vazio)}</option>` : "") + (fora ? [fora, ...l] : l).map((k) => `<option value="${esc(k.id)}"${k.id === atual ? " selected" : ""}>${esc(k.nome)}</option>`).join("");
+};
+const optsParcelas = (valor, atual = 1) => {
+  const ns = Array.from({ length: 24 }, (_, i) => i + 1); if (Number(atual) > 24) ns.push(Number(atual));
+  return ns.map((n) => `<option value="${n}"${n === Number(atual) ? " selected" : ""}>${n === 1 ? "À vista" : n + "x"}${valor > 0 && n > 1 ? " de " + brl(valorDasParcelas(valor, n)[1]) : ""}</option>`).join("");
+};
+/** Como um gasto foi pago, para mostrar nas listas: a forma, ou o cartão e as parcelas. */
+const pagoCom = (x) => {
+  if (x.forma !== CARTAO) return x.forma || "—";
+  const k = cartaoPorId(x.cartao_id), n = Number(x.parcelas) || 1;
+  return (k ? k.nome : "Cartão de crédito") + (k && n > 1 ? ` · ${n}x de ${brl(valorDasParcelas(x.valor, n)[1])}` : "");
+};
 
 /* ================= inicialização e login ================= */
 const configured = () => Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
@@ -132,7 +151,7 @@ function pedirNovaSenha() {
 
 function startDemo() {
   try { localStorage.setItem("cg-modo", "demo"); } catch { /* nada */ }
-  const store = createLocalStore("cg-demo-v7", demoSeed(hoje()));
+  const store = createLocalStore("cg-demo-v8", demoSeed(hoje()));
   startApp(store, "Demonstração");
   showBanner(`Modo demonstração: dados de exemplo guardados só neste aparelho.`, [["Recomeçar exemplo", () => { store.reset(); startDemo(); }]]);
 }
@@ -146,7 +165,7 @@ async function startApp(store, quem) {
   render();
   S.prefs = prefsPadrao();
   try {
-    S.data = await store.loadAll();
+    S.data = await store.loadAll(); S.data.cartoes ||= [];
     const p = await store.loadPrefs().catch(() => null);
     S.prefs = { ...prefsPadrao(), ...(p || {}) };
     if (!S.prefs.categorias) S.prefs.categorias = categoriasIniciais(S.data);
@@ -213,23 +232,37 @@ function renderForm() {
   fr.options[1].textContent = `Toda semana, ${DIAS_SEMANA[diaDaSemana(dt)] === "sábado" || DIAS_SEMANA[diaDaSemana(dt)] === "domingo" ? "no" : "na"} ${DIAS_SEMANA[diaDaSemana(dt)]}`;
   $("fOk").textContent = fixo ? (S.tipo === "Receita" ? "Cadastrar entrada fixa" : "Cadastrar gasto fixo")
     : S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : "Lançar";
+  // Compra no cartão: a pessoa escolhe o cartão e, se não for um gasto fixo, em quantas vezes.
+  const cc = S.tipo === "Despesa" && fs.value === CARTAO, tem = cartoesAtivos().length > 0;
+  $("fCartaoLinha").hidden = !cc; $("fCartaoWrap").hidden = !tem; $("fParcWrap").hidden = !tem || fixo; $("fCartaoDica").hidden = tem;
+  if (cc && tem) {
+    const fk = $("fCartao"), k = cartoesAtivos().map((z) => z.id + z.nome).join("|");
+    if (fk.dataset.k !== k) { fk.innerHTML = optsCartao(fk.value); fk.dataset.k = k; }
+    $("fParc").innerHTML = optsParcelas(parseMoney($("fValor").value), fixo ? 1 : $("fParc").value || 1);
+  }
+}
+/** Cartão e parcelas escolhidos no formulário de lançar. Sem cartão cadastrado não devolve nada: o lançamento segue como sempre foi. */
+function cartaoDoForm() {
+  const cc = S.tipo === "Despesa" && $("fForma").value === CARTAO && cartoesAtivos().length > 0;
+  return cc ? { cartao_id: $("fCartao").value || null, parcelas: Number($("fParc").value) || 1 } : {};
 }
 
 function renderKpis(c) {
   const saldoPill = c.saldo < 0 ? `<span class="pill bad">● No vermelho</span>` : `<span class="pill good">● No azul</span>`;
   const projTxt = c.fase === "atual" ? `Previsão do mês: <b>${brl0(c.proj)}</b>` : c.fase === "passado" ? "Mês fechado" : "Só os fixos previstos";
-  const ant = S.prefs.levarSaldo ? saldoAnterior(S.data, S.mes, hoje(), S.prefs.saldoDesde) : 0;
   const noCartao = round2(c.comprasCartao + c.fxCartao);
-  const acum = round2(ant + c.saldo), resTotal = reservaAcumulada(S.data, S.mes), destinos = guardadoPorDestino(S.data, S.mes);
+  // Saldo acumulado: o que a pessoa já tinha (saldo inicial), mais os meses anteriores, mais este mês.
+  const acum = S.prefs.levarSaldo ? saldoAcumulado(S.data, S.mes, hoje(), { desde: S.prefs.saldoDesde, inicial: S.prefs.saldoInicial }) : c.saldo;
+  const resTotal = reservaAcumulada(S.data, S.mes), destinos = guardadoPorDestino(S.data, S.mes);
   const resMes = c.res > 0 ? `+ ${brl0(c.res)} neste mês` : c.res < 0 ? `− ${brl0(-c.res)} neste mês` : "Nada guardado neste mês";
   const resLinhas = destinos.length > 1 ? `<ul class="dest">${destinos.map(([k, v]) => `<li><span>${esc(k)}</span><b>${brl0(v)}</b></li>`).join("")}</ul>` : destinos.length === 1 ? `<span class="n">${esc(destinos[0][0])}</span>` : "";
   $("kpis").innerHTML = `
    <div class="kpi hero"><span class="l">Custo do mês</span><span class="v">${brl(c.custo)}</span><span class="n">${projTxt}</span></div>
    <div class="kpi"><span class="l">Entradas</span><span class="v">${brl(c.rec)}</span>${c.frAReceber ? `<span class="pill warn">${brl0(c.frAReceber)} a receber</span>` : ""}<span class="n">${c.frT ? `${brl0(c.frT)} de entradas fixas` : "Salário e outras entradas"}</span></div>
-   <div class="kpi"><span class="l">Saldo do mês</span><span class="v" style="color:${c.saldo < 0 ? "var(--bad)" : "var(--good)"}">${sgn(c.saldo)}</span>${saldoPill}${S.prefs.levarSaldo && ant !== 0 ? `<span class="n">Com meses anteriores: <b>${sgn(acum)}</b></span>` : ""}</div>
+   <div class="kpi"><span class="l">Saldo do mês</span><span class="v" style="color:${c.saldo < 0 ? "var(--bad)" : "var(--good)"}">${sgn(c.saldo)}</span>${saldoPill}${acum !== c.saldo ? `<span class="n">Saldo acumulado: <b>${sgn(acum)}</b></span>` : ""}</div>
    <div class="kpi reserva"><span class="l">Dinheiro guardado</span><span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
    <div class="kpi"><span class="l">Gastos fixos</span><span class="v">${brl(c.fxT)}</span>${c.fxPend ? `<span class="pill warn">${brl0(c.fxPend)} a pagar</span>` : (c.fx.length ? `<span class="pill good">✓ Todos pagos</span>` : `<span class="n">Nenhum cadastrado</span>`)}${c.fxCartao ? `<span class="n">${brl0(c.fxCartao)} no cartão</span>` : ""}</div>
-   <div class="kpi"><span class="l">Faturas do mês</span><span class="v">${brl(c.fatT)}</span>${c.fatAberta ? `<span class="pill warn">${brl0(c.fatAberta)} a pagar</span>` : (c.fat.length ? `<span class="pill good">✓ Pagas</span>` : `<span class="n">Nenhuma fatura neste mês</span>`)}${noCartao ? `<span class="n">${brl0(noCartao)} em compras para a próxima</span>` : ""}</div>`;
+   <div class="kpi"><span class="l">Faturas do mês</span><span class="v">${brl(c.fatT)}</span>${c.fatAberta ? `<span class="pill warn">${brl0(c.fatAberta)} a pagar</span>` : (c.fat.length ? `<span class="pill good">✓ Pagas</span>` : `<span class="n">Nenhuma fatura neste mês</span>`)}${noCartao ? `<span class="n">${brl0(noCartao)} em compras no cartão neste mês</span>` : ""}</div>`;
   let t = "";
   if (!S.loaded) t = "Carregando seus lançamentos…";
   else if (!c.it.length && !c.fx.length && !c.fr.length) t = "Nenhum lançamento neste mês ainda. Use o formulário acima ou importe sua planilha do Excel.";
@@ -277,9 +310,22 @@ function renderVenc() {
 /** Marca uma conta (fatura ou ocorrência de fixo) como paga e atualiza a tela. */
 async function pagarConta(x) {
   if (x.tipo === "fatura") {
-    if (await grava(() => S.store.updateFatura(x.id, { status: "Paga" }))) { const f = S.data.faturas.find((z) => z.id === x.id); if (f) f.status = "Paga"; }
+    if (x.auto) await gravaFaturaAuto({ id: x.id, cartao_id: x.cartao_id, cartao: x.cartao, vencimento: x.data, valor: x.valor }, { status: "Paga" });
+    else if (await grava(() => S.store.updateFatura(x.id, { status: "Paga" }))) { const f = S.data.faturas.find((z) => z.id === x.id); if (f) f.status = "Paga"; }
   } else if (await grava(() => S.store.setPago(x.id, x.chave, true))) S.data.pagos.push({ fixo_id: x.id, mes: x.chave });
   render();
+}
+/**
+ * Grava a situação ou o valor corrigido de uma fatura calculada. O registro só é criado na primeira vez
+ * que a pessoa mexe na fatura (marca como paga ou corrige o valor).
+ */
+async function gravaFaturaAuto(f, patch) {
+  const reg = S.data.faturas.find((z) => (f.id && z.id === f.id) || (z.cartao_id === f.cartao_id && mKey(z.vencimento) === mKey(f.vencimento)));
+  if (reg) { const ok = await grava(() => S.store.updateFatura(reg.id, patch)); if (ok) Object.assign(reg, patch); return ok; }
+  const row = { cartao_id: f.cartao_id, cartao: f.cartao, vencimento: f.vencimento, valor: f.valor, status: "Aberta", valor_fixo: false, ...patch };
+  let novo; const ok = await grava(async () => { novo = await S.store.addFatura(row); });
+  if (ok) S.data.faturas.push(novo);
+  return ok;
 }
 // Contagem de dias; o que já passou do dia aparece como atrasada, em vermelho (só o texto, sem contorno).
 const quandoVence = (d) => d < 0 ? `atrasada há ${-d} ${-d === 1 ? "dia" : "dias"}` : d === 0 ? "vence hoje" : d === 1 ? "amanhã" : `em ${d} dias`;
@@ -395,8 +441,8 @@ function paneL(c) {
     it.map((x) => x.auto ? `<tr class="${x.previsto ? "previsto" : ""}"><td class="d">${ddmm(x.data)}</td><td>${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub">Entrada fixa</span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-ir="r">Alterar</button></td></tr>`
-    : `<tr><td class="d">${ddmm(x.data)}</td><td>${esc(x.descricao || x.categoria)}<span class="sub">${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(x.forma) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
-      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? (x.forma === CARTAO ? "Cartão · na fatura" : esc(x.forma || "—")) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : "Guardou"}</td>
+    : `<tr><td class="d">${ddmm(x.data)}</td><td>${esc(x.descricao || x.categoria)}<span class="sub">${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
+      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(pagoCom(x)) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : "Guardou"}</td>
       <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "← " : "→ ") : "− "}${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-ed="${esc(x.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">✎</span></button><button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody></table></div>`;
   $("pane-l").querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { S.view = "listas"; S.tab = b.dataset.ir; render(); }));
@@ -415,8 +461,9 @@ function paneF(c, tipo) {
     const quando = sem ? `${DIAS3[diaDaSemana(f.data)]} ${ddmm(f.data)}` : `dia ${pad(f.dia || 1)}`;
     const chegou = c.fase === "passado" || (c.fase === "atual" && d <= c.dias);
     const status = ent ? `<span class="chk ${chegou ? "on" : ""}">${chegou ? "✓ Recebida" : "Dia " + pad(d)}</span>`
+      : f.forma === CARTAO ? `<span class="chk" title="É pago junto com a fatura do cartão">Na fatura</span>`
       : `<button type="button" class="chk ${p ? "on" : f.data < hoje() ? "late" : "off"}" data-pago="${esc(f.id)}" data-chave="${esc(f.chave)}" data-v="${p ? 0 : 1}">${p ? "✓ Pago" : f.data < hoje() ? "○ Atrasado" : "○ A pagar"}</button>`;
-    return `<tr><td class="d">${quando}</td><td>${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(f.forma) : ""}</span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
+    return `<tr><td class="d">${quando}</td><td>${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
       <td class="st">${status}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(f.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">✎</span></button><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
   }).join("");
@@ -433,10 +480,12 @@ function paneF(c, tipo) {
      <label class="f" id="xDiaWrap">${ent ? "Dia que recebe" : "Dia venc."}<input class="in" id="xDia" type="number" min="1" max="31" value="${ent ? 5 : 10}" required></label>
      <label class="f" id="xSemWrap" hidden>Dia da semana<select class="in" id="xSem">${DIAS_SEMANA.map((d, i) => `<option value="${i}"${i === 5 ? " selected" : ""}>${d}</option>`).join("")}</select></label>
      <label class="f">Valor${ent ? "" : " por vez"} (R$)<input class="in money" id="xVal" inputmode="decimal" placeholder="0,00" required></label>
-     ${ent ? "" : `<label class="f">Pagamento<select class="in" id="xForma">${opts(FORMAS)}</select></label>`}
+     ${ent ? "" : `<label class="f">Pagamento<select class="in" id="xForma">${opts(FORMAS)}</select></label>
+     <label class="f" id="xCartaoWrap" hidden>Cartão<select class="in" id="xCartao">${optsCartao()}</select></label>`}
      <button class="btn primary" type="submit">${ent ? "Adicionar entrada fixa" : "Adicionar fixo"}</button>
    </form>`;
   $("xRep").onchange = () => { const sem = $("xRep").value === "semanal"; $("xDiaWrap").hidden = sem; $("xSemWrap").hidden = !sem; };
+  if (!ent) $("xForma").onchange = () => { $("xCartaoWrap").hidden = $("xForma").value !== CARTAO || !cartoesAtivos().length; };
   host.querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
   host.querySelectorAll("[data-pago]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.pago, pago = b.dataset.v === "1", mes = b.dataset.chave;
@@ -462,7 +511,8 @@ function paneF(c, tipo) {
     // Semanal começa a contar de hoje (ou do dia 1, se a pessoa está olhando outro mês).
     const row = { tipo, descricao: $("xDesc").value.trim(), categoria: $("xCat").value, dia: sem ? 1 : Math.min(31, Math.max(1, Number($("xDia").value) || 1)),
       valor: round2(v), forma: ent ? "" : $("xForma").value, desde: sem && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", ate: null,
-      ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : {}) };
+      ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : {}),
+      ...(!ent && $("xForma").value === CARTAO && cartoesAtivos().length ? { cartao_id: $("xCartao").value } : {}) };
     let novo; if (await grava(async () => { novo = await S.store.addFixo(row); })) {
       S.data.fixos.push(novo); render();
       // Confirma na tela e volta para o topo da lista, onde o item novo aparece.
@@ -473,33 +523,102 @@ function paneF(c, tipo) {
 }
 
 function paneC(c) {
-  const vis = S.data.faturas.filter((x) => mKey(x.vencimento) === S.mes || (x.status !== "Paga" && mKey(x.vencimento) < S.mes))
-    .sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+  const host = $("pane-c"), hj = hoje(), cartoes = S.data.cartoes;
+  // Faturas na tela: as que vencem no mês e as de meses anteriores que ainda estão em aberto.
+  const vis = faturasAte(S.data, S.mes).filter((x) => mKey(x.vencimento) === S.mes || x.status !== "Paga");
   const atrasadas = round2(vis.filter((x) => mKey(x.vencimento) < S.mes).reduce((t, x) => t + x.valor, 0));
-  $("pane-c").innerHTML = `<p class="hint" style="margin-top:0">Lance cada fatura com o valor total e a data de vencimento. Ela entra no custo do mês em que vence. Aparecem as faturas deste mês e as de meses anteriores que ainda estão em aberto.</p>
-   ${vis.length ? `<div class="tbl"><table class="cards"><thead><tr><th>Vence</th><th>Cartão</th><th class="num">Fatura</th><th>Status</th><th></th></tr></thead><tbody>${
-     vis.map((x) => `<tr><td class="d">${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</td><td>${esc(x.cartao)}${mKey(x.vencimento) < S.mes ? ` <span class="tag">mês anterior</span>` : ""}<span class="sub">vence em ${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</span></td><td class="num">${brl(x.valor)}</td>
-       <td class="st"><button type="button" class="chk ${x.status === "Paga" ? "on" : x.vencimento < hoje() ? "late" : "off"}" data-st="${esc(x.id)}">${x.status === "Paga" ? "✓ Paga" : x.vencimento < hoje() ? "○ Atrasada" : "○ Em aberto"}</button></td>
-       <td class="acts"><button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody>
-     <tfoot><tr><td class="d"></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} de meses anteriores</span>` : ""}</td></tr></tfoot></table></div>`
+  // Próxima fatura em aberto de cada cartão, para mostrar ao lado do nome.
+  const futuras = faturasAte(S.data, addM(mKey(hj), 2)).filter((x) => x.auto && x.status !== "Paga" && x.vencimento >= hj);
+  const usados = new Set([...S.data.lancamentos, ...S.data.fixos].map((x) => x.cartao_id).filter(Boolean));
+  const soltos = [...S.data.lancamentos.filter((x) => x.tipo === "Despesa"), ...S.data.fixos].filter((x) => x.forma === CARTAO && !cartaoPorId(x.cartao_id));
+  const semCartao = semCartaoNoMes(S.data, S.mes);
+  const linhaCartao = (k) => {
+    const prox = futuras.find((x) => x.cartao_id === k.id), off = k.ativo === false;
+    return `<li class="${off ? "off" : ""}"><span class="oque"><b>${esc(k.nome)}${off ? ` <span class="tag">desativado</span>` : ""}</b>
+      <span>Fecha dia ${pad(k.fechamento)} · vence dia ${pad(k.vencimento)}${prox ? ` · próxima fatura ${brl(prox.valor)} em ${ddmm(prox.vencimento)}` : ""}</span></span>
+      <span class="acts"><button class="act" type="button" data-ked="${esc(k.id)}">Editar</button>${off ? `<button class="act" type="button" data-kon="${esc(k.id)}">Reativar</button>`
+        : `<button class="del" type="button" data-kdel="${esc(k.id)}" title="${usados.has(k.id) ? "Sai da lista de novas compras; as faturas continuam" : "Remove o cartão"}">${usados.has(k.id) ? "Desativar" : "Remover"}</button>`}</span></li>`;
+  };
+  const linhaFatura = (x, i) => {
+    const venc = ddmmaa(x.vencimento), paga = x.status === "Paga";
+    return `<tr><td class="d">${venc}</td><td>${esc(x.cartao)}${mKey(x.vencimento) < S.mes ? ` <span class="tag">mês anterior</span>` : ""}${x.auto && x.valor_fixo ? ` <span class="tag">valor corrigido</span>` : ""}
+        <span class="sub">vence em ${venc}${x.auto ? ` · ${x.itens.length} ${x.itens.length === 1 ? "compra" : "compras"}` : " · lançada à mão"}</span></td>
+      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.auto ? `${x.itens.length} ${x.itens.length === 1 ? "compra" : "compras"}` : "Lançada à mão"}</td>
+      <td class="num">${brl(x.valor)}</td>
+      <td class="st"><button type="button" class="chk ${paga ? "on" : x.vencimento < hj ? "late" : "off"}" data-st="${i}">${paga ? "✓ Paga" : x.vencimento < hj ? "○ Atrasada" : "○ Em aberto"}</button></td>
+      <td class="acts"><button class="act" type="button" data-fat="${i}">${x.auto ? "Ver compras" : "Editar"}</button>${x.auto ? "" : `<button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button>`}</td></tr>`;
+  };
+  host.innerHTML = `<h3 class="sub-h">Meus cartões</h3>
+   <p class="hint" style="margin-top:0">Cadastre o cartão com o dia em que a fatura fecha e o dia em que vence. Depois é só lançar as compras escolhendo o cartão: o app monta a fatura sozinho, com as parcelas.</p>
+   ${S.data.semCartoes ? `<p class="aviso" style="margin:0 0 10px">O cadastro de cartões ainda não está ligado nesta conta: falta atualizar o banco de dados (arquivo supabase/schema.sql). Enquanto isso, as faturas podem ser lançadas à mão.</p>` : ""}
+   ${cartoes.length ? `<ul class="cartoes">${cartoes.map(linhaCartao).join("")}</ul>` : `<div class="empty">Nenhum cartão cadastrado ainda.</div>`}
+   <form class="addrow kc" id="formK" autocomplete="off">
+     <label class="f">Nome do cartão<input class="in" id="kNome" required maxlength="40" placeholder="Ex.: Nubank"></label>
+     <label class="f">Dia que a fatura fecha<input class="in" id="kFech" type="number" inputmode="numeric" min="1" max="31" required placeholder="Ex.: 3"></label>
+     <label class="f">Dia que a fatura vence<input class="in" id="kVenc" type="number" inputmode="numeric" min="1" max="31" required placeholder="Ex.: 10"></label>
+     <button class="btn primary" type="submit">Adicionar cartão</button>
+     ${soltos.length ? `<label class="check"><input type="checkbox" id="kLigar" ${cartoes.length ? "" : "checked"}> Usar este cartão nas ${soltos.length} ${soltos.length === 1 ? "compra no cartão que já lancei" : "compras no cartão que já lancei"} sem cartão escolhido</label>` : ""}
+   </form>
+   <h3 class="sub-h">Faturas de ${nomeMes(S.mes)}</h3>
+   ${vis.length ? `<div class="tbl"><table class="cards"><thead><tr><th>Vence</th><th>Cartão</th><th class="hide-sm">Origem</th><th class="num">Fatura</th><th>Situação</th><th></th></tr></thead><tbody>${vis.map(linhaFatura).join("")}</tbody>
+     <tfoot><tr><td class="d"></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} de meses anteriores</span>` : ""}</td></tr></tfoot></table></div>`
      : `<div class="empty">Nenhuma fatura com vencimento em ${nomeMes(S.mes)}.</div>`}
+   ${semCartao ? `<p class="aviso">${brl(semCartao)} em compras no cartão deste mês ${cartoes.length ? "estão sem cartão escolhido e não entram em nenhuma fatura. Edite o lançamento e escolha o cartão." : "ainda não entram em nenhuma fatura. Cadastre o cartão acima, ou lance a fatura à mão quando ela chegar."}</p>` : ""}
+   <details class="manual"${cartoes.length ? "" : " open"}><summary>Lançar uma fatura à mão</summary>
+   <p class="hint" style="margin:6px 0 0">Para um cartão que você não cadastrou: digite só o total e a data de vencimento.</p>
    <form class="addrow cc" id="formCc" autocomplete="off">
-     <label class="f">Cartão<input class="in" id="cNome" required maxlength="40" placeholder="Ex.: Nubank"></label>
+     <label class="f">Cartão<input class="in" id="cNome" required maxlength="40" placeholder="Ex.: Cartão da loja"></label>
      <label class="f">Vencimento<input class="in" id="cVenc" type="date" required value="${S.mes}-10"></label>
      <label class="f">Valor da fatura<input class="in money" id="cVal" inputmode="decimal" placeholder="0,00" required></label>
-     <label class="f">Status<select class="in" id="cSt"><option>Aberta</option><option>Paga</option></select></label>
+     <label class="f">Situação<select class="in" id="cSt"><option>Aberta</option><option>Paga</option></select></label>
      <button class="btn primary" type="submit">Adicionar fatura</button>
-   </form>`;
-  $("pane-c").querySelectorAll("[data-st]").forEach((b) => b.addEventListener("click", async () => {
-    const f = S.data.faturas.find((z) => z.id === b.dataset.st); const status = f.status === "Paga" ? "Aberta" : "Paga";
+   </form></details>`;
+
+  host.querySelectorAll("[data-st]").forEach((b) => b.addEventListener("click", async () => {
+    const x = vis[Number(b.dataset.st)], status = x.status === "Paga" ? "Aberta" : "Paga";
     b.disabled = true;
-    if (await grava(() => S.store.updateFatura(f.id, { status }))) f.status = status;
+    if (x.auto) await gravaFaturaAuto(x, { status });
+    else { const f = S.data.faturas.find((z) => z.id === x.id); if (f && await grava(() => S.store.updateFatura(f.id, { status }))) f.status = status; }
     render();
   }));
-  $("pane-c").querySelectorAll("[data-cdel]").forEach((b) => armDelete(b, async () => {
+  host.querySelectorAll("[data-fat]").forEach((b) => (b.onclick = () => editarFatura(vis[Number(b.dataset.fat)])));
+  host.querySelectorAll("[data-cdel]").forEach((b) => armDelete(b, async () => {
     const id = b.dataset.cdel;
     if (await grava(() => S.store.deleteFatura(id))) { S.data.faturas = S.data.faturas.filter((z) => z.id !== id); render(); }
   }));
+  host.querySelectorAll("[data-ked]").forEach((b) => (b.onclick = () => editarCartao(b.dataset.ked)));
+  host.querySelectorAll("[data-kon]").forEach((b) => (b.onclick = async () => {
+    const k = cartaoPorId(b.dataset.kon); if (k && await grava(() => S.store.updateCartao(k.id, { ativo: true }))) k.ativo = true; render();
+  }));
+  host.querySelectorAll("[data-kdel]").forEach((b) => armDelete(b, async () => {
+    const k = cartaoPorId(b.dataset.kdel); if (!k) return;
+    // Cartão com compras não é apagado: sai da lista de novas compras e as faturas dele continuam valendo.
+    if (usados.has(k.id)) { if (await grava(() => S.store.updateCartao(k.id, { ativo: false }))) k.ativo = false; }
+    else if (await grava(() => S.store.deleteCartao(k.id))) { S.data.cartoes = S.data.cartoes.filter((z) => z.id !== k.id); S.data.faturas = S.data.faturas.filter((z) => z.cartao_id !== k.id); }
+    render();
+  }));
+  $("formK").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nome = $("kNome").value.trim(), dia = (id) => Math.min(31, Math.max(1, Math.round(Number($(id).value)) || 0));
+    if (!nome || !dia("kFech") || !dia("kVenc")) return;
+    if (S.data.cartoes.some((k) => norm(k.nome) === norm(nome))) { toastOuFlash(`Já existe um cartão chamado ${nome}.`, true); $("kNome").focus(); return; }
+    const ligar = Boolean($("kLigar")?.checked);
+    let novo, quitadas = 0;
+    const ok = await grava(async () => {
+      novo = await S.store.addCartao({ nome, fechamento: dia("kFech"), vencimento: dia("kVenc") });
+      S.data.cartoes.push(novo);
+      if (ligar) {
+        for (const x of soltos) {
+          if (x.data) await S.store.updateLancamento(x.id, { cartao_id: novo.id }); else await S.store.updateFixo(x.id, { cartao_id: novo.id });
+          x.cartao_id = novo.id;
+        }
+      }
+      await adotarFaturasManuais(novo);
+      if (ligar) quitadas = await quitarVencidas(new Set([novo.id]));
+    });
+    render();
+    if (ok) toastOuFlash(`Cartão ${nome} cadastrado.${ligar ? ` ${soltos.length} ${soltos.length === 1 ? "compra ligada" : "compras ligadas"} a ele.` : ""}${quitadas ? " As faturas que já venceram ficaram como pagas; se alguma ainda está em aberto, é só desmarcar." : ""}`);
+  });
   $("formCc").addEventListener("submit", async (e) => {
     e.preventDefault();
     const v = parseMoney($("cVal").value); if (!(v > 0)) { $("cVal").focus(); return; }
@@ -507,11 +626,40 @@ function paneC(c) {
     let novo; if (await grava(async () => { novo = await S.store.addFatura(row); })) { S.data.faturas.push(novo); render(); }
   });
 }
+/** Aviso curto: no celular vira um toast; no computador aparece embaixo do formulário de lançar. */
+function toastOuFlash(t, erro = false) {
+  if (noCelular()) return toast(t);
+  $("flash").style.color = erro ? "var(--bad)" : "var(--good)"; $("flash").textContent = t;
+}
+/**
+ * Faturas lançadas à mão com o mesmo nome de um cartão recém-cadastrado passam a ser dele, com o valor
+ * digitado valendo no lugar do calculado. Assim nenhum mês é cobrado duas vezes.
+ */
+async function adotarFaturasManuais(k) {
+  const meses = new Set(S.data.faturas.filter((f) => f.cartao_id === k.id).map((f) => mKey(f.vencimento)));
+  for (const f of S.data.faturas) {
+    if (f.cartao_id || norm(f.cartao) !== norm(k.nome) || meses.has(mKey(f.vencimento))) continue;
+    const patch = { cartao_id: k.id, valor_fixo: true };
+    await S.store.updateFatura(f.id, patch); Object.assign(f, patch); meses.add(mKey(f.vencimento));
+  }
+}
+/** Faturas calculadas que já venceram e nunca foram marcadas ficam como pagas (usado ao trazer compras antigas). */
+async function quitarVencidas(ids) {
+  const hj = hoje(); let n = 0;
+  for (const f of faturasAte(S.data, mKey(hj))) {
+    if (!f.auto || f.id || !ids.has(f.cartao_id) || f.vencimento >= hj) continue;
+    S.data.faturas.push(await S.store.addFatura({ cartao_id: f.cartao_id, cartao: f.cartao, vencimento: f.vencimento, valor: f.valor, status: "Paga", valor_fixo: false })); n++;
+  }
+  return n;
+}
 
 /* ================= lançamento rápido ================= */
 $("tipoSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tipo = b.dataset.t; renderForm(); });
 $("fFixo").addEventListener("change", renderForm);
 $("fData").addEventListener("change", renderForm);
+$("fForma").addEventListener("change", renderForm);
+$("fValor").addEventListener("input", () => { if (!$("fCartaoLinha").hidden) renderForm(); });   // atualiza o valor de cada parcela
+$("fIrCartoes").onclick = () => { fecharLancar(); S.view = "listas"; S.tab = "c"; render(); $("kNome")?.focus(); };
 
 /* ================= celular: navegação, lançamento em tela cheia e menu ================= */
 let toastT;
@@ -557,7 +705,8 @@ $("formLanc").addEventListener("submit", async (e) => {
     // Vira um fixo: conta em todo mês a partir do mês da data, no mesmo dia.
     const dia = Number(data.slice(8, 10)), ent = S.tipo === "Receita", sem = $("fRepete").value === "semanal", wd = diaDaSemana(data);
     const fx = { tipo: S.tipo, descricao: $("fDesc").value.trim() || $("fCat").value, categoria: $("fCat").value, dia: sem ? 1 : dia, valor: round2(v),
-      forma: ent ? "" : $("fForma").value, desde: sem ? data : mKey(data) + "-01", ate: null, ...(sem ? { repete: "semanal", dia_semana: wd } : {}) };
+      forma: ent ? "" : $("fForma").value, desde: sem ? data : mKey(data) + "-01", ate: null, ...(sem ? { repete: "semanal", dia_semana: wd } : {}),
+      ...(cartaoDoForm().cartao_id ? { cartao_id: cartaoDoForm().cartao_id } : {}) };
     $("fOk").disabled = true;
     let novo; const ok = await grava(async () => { novo = await S.store.addFixo(fx); });
     $("fOk").disabled = false;
@@ -570,7 +719,7 @@ $("formLanc").addEventListener("submit", async (e) => {
     return render();
   }
   const row = { data, descricao: $("fDesc").value.trim(), tipo: S.tipo, categoria: $("fCat").value,
-    forma: formaDe(S.tipo, $("fForma").value), valor: round2(v), import_key: null };
+    forma: formaDe(S.tipo, $("fForma").value), valor: round2(v), import_key: null, ...cartaoDoForm() };
   $("fOk").disabled = true;
   let novos;
   const ok = await grava(async () => { novos = await S.store.addLancamentos([row]); });
@@ -578,8 +727,10 @@ $("formLanc").addEventListener("submit", async (e) => {
   if (!ok) return;
   S.data.lancamentos.push(...novos);
   flash.style.color = "var(--good)";
-  flash.textContent = `Lançado: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}${mKey(data) !== S.mes ? " (outro mês)" : ""}.`;
-  $("fValor").value = ""; $("fDesc").value = "";
+  const kc = cartaoPorId(row.cartao_id || "");
+  flash.textContent = `Lançado: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}${mKey(data) !== S.mes ? " (outro mês)" : ""}.`
+    + (kc ? ` ${row.parcelas > 1 ? `Em ${row.parcelas}x no ${kc.nome}: a primeira parcela vem` : `No ${kc.nome}: vem`} na fatura de ${nomeMes(mesDaFatura(kc, data))}.` : "");
+  $("fValor").value = ""; $("fDesc").value = ""; $("fParc").value = "1";
   aposLancar(flash.textContent);
   render();
 });
@@ -608,12 +759,13 @@ $("fileIn").addEventListener("change", async (e) => {
   catch { return openDlg(`<h3>Não consegui ler esse arquivo</h3><p>Confira se é uma planilha .xlsx e tente de novo.</p><div class="actions"><button class="btn" data-close>Fechar</button></div>`); }
   const existentes = new Set(S.data.lancamentos.map((x) => x.import_key || importKey(x)));
   const novos = res.lancamentos.map((x) => ({ ...x, import_key: importKey(x) })).filter((x) => !existentes.has(x.import_key));
+  const kNovos = res.cartoes.filter((z) => !S.data.cartoes.some((k) => norm(k.nome) === norm(z.nome)));
   const fxAtuais = new Set(S.data.fixos.map((z) => (z.tipo || "Despesa") + "|" + norm(z.descricao)));
   const fxNovos = res.fixos.filter((z) => !fxAtuais.has(z.tipo + "|" + norm(z.descricao)));
   const ccAtuais = new Set(S.data.faturas.map((z) => z.cartao + z.vencimento + z.valor));
   const ccNovos = res.faturas.filter((z) => !ccAtuais.has(z.cartao + z.vencimento + z.valor));
   const meses = [...new Set(novos.map((x) => mKey(x.data)))].sort();
-  if (!novos.length && !fxNovos.length && !ccNovos.length) {
+  if (!novos.length && !fxNovos.length && !ccNovos.length && !kNovos.length) {
     return openDlg(`<h3>Nada novo para importar</h3><p>${res.lancamentos.length || res.fixos.length ? "Tudo o que está nessa planilha já foi lançado aqui." : "Não encontrei lançamentos nessa planilha. Ela precisa ter colunas de data, descrição e valor."}</p><div class="actions"><button class="btn" data-close>Fechar</button></div>`);
   }
   const plural = (n, s, p) => `${n} ${n > 1 ? p : s}`;
@@ -621,6 +773,7 @@ $("fileIn").addEventListener("change", async (e) => {
     ${novos.length ? `<li>${plural(novos.length, "lançamento", "lançamentos")} (${meses.map((m) => nomeMes(m) + "/" + m.slice(2, 4)).join(", ")})</li>` : ""}
     ${fxNovos.some((z) => z.tipo === "Despesa") ? `<li>${plural(fxNovos.filter((z) => z.tipo === "Despesa").length, "gasto fixo", "gastos fixos")}</li>` : ""}
     ${fxNovos.some((z) => z.tipo === "Receita") ? `<li>${plural(fxNovos.filter((z) => z.tipo === "Receita").length, "entrada fixa", "entradas fixas")}</li>` : ""}
+    ${kNovos.length ? `<li>${plural(kNovos.length, "cartão", "cartões")}</li>` : ""}
     ${ccNovos.length ? `<li>${plural(ccNovos.length, "fatura de cartão", "faturas de cartão")}</li>` : ""}</ul>
     ${res.formato === "antigo" ? `<p class="hint">As categorias foram escolhidas pela descrição. Tudo entra como gasto do dia a dia; depois você pode cadastrar os fixos na aba Gastos fixos.</p>` : ""}
     <p class="hint">Lançamentos que já existem aqui são ignorados, então pode importar a mesma planilha de novo sem duplicar.</p>
@@ -628,16 +781,30 @@ $("fileIn").addEventListener("change", async (e) => {
   $("okImp").onclick = async () => {
     $("okImp").disabled = true; $("okImp").textContent = "Importando…";
     const ok = await grava(async () => {
-      if (novos.length) S.data.lancamentos.push(...(await S.store.addLancamentos(novos)));
+      // Cartões primeiro: as compras e os fixos da planilha dizem o cartão pelo nome.
+      for (const z of kNovos) S.data.cartoes.push(await S.store.addCartao({ nome: z.nome, fechamento: z.fechamento, vencimento: z.vencimento, ...(z.ativo ? {} : { ativo: false }) }));
+      const idDe = (nome) => (nome ? S.data.cartoes.find((k) => norm(k.nome) === norm(nome))?.id || null : null), usados = new Set();
+      let linhas = novos.map(({ cartao, parcelas, ...x }) => {
+        const cartao_id = x.forma === CARTAO ? idDe(cartao) : null; if (cartao_id) usados.add(cartao_id);
+        return { ...x, cartao_id, parcelas: cartao_id ? parcelas || 1 : 1 };
+      });
+      // Planilha sem nenhum cartão: as linhas vão sem os campos de cartão, como nas versões anteriores.
+      if (!usados.size) linhas = linhas.map(({ cartao_id, parcelas, ...x }) => x);
+      if (linhas.length) S.data.lancamentos.push(...(await S.store.addLancamentos(linhas)));
       const ano = (meses[meses.length - 1] || S.mes).slice(0, 4);
       for (const z of fxNovos) {
         const desde = z.mesesPagos.length ? `${ano}-${pad(Math.min(...z.mesesPagos))}-01` : S.mes + "-01";
+        const kId = z.forma === CARTAO ? idDe(z.cartao) : null; if (kId) usados.add(kId);
         const novo = await S.store.addFixo({ tipo: z.tipo, descricao: z.descricao, categoria: z.categoria, dia: z.dia, valor: z.valor, forma: z.forma, desde, ate: z.ativo ? null : addM(S.mes, -1) + "-01",
-          ...(z.repete === "semanal" ? { repete: "semanal", dia_semana: z.dia_semana } : {}) });
+          ...(z.repete === "semanal" ? { repete: "semanal", dia_semana: z.dia_semana } : {}), ...(kId ? { cartao_id: kId } : {}) });
         S.data.fixos.push(novo);
         for (const mm of z.mesesPagos) { const mes = `${ano}-${pad(mm)}-01`; await S.store.setPago(novo.id, mes, true); S.data.pagos.push({ fixo_id: novo.id, mes }); }
       }
       for (const z of ccNovos) S.data.faturas.push(await S.store.addFatura(z));
+      // Fatura da planilha com o nome de um cartão cadastrado vale como o valor daquele mês (sem cobrar em dobro),
+      // e as faturas calculadas que já venceram entram como pagas, para não aparecerem todas como atrasadas.
+      for (const k of S.data.cartoes) await adotarFaturasManuais(k);
+      if (usados.size) await quitarVencidas(usados);
       // Categorias que vieram na planilha passam a aparecer nos menus.
       const usadas = categoriasIniciais(S.data); let mudou = false;
       for (const t of ["Despesa", "Receita", "Reserva"]) {
@@ -673,6 +840,8 @@ function editarLancamento(id) {
     <label class="f wide">Descrição<input class="in" id="eDesc" maxlength="80" value="${esc(x.descricao)}"></label>
     <label class="f"><span id="eCatLbl">Categoria</span><select class="in" id="eCat">${catOpts(x.tipo, x.categoria)}</select></label>
     <label class="f" id="eFormaWrap"><span id="eFormaLbl">Forma de pagamento</span><select class="in" id="eForma"></select></label>
+    <label class="f" id="eCartaoWrap" hidden>Cartão<select class="in" id="eCartao">${optsCartao(x.cartao_id, cartaoPorId(x.cartao_id) ? "" : "Sem cartão escolhido")}</select></label>
+    <label class="f" id="eParcWrap" hidden>Parcelas<select class="in" id="eParc">${optsParcelas(x.valor, x.parcelas || 1)}</select></label>
     <label class="f">Data<input class="in" type="date" id="eData" required value="${esc(x.data)}"></label>
     <p class="auth-msg err wide" id="edMsg"></p>
     <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
@@ -682,7 +851,13 @@ function editarLancamento(id) {
     $("eFormaLbl").textContent = mov ? "Movimento" : "Forma de pagamento";
     $("eCatLbl").textContent = mov ? "Onde guardar" : "Categoria";
     $("eForma").innerHTML = mov ? opts(MOVS, atual === RETIRADA ? "Retirar" : "Guardar") : opts(FORMAS, atual);
+    syncCartao();
   };
+  // Cartão e parcelas só aparecem para gasto no cartão de crédito, e quando há cartão cadastrado.
+  const noCartao = () => $("eTipo").value === "Despesa" && $("eForma").value === CARTAO && S.data.cartoes.length > 0;
+  const syncCartao = () => { $("eCartaoWrap").hidden = !noCartao(); $("eParcWrap").hidden = !noCartao(); };
+  $("eForma").onchange = syncCartao;
+  $("eValor").oninput = () => { $("eParc").innerHTML = optsParcelas(parseMoney($("eValor").value), $("eParc").value); };
   $("eTipo").onchange = () => { $("eCat").innerHTML = catOpts($("eTipo").value, ""); sync(""); };
   sync(x.forma);
   $("edForm").addEventListener("submit", async (e) => {
@@ -691,29 +866,126 @@ function editarLancamento(id) {
     if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 25,90."; return; }
     const tipo = $("eTipo").value;
     const patch = { data: $("eData").value, descricao: $("eDesc").value.trim(), tipo, categoria: $("eCat").value,
-      forma: formaDe(tipo, $("eForma").value), valor: round2(v), import_key: null };
+      forma: formaDe(tipo, $("eForma").value), valor: round2(v), import_key: null,
+      ...(S.data.cartoes.length || x.cartao_id ? { cartao_id: noCartao() ? $("eCartao").value || null : null, parcelas: noCartao() && $("eCartao").value ? Number($("eParc").value) || 1 : 1 } : {}) };
     if (await grava(() => S.store.updateLancamento(id, patch))) { Object.assign(x, patch); $("dlg").close(); render(); }
+  });
+}
+/** Fatura: a lançada à mão pode ter tudo alterado; a calculada mostra as compras e deixa corrigir o valor. */
+function editarFatura(x) {
+  const valorTxt = (v) => esc(Number(v).toLocaleString("pt-BR", { minimumFractionDigits: 2 }));
+  const situacao = `<label class="f">Situação<select class="in" id="eSt"><option value="Aberta"${x.status !== "Paga" ? " selected" : ""}>Em aberto</option><option value="Paga"${x.status === "Paga" ? " selected" : ""}>Paga</option></select></label>`;
+  if (!x.auto) {
+    const f = S.data.faturas.find((z) => z.id === x.id); if (!f) return;
+    openDlg(`<h3>Editar fatura</h3><form id="edForm" class="dlg-form" autocomplete="off">
+      <label class="f wide">Cartão<input class="in" id="eNome" required maxlength="40" value="${esc(f.cartao)}"></label>
+      <label class="f">Valor da fatura (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${valorTxt(f.valor)}"></label>
+      <label class="f">Vencimento<input class="in" type="date" id="eVenc" required value="${esc(f.vencimento)}"></label>
+      ${situacao}
+      <p class="auth-msg err wide" id="edMsg"></p>
+      <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
+    $("edForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const v = parseMoney($("eValor").value);
+      if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 350,00."; return; }
+      const patch = { cartao: $("eNome").value.trim(), vencimento: $("eVenc").value, valor: round2(v), status: $("eSt").value };
+      if (await grava(() => S.store.updateFatura(f.id, patch))) { Object.assign(f, patch); $("dlg").close(); render(); }
+    });
+    return;
+  }
+  const k = cartaoPorId(x.cartao_id), per = k ? periodoDaFatura(k, mKey(x.vencimento)) : null;
+  openDlg(`<h3>Fatura ${esc(x.cartao)}</h3>
+    <p class="hint" style="margin:0">Vence em ${ddmmaa(x.vencimento)}${per ? ` · compras de ${ddmm(per.de)} a ${ddmm(per.ate)}` : ""}</p>
+    <ul class="itens">${x.itens.map((i) => `<li><span class="d">${ddmm(i.data)}</span><span>${esc(i.descricao)}${i.de > 1 ? ` <span class="tag">${i.parcela}/${i.de}</span>` : ""}${i.origem === "fixo" ? ` <span class="tag">fixo</span>` : ""}</span><b>${brl(i.valor)}</b></li>`).join("")
+      || `<li><span></span><span style="color:var(--muted)">Nenhuma compra lançada nesta fatura.</span><b></b></li>`}
+      <li class="tot"><span></span><span>Soma das compras</span><b>${brl(x.calculado)}</b></li></ul>
+    <form id="edForm" class="dlg-form" autocomplete="off">
+      <label class="f">Valor da fatura (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${valorTxt(x.valor)}"></label>
+      ${situacao}
+      <p class="hint wide" style="margin:0">O banco cobrou outro valor (juros, anuidade, alguma compra que faltou lançar)? Corrija o valor acima: ele passa a valer no lugar da soma.${x.valor_fixo ? ` <button class="link" type="button" id="eVoltar">Voltar ao valor calculado</button>` : ""}</p>
+      <p class="auth-msg err wide" id="edMsg"></p>
+      <div class="actions wide"><button class="btn primary" type="submit">Salvar</button><button class="btn" type="button" data-close>Fechar</button></div></form>`);
+  const salvar = async (valor, status) => {
+    const fixo = Math.abs(valor - x.calculado) >= 0.005;
+    // Sem compras e sem valor corrigido não sobra nada para guardar: o registro guarda o último valor válido.
+    const patch = { status, valor_fixo: fixo, valor: fixo || x.calculado > 0 ? round2(valor) : x.valor };
+    if (status === x.status && fixo === x.valor_fixo && patch.valor === x.valor) return $("dlg").close();
+    if (await gravaFaturaAuto(x, patch)) { $("dlg").close(); render(); }
+  };
+  $("edForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = parseMoney($("eValor").value);
+    if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 350,00."; return; }
+    salvar(round2(v), $("eSt").value);
+  });
+  if ($("eVoltar")) $("eVoltar").onclick = () => {
+    if (!(x.calculado > 0)) { $("edMsg").textContent = "Esta fatura não tem compras lançadas, então não há valor calculado para voltar."; return; }
+    salvar(x.calculado, $("eSt").value);
+  };
+}
+function editarCartao(id) {
+  const k = cartaoPorId(id); if (!k) return;
+  openDlg(`<h3>Editar cartão</h3><p class="hint">Os dias valem para todas as faturas deste cartão. As que já estão marcadas como pagas continuam pagas.</p><form id="edForm" class="dlg-form" autocomplete="off">
+    <label class="f wide">Nome do cartão<input class="in" id="eNome" required maxlength="40" value="${esc(k.nome)}"></label>
+    <label class="f">Dia que a fatura fecha<input class="in" id="eFech" type="number" inputmode="numeric" min="1" max="31" required value="${esc(k.fechamento)}"></label>
+    <label class="f">Dia que a fatura vence<input class="in" id="eVenc" type="number" inputmode="numeric" min="1" max="31" required value="${esc(k.vencimento)}"></label>
+    <p class="hint wide" style="margin:0">Compras feitas do dia do fechamento em diante entram na fatura seguinte.</p>
+    <p class="auth-msg err wide" id="edMsg"></p>
+    <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
+  $("edForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const dia = (el) => Math.min(31, Math.max(1, Math.round(Number($(el).value)) || 1)), nome = $("eNome").value.trim();
+    if (S.data.cartoes.some((z) => z.id !== k.id && norm(z.nome) === norm(nome))) { $("edMsg").textContent = "Já existe outro cartão com esse nome."; return; }
+    const patch = { nome, fechamento: dia("eFech"), vencimento: dia("eVenc") };
+    if (await grava(() => S.store.updateCartao(k.id, patch))) { Object.assign(k, patch); $("dlg").close(); render(); }
   });
 }
 function editarFixo(id) {
   const f = S.data.fixos.find((z) => z.id === id); if (!f) return;
   const ent = f.tipo === "Receita", l = cats(ent ? "Receita" : "Despesa"), sem = f.repete === "semanal";
-  openDlg(`<h3>${ent ? "Editar entrada fixa" : "Editar gasto fixo"}</h3><p class="hint">A mudança vale para todos os meses em que ${ent ? "essa entrada" : "esse fixo"} conta.</p><form id="edForm" class="dlg-form" autocomplete="off">
+  // Se o fixo já contava em meses anteriores ao que está na tela, a pessoa escolhe desde quando a mudança vale.
+  const temPassado = mKey(f.desde) < S.mes, mesTxt = `${nomeMes(S.mes)} de ${S.mes.slice(0, 4)}`;
+  openDlg(`<h3>${ent ? "Editar entrada fixa" : "Editar gasto fixo"}</h3><form id="edForm" class="dlg-form" autocomplete="off">
     <label class="f wide">Descrição<input class="in" id="eDesc" required maxlength="60" value="${esc(f.descricao)}"></label>
     <label class="f">Valor (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${esc(f.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}"></label>
     ${sem ? `<label class="f">Dia da semana<select class="in" id="eSem">${DIAS_SEMANA.map((d, i) => `<option value="${i}"${i === Number(f.dia_semana) ? " selected" : ""}>${d}</option>`).join("")}</select></label>`
       : `<label class="f">${ent ? "Dia que recebe" : "Dia do vencimento"}<input class="in" id="eDia" type="number" min="1" max="31" required value="${esc(f.dia)}"></label>`}
     <label class="f">Categoria<select class="in" id="eCat">${opts(l.includes(f.categoria) ? l : [f.categoria, ...l], f.categoria)}</select></label>
-    ${ent ? "" : `<label class="f">Pagamento<select class="in" id="eForma">${opts(FORMAS, f.forma)}</select></label>`}
+    ${ent ? "" : `<label class="f">Pagamento<select class="in" id="eForma">${opts(FORMAS, f.forma)}</select></label>
+    <label class="f" id="eCartaoWrap" hidden>Cartão<select class="in" id="eCartao">${optsCartao(f.cartao_id, cartaoPorId(f.cartao_id) ? "" : "Sem cartão escolhido")}</select></label>`}
+    ${temPassado ? `<label class="f wide">A mudança vale<select class="in" id="eDesde">
+        <option value="mes">De ${mesTxt} em diante</option>
+        <option value="tudo">Em todos os meses, inclusive os anteriores</option></select></label>
+      <p class="hint wide" style="margin:-6px 0 0">Na primeira opção, os meses anteriores ficam como estavam.</p>` : ""}
     <p class="auth-msg err wide" id="edMsg"></p>
     <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
+  const noCartao = () => !ent && $("eForma").value === CARTAO && S.data.cartoes.length > 0;
+  if (!ent) { const sync = () => { $("eCartaoWrap").hidden = !noCartao(); }; $("eForma").onchange = sync; sync(); }
   $("edForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const v = parseMoney($("eValor").value);
     if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 350,00."; return; }
     const patch = { descricao: $("eDesc").value.trim(), categoria: $("eCat").value, valor: round2(v), forma: ent ? "" : $("eForma").value,
-      ...(sem ? { dia_semana: Number($("eSem").value) } : { dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)) }) };
-    if (await grava(() => S.store.updateFixo(id, patch))) { Object.assign(f, patch); $("dlg").close(); render(); }
+      ...(sem ? { dia_semana: Number($("eSem").value) } : { dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)) }),
+      ...(ent || !S.data.cartoes.length ? {} : { cartao_id: noCartao() ? $("eCartao").value || null : null }) };
+    if (!temPassado || $("eDesde").value === "tudo") {
+      if (await grava(() => S.store.updateFixo(id, patch))) { Object.assign(f, patch); $("dlg").close(); render(); }
+      return;
+    }
+    // Vale só daqui para a frente: encerra o fixo antigo no mês anterior e cria um novo a partir deste mês.
+    const { encerra, novo } = novaVersaoDeFixo(f, patch, S.mes), corte = S.mes + "-01";
+    const ok = await grava(async () => {
+      const criado = await S.store.addFixo(novo);
+      // Se não der para encerrar o antigo, desfaz o novo para não ficar contando em dobro.
+      try { await S.store.updateFixo(f.id, encerra); } catch (err) { await S.store.deleteFixo(criado.id).catch(() => {}); throw err; }
+      // O que já estava marcado como pago deste mês em diante acompanha o fixo novo.
+      for (const pg of S.data.pagos.filter((z) => z.fixo_id === f.id && z.mes >= corte)) {
+        await S.store.setPago(criado.id, pg.mes, true); await S.store.setPago(f.id, pg.mes, false); pg.fixo_id = criado.id;
+      }
+      Object.assign(f, encerra); S.data.fixos.push(criado);
+    });
+    $("dlg").close(); render();
+    if (ok) toastOuFlash(`Alterado de ${mesTxt} em diante. Os meses anteriores continuam como estavam.`);
   });
 }
 
@@ -727,6 +999,7 @@ function ajustes() {
   const first = primeiroMes(S.data) || mKey(hoje()), cur = mKey(hoje()), meses = [];
   for (let m = first, i = 0; m <= cur && i < 120; m = addM(m, 1), i++) meses.push(m);
   const desde = S.prefs.saldoDesde && meses.includes(S.prefs.saldoDesde) ? S.prefs.saldoDesde : first;
+  const ini = Number(S.prefs.saldoInicial) || 0;
   const bloco = (tipo, titulo) => `<div class="aj-sec"><h4>${titulo}</h4><div class="chips">${
     cats(tipo).map((c) => `<span class="chip">${esc(c)}<button type="button" data-rm="${esc(c)}" data-tipo="${tipo}" aria-label="Remover ${esc(c)}">✕</button></span>`).join("")}</div>
     <form class="aj-add" data-add="${tipo}" autocomplete="off"><input class="in" maxlength="30" placeholder="${tipo === "Reserva" ? "Novo destino" : "Nova categoria"}" aria-label="Adicionar em ${titulo.toLowerCase()}"><button class="btn" type="submit">Adicionar</button></form></div>`;
@@ -735,7 +1008,12 @@ function ajustes() {
     <p class="hint" style="margin:-4px 0 0">Remover uma categoria não apaga os lançamentos que já usam ela.</p>
     <div class="aj-sec"><h4>Saldo</h4>
       <label class="check"><input type="checkbox" id="ajLevar" ${S.prefs.levarSaldo ? "checked" : ""}> Levar o saldo de um mês para o outro</label>
-      <label class="f" id="ajDesdeWrap" ${S.prefs.levarSaldo ? "" : "hidden"}>Começar a contar em<select class="in" id="ajDesde">${meses.map((m) => `<option value="${m}"${m === desde ? " selected" : ""}>${nomeMes(m)} de ${m.slice(0, 4)}</option>`).join("")}</select></label>
+      <div id="ajDesdeWrap" class="aj-saldo" ${S.prefs.levarSaldo ? "" : "hidden"}>
+        <label class="f">Começar a contar em<select class="in" id="ajDesde">${meses.map((m) => `<option value="${m}"${m === desde ? " selected" : ""}>${nomeMes(m)} de ${m.slice(0, 4)}</option>`).join("")}</select></label>
+        <label class="f">Saldo inicial: quando começou, você<select class="in" id="ajIniSinal"><option value="1">tinha este valor na conta</option><option value="-1"${ini < 0 ? " selected" : ""}>estava devendo este valor</option></select></label>
+        <label class="f">Valor do saldo inicial (R$)<input class="in money" id="ajIni" inputmode="decimal" placeholder="0,00" value="${ini ? esc(Math.abs(ini).toLocaleString("pt-BR", { minimumFractionDigits: 2 })) : ""}"></label>
+        <p class="hint" style="margin:0" id="ajIniMsg">O saldo inicial entra no saldo acumulado. Deixe em branco para começar do zero.</p>
+      </div>
     </div>
     <div class="aj-sec"><button class="link" type="button" id="ajBV">Ver as boas-vindas de novo</button>${suporteHtml()}</div>
     <div class="actions"><button class="btn primary" data-close>Pronto</button></div>`);
@@ -755,6 +1033,14 @@ function ajustes() {
   }));
   $("ajLevar").onchange = async (e) => { S.prefs.levarSaldo = e.target.checked; $("ajDesdeWrap").hidden = !e.target.checked; await salvaPrefs(); render(); };
   $("ajDesde").onchange = async (e) => { S.prefs.saldoDesde = e.target.value; await salvaPrefs(); render(); };
+  const salvaIni = async () => {
+    const txt = $("ajIni").value.trim(), v = txt ? Math.abs(parseMoney(txt.replace("−", "-"))) : 0;
+    if (!isFinite(v)) { $("ajIniMsg").textContent = "Digite só o valor, por exemplo 1.500,00."; $("ajIniMsg").style.color = "var(--bad)"; return; }
+    S.prefs.saldoInicial = round2(v * Number($("ajIniSinal").value));
+    $("ajIniMsg").style.color = ""; $("ajIniMsg").textContent = v ? `Saldo inicial salvo: ${sgn(S.prefs.saldoInicial)}.` : "O saldo inicial entra no saldo acumulado. Deixe em branco para começar do zero.";
+    await salvaPrefs(); render();
+  };
+  $("ajIni").onchange = salvaIni; $("ajIniSinal").onchange = salvaIni;
   $("ajBV").onclick = boasVindas;
 }
 function boasVindas() {
@@ -763,10 +1049,10 @@ function boasVindas() {
       <li><b>Cadastre o que é fixo.</b> Gastos como aluguel, internet e parcelas, e entradas como o salário. Eles entram sozinhos em todo mês.</li>
       <li><b>Lance cada gasto na hora.</b> Valor, descrição e categoria, pelo formulário no topo. Entradas também.</li>
       <li><b>Registre o que você guarda.</b> Reserva de emergência, investimentos ou outro destino. Esse dinheiro sai do saldo e fica somado em um quadro separado.</li>
-      <li><b>Lance as faturas do cartão.</b> O que você compra no cartão só pesa no mês em que a fatura vence.</li>
+      <li><b>Cadastre seu cartão de crédito.</b> Com o dia em que a fatura fecha e o dia em que vence, o app monta a fatura sozinho, com as parcelas. A compra só pesa no mês em que a fatura vence.</li>
       <li><b>Acompanhe o mês.</b> O app mostra o custo até agora, quanto o mês deve fechar e para onde o dinheiro está indo.</li>
     </ol>
-    <p class="hint">Já controla em planilha? Use <b>Importar Excel</b> para trazer seus lançamentos. As categorias podem ser mudadas em <b>Ajustes</b>.</p>
+    <p class="hint">Já controla em planilha? Use <b>Importar Excel</b> para trazer seus lançamentos. Em <b>Ajustes</b> você muda as categorias e informa quanto já tinha na conta quando começou (saldo inicial).</p>
     ${suporteHtml()}
     <div class="actions"><button class="btn primary" id="bvFixos">Cadastrar meus fixos</button><button class="btn" data-close>Começar a lançar</button></div>`);
   const visto = () => { if (!S.prefs.boasVindas) { S.prefs.boasVindas = true; salvaPrefs(); } };

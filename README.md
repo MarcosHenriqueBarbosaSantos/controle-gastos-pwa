@@ -20,12 +20,12 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 
 - **Lançamento rápido** de gastos, entradas e dinheiro guardado, com categoria e forma de pagamento. Todo lançamento pode ser **editado** ou excluído.
 - **Custo do mês em tempo real** e **previsão de fechamento**, que mistura o ritmo atual com a média dos meses anteriores e não repete compras pontuais grandes.
-- **Gastos fixos** cadastrados uma vez: mensais (aluguel, internet) ou semanais (Uber de toda sexta, terapia), com marcação de "pago" a cada ocorrência.
+- **Gastos fixos** cadastrados uma vez: mensais (aluguel, internet) ou semanais (Uber de toda sexta, terapia), com marcação de "pago" a cada ocorrência. Quando o valor muda (o aluguel subiu), a alteração pode valer **só do mês em diante**, sem mexer nos meses anteriores.
 - **Entradas fixas**, como o salário: cadastradas uma vez, são lançadas sozinhas em todo mês, no dia escolhido.
-- **Cartão de crédito pela fatura**: o que é comprado no cartão só pesa no mês em que a fatura vence.
+- **Cartão de crédito com fatura automática**: a pessoa cadastra o cartão com o dia de fechamento e o de vencimento, e o app monta cada fatura sozinho a partir das compras, incluindo as **parceladas** e os fixos cobrados no cartão. O que é comprado no cartão só pesa no mês em que a fatura vence. Dá para abrir a fatura, ver o que tem dentro, corrigir o valor se o banco cobrou diferente e marcar como paga. Faturas também podem ser lançadas à mão.
 - **Próximos vencimentos no topo**: a primeira coisa da tela são as contas dos próximos 30 dias, com as atrasadas em destaque, contagem de dias ("em 10 dias vence a fatura, R$ 299"), botão "Já paguei" e alerta quando o mês está ou vai fechar no vermelho.
 - **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
-- **Saldo acumulado**: o que sobrou ou faltou passa para o mês seguinte, se a pessoa quiser.
+- **Saldo acumulado**: o que sobrou ou faltou passa para o mês seguinte, se a pessoa quiser, partindo de um **saldo inicial** (quanto ela já tinha, ou devia, quando começou).
 - **Categorias personalizáveis** por usuário, na tela de Ajustes.
 - **Gráficos**: custo acumulado no mês comparado às entradas, e custo por categoria.
 - **Importar e exportar Excel**: lê o modelo da pasta [`modelo/`](modelo/) e também planilhas antigas em formato livre. Reimportar a mesma planilha não duplica lançamentos.
@@ -63,12 +63,16 @@ A tela não sabe onde os dados estão guardados: ela usa a interface de `store.j
 
 - **Custo do mês** = gastos do dia a dia fora do cartão + gastos fixos fora do cartão + faturas de cartão que vencem no mês.
 - **Cartão**: compras e fixos no cartão não entram no custo na hora. A cobrança entra no mês de vencimento da fatura.
+- **Em que fatura cai uma compra**: compras feitas antes do dia de fechamento entram na fatura que fecha naquele mês; do dia do fechamento em diante, na seguinte. A fatura vence no próximo dia de vencimento depois do fechamento.
+- **Parcelas**: uma compra em N vezes entra em N faturas seguidas. Os centavos que sobram da divisão ficam na primeira parcela.
+- **Valor da fatura**: a soma das compras, a menos que a pessoa corrija o valor à mão. No gráfico por categoria, cada compra da fatura aparece na sua categoria.
+- **Fixo alterado a partir de um mês**: o fixo antigo é encerrado no mês anterior e um novo começa no mês escolhido. O passado não muda.
+- **Saldo acumulado** = saldo inicial + saldo dos meses anteriores + saldo do mês.
 - **Entradas** = entradas lançadas + entradas fixas do mês.
 - **Saldo do mês** = entradas − custo − dinheiro guardado no mês (guardou menos retirou).
 - **Dinheiro guardado** = soma de tudo que foi guardado menos o que foi retirado, por destino.
 - **Previsão** (mês atual): com histórico, mistura o ritmo do mês com a média dos últimos 3 meses, dando mais peso ao histórico no começo do mês. Sem histórico, mantém a média diária sem repetir compras pontuais grandes, e não projeta nada nos primeiros dias ou com poucos lançamentos.
-- **Avisos no topo**: contas atrasadas ou vencendo em até 3 dias, com botão "Já paguei", e alerta quando o mês está ou vai fechar no vermelho.
-- **Próximos vencimentos**: faturas em aberto e fixos não pagos do mês atual e do próximo, até 30 dias à frente, mais os atrasados.
+- **Próximos vencimentos**: faturas em aberto e fixos não pagos do mês atual e do próximo, até 30 dias à frente, mais os atrasados. Fixos cobrados no cartão não aparecem soltos: são pagos junto com a fatura.
 
 ### Modelo de dados
 
@@ -77,6 +81,9 @@ erDiagram
   USUARIO ||--o{ LANCAMENTOS : tem
   USUARIO ||--o{ FIXOS : tem
   USUARIO ||--o{ FATURAS : tem
+  USUARIO ||--o{ CARTOES : tem
+  CARTOES ||--o{ LANCAMENTOS : "compras"
+  CARTOES ||--o{ FATURAS : "registro da fatura"
   FIXOS ||--o{ FIXOS_PAGOS : "pago em"
   USUARIO ||--o| PREFERENCIAS : tem
   LANCAMENTOS {
@@ -87,6 +94,14 @@ erDiagram
     text forma
     numeric valor
     text import_key
+    uuid cartao_id
+    int parcelas
+  }
+  CARTOES {
+    text nome
+    int fechamento
+    int vencimento
+    bool ativo
   }
   FIXOS {
     text descricao
@@ -108,8 +123,12 @@ erDiagram
     date vencimento
     numeric valor
     text status
+    uuid cartao_id
+    bool valor_fixo
   }
 ```
+
+A fatura de um cartão cadastrado não é guardada: ela é calculada a partir das compras. A tabela `faturas` guarda as faturas lançadas à mão e, para as calculadas, só o que a pessoa decidiu (se pagou, e o valor corrigido quando `valor_fixo` é verdadeiro).
 
 O esquema completo, com as políticas de segurança e a visão `resumo_mensal` para análises em SQL, está em [`supabase/schema.sql`](supabase/schema.sql).
 

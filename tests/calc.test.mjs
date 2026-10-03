@@ -52,7 +52,6 @@ test("custo, saldo e cartão de um mês fechado", () => {
   assert.equal(c.custo, 700);
   assert.equal(c.saldo, 1600 - 700 - 100);
   assert.equal(c.fxPend, 0);
-  assert.equal(c.ccAberto, 800);
   assert.equal(c.proj, c.custo);
 });
 
@@ -298,4 +297,132 @@ test("aviso de previsão: ainda no azul, mas o ritmo leva ao vermelho", () => {
   const a = avisosDeHoje(st, "2026-10-06");                      // 100 por dia → 3.100 no mês, contra 1.500
   assert.equal(a.saldo.tipo, "previsao"); assert.equal(a.saldo.nivel, "warn");
   assert.equal(a.saldo.valor, 1600);
+});
+
+import { mesDaFatura, valorDasParcelas, faturasDoMes, faturasAte, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado } from "../js/calc.js";
+
+test("cartão: em que fatura cai cada compra", () => {
+  const nubank = { id: "k", nome: "Roxo", fechamento: 3, vencimento: 10 };      // fecha e vence no mesmo mês
+  assert.equal(mesDaFatura(nubank, "2026-10-02"), "2026-10");   // antes do fechamento: fatura deste mês
+  assert.equal(mesDaFatura(nubank, "2026-10-03"), "2026-11");   // no dia do fechamento: já é a próxima
+  assert.equal(mesDaFatura(nubank, "2026-12-20"), "2027-01");
+  const virada = { id: "v", nome: "Azul", fechamento: 28, vencimento: 5 };      // fecha num mês, vence no seguinte
+  assert.equal(mesDaFatura(virada, "2026-10-27"), "2026-11");
+  assert.equal(mesDaFatura(virada, "2026-10-28"), "2026-12");
+  const fim = { id: "f", nome: "Fim", fechamento: 31, vencimento: 7 };          // dia 31 em mês curto: usa o último dia
+  assert.equal(mesDaFatura(fim, "2026-02-27"), "2026-03");
+  assert.equal(mesDaFatura(fim, "2026-02-28"), "2026-04");
+});
+
+test("parcelas: a soma fecha com o valor da compra", () => {
+  assert.deepEqual(valorDasParcelas(100, 3), [33.34, 33.33, 33.33]);
+  assert.deepEqual(valorDasParcelas(359.7, 3), [119.9, 119.9, 119.9]);
+  assert.deepEqual(valorDasParcelas(50, 1), [50]);
+  assert.equal(valorDasParcelas(1999.99, 12).reduce((t, v) => Math.round((t + v) * 100) / 100, 0), 1999.99);
+});
+
+const comCartao = () => ({
+  cartoes: [{ id: "k", nome: "Roxo", fechamento: 3, vencimento: 10 }],
+  lancamentos: [
+    { id: "s", data: "2026-09-05", descricao: "Salário", tipo: "Receita", categoria: "Salário", forma: "", valor: 3000 },
+    { id: "a", data: "2026-09-10", descricao: "Geladeira", tipo: "Despesa", categoria: "Outros", forma: "Cartão de crédito", cartao_id: "k", parcelas: 3, valor: 900 },
+    { id: "b", data: "2026-09-20", descricao: "Cinema", tipo: "Despesa", categoria: "Lazer", forma: "Cartão de crédito", cartao_id: "k", parcelas: 1, valor: 60 },
+    { id: "c", data: "2026-10-02", descricao: "Mercado", tipo: "Despesa", categoria: "Mercado", forma: "Cartão de crédito", cartao_id: "k", valor: 200 },
+    { id: "d", data: "2026-10-05", descricao: "Farmácia", tipo: "Despesa", categoria: "Saúde", forma: "Cartão de crédito", valor: 45 },   // sem cartão escolhido
+  ],
+  fixos: [{ id: "n", tipo: "Despesa", descricao: "Streaming", categoria: "Lazer", dia: 15, valor: 40, forma: "Cartão de crédito", cartao_id: "k", desde: "2026-09-01", ate: null }],
+  pagos: [], faturas: [],
+});
+
+test("fatura montada sozinha: compras, parcelas e fixos do cartão", () => {
+  const st = comCartao();
+  assert.deepEqual(faturasDoMes(st, "2026-09"), []);                       // nada vence em setembro
+  const [out] = faturasDoMes(st, "2026-10");                               // compras de 03/09 a 02/10
+  assert.equal(out.auto, true); assert.equal(out.vencimento, "2026-10-10"); assert.equal(out.status, "Aberta");
+  assert.deepEqual(out.itens.map((i) => [i.descricao, i.valor, i.parcela, i.de]),
+    [["Geladeira", 300, 1, 3], ["Streaming", 40, 1, 1], ["Cinema", 60, 1, 1], ["Mercado", 200, 1, 1]]);
+  assert.equal(out.valor, 600);
+  assert.equal(faturasDoMes(st, "2026-11")[0].valor, 300 + 40);            // 2ª parcela + streaming de outubro
+  assert.equal(faturasDoMes(st, "2026-12")[0].valor, 300 + 40);            // 3ª parcela + streaming de novembro
+  assert.equal(faturasDoMes(st, "2027-01")[0].valor, 40);                  // acabou o parcelamento
+  // No custo do mês: setembro não tem nada de cartão; outubro tem a fatura, separada por categoria.
+  assert.equal(calcMes(st, "2026-09", "2026-10-20").custo, 0);
+  const c = calcMes(st, "2026-10", "2026-10-20");
+  assert.equal(c.fatT, 600); assert.equal(c.custo, 600); assert.equal(c.fatAberta, 600);
+  assert.deepEqual(catMap(c), [["Outros", 300], ["Mercado", 200], ["Lazer", 100]]);
+  assert.equal(c.fxPend, 0);                                               // fixo no cartão não fica "a pagar": vai na fatura
+  assert.equal(semCartaoNoMes(st, "2026-10"), 45);                         // a farmácia ficou sem cartão
+  assert.equal(semCartaoNoMes(st, "2026-09"), 0);
+});
+
+test("fatura calculada: marcar como paga e corrigir o valor", () => {
+  const st = comCartao();
+  const v = proximosVencimentos(st, "2026-10-05", 30);
+  assert.deepEqual(v.map((x) => [x.titulo, x.data, x.valor, x.auto]), [["Fatura Roxo", "2026-10-10", 600, true]]);   // o fixo no cartão não aparece solto
+  st.faturas.push({ id: "r1", cartao_id: "k", cartao: "Roxo", vencimento: "2026-10-10", valor: 600, status: "Paga", valor_fixo: false });
+  assert.equal(faturasDoMes(st, "2026-10")[0].status, "Paga");
+  assert.equal(faturasDoMes(st, "2026-10")[0].id, "r1");
+  assert.equal(calcMes(st, "2026-10", "2026-10-20").fatAberta, 0);
+  assert.deepEqual(proximosVencimentos(st, "2026-10-05", 30), []);         // a de novembro vence em 36 dias
+  assert.deepEqual(proximosVencimentos(st, "2026-10-12", 30).map((x) => [x.titulo, x.valor]), [["Fatura Roxo", 340]]);
+  // o banco cobrou outro valor: o valor corrigido passa a valer, e a diferença aparece em "Faturas de cartão"
+  Object.assign(st.faturas[0], { valor: 650, valor_fixo: true });
+  const f = faturasDoMes(st, "2026-10")[0];
+  assert.equal(f.valor, 650); assert.equal(f.calculado, 600);
+  assert.deepEqual(catMap(calcMes(st, "2026-10", "2026-10-20")), [["Outros", 300], ["Mercado", 200], ["Lazer", 100], ["Faturas de cartão", 50]]);
+  // fatura lançada à mão continua valendo, ao lado da calculada
+  st.faturas.push({ id: "m1", cartao: "Loja", vencimento: "2026-10-20", valor: 80, status: "Aberta" });
+  assert.deepEqual(faturasDoMes(st, "2026-10").map((x) => [x.cartao, x.valor, x.auto]), [["Roxo", 650, true], ["Loja", 80, false]]);
+  assert.equal(faturasAte(st, "2026-12").length, 4);                      // out (2), nov, dez
+});
+
+test("mudar um fixo a partir de um mês não altera os meses anteriores", () => {
+  const aluguel = { id: "a", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 10, valor: 1100, forma: "Boleto", desde: "2026-06-01", ate: null, user_id: "u", created_at: "x" };
+  const st = { lancamentos: [], fixos: [aluguel], pagos: [], faturas: [] };
+  const { encerra, novo } = novaVersaoDeFixo(aluguel, { valor: 1200 }, "2026-10");
+  assert.deepEqual(encerra, { ate: "2026-09-01" });
+  assert.equal(novo.desde, "2026-10-01"); assert.equal(novo.valor, 1200); assert.equal(novo.descricao, "Aluguel");
+  assert.ok(!("id" in novo) && !("user_id" in novo) && !("created_at" in novo));
+  Object.assign(aluguel, encerra); st.fixos.push({ ...novo, id: "a2" });
+  assert.equal(calcMes(st, "2026-09", "2026-10-03").fxT, 1100);            // passado: como era
+  assert.equal(calcMes(st, "2026-10", "2026-10-03").fxT, 1200);            // deste mês em diante: valor novo
+  assert.equal(calcMes(st, "2026-10", "2026-10-03").fx.length, 1);         // sem duplicar
+  assert.equal(calcMes(st, "2027-03", "2026-10-03").fxT, 1200);
+  // uma versão já encerrada continua encerrada na mesma data
+  const antiga = { ...aluguel, ate: "2026-09-01" };
+  assert.equal(novaVersaoDeFixo(antiga, { valor: 1150 }, "2026-08").novo.ate, "2026-09-01");
+});
+
+test("saldo acumulado começa do saldo inicial", () => {
+  const g = (data, valor, tipo = "Despesa") => ({ id: data + valor, data, descricao: "", tipo, categoria: "Outros", forma: "Pix", valor });
+  const st = { lancamentos: [g("2026-09-05", 2000, "Receita"), g("2026-09-10", 1500), g("2026-10-05", 2000, "Receita"), g("2026-10-08", 2300)], fixos: [], pagos: [], faturas: [] };
+  assert.equal(saldoAnterior(st, "2026-10", "2026-10-20"), 500);
+  assert.equal(saldoAcumulado(st, "2026-10", "2026-10-20"), 200);                              // 500 − 300
+  assert.equal(saldoAcumulado(st, "2026-10", "2026-10-20", { inicial: 1000 }), 1200);          // já tinha 1.000
+  assert.equal(saldoAcumulado(st, "2026-09", "2026-10-20", { inicial: 1000 }), 1500);
+  assert.equal(saldoAcumulado(st, "2026-10", "2026-10-20", { inicial: -400 }), -200);          // começou devendo
+  assert.equal(saldoAcumulado(st, "2026-10", "2026-10-20", { desde: "2026-10", inicial: 1000 }), 700);   // conta só a partir de outubro
+  assert.equal(saldoAcumulado(st, "2026-09", "2026-10-20", { desde: "2026-10", inicial: 1000 }), 500);   // antes do início: só o mês
+});
+
+import { buildWorkbook } from "../js/excel.js";
+
+test("Excel: cartões, parcelas e faturas vão e voltam pela planilha", () => {
+  const st = comCartao();
+  st.faturas.push({ id: "m1", cartao: "Loja", vencimento: "2026-10-20", valor: 80, status: "Aberta" });
+  // SheetJS falso para escrever: guarda as linhas de cada aba
+  const escreve = { utils: { book_new: () => ({ SheetNames: [], Sheets: {} }), aoa_to_sheet: (rows) => rows,
+    book_append_sheet: (wb, ws, name) => { wb.SheetNames.push(name); wb.Sheets[name] = ws; }, sheet_to_json: (ws) => ws } };
+  const wb = buildWorkbook(escreve, st, "2026", calcMes, "2026-10-20");
+  assert.deepEqual(wb.Sheets["Meus Cartões"][1], ["Roxo", 3, 10, "Sim"]);
+  assert.deepEqual(wb.Sheets["Lançamentos"].find((r) => r[1] === "Geladeira").slice(5), [900, "Roxo", 3]);
+  assert.deepEqual(wb.Sheets["Cartões"].map((r) => [r[0], r[2], r[4]]).slice(1),
+    [["Loja", 80, "Lançada à mão"], ["Roxo", 600, "Calculada pelo app"], ["Roxo", 340, "Calculada pelo app"], ["Roxo", 340, "Calculada pelo app"]]);
+  const r = parseWorkbook(escreve, wb);
+  assert.deepEqual(r.cartoes, [{ nome: "Roxo", fechamento: 3, vencimento: 10, ativo: true }]);
+  const gel = r.lancamentos.find((x) => x.descricao === "Geladeira");
+  assert.equal(gel.cartao, "Roxo"); assert.equal(gel.parcelas, 3); assert.equal(gel.forma, "Cartão de crédito");
+  assert.equal(r.lancamentos.find((x) => x.descricao === "Farmácia").cartao, "");
+  assert.equal(r.fixos.find((x) => x.descricao === "Streaming").cartao, "Roxo");
+  assert.deepEqual(r.faturas.map((x) => x.cartao), ["Loja"]);            // as calculadas não são importadas como fatura
 });

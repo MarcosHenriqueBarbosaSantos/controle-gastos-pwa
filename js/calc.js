@@ -80,13 +80,115 @@ export const CARTAO = "Cartão de crédito";
 export const CAT_FATURA = "Faturas de cartão";
 const noCartao = (x) => x.forma === CARTAO;
 
+/* ===================== Cartões e faturas ===================== */
+const diaNoMes = (m, d) => `${m}-${pad(Math.min(dim(m), Math.max(1, Number(d) || 1)))}`;
+/** Quantos meses de a até b ("AAAA-MM"). */
+const mesesEntre = (a, b) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7));
+
+/**
+ * Mês ("AAAA-MM") em que vence a fatura de uma compra feita em `data`.
+ * A fatura fecha no dia `fechamento`: compras antes desse dia entram na fatura que fecha no mês;
+ * compras do dia do fechamento em diante vão para a seguinte. O vencimento é o próximo dia
+ * `vencimento` depois do fechamento (no mesmo mês, ou no mês seguinte se o dia for menor).
+ */
+export function mesDaFatura(cartao, data) {
+  const m = mKey(data), d = Number(data.slice(8, 10));
+  const fecha = d < Math.min(Number(cartao.fechamento), dim(m)) ? m : addM(m, 1);
+  return Number(cartao.vencimento) > Number(cartao.fechamento) ? fecha : addM(fecha, 1);
+}
+
+/** Período de compras de uma fatura que vence no mês m: do fechamento anterior até a véspera do fechamento. */
+export function periodoDaFatura(cartao, m) {
+  const fim = Number(cartao.vencimento) > Number(cartao.fechamento) ? m : addM(m, -1), ini = addM(fim, -1);
+  const d = (mm) => Math.min(Number(cartao.fechamento), dim(mm));
+  return { de: `${ini}-${pad(d(ini))}`, ate: toISO(new Date(Number(fim.slice(0, 4)), Number(fim.slice(5)) - 1, d(fim) - 1)), fecha: `${fim}-${pad(d(fim))}` };
+}
+
+/** Valor de cada parcela. Os centavos que sobram da divisão ficam na primeira. */
+export function valorDasParcelas(valor, n) {
+  n = Math.max(1, Math.floor(Number(n) || 1));
+  const base = Math.floor((Number(valor) * 100) / n + 1e-6) / 100, out = Array(n).fill(base);
+  out[0] = round2(Number(valor) - base * (n - 1));
+  return out;
+}
+
+/**
+ * Faturas que vencem no mês m.
+ * - Lançadas à mão (sem cartão cadastrado): valem pelo valor digitado.
+ * - Calculadas: uma por cartão cadastrado, somando as parcelas das compras e os gastos fixos
+ *   daquele cartão que caem nessa fatura. Se existe um registro em st.faturas para o cartão e o mês,
+ *   ele guarda a situação (Paga/Aberta) e, quando valor_fixo é verdadeiro, o valor corrigido à mão.
+ * Cada fatura calculada traz `itens` (o que compõe o valor) e `calculado` (a soma dos itens).
+ */
+export function faturasDoMes(st, m) {
+  const out = st.faturas.filter((f) => !f.cartao_id && mKey(f.vencimento) === m).map((f) => ({ ...f, valor: Number(f.valor), auto: false }));
+  const cartoes = st.cartoes || [];
+  if (cartoes.length) {
+    const mapa = new Map(cartoes.map((c) => [c.id, c])), itens = new Map(cartoes.map((c) => [c.id, []]));
+    for (const x of st.lancamentos) {
+      if (x.tipo !== "Despesa" || x.forma !== CARTAO || !mapa.has(x.cartao_id)) continue;
+      const n = Math.max(1, Number(x.parcelas) || 1), k = mesesEntre(mesDaFatura(mapa.get(x.cartao_id), x.data), m);
+      if (k < 0 || k >= n) continue;
+      itens.get(x.cartao_id).push({ origem: "compra", id: x.id, data: x.data, descricao: x.descricao || x.categoria, categoria: x.categoria,
+        valor: valorDasParcelas(x.valor, n)[k], parcela: k + 1, de: n });
+    }
+    // Um gasto fixo no cartão conta como uma compra em cada data em que acontece.
+    for (const mm of [addM(m, -2), addM(m, -1), m]) for (const o of ocorrencias(st.fixos, mm)) {
+      if (o.forma !== CARTAO || !mapa.has(o.cartao_id) || mesDaFatura(mapa.get(o.cartao_id), o.data) !== m) continue;
+      itens.get(o.cartao_id).push({ origem: "fixo", id: o.id, data: o.data, descricao: o.descricao, categoria: o.categoria, valor: Number(o.valor), parcela: 1, de: 1 });
+    }
+    for (const c of cartoes) {
+      const l = itens.get(c.id).sort((a, b) => a.data.localeCompare(b.data));
+      const calculado = round2(l.reduce((t, i) => t + i.valor, 0));
+      const reg = st.faturas.find((f) => f.cartao_id === c.id && mKey(f.vencimento) === m), fixo = Boolean(reg?.valor_fixo);
+      if (!l.length && !fixo) continue;
+      out.push({ id: reg?.id ?? null, auto: true, cartao_id: c.id, cartao: c.nome, vencimento: diaNoMes(m, c.vencimento),
+        valor: fixo ? Number(reg.valor) : calculado, calculado, valor_fixo: fixo, status: reg?.status || "Aberta", itens: l });
+    }
+  }
+  return out.sort((a, b) => a.vencimento.localeCompare(b.vencimento) || String(a.cartao).localeCompare(String(b.cartao)));
+}
+
+/** Todas as faturas (à mão e calculadas) do primeiro mês com movimento de cartão até o mês `ate`. */
+export function faturasAte(st, ate) {
+  const ms = st.faturas.map((f) => mKey(f.vencimento));
+  st.lancamentos.forEach((x) => { if (x.forma === CARTAO && x.cartao_id) ms.push(mKey(x.data)); });
+  st.fixos.forEach((f) => { if (f.forma === CARTAO && f.cartao_id) ms.push(mKey(f.desde)); });
+  const out = [];
+  if (!ms.length) return out;
+  for (let m = ms.sort()[0], g = 0; m <= ate && g < 600; m = addM(m, 1), g++) out.push(...faturasDoMes(st, m));
+  return out;
+}
+
+/**
+ * Compras e fixos no cartão, feitos no mês m, que não estão ligados a nenhum cartão cadastrado.
+ * Esses valores não entram em fatura calculada: só contam se a pessoa lançar a fatura à mão.
+ */
+export function semCartaoNoMes(st, m) {
+  const ids = new Set((st.cartoes || []).map((c) => c.id)), solto = (x) => x.forma === CARTAO && !ids.has(x.cartao_id);
+  const a = st.lancamentos.filter((x) => x.tipo === "Despesa" && mKey(x.data) === m && solto(x));
+  const b = ocorrencias(st.fixos, m).filter(solto);
+  return round2([...a, ...b].reduce((t, x) => t + Number(x.valor), 0));
+}
+
+/**
+ * Mudar um fixo "a partir do mês m" sem mexer no passado: o fixo antigo é encerrado no mês anterior
+ * e nasce um novo, com os dados alterados, começando em m. Devolve o que gravar em cada um.
+ */
+export function novaVersaoDeFixo(f, patch, m) {
+  const campos = ["tipo", "descricao", "categoria", "dia", "valor", "forma", "ate", "repete", "dia_semana", "cartao_id"];
+  const novo = {};
+  campos.forEach((k) => { if (f[k] !== undefined) novo[k] = f[k]; });
+  return { encerra: { ate: addM(m, -1) + "-01" }, novo: { ...novo, tipo: f.tipo || "Despesa", ...patch, desde: m + "-01" } };
+}
+
 /**
  * Números de um mês.
  *
  * Regra do cartão: o que é comprado no cartão (lançamento ou fixo com forma "Cartão de crédito")
  * NÃO entra no custo do mês da compra. A cobrança entra no mês em que a fatura vence.
  *
- * @param {{lancamentos:any[], fixos:any[], pagos:any[], faturas:any[]}} st
+ * @param {{lancamentos:any[], fixos:any[], pagos:any[], faturas:any[], cartoes?:any[]}} st
  * @param {string} m   mês "AAAA-MM"
  * @param {string} hoje data de hoje "AAAA-MM-DD"
  */
@@ -109,8 +211,9 @@ export function calcMes(st, m, hoje) {
   const fxCartao = sum(fx.filter(noCartao));                    // fixos cobrados na fatura
   const fxCusto = round2(fxT - fxCartao);                       // fixos pagos fora do cartão
   const pagosSet = new Set(st.pagos.map((p) => p.fixo_id + "|" + p.mes));   // "id|chave" de cada ocorrência paga
-  const fxPend = sum(fx.filter((o) => !pagosSet.has(o.id + "|" + o.chave)));
-  const fat = st.faturas.filter((c) => mKey(c.vencimento) === m);   // faturas que vencem neste mês
+  // A pagar: só os fixos fora do cartão. Os que vão no cartão são pagos junto com a fatura.
+  const fxPend = sum(fx.filter((o) => !noCartao(o) && !pagosSet.has(o.id + "|" + o.chave)));
+  const fat = faturasDoMes(st, m);                               // faturas que vencem neste mês (à mão e calculadas)
   const fatT = sum(fat);
   const fatAberta = sum(fat.filter((c) => c.status !== "Paga"));
   const custo = round2(vari + fxCusto + fatT);
@@ -120,11 +223,10 @@ export function calcMes(st, m, hoje) {
   const dias = fase === "atual" ? Number(hoje.slice(8, 10)) : fase === "passado" ? n : 0;
   const proj = fase === "atual" && dias > 0
     ? round2(projetaDiaADia(st, m, desp.filter((x) => !noCartao(x)), dias, n) + fxCusto + fatT) : custo;
-  const ccAberto = sum(st.faturas.filter((c) => c.status !== "Paga"));   // todas as faturas em aberto
   // Entradas fixas que ainda não chegaram: no mês atual, as de dia posterior a hoje; em mês futuro, todas.
   const frAReceber = fase === "futuro" ? frT : fase === "atual" ? sum(fr.filter((o) => Number(o.data.slice(8, 10)) > dias)) : 0;
   return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
-    fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj, ccAberto };
+    fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj };
 }
 
 /**
@@ -154,13 +256,21 @@ export function projetaDiaADia(st, m, gastos, dias, n) {
   return total + (rotina / dias) * (n - dias);
 }
 
-/** Para onde foi o custo do mês: dia a dia e fixos fora do cartão, mais as faturas. Do maior para o menor. */
+/** Para onde foi o custo do mês: dia a dia e fixos fora do cartão, mais o que veio nas faturas. Do maior para o menor. */
 export function catMap(c) {
   const m = {};
   c.it.filter((x) => x.tipo === "Despesa" && !noCartao(x)).forEach((x) => { m[x.categoria] = (m[x.categoria] || 0) + Number(x.valor); });
   c.fx.filter((f) => !noCartao(f)).forEach((f) => { m[f.categoria] = (m[f.categoria] || 0) + Number(f.valor); });
-  if (c.fatT > 0) m[CAT_FATURA] = (m[CAT_FATURA] || 0) + c.fatT;
-  return Object.entries(m).map(([k, v]) => [k, round2(v)]).sort((a, b) => b[1] - a[1]);
+  // Fatura calculada: o app sabe o que tem dentro, então cada compra vai para a sua categoria.
+  // Fatura lançada à mão (ou a diferença de um valor corrigido) fica em "Faturas de cartão".
+  const add = (k, v) => { m[k] = (m[k] || 0) + v; };
+  c.fat.forEach((f) => {
+    const dif = f.auto ? round2(f.valor - f.calculado) : 0;
+    if (!f.auto || dif < 0) return add(CAT_FATURA, f.valor);
+    f.itens.forEach((i) => add(i.categoria, i.valor));
+    if (dif > 0) add(CAT_FATURA, dif);
+  });
+  return Object.entries(m).map(([k, v]) => [k, round2(v)]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]);
 }
 
 /** Compras feitas no cartão neste mês, por categoria (ainda não cobradas). */
@@ -219,6 +329,17 @@ export function saldoAnterior(st, m, hoje, desde = null) {
   return round2(total);
 }
 
+/**
+ * Saldo acumulado até o fim do mês m: o que a pessoa já tinha quando começou (`inicial`),
+ * mais o saldo dos meses anteriores, mais o saldo do próprio mês.
+ * O saldo inicial só vale do mês de início em diante.
+ */
+export function saldoAcumulado(st, m, hoje, { desde = null, inicial = 0 } = {}) {
+  const first = primeiroMes(st), inicio = desde && (!first || desde > first) ? desde : first;
+  const base = !inicio || m >= inicio ? Number(inicial) || 0 : 0;
+  return round2(base + saldoAnterior(st, m, hoje, desde) + calcMes(st, m, hoje).saldo);
+}
+
 /** Total guardado até o fim do mês m, somando todos os destinos (guardado menos retirado). */
 export function reservaAcumulada(st, m) {
   return round2(guardadoPorDestino(st, m).reduce((s, x) => s + x[1], 0));
@@ -245,14 +366,15 @@ export function diasEntre(a, b) {
  */
 export function proximosVencimentos(st, hoje, janela = 30) {
   const out = [], cur = mKey(hoje);
-  st.faturas.filter((f) => f.status !== "Paga").forEach((f) => {
+  faturasAte(st, addM(cur, Math.max(1, Math.ceil(janela / 28)))).filter((f) => f.status !== "Paga").forEach((f) => {
     const dias = diasEntre(hoje, f.vencimento);
-    if (dias <= janela) out.push({ tipo: "fatura", id: f.id, titulo: `Fatura ${f.cartao}`, valor: Number(f.valor), data: f.vencimento, dias, mes: mKey(f.vencimento) });
+    if (dias <= janela) out.push({ tipo: "fatura", id: f.id, auto: f.auto, cartao_id: f.cartao_id || null, cartao: f.cartao, titulo: `Fatura ${f.cartao}`,
+      valor: Number(f.valor), data: f.vencimento, dias, mes: mKey(f.vencimento) });
   });
   const pagos = new Set(st.pagos.map((p) => p.fixo_id + "|" + p.mes));
   [cur, addM(cur, 1)].forEach((m) => {
     ocorrencias(st.fixos, m).forEach((o) => {
-      if (pagos.has(o.id + "|" + o.chave)) return;
+      if (noCartao(o) || pagos.has(o.id + "|" + o.chave)) return;   // fixo no cartão é pago junto com a fatura
       const dias = diasEntre(hoje, o.data);
       if (dias <= janela) out.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias, mes: m, chave: o.chave, semanal: o.repete === "semanal" });
     });

@@ -89,6 +89,11 @@
       <label class="f" id="fFormaWrap"><span id="fFormaLbl">Forma de pagamento</span><select class="in" id="fForma"></select></label>
       <label class="f">Data<input class="in" type="date" id="fData" required></label>
       <button class="btn primary" id="fOk" type="submit">Lançar gasto</button>
+      <div class="cartao-linha" id="fCartaoLinha" hidden>
+        <label class="f" id="fCartaoWrap">Cartão<select class="in" id="fCartao"></select></label>
+        <label class="f" id="fParcWrap">Parcelas<select class="in" id="fParc"><option value="1">À vista</option></select></label>
+        <p class="hint" id="fCartaoDica" hidden>Para a fatura ser montada sozinha, <button class="link" type="button" id="fIrCartoes">cadastre seu cartão</button> na aba Cartões.</p>
+      </div>
       <div class="fixo-linha" id="fFixoWrap">
         <label class="check"><input type="checkbox" id="fFixo"> <span id="fFixoLbl">Repete sempre (gasto fixo)</span></label>
         <select class="in" id="fRepete" aria-label="Com que frequência repete" hidden><option value="mensal">Todo mês</option><option value="semanal">Toda semana</option></select>
@@ -128,7 +133,7 @@
     <div id="pane-c" role="tabpanel" hidden></div>
   </section>
 
-  <p class="foot v-inicio">Compras no cartão de crédito não entram no custo na hora: a cobrança entra no mês em que a fatura vence, quando você lança a fatura na aba Cartões. O dinheiro que você guarda (reserva, investimentos e outros) sai do saldo do mês e fica somado no quadro Dinheiro guardado.</p>
+  <p class="foot v-inicio">Compras no cartão de crédito não entram no custo na hora: a cobrança entra no mês em que a fatura vence. Com o cartão cadastrado na aba Cartões, a fatura é montada sozinha, incluindo as parcelas. O dinheiro que você guarda (reserva, investimentos e outros) sai do saldo do mês e fica somado no quadro Dinheiro guardado.</p>
 </div>
 
 <!-- Navegação do celular -->
