@@ -77,8 +77,8 @@ function ambiente(tabelas, usuarios) {
       then: (ok, err) => Promise.resolve(run()).then(ok, err) }; return o; };
   const db = { from, rpc: async (_n, { s }) => ({ data: s === "segredo-certo" }),
     auth: { admin: { listUsers: async () => ({ data: { users: usuarios }, error: null }) }, getUser: async (tk) => ({ data: { user: usuarios.find((u) => u.token === tk) || null } }) } };
-  const fetchFn = async (url, init) => { enviados.push({ url, init }); return { ok: true, status: url.includes("brevo") ? 201 : url.includes("morto") ? 410 : 201, text: async () => "" }; };
-  const cfg = { SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k", BREVO_API_KEY: "chave-brevo", AVISOS_REMETENTE: "avisos@exemplo.com" };
+  const fetchFn = async (url, init) => { enviados.push({ url, init }); return { ok: true, status: url.includes("morto") ? 410 : 201, text: async () => "" }; };
+  const cfg = { SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k", RESEND_API_KEY: "re_chave", AVISOS_REMETENTE: "avisos@exemplo.com" };
   let relogio = new Date("2026-10-03T11:00:00Z");
   const handler = criaHandler({ createClient: () => db, env: (k) => cfg[k], fetchFn, agora: () => relogio });
   return { handler, t, enviados, cfg, avanca: (ms) => { relogio = new Date(relogio.getTime() + ms); } };
@@ -96,11 +96,12 @@ test("rotina diária: avisa só quem tem pendência, por e-mail e notificação,
   assert.equal((await amb.handler(pedido("POST", { "x-avisos-segredo": "errado" }))).status, 401);
   const r = await (await amb.handler(pedido("POST", { "x-avisos-segredo": "segredo-certo" }))).json();
   assert.deepEqual(r, { dia: "2026-10-03", usuarios: 3, avisados: 2, emails: 1, notificacoes: 1, erros: [] });   // u2 só vence dia 20; u3 desligou o e-mail
-  const emails = amb.enviados.filter((e) => e.url.includes("brevo")), pushes = amb.enviados.filter((e) => e.url.includes("fcm"));
+  const emails = amb.enviados.filter((e) => e.url.includes("resend")), pushes = amb.enviados.filter((e) => e.url.includes("fcm"));
   assert.equal(emails.length, 1);
+  assert.equal(emails[0].url, "https://api.resend.com/emails");
   const corpo = JSON.parse(emails[0].init.body);
-  assert.deepEqual(corpo.to, [{ email: "ana@exemplo.com" }]); assert.equal(corpo.sender.email, "avisos@exemplo.com");
-  assert.equal(emails[0].init.headers["api-key"], "chave-brevo"); assert.ok(corpo.htmlContent.includes("Aluguel"));
+  assert.deepEqual(corpo.to, ["ana@exemplo.com"]); assert.equal(corpo.from, "Meus Gastos <avisos@exemplo.com>");
+  assert.equal(emails[0].init.headers.Authorization, "Bearer re_chave"); assert.ok(corpo.html.includes("Aluguel") && corpo.text.includes("Aluguel"));
   assert.equal(pushes.length, 2);
   assert.match(pushes[0].init.headers.Authorization, /^vapid t=.+, k=.+$/); assert.equal(pushes[0].init.headers["Content-Encoding"], "aes128gcm");
   assert.deepEqual(amb.t.avisos_push.map((s) => s.id), [1]);                 // a inscrição morta (410) foi apagada
@@ -122,11 +123,17 @@ test("chave pública para o app e aviso de teste só para quem está logado", as
   assert.equal((await amb.handler(pedido("POST", { authorization: "Bearer falso" }, { teste: true }))).status, 401);
   const r = await (await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: true }))).json();
   assert.deepEqual(r, { pendencias: 0, email: "enviado", push: { aparelhos: 1, entregues: 1 } });
-  assert.equal(JSON.parse(amb.enviados.find((e) => e.url.includes("brevo")).init.body).subject, "Meus Gastos: aviso de teste");
+  assert.equal(JSON.parse(amb.enviados.find((e) => e.url.includes("resend")).init.body).subject, "Meus Gastos: aviso de teste");
   assert.equal((await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: true }))).status, 429);   // um por minuto
   amb.avanca(61000);
   assert.equal((await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: true }))).status, 200);
-  // sem a chave do Brevo, o e-mail fica como "não configurado" e a notificação segue
+  // com a chave do Brevo no lugar da do Resend, o envio vai pelo Brevo
+  amb.avanca(61000); delete amb.cfg.RESEND_API_KEY; amb.cfg.BREVO_API_KEY = "chave-brevo";
+  assert.equal((await (await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: true }))).json()).email, "enviado");
+  const viaBrevo = amb.enviados.filter((e) => e.url.includes("brevo"));
+  assert.equal(viaBrevo.length, 1); assert.equal(viaBrevo[0].init.headers["api-key"], "chave-brevo");
+  assert.deepEqual(JSON.parse(viaBrevo[0].init.body).to, [{ email: "ana@exemplo.com" }]);
+  // sem nenhuma chave, o e-mail fica como "não configurado" e a notificação segue
   amb.avanca(61000); delete amb.cfg.BREVO_API_KEY;
   assert.equal((await (await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: true }))).json()).email, "não configurado");
 });

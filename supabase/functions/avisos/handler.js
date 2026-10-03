@@ -77,12 +77,20 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
     return { lancamentos: lancamentos.map(num), fixos: fixos.map(num), pagos, faturas: faturas.map(num), cartoes };
   }
 
+  /**
+   * Envia o e-mail pelo serviço que estiver configurado nos segredos da função:
+   * RESEND_API_KEY (Resend) ou BREVO_API_KEY (Brevo), mais AVISOS_REMETENTE (o endereço que envia).
+   */
   async function mandaEmail(para, aviso) {
-    const chave = env("BREVO_API_KEY"), remetente = env("AVISOS_REMETENTE");
-    if (!chave || !remetente) return "não configurado";
-    const r = await fetchFn("https://api.brevo.com/v3/smtp/email", { method: "POST",
-      headers: { "api-key": chave, "Content-Type": "application/json", Accept: "application/json" },
-      body: JSON.stringify({ sender: { name: "Meus Gastos", email: remetente }, to: [{ email: para }], subject: aviso.assunto, htmlContent: aviso.html, textContent: aviso.texto }) });
+    const resend = env("RESEND_API_KEY"), brevo = env("BREVO_API_KEY"), remetente = env("AVISOS_REMETENTE");
+    if ((!resend && !brevo) || !remetente) return "não configurado";
+    const r = resend
+      ? await fetchFn("https://api.resend.com/emails", { method: "POST",
+          headers: { Authorization: `Bearer ${resend}`, "Content-Type": "application/json" },
+          body: JSON.stringify({ from: `Meus Gastos <${remetente}>`, to: [para], subject: aviso.assunto, html: aviso.html, text: aviso.texto }) })
+      : await fetchFn("https://api.brevo.com/v3/smtp/email", { method: "POST",
+          headers: { "api-key": brevo, "Content-Type": "application/json", Accept: "application/json" },
+          body: JSON.stringify({ sender: { name: "Meus Gastos", email: remetente }, to: [{ email: para }], subject: aviso.assunto, htmlContent: aviso.html, textContent: aviso.texto }) });
     if (r.ok) return "enviado";
     return `erro ${r.status}: ${(await r.text().catch(() => "")).slice(0, 200)}`;
   }

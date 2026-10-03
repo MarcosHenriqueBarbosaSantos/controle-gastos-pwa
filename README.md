@@ -46,7 +46,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 | Segurança | Row Level Security | Cada usuário só lê e escreve as próprias linhas, garantido pelo banco |
 | Excel | SheetJS | Leitura e escrita de `.xlsx` no navegador |
 | App instalável | Web App Manifest + Service Worker | Ícone na tela inicial e abertura em tela cheia |
-| Avisos | Supabase Edge Function + agendamento no banco (pg_cron) | E-mail (Brevo) e Web Push, sem biblioteca externa |
+| Avisos | Supabase Edge Function + agendamento no banco (pg_cron) | E-mail (Resend ou Brevo) e Web Push, sem biblioteca externa |
 | Testes | `node:test` | Regras de cálculo, importação e servidor de avisos testados sem dependências |
 
 ## Arquitetura
@@ -159,7 +159,7 @@ No Supabase, abra **Authentication → URL Configuration** e coloque o endereço
 
 1. No Supabase, rode [`supabase/avisos.sql`](supabase/avisos.sql): cria as tabelas dos avisos e o agendamento diário (8h de Brasília).
 2. Publique a função [`supabase/functions/avisos`](supabase/functions/avisos) (`supabase functions deploy avisos --no-verify-jwt`).
-3. Para o e-mail, crie uma conta no [Brevo](https://www.brevo.com), gere uma chave de API e cadastre, em **Edge Functions → Secrets**, `BREVO_API_KEY` (a chave) e `AVISOS_REMETENTE` (o e-mail remetente verificado no Brevo). Sem isso, só as notificações funcionam.
+3. Para o e-mail, crie uma conta no [Resend](https://resend.com), verifique o seu domínio, gere uma chave de API e cadastre, em **Edge Functions → Secrets**, `RESEND_API_KEY` (a chave) e `AVISOS_REMETENTE` (por exemplo `avisos@seudominio.com.br`). O servidor também aceita o Brevo, com `BREVO_API_KEY`. Sem nenhuma chave, só as notificações funcionam.
 4. No app, em **Ajustes → Avisos de contas**, ligue a notificação no aparelho e use **Enviar um aviso de teste agora**.
 
 A função confere a si mesma em `/functions/v1/avisos?autoteste=1` (regras e criptografia, sem tocar no banco). As chaves das notificações são criadas pelo servidor e ficam em uma tabela que só ele lê.
