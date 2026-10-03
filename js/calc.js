@@ -132,7 +132,8 @@ export function calcMes(st, m, hoje) {
  * - Com histórico (até 3 meses anteriores com gastos): mistura o ritmo atual com a média desses meses.
  *   No começo do mês pesa mais o histórico; no fim, pesa mais o ritmo atual.
  * - Sem histórico: mantém a média diária, mas não repete compras pontuais grandes
- *   (acima de 5 vezes o gasto típico), como a compra do mês no mercado.
+ *   (acima de 5 vezes o gasto típico), como a compra do mês no mercado. Nos primeiros dias,
+ *   ou com poucos lançamentos, não projeta nada além do que já foi gasto.
  * Nunca fica abaixo do que já foi gasto.
  */
 export function projetaDiaADia(st, m, gastos, dias, n) {
@@ -145,6 +146,8 @@ export function projetaDiaADia(st, m, gastos, dias, n) {
     const hist = ult.reduce((t, k) => t + porMes[k], 0) / ult.length, w = dias / n;
     return Math.max(total, w * (total / dias) * n + (1 - w) * hist);
   }
+  // Com poucos dados (menos de 5 dias ou de 5 gastos) não dá para falar em ritmo: não extrapola.
+  if (dias < 5 || gastos.length < 5) return total;
   const vals = gastos.map((x) => Number(x.valor)).sort((a, b) => a - b);
   const mediana = vals.length ? vals[Math.floor((vals.length - 1) / 2)] : 0;
   const rotina = vals.filter((v) => v <= 5 * mediana).reduce((t, v) => t + v, 0);
@@ -255,4 +258,23 @@ export function proximosVencimentos(st, hoje, janela = 30) {
     });
   });
   return out.sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
+}
+
+/**
+ * O que pede atenção hoje, para aparecer no topo do app.
+ * - contas: as atrasadas e as que vencem em até `urgencia` dias (da mais atrasada para a mais distante).
+ * - saldo: alerta se o mês atual já está no vermelho, ou se a previsão é fechar no vermelho.
+ * @returns {{contas: ReturnType<typeof proximosVencimentos>, atrasadas:number, totalContas:number,
+ *            saldo: null | {nivel:"bad"|"warn", tipo:"vermelho"|"previsao", valor:number}}}
+ */
+export function avisosDeHoje(st, hoje, urgencia = 3) {
+  const contas = proximosVencimentos(st, hoje, urgencia);
+  const c = calcMes(st, mKey(hoje), hoje);
+  const previsto = round2(c.rec - c.proj - c.res);
+  let saldo = null;
+  if (c.it.length || c.fx.length || c.fr.length || c.fat.length) {
+    if (c.saldo < 0) saldo = { nivel: "bad", tipo: "vermelho", valor: -c.saldo };
+    else if (previsto < 0) saldo = { nivel: "warn", tipo: "previsao", valor: -previsto };
+  }
+  return { contas, atrasadas: contas.filter((x) => x.dias < 0).length, totalContas: round2(contas.reduce((t, x) => t + x.valor, 0)), saldo };
 }

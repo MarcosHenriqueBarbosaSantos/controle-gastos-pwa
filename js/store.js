@@ -127,7 +127,7 @@ export function demoSeed(hojeISO) {
       .map(([descricao, categoria, dia, valor, forma]) => ({ id: uuid(), tipo: "Despesa", descricao, categoria, dia, valor, forma, desde: `${prev}-01`, ate: null }));
     // Exemplo de gasto semanal: terapia toda quinta-feira, desde o mês anterior.
     F.push({ id: uuid(), tipo: "Despesa", repete: "semanal", dia_semana: 4, descricao: "Terapia", categoria: "Saúde", dia: 1, valor: 90, forma: "Pix", desde: `${prev}-01`, ate: null });
-    const salario = { id: uuid(), tipo: "Receita", descricao: "Salário", categoria: "Salário", dia: 5, valor: 3200, forma: "", desde: `${prev}-01`, ate: null };
+    const salario = { id: uuid(), tipo: "Receita", descricao: "Salário", categoria: "Salário", dia: 5, valor: 3900, forma: "", desde: `${prev}-01`, ate: null };
     const P = [];
     F.filter((f) => f.repete !== "semanal").forEach((f) => { P.push({ fixo_id: f.id, mes: `${prev}-01` }); if (f.dia <= d) P.push({ fixo_id: f.id, mes: `${cur}-01` }); });
     const C = [{ id: uuid(), cartao: "Cartão roxo", vencimento: `${cur}-08`, valor: 326.4, status: d >= 8 ? "Paga" : "Aberta" },

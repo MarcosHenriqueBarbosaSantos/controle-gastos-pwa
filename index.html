@@ -29,6 +29,7 @@
     <form id="authForm" class="auth-form" autocomplete="on">
       <label class="f">E-mail<input class="in" id="aEmail" type="email" autocomplete="email" required></label>
       <label class="f">Senha<input class="in" id="aSenha" type="password" autocomplete="current-password" minlength="6" required></label>
+      <label class="check ver-senha"><input type="checkbox" id="aVer"> Mostrar senha</label>
       <div class="auth-actions">
         <button class="btn primary" type="submit" id="aEntrar">Entrar</button>
         <button class="btn" type="button" id="aCriar">Criar conta</button>
@@ -68,6 +69,8 @@
   </div>
 
   <div class="banner" id="banner" role="status" hidden></div>
+
+  <section class="v-inicio" id="avisos" aria-label="Avisos"></section>
 
   <section class="panel quick" aria-label="Lançar">
     <div class="quick-head">

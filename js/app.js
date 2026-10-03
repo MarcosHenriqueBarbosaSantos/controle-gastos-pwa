@@ -1,7 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana } from "./calc.js";
+  categoriasIniciais, primeiroMes, saldoAnterior, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
 import { parseWorkbook, buildWorkbook, importKey, norm } from "./excel.js";
 
@@ -35,8 +35,18 @@ const opts = (lista, atual) => lista.map((c) => `<option${c === atual ? " select
 /* ================= inicialização e login ================= */
 const configured = () => Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 
+/** Links de e-mail (confirmação, nova senha) voltam com o resultado no endereço. Se veio erro, explica na tela de entrada. */
+function erroDoLink() {
+  const p = new URLSearchParams((location.hash || "").replace(/^#/, "") || location.search);
+  if (!p.get("error") && !p.get("error_code")) return "";
+  history.replaceState(null, "", location.pathname);
+  return /expired|otp/i.test((p.get("error_code") || "") + (p.get("error_description") || ""))
+    ? "Esse link já foi usado ou expirou. Para criar uma nova senha, peça outro link em \"Esqueci minha senha\"."
+    : "Não foi possível concluir pelo link do e-mail. Tente entrar normalmente ou peça um novo link.";
+}
 async function boot() {
   $("authSuporte").innerHTML = suporteHtml();
+  const aviso = erroDoLink(); if (aviso) authMsg(aviso, "err");
   if (!configured()) {
     $("authForm").hidden = true;
     $("authMsg").textContent = "Login ainda não configurado neste endereço. Você pode testar tudo na demonstração.";
@@ -44,7 +54,8 @@ async function boot() {
     S.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     // O setTimeout evita chamar o Supabase de dentro do próprio callback (recomendação da biblioteca).
     S.client.auth.onAuthStateChange((ev, session) => setTimeout(() => {
-      if (ev === "PASSWORD_RECOVERY") pedirNovaSenha();
+      // Chegou pelo link de "esqueci minha senha": entra no app e já pede a senha nova.
+      if (ev === "PASSWORD_RECOVERY") { S.recuperando = true; if (S.store?.kind === "supabase" && S.loaded) pedirNovaSenha(); }
       if (session) { if (S.store?.kind !== "supabase") startApp(createSupabaseStore(S.client), session.user.email); }
       else if (ev === "INITIAL_SESSION" || S.store?.kind === "supabase") semSessao();
     }, 0));
@@ -63,7 +74,9 @@ function showAuth() {
 function authMsg(t, kind = "") { const m = $("authMsg"); m.textContent = t; m.className = "auth-msg " + kind; }
 const traduzErro = (e) => {
   const m = String(e?.message || e || "");
-  if (/invalid login/i.test(m)) return "E-mail ou senha incorretos.";
+  if (/invalid login/i.test(m)) return "E-mail ou senha incorretos. Confira os dois. Se ainda não tem conta, toque em Criar conta; se esqueceu a senha, use o link abaixo.";
+  if (/rate limit|too many|security purposes/i.test(m)) return "Muitas tentativas seguidas. Espere um minuto e tente de novo.";
+  if (/expired|invalid.*link|otp/i.test(m)) return "Esse link já foi usado ou expirou. Peça um novo em \"Esqueci minha senha\".";
   if (/already registered/i.test(m)) return "Esse e-mail já tem conta. Use Entrar.";
   if (/email not confirmed/i.test(m)) return "Confirme seu e-mail pelo link que enviamos antes de entrar.";
   if (/password/i.test(m) && /6/.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
@@ -85,14 +98,18 @@ $("aCriar").addEventListener("click", async () => {
     options: { emailRedirectTo: location.origin + location.pathname },
   });
   if (error) return authMsg(traduzErro(error), "err");
-  if (!data.session) authMsg("Conta criada. Abra o e-mail de confirmação que enviamos e depois volte para entrar.", "ok");
+  // Quando o e-mail já tem conta, o Supabase responde sem erro e sem identidades (para não revelar cadastros).
+  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0)
+    return authMsg("Esse e-mail já tem conta. Use Entrar. Se não lembra a senha, toque em \"Esqueci minha senha\".", "err");
+  if (!data.session) authMsg("Conta criada. Abra o e-mail de confirmação que enviamos (olhe também o spam), toque no link e depois volte aqui para entrar.", "ok");
 });
 $("aEsqueci").addEventListener("click", async () => {
   const email = $("aEmail").value.trim();
   if (!email) { $("aEmail").focus(); return authMsg("Digite seu e-mail acima para receber o link de nova senha."); }
   const { error } = await S.client.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-  authMsg(error ? traduzErro(error) : "Enviamos um link para criar uma nova senha no seu e-mail.", error ? "err" : "ok");
+  authMsg(error ? traduzErro(error) : "Se esse e-mail tem conta, enviamos um link para criar uma nova senha. Olhe também o spam. Se não chegar, pode ser que a conta ainda não exista: use Criar conta.", error ? "err" : "ok");
 });
+$("aVer").addEventListener("change", (e) => { $("aSenha").type = e.target.checked ? "text" : "password"; });
 $("aDemo").addEventListener("click", startDemo);
 $("btnSair").addEventListener("click", async () => {
   if (S.store?.kind === "supabase") { await S.client.auth.signOut(); }
@@ -100,20 +117,22 @@ $("btnSair").addEventListener("click", async () => {
 });
 
 function pedirNovaSenha() {
-  openDlg(`<h3>Criar nova senha</h3><form id="novaSenha" style="display:grid;gap:12px">
+  openDlg(`<h3>Criar nova senha</h3><p class="hint" style="margin:0 0 4px">Escolha uma senha nova, com pelo menos 6 caracteres.</p><form id="novaSenha" style="display:grid;gap:12px">
     <label class="f">Nova senha<input class="in" id="ns1" type="password" minlength="6" required autocomplete="new-password"></label>
     <div class="actions"><button class="btn primary" type="submit">Salvar senha</button></div><p class="auth-msg" id="nsMsg"></p></form>`);
   $("novaSenha").addEventListener("submit", async (e) => {
     e.preventDefault();
     const { error } = await S.client.auth.updateUser({ password: $("ns1").value });
     if (error) { $("nsMsg").textContent = traduzErro(error); return; }
-    $("dlg").close();
+    S.recuperando = false;
+    $("dlg").close(); toast("Senha alterada. Você já está dentro do app.");
+    $("flash").style.color = "var(--good)"; $("flash").textContent = "Senha alterada.";
   });
 }
 
 function startDemo() {
   try { localStorage.setItem("cg-modo", "demo"); } catch { /* nada */ }
-  const store = createLocalStore("cg-demo-v6", demoSeed(hoje()));
+  const store = createLocalStore("cg-demo-v7", demoSeed(hoje()));
   startApp(store, "Demonstração");
   showBanner(`Modo demonstração: dados de exemplo guardados só neste aparelho.`, [["Recomeçar exemplo", () => { store.reset(); startDemo(); }]]);
 }
@@ -132,7 +151,8 @@ async function startApp(store, quem) {
     S.prefs = { ...prefsPadrao(), ...(p || {}) };
     if (!S.prefs.categorias) S.prefs.categorias = categoriasIniciais(S.data);
     S.loaded = true; render();
-    if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) boasVindas();
+    if (S.recuperando) pedirNovaSenha();
+    else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) boasVindas();
   } catch (e) { console.error(e); showBanner("Não foi possível carregar seus dados. Confira a internet e recarregue a página."); }
 }
 
@@ -167,7 +187,7 @@ function render() {
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
-  renderForm(); renderKpis(c); renderVenc(); renderCusto(c); renderCat(c); renderTabs(c);
+  renderForm(); renderAvisos(); renderKpis(c); renderVenc(); renderCusto(c); renderCat(c); renderTabs(c);
 }
 
 function renderForm() {
@@ -233,7 +253,7 @@ function renderVenc() {
       ? "Nenhuma conta para os próximos 30 dias. Cadastre seus gastos fixos e as faturas do cartão para ser avisado aqui." : "Carregando…"}</li></ul>`;
     return;
   }
-  const quando = (d) => d < 0 ? `atrasada ${-d} ${-d === 1 ? "dia" : "dias"}` : d === 0 ? "vence hoje" : d === 1 ? "amanhã" : `em ${d} dias`;
+  const quando = quandoVence;
   const cls = (d) => (d < 0 ? "bad" : d <= 7 ? "warn" : "ok");
   host.innerHTML = cab(`${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`) +
     `<ul class="venc">${l.map((x, i) => `<li>
@@ -241,14 +261,43 @@ function renderVenc() {
       <span class="oque"><b>${esc(x.titulo)}</b><span>${x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Gasto fixo · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Gasto fixo"}</span></span>
       <span class="quando ${cls(x.dias)}">${quando(x.dias)}</span>
       <span class="valor">${brl(x.valor)}</span>
-      <button class="btn sm" type="button" data-pg="${i}">Marcar como pago</button></li>`).join("")}</ul>`;
-  host.querySelectorAll("[data-pg]").forEach((b) => (b.onclick = async () => {
-    const x = l[Number(b.dataset.pg)]; b.disabled = true;
-    if (x.tipo === "fatura") {
-      if (await grava(() => S.store.updateFatura(x.id, { status: "Paga" }))) { const f = S.data.faturas.find((z) => z.id === x.id); if (f) f.status = "Paga"; }
-    } else if (await grava(() => S.store.setPago(x.id, x.chave, true))) S.data.pagos.push({ fixo_id: x.id, mes: x.chave });
-    render();
-  }));
+      <button class="btn sm" type="button" data-pg="${i}">Já paguei</button></li>`).join("")}</ul>`;
+  host.querySelectorAll("[data-pg]").forEach((b) => (b.onclick = () => { b.disabled = true; pagarConta(l[Number(b.dataset.pg)]); }));
+}
+/** Marca uma conta (fatura ou ocorrência de fixo) como paga e atualiza a tela. */
+async function pagarConta(x) {
+  if (x.tipo === "fatura") {
+    if (await grava(() => S.store.updateFatura(x.id, { status: "Paga" }))) { const f = S.data.faturas.find((z) => z.id === x.id); if (f) f.status = "Paga"; }
+  } else if (await grava(() => S.store.setPago(x.id, x.chave, true))) S.data.pagos.push({ fixo_id: x.id, mes: x.chave });
+  render();
+}
+const quandoVence = (d) => d < 0 ? `atrasada ${-d} ${-d === 1 ? "dia" : "dias"}` : d === 0 ? "vence hoje" : d === 1 ? "amanhã" : `em ${d} dias`;
+
+/** Avisos no topo: só o que pede atenção agora (contas atrasadas ou perto de vencer, e mês no vermelho). */
+function renderAvisos() {
+  const host = $("avisos");
+  if (!S.loaded) { host.innerHTML = ""; return; }
+  const a = avisosDeHoje(S.data, hoje(), 3), n = a.contas.length + (a.saldo ? 1 : 0);
+  if (!n) {
+    const temDados = S.data.lancamentos.length || S.data.fixos.length || S.data.faturas.length;
+    host.innerHTML = temDados ? `<p class="tudo-ok"><span class="quando ok">✓ em dia</span> Nenhuma conta atrasada nem vencendo nos próximos 3 dias.</p>` : "";
+    return;
+  }
+  const MAX = 4, vis = a.contas.slice(0, MAX), resto = a.contas.length - vis.length;
+  const saldo = !a.saldo ? "" : `<li class="aviso ${a.saldo.nivel}">
+      <span class="quando ${a.saldo.nivel}">${a.saldo.tipo === "vermelho" ? "no vermelho" : "atenção"}</span>
+      <span class="oque"><b>${a.saldo.tipo === "vermelho" ? `Este mês já está ${brl(a.saldo.valor)} no vermelho` : `No ritmo atual, o mês fecha ${brl(a.saldo.valor)} no vermelho`}</b>
+      <span>${a.saldo.tipo === "vermelho" ? "As saídas do mês passaram das entradas." : "Ainda dá tempo de segurar os gastos do dia a dia."}</span></span></li>`;
+  host.innerHTML = `<div class="sec-head"><h2>Avisos</h2><span>${a.atrasadas ? `${a.atrasadas} ${a.atrasadas === 1 ? "conta atrasada" : "contas atrasadas"}` : a.contas.length ? `${brl(a.totalContas)} vencendo em até 3 dias` : "Sobre este mês"}</span></div>
+    <ul class="venc avisos">${vis.map((x, i) => `<li class="aviso ${x.dias < 0 ? "bad" : "warn"}">
+      <span class="quando ${x.dias < 0 ? "bad" : "warn"}">${quandoVence(x.dias)}</span>
+      <span class="oque"><b>${esc(x.titulo)}</b><span>${ddmm(x.data)} · ${x.tipo === "fatura" ? "fatura de cartão" : "gasto fixo"}</span></span>
+      <span class="valor">${brl(x.valor)}</span>
+      <button class="btn sm" type="button" data-av="${i}">Já paguei</button></li>`).join("")}
+      ${resto > 0 ? `<li class="vazio"><button class="link" type="button" id="avMais">Ver mais ${resto} ${resto === 1 ? "conta" : "contas"} em Próximos vencimentos</button></li>` : ""}
+      ${saldo}</ul>`;
+  host.querySelectorAll("[data-av]").forEach((b) => (b.onclick = () => { b.disabled = true; pagarConta(vis[Number(b.dataset.av)]); }));
+  if ($("avMais")) $("avMais").onclick = () => $("venc").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 const el = (t, a = {}, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };

@@ -76,10 +76,10 @@ test("fixo no cartão não entra no custo direto, só pela fatura", () => {
   assert.deepEqual(comprasCartaoPorCategoria(c), [["Carro", 6300], ["Lazer", 40]]);
 });
 
-test("projeção do mês atual usa a média diária", () => {
+test("projeção do mês atual com poucos lançamentos não extrapola", () => {
   const c = calcMes(base(), "2026-03", "2026-03-10"); // 10 de 31 dias
   assert.equal(c.fase, "atual");
-  assert.equal(c.proj, Math.round(((350 / 10) * 31 + 350) * 100) / 100);
+  assert.equal(c.proj, 350 + 350);   // só um gasto lançado: pouco dado para projetar, fica no que já saiu + fixos
 });
 
 test("categorias somam dia a dia e fixos", () => {
@@ -197,19 +197,22 @@ import { projetaDiaADia } from "../js/calc.js";
 
 test("previsão: compra pontual grande não é repetida; com histórico, mistura com a média", () => {
   const g = (data, valor) => ({ id: data + valor, data, descricao: "", tipo: "Despesa", categoria: "Outros", forma: "Pix", valor });
+  const out = () => st.lancamentos.filter((x) => x.data.startsWith("2026-10"));
   const st = { lancamentos: [g("2026-10-01", 20), g("2026-10-02", 600), g("2026-10-03", 40)], fixos: [], pagos: [], faturas: [] };
-  // sem histórico: 660 já gastos + (20+40)/3 por dia nos 28 dias restantes
-  assert.equal(Math.round(projetaDiaADia(st, "2026-10", st.lancamentos, 3, 31)), 660 + Math.round((60 / 3) * 28));
-  assert.equal(calcMes(st, "2026-10", "2026-10-03").proj, 1220);
-  // com histórico de 900 em setembro: no dia 3 de 31 pesa quase só o histórico
+  // poucos dados (3 dias, 3 gastos): não projeta além do que já saiu
+  assert.equal(projetaDiaADia(st, "2026-10", out(), 3, 31), 660);
+  assert.equal(calcMes(st, "2026-10", "2026-10-03").proj, 660);
+  // dia 6, com 6 gastos: rotina de 20+40+30+25+35 = 150 em 6 dias; os 600 não se repetem
+  st.lancamentos.push(g("2026-10-04", 30), g("2026-10-05", 25), g("2026-10-06", 35));
+  assert.equal(Math.round(projetaDiaADia(st, "2026-10", out(), 6, 31)), 750 + Math.round((150 / 6) * 25));
+  assert.equal(calcMes(st, "2026-10", "2026-10-06").proj, 1375);
+  // com histórico de 900 em setembro: no dia 6 de 31 pesa mais o histórico
   st.lancamentos.push(g("2026-09-10", 900));
-  const out = st.lancamentos.filter((x) => x.data.startsWith("2026-10"));
-  const w = 3 / 31, esperado = w * (660 / 3) * 31 + (1 - w) * 900;
-  assert.ok(Math.abs(projetaDiaADia(st, "2026-10", out, 3, 31) - esperado) < 0.01);
+  const w = 6 / 31, esperado = w * (750 / 6) * 31 + (1 - w) * 900;
+  assert.ok(Math.abs(projetaDiaADia(st, "2026-10", out(), 6, 31) - esperado) < 0.01);
   // nunca abaixo do que já foi gasto
-  st.lancamentos.push(g("2026-10-03", 5000));
-  const out2 = st.lancamentos.filter((x) => x.data.startsWith("2026-10"));
-  assert.ok(projetaDiaADia(st, "2026-10", out2, 3, 31) >= 5660);
+  st.lancamentos.push(g("2026-10-06", 5000));
+  assert.ok(projetaDiaADia(st, "2026-10", out(), 6, 31) >= 5750);
 });
 
 test("entradas fixas entram sozinhas todo mês e não se misturam com os gastos fixos", () => {
@@ -259,4 +262,40 @@ test("fixo semanal: uma ocorrência em cada dia da semana escolhido, a partir do
   // encerrado no fim de outubro
   st.fixos[0].ate = "2026-10-01";
   assert.equal(ocorrencias(st.fixos, "2026-11").filter((o) => o.id === "u").length, 0);
+});
+
+import { avisosDeHoje } from "../js/calc.js";
+
+test("avisos do dia: contas atrasadas ou até 3 dias, e alerta de saldo", () => {
+  const g = (data, valor, tipo = "Despesa") => ({ id: data + valor, data, descricao: "", tipo, categoria: "Outros", forma: "Pix", valor });
+  const st = { lancamentos: [g("2026-10-01", 3000, "Receita"), g("2026-10-02", 100)], pagos: [], faturas: [
+      { id: "c1", cartao: "Roxo", vencimento: "2026-10-05", valor: 299, status: "Aberta" },
+      { id: "c2", cartao: "Azul", vencimento: "2026-10-20", valor: 500, status: "Aberta" },
+      { id: "c0", cartao: "Velha", vencimento: "2026-09-10", valor: 80, status: "Aberta" }],
+    fixos: [{ id: "a", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 1, valor: 1000, forma: "Boleto", desde: "2026-10-01", ate: null }] };
+  const a = avisosDeHoje(st, "2026-10-03");
+  assert.deepEqual(a.contas.map((x) => [x.titulo, x.dias]), [["Fatura Velha", -23], ["Aluguel", -2], ["Fatura Roxo", 2]]);
+  assert.equal(a.atrasadas, 2);
+  assert.equal(a.totalContas, 80 + 1000 + 299);
+  assert.equal(a.saldo, null);                                   // 3000 de entrada cobre o mês
+  // pagou o aluguel: sai dos avisos
+  st.pagos.push({ fixo_id: "a", mes: "2026-10-01" });
+  assert.deepEqual(avisosDeHoje(st, "2026-10-03").contas.map((x) => x.titulo), ["Fatura Velha", "Fatura Roxo"]);
+  // gastou mais do que entrou: alerta vermelho
+  st.lancamentos.push(g("2026-10-03", 2500));
+  const b = avisosDeHoje(st, "2026-10-03");
+  assert.equal(b.saldo.tipo, "vermelho"); assert.equal(b.saldo.nivel, "bad");
+  assert.equal(b.saldo.valor, 100 + 2500 + 1000 + 299 + 500 - 3000);
+  // sem nenhum dado, nenhum aviso
+  assert.deepEqual(avisosDeHoje({ lancamentos: [], fixos: [], pagos: [], faturas: [] }, "2026-10-03"), { contas: [], atrasadas: 0, totalContas: 0, saldo: null });
+});
+
+test("aviso de previsão: ainda no azul, mas o ritmo leva ao vermelho", () => {
+  const g = (data, valor, tipo = "Despesa") => ({ id: data + valor, data, descricao: "", tipo, categoria: "Outros", forma: "Pix", valor });
+  const st = { lancamentos: [g("2026-10-01", 1500, "Receita"), g("2026-10-01", 100), g("2026-10-02", 110), g("2026-10-03", 90)], fixos: [], pagos: [], faturas: [] };
+  assert.equal(avisosDeHoje(st, "2026-10-03").saldo, null);      // 3 dias é pouco para prever: sem alarme
+  st.lancamentos.push(g("2026-10-04", 100), g("2026-10-05", 105), g("2026-10-06", 95));
+  const a = avisosDeHoje(st, "2026-10-06");                      // 100 por dia → 3.100 no mês, contra 1.500
+  assert.equal(a.saldo.tipo, "previsao"); assert.equal(a.saldo.nivel, "warn");
+  assert.equal(a.saldo.valor, 1600);
 });

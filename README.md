@@ -23,6 +23,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Gastos fixos** cadastrados uma vez: mensais (aluguel, internet) ou semanais (Uber de toda sexta, terapia), com marcação de "pago" a cada ocorrência.
 - **Entradas fixas**, como o salário: cadastradas uma vez, são lançadas sozinhas em todo mês, no dia escolhido.
 - **Cartão de crédito pela fatura**: o que é comprado no cartão só pesa no mês em que a fatura vence.
+- **Avisos no topo**: contas atrasadas ou vencendo em até 3 dias, com botão "Já paguei", e alerta quando o mês está ou vai fechar no vermelho.
 - **Próximos vencimentos**: quadro com as contas dos próximos 30 dias ("em 10 dias vence a fatura, R$ 299"), com aviso de atraso e botão para marcar como pago.
 - **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
 - **Saldo acumulado**: o que sobrou ou faltou passa para o mês seguinte, se a pessoa quiser.
@@ -66,7 +67,8 @@ A tela não sabe onde os dados estão guardados: ela usa a interface de `store.j
 - **Entradas** = entradas lançadas + entradas fixas do mês.
 - **Saldo do mês** = entradas − custo − dinheiro guardado no mês (guardou menos retirou).
 - **Dinheiro guardado** = soma de tudo que foi guardado menos o que foi retirado, por destino.
-- **Previsão** (mês atual): com histórico, mistura o ritmo do mês com a média dos últimos 3 meses, dando mais peso ao histórico no começo do mês. Sem histórico, mantém a média diária sem repetir compras pontuais grandes.
+- **Previsão** (mês atual): com histórico, mistura o ritmo do mês com a média dos últimos 3 meses, dando mais peso ao histórico no começo do mês. Sem histórico, mantém a média diária sem repetir compras pontuais grandes, e não projeta nada nos primeiros dias ou com poucos lançamentos.
+- **Avisos no topo**: contas atrasadas ou vencendo em até 3 dias, com botão "Já paguei", e alerta quando o mês está ou vai fechar no vermelho.
 - **Próximos vencimentos**: faturas em aberto e fixos não pagos do mês atual e do próximo, até 30 dias à frente, mais os atrasados.
 
 ### Modelo de dados
