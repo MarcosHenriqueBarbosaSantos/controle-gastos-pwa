@@ -10,6 +10,7 @@
 //   setPago(fixoId, mes, pago)
 //   addFatura(row) / updateFatura(id, patch) / deleteFatura(id)
 //   addCartao(row) / updateCartao(id, patch) / deleteCartao(id)
+//   salvaPush(row) / removePush(endpoint) / token()   → só na conta de verdade (avisos no celular)
 
 const num = (r) => ({ ...r, valor: Number(r.valor) });
 
@@ -65,6 +66,10 @@ export function createSupabaseStore(client) {
     async addCartao(row) { return ok(await client.from("cartoes").insert(row).select().single()); },
     async updateCartao(id, patch) { ok(await client.from("cartoes").update(patch).eq("id", id)); },
     async deleteCartao(id) { ok(await client.from("cartoes").delete().eq("id", id)); },
+    // Notificações: guarda (ou apaga) a inscrição deste aparelho para o servidor de avisos.
+    async salvaPush(row) { ok(await client.from("avisos_push").upsert(row, { onConflict: "user_id,endpoint" })); },
+    async removePush(endpoint) { ok(await client.from("avisos_push").delete().eq("endpoint", endpoint)); },
+    async token() { return (await client.auth.getSession()).data.session?.access_token || ""; },
   };
 }
 

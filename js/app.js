@@ -23,7 +23,7 @@ const S = {
   store: null, client: null, loaded: false,
   prefs: prefsPadrao(),
 };
-function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, saldoInicial: 0, boasVindas: false }; }
+function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, saldoInicial: 0, boasVindas: false, avisos: { email: true } }; }
 /** Categorias disponíveis para um tipo: as da pessoa, ou as padrão. */
 function cats(tipo) {
   return S.prefs.categorias?.[tipo]?.length ? S.prefs.categorias[tipo] : CATS_PADRAO[tipo];
@@ -65,6 +65,8 @@ function erroDoLink() {
 }
 async function boot() {
   $("authSuporte").innerHTML = suporteHtml();
+  // Endereço terminado em #demo (usado no site de apresentação) abre direto a demonstração.
+  if (location.hash === "#demo") { try { localStorage.setItem("cg-modo", "demo"); } catch { /* nada */ } history.replaceState(null, "", location.pathname); }
   const aviso = erroDoLink(); if (aviso) authMsg(aviso, "err");
   if (!configured()) {
     $("authForm").hidden = true;
@@ -131,7 +133,7 @@ $("aEsqueci").addEventListener("click", async () => {
 $("aVer").addEventListener("change", (e) => { $("aSenha").type = e.target.checked ? "text" : "password"; });
 $("aDemo").addEventListener("click", startDemo);
 $("btnSair").addEventListener("click", async () => {
-  if (S.store?.kind === "supabase") { await S.client.auth.signOut(); }
+  if (S.store?.kind === "supabase") { await desligarPush().catch(() => {}); await S.client.auth.signOut(); }
   else { try { localStorage.removeItem("cg-modo"); } catch { /* nada */ } showAuth(); }
 });
 
@@ -172,6 +174,7 @@ async function startApp(store, quem) {
     S.loaded = true; render();
     if (S.recuperando) pedirNovaSenha();
     else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) boasVindas();
+    else conviteAvisos();
   } catch (e) { console.error(e); showBanner("Não foi possível carregar seus dados. Confira a internet e recarregue a página."); }
 }
 
@@ -1097,6 +1100,13 @@ function ajustes() {
         <p class="hint" style="margin:0" id="ajIniMsg">O saldo inicial entra no saldo acumulado. Deixe em branco para começar do zero.</p>
       </div>
     </div>
+    ${S.store.kind === "supabase" ? `<div class="aj-sec"><h4>Avisos de contas</h4>
+      <p class="hint" style="margin:0">De manhã, só nos dias em que houver conta atrasada ou vencendo em até 3 dias.</p>
+      <label class="check"><input type="checkbox" id="ajEmail" ${S.prefs.avisos?.email !== false ? "checked" : ""}> Receber por e-mail (${esc($("whoName").textContent)})</label>
+      <label class="check"><input type="checkbox" id="ajPush" ${pushDisponivel() ? "" : "disabled"}> Receber notificação neste aparelho</label>
+      <p class="hint" style="margin:0" id="ajPushMsg">${pushDisponivel() ? "" : "Neste aparelho a notificação só funciona com o app instalado. No iPhone: Compartilhar → Adicionar à Tela de Início, e abra o app por lá."}</p>
+      <button class="btn" type="button" id="ajTeste" style="justify-self:start">Enviar um aviso de teste agora</button>
+    </div>` : ""}
     <div class="aj-sec"><button class="link" type="button" id="ajBV">Ver as boas-vindas de novo</button>${suporteHtml()}</div>
     <div class="actions"><button class="btn primary" data-close>Pronto</button></div>`);
   const body = $("dlgBody");
@@ -1124,7 +1134,66 @@ function ajustes() {
   };
   $("ajIni").onchange = salvaIni; $("ajIniSinal").onchange = salvaIni;
   $("ajBV").onclick = boasVindas;
+  if ($("ajEmail")) ligaAjustesDeAvisos();
 }
+/* ================= avisos: e-mail e notificação no celular ================= */
+// O servidor (supabase/functions/avisos) manda os avisos de manhã. Aqui a pessoa escolhe o que quer receber.
+const AVISOS_URL = SUPABASE_URL ? SUPABASE_URL.replace(/\/$/, "") + "/functions/v1/avisos" : "";
+const pushDisponivel = () => "serviceWorker" in navigator && "PushManager" in window && "Notification" in window;
+const b64ParaBytes = (b) => Uint8Array.from(atob(b.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(b.length / 4) * 4, "=")), (c) => c.charCodeAt(0));
+async function inscricaoPush() { return pushDisponivel() ? (await navigator.serviceWorker.ready).pushManager.getSubscription() : null; }
+/** Pede a permissão, inscreve este aparelho e guarda a inscrição para o servidor de avisos. */
+async function ligarPush() {
+  if (!pushDisponivel()) throw new Error("Este aparelho não aceita notificações pelo navegador.");
+  if ((await Notification.requestPermission()) !== "granted") throw new Error("A permissão de notificação foi negada. Libere nas configurações do navegador para este site e tente de novo.");
+  const r = await fetch(AVISOS_URL, { headers: { apikey: SUPABASE_ANON_KEY } }), j = await r.json().catch(() => ({}));
+  if (!r.ok || !j.chavePublica) throw new Error("O servidor de avisos ainda não está no ar. Tente de novo mais tarde.");
+  const reg = await navigator.serviceWorker.ready;
+  // Se já havia uma inscrição com outra chave, começa de novo.
+  const antiga = await reg.pushManager.getSubscription(); if (antiga) await antiga.unsubscribe();
+  const sub = (await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: b64ParaBytes(j.chavePublica) })).toJSON();
+  await S.store.salvaPush({ endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth });
+}
+async function desligarPush() {
+  const sub = await inscricaoPush(); if (!sub) return;
+  if (S.store?.removePush) await S.store.removePush(sub.endpoint).catch(() => {});
+  await sub.unsubscribe();
+}
+function ligaAjustesDeAvisos() {
+  const msg = (t, erro = false) => { $("ajPushMsg").textContent = t; $("ajPushMsg").style.color = erro ? "var(--bad)" : ""; };
+  inscricaoPush().then((sub) => { if ($("ajPush")) $("ajPush").checked = Boolean(sub) && Notification.permission === "granted"; }).catch(() => {});
+  $("ajEmail").onchange = async (e) => { S.prefs.avisos = { ...S.prefs.avisos, email: e.target.checked }; await salvaPrefs(); };
+  $("ajPush").onchange = async (e) => {
+    const cx = e.target; cx.disabled = true;
+    try {
+      if (cx.checked) { await ligarPush(); msg("Notificações ligadas neste aparelho."); }
+      else { await desligarPush(); msg("Notificações desligadas neste aparelho."); }
+    } catch (err) { cx.checked = !cx.checked; msg(/relation|schema cache|avisos_push/i.test(String(err?.message)) ? "Os avisos ainda não foram ligados no banco de dados (arquivo supabase/avisos.sql)." : String(err?.message || err), true); }
+    cx.disabled = false;
+  };
+  $("ajTeste").onclick = async () => {
+    const b = $("ajTeste"); b.disabled = true; msg("Enviando o aviso de teste…");
+    try {
+      const r = await fetch(AVISOS_URL, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + (await S.store.token()) }, body: JSON.stringify({ teste: true }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.erro || "O servidor de avisos ainda não está no ar.");
+      const email = j.email === "enviado" ? "E-mail enviado (olhe também o spam)." : j.email === "desligado" ? "E-mail desligado." : j.email === "não configurado" ? "E-mail ainda não configurado no servidor." : "O e-mail não saiu: " + j.email;
+      const push = j.push.aparelhos ? `Notificação enviada para ${j.push.entregues} de ${j.push.aparelhos} ${j.push.aparelhos === 1 ? "aparelho" : "aparelhos"}.` : "Nenhum aparelho com notificação ligada.";
+      msg(`${email} ${push}`, /não saiu/.test(email));
+    } catch (err) { msg(/fetch|network/i.test(String(err?.message)) ? "Não consegui falar com o servidor de avisos. Confira a internet." : String(err?.message || err), true); }
+    b.disabled = false;
+  };
+}
+/** Convite, uma vez por aparelho, para ligar as notificações (só para quem já tem contas cadastradas). */
+function conviteAvisos() {
+  if (S.store?.kind !== "supabase" || !pushDisponivel() || Notification.permission !== "default") return;
+  if (!S.data.fixos.length && !S.data.faturas.length && !S.data.cartoes.length) return;
+  try { if (localStorage.getItem("cg-convite-avisos")) return; localStorage.setItem("cg-convite-avisos", "1"); } catch { return; }
+  showBanner("Quer ser avisado no celular quando uma conta estiver para vencer?", [
+    ["Ativar avisos", async () => { try { await ligarPush(); showBanner(""); toastOuFlash("Avisos ligados neste aparelho. Dá para mudar em Ajustes."); } catch (e) { showBanner(String(e?.message || e)); } }],
+    ["Agora não", () => showBanner("")]]);
+}
+
 function boasVindas() {
   openDlg(`<h3>Bem-vindo ao Meus Gastos</h3><p style="color:var(--ink-2);margin:0 0 10px">Em poucos passos você passa a ver quanto o seu mês vai custar.</p>
     <ol class="passos">

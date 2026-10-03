@@ -2,7 +2,7 @@
 
 App web instalável no celular para **lançar gastos no dia a dia e acompanhar quanto o mês vai custar**. Cada pessoa tem sua conta, e os dados ficam salvos na nuvem com segurança por usuário.
 
-**[▶ Abrir o app](https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/)** · tem um modo demonstração, não precisa criar conta para testar.
+**[▶ Abrir o app](https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/)** · **[Site de apresentação](https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/site/)** · tem um modo demonstração, não precisa criar conta para testar.
 
 <p align="center">
   <img src="docs/screenshot-desktop.png" alt="Tela principal no computador" width="68%">
@@ -24,6 +24,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Entradas fixas**, como o salário: cadastradas uma vez, são lançadas sozinhas em todo mês, no dia escolhido.
 - **Cartão de crédito com fatura automática**: a pessoa cadastra o cartão com o dia de fechamento e o de vencimento, e o app monta cada fatura sozinho a partir das compras, incluindo as **parceladas** e os fixos cobrados no cartão. O que é comprado no cartão só pesa no mês em que a fatura vence. Dá para abrir a fatura, ver o que tem dentro, corrigir o valor se o banco cobrou diferente e marcar como paga. Faturas também podem ser lançadas à mão.
 - **Próximos vencimentos no topo**: a primeira coisa da tela são as contas dos próximos 30 dias, com as atrasadas em destaque, contagem de dias ("em 10 dias vence a fatura, R$ 299"), botão "Já paguei" e alerta quando o mês está ou vai fechar no vermelho.
+- **Avisos por e-mail e notificação no celular**: de manhã, só nos dias em que há conta atrasada ou vencendo em até 3 dias. A pessoa liga e desliga em Ajustes.
 - **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
 - **Saldo acumulado**: o que sobrou ou faltou passa para o mês seguinte, se a pessoa quiser, partindo de um **saldo inicial** (quanto ela já tinha, ou devia, quando começou).
 - **Categorias personalizáveis** por usuário, na tela de Ajustes.
@@ -45,7 +46,8 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 | Segurança | Row Level Security | Cada usuário só lê e escreve as próprias linhas, garantido pelo banco |
 | Excel | SheetJS | Leitura e escrita de `.xlsx` no navegador |
 | App instalável | Web App Manifest + Service Worker | Ícone na tela inicial e abertura em tela cheia |
-| Testes | `node:test` | Regras de cálculo e importação testadas sem dependências |
+| Avisos | Supabase Edge Function + agendamento no banco (pg_cron) | E-mail (Brevo) e Web Push, sem biblioteca externa |
+| Testes | `node:test` | Regras de cálculo, importação e servidor de avisos testados sem dependências |
 
 ## Arquitetura
 
@@ -153,7 +155,16 @@ O esquema completo, com as políticas de segurança e a visão `resumo_mensal` p
 
 No Supabase, abra **Authentication → URL Configuration** e coloque o endereço do GitHub Pages em **Site URL** e em **Redirect URLs**. Assim, os e-mails de confirmação e de "esqueci a senha" voltam para o app.
 
-### 4. Instalar no celular
+### 4. Avisos por e-mail e notificação (opcional)
+
+1. No Supabase, rode [`supabase/avisos.sql`](supabase/avisos.sql): cria as tabelas dos avisos e o agendamento diário (8h de Brasília).
+2. Publique a função [`supabase/functions/avisos`](supabase/functions/avisos) (`supabase functions deploy avisos --no-verify-jwt`).
+3. Para o e-mail, crie uma conta no [Brevo](https://www.brevo.com), gere uma chave de API e cadastre, em **Edge Functions → Secrets**, `BREVO_API_KEY` (a chave) e `AVISOS_REMETENTE` (o e-mail remetente verificado no Brevo). Sem isso, só as notificações funcionam.
+4. No app, em **Ajustes → Avisos de contas**, ligue a notificação no aparelho e use **Enviar um aviso de teste agora**.
+
+A função confere a si mesma em `/functions/v1/avisos?autoteste=1` (regras e criptografia, sem tocar no banco). As chaves das notificações são criadas pelo servidor e ficam em uma tabela que só ele lê.
+
+### 5. Instalar no celular
 
 - **Android (Chrome):** abra o endereço e toque em **Instalar app**, ou use o menu ⋮ → **Instalar app**.
 - **iPhone (Safari):** toque em **Compartilhar** e depois em **Adicionar à Tela de Início**.
@@ -178,7 +189,10 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 │   ├── store.js            dados: Supabase ou local (demo)
 │   ├── excel.js            importar / exportar .xlsx
 │   └── config.js           URL e chave do Supabase
+├── site/                   página de apresentação do app (preço e link de compra em OFERTA, no fim do index.html)
 ├── supabase/schema.sql     tabelas, RLS e visão de resumo
+├── supabase/avisos.sql     tabelas e agendamento dos avisos
+├── supabase/functions/     servidor de avisos (e-mail e notificação)
 ├── modelo/                 planilha modelo para importar
 ├── tests/                  testes com node:test
 ├── manifest.webmanifest    dados do app instalável
@@ -188,7 +202,6 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 ## Próximos passos
 
 - Metas de gasto por categoria, com alerta quando passar de uma porcentagem.
-- Avisos de vencimento por notificação no celular ou por e-mail.
 - Painel de análise no Power BI ou no Metabase, conectado à visão `resumo_mensal`.
 - Categorização automática de lançamentos pela descrição, usando o histórico do usuário.
 

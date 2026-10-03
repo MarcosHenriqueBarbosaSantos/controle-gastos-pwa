@@ -1,0 +1,368 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="Meus Gastos: controle de gastos no celular. Lance cada gasto na hora, veja quanto o mês vai custar e seja avisado antes de cada conta vencer.">
+<meta property="og:title" content="Meus Gastos">
+<meta property="og:description" content="Saiba quanto o mês vai custar antes de ele acabar.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#0f2744">
+<link rel="icon" href="img/icone.png">
+<title>Meus Gastos</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: faixa azul-marinho com a promessa e, saindo dela, os cartões de vencimento do próprio app;
+   depois blocos alternados (texto + tela do celular), sempre alinhados à esquerda. */
+:root{
+  --bg:#f3f5f8; --surface:#ffffff; --ink:#0d1b2a; --ink-2:#43536a; --muted:#6a798c; --line:rgba(13,27,42,.13);
+  --band:#0f2744; --band-2:#16365c; --band-ink:#f1f6fc; --band-mute:#a9bdd4;
+  --accent:#2a78d6; --accent-ink:#ffffff; --accent-soft:rgba(42,120,214,.11);
+  --good:#0a6b1f; --good-soft:rgba(12,163,12,.12); --warn:#8a5a00; --warn-soft:rgba(250,178,25,.20); --bad:#c42f2f; --bad-soft:rgba(208,59,59,.10);
+  --frame:#0d1b2a; --shadow:0 18px 40px rgba(13,27,42,.16);
+  --display:"Bricolage Grotesque","Trebuchet MS","Segoe UI",sans-serif;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0b1118; --surface:#141c27; --ink:#f1f5fa; --ink-2:#bcc8d6; --muted:#8a98a9; --line:rgba(255,255,255,.13);
+  --band:#0f2038; --band-2:#17304f; --band-ink:#f1f6fc; --band-mute:#a9bdd4;
+  --accent:#4f97ec; --accent-ink:#06121f; --accent-soft:rgba(79,151,236,.16);
+  --good:#4ccf5f; --good-soft:rgba(12,163,12,.18); --warn:#f0b43a; --warn-soft:rgba(250,178,25,.16); --bad:#f07b7b; --bad-soft:rgba(230,103,103,.14);
+  --frame:#2a3646; --shadow:0 18px 40px rgba(0,0,0,.45); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0b1118; --surface:#141c27; --ink:#f1f5fa; --ink-2:#bcc8d6; --muted:#8a98a9; --line:rgba(255,255,255,.13);
+  --band:#0f2038; --band-2:#17304f; --band-ink:#f1f6fc; --band-mute:#a9bdd4;
+  --accent:#4f97ec; --accent-ink:#06121f; --accent-soft:rgba(79,151,236,.16);
+  --good:#4ccf5f; --good-soft:rgba(12,163,12,.18); --warn:#f0b43a; --warn-soft:rgba(250,178,25,.16); --bad:#f07b7b; --bad-soft:rgba(230,103,103,.14);
+  --frame:#2a3646; --shadow:0 18px 40px rgba(0,0,0,.45); color-scheme:dark}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:16px;line-height:1.55}
+img{max-width:100%;display:block}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.col{max-width:1080px;margin:0 auto;padding-inline:20px}
+h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.015em;line-height:1.08}
+h1{font-size:clamp(2.2rem,5.4vw,3.7rem);font-weight:800}
+h2{font-size:clamp(1.65rem,3.4vw,2.35rem);font-weight:700}
+h3{font-size:1.15rem;font-weight:700;line-height:1.2}
+p{margin:0;max-width:62ch}
+.rot{font-family:var(--mono);font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-family:var(--sans);font-weight:600;font-size:1rem;text-decoration:none;border-radius:10px;padding:13px 20px;border:1px solid transparent;cursor:pointer}
+.btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.pri:hover{filter:brightness(1.08)}
+.btn.sec{border-color:var(--line);color:var(--ink);background:var(--surface)}
+.btn.sec:hover{border-color:var(--accent)}
+
+/* topo */
+.topo{background:var(--band);color:var(--band-ink)}
+.topo .col{display:flex;align-items:center;justify-content:space-between;gap:16px;padding-block:14px}
+.marca{display:flex;align-items:center;gap:10px;font-family:var(--display);font-weight:700;font-size:1.1rem;text-decoration:none}
+.marca img{width:32px;height:32px;border-radius:8px}
+.topo nav{display:flex;align-items:center;gap:22px;font-size:.92rem}
+.topo nav a{text-decoration:none;color:var(--band-mute)}
+.topo nav a:hover{color:var(--band-ink)}
+.topo nav .btn{padding:8px 14px;font-size:.9rem;background:transparent;border-color:rgba(241,246,252,.35);color:var(--band-ink)}
+.topo nav .btn:hover{border-color:var(--band-ink)}
+
+/* abertura */
+.abre{background:linear-gradient(180deg,var(--band) 0%,var(--band-2) 100%);color:var(--band-ink);padding-block:44px 0}
+.abre .col{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:44px;align-items:end}
+.abre .rot{color:var(--band-mute)}
+.abre h1{margin:14px 0 18px}
+.abre h1 em{font-style:normal;color:#8fc0ff}
+.abre .lead{font-size:1.1rem;color:#d5e2f1;max-width:48ch}
+.acoes{display:flex;flex-wrap:wrap;gap:12px;margin-top:26px}
+.abre .btn.sec{background:transparent;color:var(--band-ink);border-color:rgba(241,246,252,.35)}
+.abre .nota{margin:14px 0 46px;font-size:.88rem;color:var(--band-mute)}
+/* cartões de vencimento, iguais aos do app: metade na faixa, metade na página */
+.pilha{display:grid;gap:10px;margin-bottom:-74px;position:relative;z-index:1;color:var(--ink)}
+.venc{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:4px 14px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 16px;box-shadow:var(--shadow)}
+.venc .dt{display:grid;justify-items:center;line-height:1.1}
+.venc .dt b{font-family:var(--display);font-size:1.45rem;font-weight:800}
+.venc .dt span{font-family:var(--mono);font-size:.68rem;letter-spacing:.12em;color:var(--muted)}
+.venc .oq{min-width:0}
+.venc .oq b{display:block;font-weight:600}
+.venc .oq span{font-size:.86rem;color:var(--ink-2)}
+.venc .dir{display:grid;justify-items:end;gap:5px}
+.pill{font-family:var(--mono);font-size:.74rem;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.pill.ok{background:var(--good-soft);color:var(--good)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
+.venc .v{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap}
+.custo{background:#0b0f15;color:#fff;border-radius:14px;padding:16px 18px;display:grid;gap:2px;box-shadow:var(--shadow);border:1px solid rgba(255,255,255,.08)}
+.custo .l{font-size:.82rem;opacity:.75}
+.custo .n{font-family:var(--display);font-weight:800;font-size:1.9rem;letter-spacing:-.01em}
+.custo .p{font-size:.86rem;opacity:.8}
+@media (prefers-reduced-motion:no-preference){
+  .pilha>*{animation:sobe .55s cubic-bezier(.2,.7,.2,1) both}
+  .pilha>*:nth-child(2){animation-delay:.07s}.pilha>*:nth-child(3){animation-delay:.14s}.pilha>*:nth-child(4){animation-delay:.21s}
+  @keyframes sobe{from{transform:translateY(14px);opacity:.01}to{transform:none;opacity:1}}
+}
+
+/* seções */
+section{padding-block:64px}
+.dor{padding-block:118px 30px}
+.dor ul{list-style:none;margin:26px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px}
+.dor li{border-top:2px solid var(--ink);padding-top:14px;color:var(--ink-2)}
+.dor li b{display:block;color:var(--ink);font-family:var(--display);font-size:1.12rem;line-height:1.25;margin-bottom:6px}
+.bloco{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,300px);gap:56px;align-items:center}
+.bloco.inv{grid-template-columns:minmax(0,300px) minmax(0,1fr)}
+.bloco.inv .txt{order:2}
+.txt{display:grid;gap:14px;align-content:start}
+.txt p{color:var(--ink-2)}
+.txt ul{margin:4px 0 0;padding:0;list-style:none;display:grid;gap:9px;color:var(--ink-2)}
+.txt li{padding-left:22px;position:relative;max-width:58ch}
+.txt li::before{content:"";position:absolute;left:2px;top:.62em;width:9px;height:9px;border-radius:2px;background:var(--accent)}
+.fone{width:100%;max-width:292px;justify-self:center;border:9px solid var(--frame);border-radius:38px;overflow:hidden;background:var(--frame);box-shadow:var(--shadow);aspect-ratio:585/1266}
+.fone img{width:100%;height:100%;object-fit:cover}
+.sep{border:0;border-top:1px solid var(--line);margin:0}
+/* aviso: e-mail e notificação como chegam */
+.avisos{display:grid;gap:12px;justify-self:center;width:100%;max-width:340px}
+.notif{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:12px 14px;display:grid;grid-template-columns:34px minmax(0,1fr);gap:10px;box-shadow:var(--shadow)}
+.notif img{width:34px;height:34px;border-radius:8px}
+.notif small{display:flex;justify-content:space-between;color:var(--muted);font-size:.74rem}
+.notif b{display:block;font-size:.93rem}
+.notif span{font-size:.86rem;color:var(--ink-2);display:block;line-height:1.4}
+.email{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;box-shadow:var(--shadow);font-size:.9rem}
+.email .de{color:var(--muted);font-size:.78rem;margin-bottom:8px}
+.email h4{margin:0 0 8px;font-family:var(--display);font-size:1rem}
+.email table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.email td{padding:8px 4px;border-top:1px solid var(--line);vertical-align:top}
+.email td:last-child{text-align:right;white-space:nowrap;font-family:var(--mono);font-size:.82rem}
+.email td small{display:block;color:var(--muted)} .email td small.bad{color:var(--bad)} .email td small.warn{color:var(--warn)}
+/* mais recursos */
+.grade{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px 30px;margin-top:28px}
+.grade div{display:grid;gap:5px;align-content:start}
+.grade p{color:var(--ink-2);font-size:.95rem}
+.larga{margin-top:36px;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:var(--shadow)}
+/* passos */
+.passos{counter-reset:p;list-style:none;margin:28px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px}
+.passos li{counter-increment:p;display:grid;gap:8px;align-content:start}
+.passos li::before{content:counter(p);font-family:var(--display);font-weight:800;font-size:2.6rem;line-height:1;color:var(--accent)}
+.passos p{color:var(--ink-2);font-size:.97rem}
+/* para quem é */
+.paraquem{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px;margin-top:26px}
+.paraquem div{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:22px}
+.paraquem ul{margin:12px 0 0;padding-left:18px;color:var(--ink-2);display:grid;gap:7px}
+/* oferta */
+.oferta{background:var(--band);color:var(--band-ink)}
+.oferta .col{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,.9fr);gap:40px;align-items:center}
+.oferta p{color:#d5e2f1}
+.oferta .rot{color:var(--band-mute)}
+.cartao-oferta{background:var(--surface);color:var(--ink);border-radius:16px;padding:26px;display:grid;gap:12px;box-shadow:var(--shadow)}
+.cartao-oferta p{color:var(--ink-2)}
+.cartao-oferta .preco{font-family:var(--display);font-weight:800;font-size:2.4rem;line-height:1}
+.cartao-oferta .btn{width:100%}
+.cartao-oferta small{color:var(--muted)}
+/* perguntas */
+.faq{display:grid;gap:10px;margin-top:24px;max-width:780px}
+.faq details{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:0 18px}
+.faq summary{cursor:pointer;font-weight:600;padding:15px 0;list-style-position:outside}
+.faq details p{color:var(--ink-2);padding-bottom:16px}
+footer{border-top:1px solid var(--line);padding-block:28px 40px;color:var(--muted);font-size:.9rem}
+footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-between}
+@media (max-width:860px){
+  .abre .col,.bloco,.bloco.inv,.oferta .col{grid-template-columns:minmax(0,1fr)}
+  .bloco.inv .txt{order:0}
+  .dor ul,.grade,.passos{grid-template-columns:minmax(0,1fr)}
+  .paraquem{grid-template-columns:minmax(0,1fr)}
+  .topo nav a:not(.btn){display:none}
+  section{padding-block:48px} .dor{padding-block:104px 20px}
+  .abre .nota{margin-bottom:30px}
+  .bloco{gap:30px}
+}
+@media (max-width:480px){
+  .venc{grid-template-columns:44px minmax(0,1fr)}
+  .venc .dir{grid-column:2;display:flex;justify-content:space-between;align-items:center;gap:8px}
+}
+</style>
+</head>
+<body>
+<header class="topo"><div class="col">
+  <a class="marca" href="#inicio"><img src="img/icone.png" alt="" width="32" height="32">Meus Gastos</a>
+  <nav aria-label="Seções"><a href="#recursos">Recursos</a><a href="#como">Como funciona</a><a href="#perguntas">Perguntas</a><a class="btn" data-demo href="https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/#demo" target="_blank" rel="noopener">Ver demonstração</a></nav>
+</div></header>
+
+<main id="inicio">
+<div class="abre"><div class="col">
+  <div>
+    <span class="rot">Controle de gastos no celular</span>
+    <h1>Saiba quanto o mês vai custar <em>antes de ele acabar.</em></h1>
+    <p class="lead">Você lança cada gasto na hora e cadastra uma vez o que é fixo e os seus cartões. O Meus Gastos soma tudo, avisa o que está para vencer e mostra se o mês fecha no azul.</p>
+    <div class="acoes">
+      <a class="btn pri" data-cta href="https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a>
+      <a class="btn sec" href="#como">Ver como funciona</a>
+    </div>
+    <p class="nota" data-nota>Abre no navegador, sem cadastro. Os dados de exemplo ficam só no seu aparelho.</p>
+  </div>
+  <div class="pilha" aria-label="Exemplo da tela inicial do app">
+    <div class="venc"><span class="dt"><b>01</b><span>OUT</span></span><span class="oq"><b>Terapia</b><span>Gasto fixo · toda quinta-feira</span></span><span class="dir"><span class="pill bad">atrasada há 2 dias</span><span class="v">R$ 90,00</span></span></div>
+    <div class="venc"><span class="dt"><b>08</b><span>OUT</span></span><span class="oq"><b>Fatura Cartão roxo</b><span>4 compras, com a parcela do tênis</span></span><span class="dir"><span class="pill warn">em 5 dias</span><span class="v">R$ 300,90</span></span></div>
+    <div class="venc"><span class="dt"><b>15</b><span>OUT</span></span><span class="oq"><b>Internet</b><span>Gasto fixo</span></span><span class="dir"><span class="pill ok">em 12 dias</span><span class="v">R$ 99,90</span></span></div>
+    <div class="custo"><span class="l">Custo do mês até agora</span><span class="n">R$ 2.939,40</span><span class="p">No ritmo atual, o mês fecha em <b>R$ 3.648</b></span></div>
+  </div>
+</div></div>
+
+<section class="dor"><div class="col">
+  <span class="rot">O problema</span>
+  <h2 style="margin-top:10px">A planilha só conta a história depois que o mês acabou.</h2>
+  <ul>
+    <li><b>O saldo aparece tarde demais.</b>Quando você descobre que o mês estourou, não dá mais para segurar nenhum gasto.</li>
+    <li><b>A fatura chega e ninguém lembra.</b>Parcelas de meses atrás se misturam com as compras novas, e o total assusta.</li>
+    <li><b>A conta vence sem avisar.</b>O lembrete chega junto com a multa e os juros.</li>
+  </ul>
+</div></section>
+
+<section id="recursos"><div class="col bloco">
+  <div class="txt">
+    <span class="rot">Vencimentos e avisos</span>
+    <h2>O que vence primeiro aparece primeiro.</h2>
+    <p>Ao abrir o app, a primeira coisa na tela são as contas dos próximos 30 dias, com a contagem de dias e o botão "Já paguei".</p>
+    <ul>
+      <li>Aviso por e-mail e notificação no celular, de manhã, só nos dias em que há conta atrasada ou vencendo em até 3 dias.</li>
+      <li>Alerta quando o mês já está, ou vai fechar, no vermelho.</li>
+      <li>Você liga e desliga cada aviso quando quiser.</li>
+    </ul>
+  </div>
+  <div class="avisos" aria-label="Exemplo dos avisos">
+    <div class="notif"><img src="img/icone.png" alt=""><div><small><span>Meus Gastos</span><span>08:00</span></small><b>1 conta atrasada e 2 para vencer</b><span>Terapia: R$ 90,00, atrasada há 2 dias</span><span>Fatura Cartão roxo: R$ 300,90, vence em 3 dias</span></div></div>
+    <div class="email"><div class="de">De: Meus Gastos · Para: você</div><h4>Você tem 3 contas para resolver, somando R$ 480,90</h4>
+      <table><tr><td>Terapia<small class="bad">atrasada há 2 dias</small></td><td>R$ 90,00</td></tr><tr><td>Fatura Cartão roxo<small class="warn">vence em 3 dias</small></td><td>R$ 300,90</td></tr><tr><td>Terapia<small>vence em 3 dias</small></td><td>R$ 90,00</td></tr></table></div>
+  </div>
+</div></section>
+<hr class="sep">
+
+<section><div class="col bloco inv">
+  <div class="fone"><img src="img/tela-fatura.png" alt="Tela da fatura do cartão, com as compras e a parcela 1 de 3 do tênis" loading="lazy" width="585" height="1266"></div>
+  <div class="txt">
+    <span class="rot">Cartão de crédito</span>
+    <h2>A fatura deixa de ser surpresa.</h2>
+    <p>Cadastre o cartão com o dia em que a fatura fecha e o dia em que vence. A partir daí, cada compra entra sozinha na fatura certa.</p>
+    <ul>
+      <li>Compra parcelada: cada parcela cai no mês dela, até a última.</li>
+      <li>A compra só pesa no mês em que a fatura vence, como no seu bolso.</li>
+      <li>Abra a fatura para ver o que tem dentro e corrija o valor se o banco cobrou diferente.</li>
+    </ul>
+  </div>
+</div></section>
+<hr class="sep">
+
+<section><div class="col bloco">
+  <div class="txt">
+    <span class="rot">Lançamento</span>
+    <h2>Anotar um gasto leva dez segundos.</h2>
+    <p>Toque no botão +, digite o valor e escolha a categoria. O custo do mês e a previsão se atualizam na hora.</p>
+    <ul>
+      <li>Gastos fixos são cadastrados uma vez: todo mês, como o aluguel, ou toda semana, como a terapia.</li>
+      <li>O salário e outras entradas fixas entram sozinhos no dia certo.</li>
+      <li>Se o aluguel subir, a mudança vale só do mês em diante. O passado fica como estava.</li>
+    </ul>
+  </div>
+  <div class="fone"><img src="img/tela-lancar.png" alt="Tela de lançar um gasto de R$ 359,70 no cartão, em 3 parcelas de R$ 119,90" loading="lazy" width="585" height="1266"></div>
+</div></section>
+<hr class="sep">
+
+<section><div class="col bloco inv">
+  <div class="fone"><img src="img/tela-detalhe.png" alt="Detalhe do custo do mês: gastos do dia a dia, gastos fixos e faturas" loading="lazy" width="585" height="1266"></div>
+  <div class="txt">
+    <span class="rot">Transparência</span>
+    <h2>Um toque mostra de onde veio cada número.</h2>
+    <p>Toque no custo do mês, nas entradas, no saldo ou em uma categoria do gráfico. O app abre a lista do que compõe aquele valor.</p>
+    <ul>
+      <li>Gráfico do custo acumulado no mês, comparado com o que entrou.</li>
+      <li>Categorias que você mesmo define.</li>
+      <li>As compras da fatura aparecem cada uma na sua categoria.</li>
+    </ul>
+  </div>
+</div></section>
+
+<section style="padding-top:20px"><div class="col">
+  <span class="rot">E também</span>
+  <h2 style="margin-top:10px">O resto do que você precisa para acompanhar o mês.</h2>
+  <div class="grade">
+    <div><h3>Dinheiro guardado à parte</h3><p>Reserva de emergência, investimentos e outros destinos ficam em um quadro separado do saldo.</p></div>
+    <div><h3>Saldo que passa de mês</h3><p>O que sobrou ou faltou segue para o mês seguinte, partindo do valor que você já tinha.</p></div>
+    <div><h3>Traga a sua planilha</h3><p>Importe os lançamentos do Excel e baixe tudo de volta quando quiser.</p></div>
+    <div><h3>No celular e no computador</h3><p>Instala na tela inicial do Android e do iPhone. No computador, vira um painel completo.</p></div>
+    <div><h3>Cada pessoa com a sua conta</h3><p>Entrada por e-mail e senha. Cada conta só acessa os próprios dados, e essa regra é aplicada no banco de dados.</p></div>
+    <div><h3>Tema claro e escuro</h3><p>Acompanha a configuração do seu aparelho.</p></div>
+  </div>
+  <div class="larga"><img src="img/tela-computador.png" alt="O app no computador: quadros de custo, entradas, saldo, dinheiro guardado, fixos e faturas, com os gráficos do mês" loading="lazy" width="1120" height="577"></div>
+</div></section>
+
+<section id="como" style="padding-top:20px"><div class="col">
+  <span class="rot">Como funciona</span>
+  <h2 style="margin-top:10px">Três passos, e o mês passa a ter previsão.</h2>
+  <ol class="passos">
+    <li><h3>Cadastre o que é fixo</h3><p>Aluguel, internet, faculdade, salário e seus cartões. Isso é feito uma vez.</p></li>
+    <li><h3>Lance cada gasto na hora</h3><p>No mercado, no Uber, na farmácia. Valor, categoria e pronto.</p></li>
+    <li><h3>Acompanhe e seja avisado</h3><p>Veja o custo até agora, quanto o mês deve fechar e o que está para vencer.</p></li>
+  </ol>
+</div></section>
+
+<section style="padding-top:10px"><div class="col">
+  <span class="rot">Sem promessa exagerada</span>
+  <h2 style="margin-top:10px">Para quem ele serve, e para quem não serve.</h2>
+  <div class="paraquem">
+    <div><h3>É para você se</h3><ul><li>Quer enxergar o mês enquanto ele acontece, e não depois.</li><li>Usa cartão parcelado e se perde nas faturas.</li><li>Já tentou planilha e cansou de atualizar.</li></ul></div>
+    <div><h3>Não é para você se</h3><ul><li>Espera que o app leia o extrato do banco sozinho. Aqui é você quem lança cada gasto.</li><li>Procura um app de investimentos. O foco é o gasto do mês.</li></ul></div>
+  </div>
+</div></section>
+
+<section class="oferta" id="oferta"><div class="col">
+  <div class="txt">
+    <span class="rot">Comece agora</span>
+    <h2 data-oferta-titulo>Veja o app funcionando antes de decidir.</h2>
+    <p data-oferta-texto>A demonstração tem tudo o que o app faz, com um mês de exemplo já preenchido: gastos, fixos, cartão com compra parcelada e vencimentos.</p>
+  </div>
+  <div class="cartao-oferta">
+    <span class="rot" data-oferta-rot>Demonstração</span>
+    <div class="preco" data-oferta-preco>Grátis</div>
+    <p data-oferta-detalhe>Sem cadastro e sem cartão. Abre direto no navegador do celular ou do computador.</p>
+    <a class="btn pri" data-cta href="https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a>
+    <small data-oferta-rodape>Os dados de exemplo ficam só no seu aparelho.</small>
+  </div>
+</div></section>
+
+<section id="perguntas"><div class="col">
+  <span class="rot">Perguntas frequentes</span>
+  <h2 style="margin-top:10px">Antes de começar.</h2>
+  <div class="faq">
+    <details><summary>Preciso instalar alguma coisa?</summary><p>Não. O Meus Gastos abre no navegador. Se quiser, dá para instalar na tela inicial do celular e ele passa a abrir como um app, em tela cheia.</p></details>
+    <details><summary>Funciona no iPhone e no Android?</summary><p>Sim, nos dois, e também no computador. No iPhone, a notificação de contas funciona com o app instalado na tela de início.</p></details>
+    <details><summary>O app se conecta ao meu banco?</summary><p>Não. Ele não lê extrato nem pede senha de banco. Você lança os gastos, e por isso sabe exatamente o que está registrado.</p></details>
+    <details><summary>Meus dados ficam seguros?</summary><p>Cada pessoa entra com e-mail e senha e só acessa os próprios dados. Essa regra é aplicada no banco de dados, e não só na tela do app.</p></details>
+    <details><summary>Já controlo em planilha. Perco o que tenho?</summary><p>Não. Você importa os lançamentos do Excel e pode baixar tudo de volta em planilha a qualquer momento.</p></details>
+    <details><summary>Como funcionam os avisos?</summary><p>De manhã, o app envia um e-mail e uma notificação no celular, mas só nos dias em que há conta atrasada ou vencendo em até 3 dias. Cada aviso pode ser desligado em Ajustes.</p></details>
+  </div>
+</div></section>
+</main>
+
+<footer><div class="col">
+  <span>Meus Gastos · feito por Marcos Henrique Barbosa Santos</span>
+  <span><a href="https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/" target="_blank" rel="noopener">Abrir o app</a> · <a href="https://github.com/MarcosHenriqueBarbosaSantos/controle-gastos-pwa" target="_blank" rel="noopener">Código no GitHub</a></span>
+</div></footer>
+
+<script>
+// ================= OFERTA =================
+// Enquanto "link" estiver vazio, o site convida para a demonstração.
+// Quando o app estiver à venda, preencha os três campos e todos os botões passam a levar para a compra.
+//   preco:   o que aparece em destaque, por exemplo "R$ 29,90"
+//   detalhe: a frase logo abaixo, por exemplo "Pagamento único. Acesso por 1 ano."
+//   link:    o endereço da página de pagamento (Hotmart ou outra)
+const OFERTA = { preco: "", detalhe: "", link: "" };
+
+if (OFERTA.link && OFERTA.preco) {
+  const q = (s) => document.querySelector(s);
+  document.querySelectorAll("[data-cta]").forEach((a) => { a.href = OFERTA.link; a.textContent = "Quero o Meus Gastos"; });
+  q("[data-nota]").textContent = "Compra pela página de pagamento. Quer ver antes? Use o botão Ver demonstração, no alto da página.";
+  q("[data-oferta-titulo]").textContent = "Comece a enxergar o seu mês hoje.";
+  q("[data-oferta-texto]").textContent = "Você cria sua conta, cadastra o que é fixo e passa a acompanhar o mês com previsão e avisos.";
+  q("[data-oferta-rot]").textContent = "Meus Gastos";
+  q("[data-oferta-preco]").textContent = OFERTA.preco;
+  q("[data-oferta-detalhe]").textContent = OFERTA.detalhe || "Acesso ao app no celular e no computador.";
+  q("[data-oferta-rodape]").textContent = "O pagamento é feito na página segura da plataforma de vendas.";
+}
+</script>
+</body>
+</html>

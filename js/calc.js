@@ -396,6 +396,16 @@ export function proximosVencimentos(st, hoje, janela = 30) {
 }
 
 /**
+ * O que entra no aviso diário (e-mail e notificação): contas atrasadas ou que vencem em até `antes` dias.
+ * Contas atrasadas há mais de `atrasoMax` dias deixam de ser lembradas, para o aviso não virar ruído.
+ */
+export function pendenciasParaAviso(st, hoje, { antes = 3, atrasoMax = 30 } = {}) {
+  const itens = proximosVencimentos(st, hoje, antes).filter((x) => x.dias >= -atrasoMax);
+  return { itens, atrasadas: itens.filter((x) => x.dias < 0).length, hoje: itens.filter((x) => x.dias === 0).length,
+    total: round2(itens.reduce((t, x) => t + x.valor, 0)) };
+}
+
+/**
  * O que pede atenção hoje, para aparecer no topo do app.
  * - contas: as atrasadas e as que vencem em até `urgencia` dias (da mais atrasada para a mais distante).
  * - saldo: alerta se o mês atual já está no vermelho, ou se a previsão é fechar no vermelho.

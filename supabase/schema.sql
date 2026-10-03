@@ -137,6 +137,11 @@ create policy "dono" on public.faturas for all
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ---------------------------------------------------------------------
+-- Avisos por e-mail e notificação: as tabelas, o segredo e o agendamento diário estão em
+-- supabase/avisos.sql (rode também). O servidor que envia fica em supabase/functions/avisos.
+-- ---------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------
 -- Visão para análise: resumo mensal por usuário (útil para SQL/BI)
 -- ---------------------------------------------------------------------
 create or replace view public.resumo_mensal
