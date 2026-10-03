@@ -2,7 +2,7 @@
 
 App web instalável no celular para **lançar gastos no dia a dia e acompanhar quanto o mês vai custar**. Cada pessoa tem sua conta, e os dados ficam salvos na nuvem com segurança por usuário.
 
-**[▶ Abrir o app](https://SEU-USUARIO.github.io/controle-gastos-pwa/)** · tem um modo demonstração, não precisa criar conta para testar.
+**[▶ Abrir o app](https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/)** · tem um modo demonstração, não precisa criar conta para testar.
 
 <p align="center">
   <img src="docs/screenshot-desktop.png" alt="Tela principal no computador" width="68%">
@@ -16,11 +16,15 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 
 ## Funcionalidades
 
-- **Lançamento rápido** de gastos, entradas e dinheiro guardado na reserva, com categoria e forma de pagamento.
-- **Custo do mês em tempo real** (gastos do dia a dia + fixos) e **projeção de fechamento**, calculada pela média diária de gastos.
+- **Lançamento rápido** de gastos, entradas e dinheiro guardado, com categoria e forma de pagamento. Todo lançamento pode ser **editado** ou excluído.
+- **Custo do mês em tempo real** e **previsão de fechamento**, que mistura o ritmo atual com a média dos meses anteriores e não repete compras pontuais grandes.
 - **Gastos fixos** cadastrados uma vez e contados todo mês, com marcação de "pago" por mês.
-- **Faturas de cartão** com total em aberto.
-- **Gráficos**: custo acumulado no mês comparado às entradas, e gastos por categoria.
+- **Cartão de crédito pela fatura**: o que é comprado no cartão só pesa no mês em que a fatura vence.
+- **Próximos vencimentos**: quadro com as contas dos próximos 30 dias ("em 10 dias vence a fatura, R$ 299"), com aviso de atraso e botão para marcar como pago.
+- **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
+- **Saldo acumulado**: o que sobrou ou faltou passa para o mês seguinte, se a pessoa quiser.
+- **Categorias personalizáveis** por usuário, na tela de Ajustes.
+- **Gráficos**: custo acumulado no mês comparado às entradas, e custo por categoria.
 - **Importar e exportar Excel**: lê o modelo da pasta [`modelo/`](modelo/) e também planilhas antigas em formato livre. Reimportar a mesma planilha não duplica lançamentos.
 - **Login por e-mail** com Supabase Auth e isolamento de dados por usuário, via Row Level Security no PostgreSQL.
 - **PWA**: instalável no Android e no iPhone, abre em tela cheia e tem tema claro e escuro.
@@ -53,10 +57,12 @@ A tela não sabe onde os dados estão guardados: ela usa a interface de `store.j
 
 ### Regras de cálculo
 
-- **Custo do mês** = gastos do dia a dia + gastos fixos ativos no mês.
-- **Saldo** = entradas − custo − valor guardado na reserva.
-- **Projeção** (mês atual) = (gastos do dia a dia ÷ dias passados) × dias do mês + fixos.
-- Compras no cartão contam no mês da compra. As faturas servem só para acompanhar quanto falta pagar e não entram de novo no custo.
+- **Custo do mês** = gastos do dia a dia fora do cartão + gastos fixos fora do cartão + faturas de cartão que vencem no mês.
+- **Cartão**: compras e fixos no cartão não entram no custo na hora. A cobrança entra no mês de vencimento da fatura.
+- **Saldo do mês** = entradas − custo − dinheiro guardado no mês (guardou menos retirou).
+- **Dinheiro guardado** = soma de tudo que foi guardado menos o que foi retirado, por destino.
+- **Previsão** (mês atual): com histórico, mistura o ritmo do mês com a média dos últimos 3 meses, dando mais peso ao histórico no começo do mês. Sem histórico, mantém a média diária sem repetir compras pontuais grandes.
+- **Próximos vencimentos**: faturas em aberto e fixos não pagos do mês atual e do próximo, até 30 dias à frente, mais os atrasados.
 
 ### Modelo de dados
 
@@ -66,6 +72,7 @@ erDiagram
   USUARIO ||--o{ FIXOS : tem
   USUARIO ||--o{ FATURAS : tem
   FIXOS ||--o{ FIXOS_PAGOS : "pago em"
+  USUARIO ||--o| PREFERENCIAS : tem
   LANCAMENTOS {
     date data
     text descricao
@@ -86,6 +93,9 @@ erDiagram
   FIXOS_PAGOS {
     uuid fixo_id
     date mes
+  }
+  PREFERENCIAS {
+    jsonb dados
   }
   FATURAS {
     text cartao
@@ -111,7 +121,7 @@ O esquema completo, com as políticas de segurança e a visão `resumo_mensal` p
 
 1. Crie um repositório público chamado `controle-gastos-pwa` e envie estes arquivos.
 2. Em **Settings → Pages**, escolha **Deploy from a branch**, depois `main` e `/ (root)`, e salve.
-3. Em 1 ou 2 minutos, o app estará em `https://SEU-USUARIO.github.io/controle-gastos-pwa/`.
+3. Em 1 ou 2 minutos, o app estará em `https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/`.
 
 ### 3. Ligar o login ao endereço publicado
 
@@ -152,12 +162,13 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 ## Próximos passos
 
 - Metas de gasto por categoria, com alerta quando passar de uma porcentagem.
+- Avisos de vencimento por notificação no celular ou por e-mail.
 - Painel de análise no Power BI ou no Metabase, conectado à visão `resumo_mensal`.
 - Categorização automática de lançamentos pela descrição, usando o histórico do usuário.
 
 ## Autor
 
 **Marcos Henrique Barbosa Santos**, estudante de Ciência de Dados.
-[LinkedIn](https://www.linkedin.com/in/SEU-LINKEDIN) · [GitHub](https://github.com/SEU-USUARIO)
+[LinkedIn](https://www.linkedin.com/in/SEU-LINKEDIN) · [GitHub](https://github.com/MarcosHenriqueBarbosaSantos)
 
 Licença [MIT](LICENSE).

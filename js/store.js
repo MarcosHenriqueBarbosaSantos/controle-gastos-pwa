@@ -5,6 +5,7 @@
 //   loadAll()                      → { lancamentos, fixos, pagos, faturas }
 //   addLancamentos(rows)           → linhas inseridas (ignora import_key repetido)
 //   updateLancamento(id, patch) / deleteLancamento(id)
+//   loadPrefs() / savePrefs(dados)   → categorias e ajustes do usuário
 //   addFixo(row) / updateFixo(id, patch) / deleteFixo(id)
 //   setPago(fixoId, mes, pago)
 //   addFatura(row) / updateFatura(id, patch) / deleteFatura(id)
@@ -13,6 +14,7 @@ const num = (r) => ({ ...r, valor: Number(r.valor) });
 
 export function createSupabaseStore(client) {
   const ok = ({ data, error }) => { if (error) throw error; return data; };
+  const prefsKey = async () => "cg-prefs-" + ((await client.auth.getSession()).data.session?.user.id || "anon");
   return {
     kind: "supabase",
     async loadAll() {
@@ -34,6 +36,18 @@ export function createSupabaseStore(client) {
     },
     async updateLancamento(id, patch) { ok(await client.from("lancamentos").update(patch).eq("id", id)); },
     async deleteLancamento(id) { ok(await client.from("lancamentos").delete().eq("id", id)); },
+    // Preferências: uma linha por usuário. Uma cópia fica neste aparelho, para o caso de
+    // a tabela ainda não existir no banco ou de faltar conexão.
+    async loadPrefs() {
+      try { const r = ok(await client.from("preferencias").select("dados").maybeSingle()); if (r) return r.dados; }
+      catch { /* usa a cópia local */ }
+      try { return JSON.parse(localStorage.getItem(await prefsKey())); } catch { return null; }
+    },
+    async savePrefs(dados) {
+      try { localStorage.setItem(await prefsKey(), JSON.stringify(dados)); } catch { /* nada */ }
+      const { error } = await client.from("preferencias").upsert({ dados, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      if (error) console.warn("Preferências salvas só neste aparelho:", error.message);
+    },
     async addFixo(row) { return num(ok(await client.from("fixos").insert(row).select().single())); },
     async updateFixo(id, patch) { ok(await client.from("fixos").update(patch).eq("id", id)); },
     async deleteFixo(id) { ok(await client.from("fixos").delete().eq("id", id)); },
@@ -57,7 +71,7 @@ export function createLocalStore(key, seedFn) {
   persist();
   return {
     kind: "local",
-    async loadAll() { return structuredClone(db); },
+    async loadAll() { const { prefs, ...dados } = db; return structuredClone(dados); },
     async addLancamentos(rows) {
       const keys = new Set(db.lancamentos.map((r) => r.import_key).filter(Boolean));
       const out = rows.filter((r) => !r.import_key || !keys.has(r.import_key))
@@ -65,7 +79,9 @@ export function createLocalStore(key, seedFn) {
       db.lancamentos.push(...out); persist(); return structuredClone(out);
     },
     async updateLancamento(id, patch) { Object.assign(db.lancamentos.find((r) => r.id === id) || {}, patch); persist(); },
-    async deleteLancamento(id) { db.lancamentos =db.lancamentos.filter((r) => r.id !== id); persist(); },
+    async deleteLancamento(id) { db.lancamentos = db.lancamentos.filter((r) => r.id !== id); persist(); },
+    async loadPrefs() { return db.prefs ? structuredClone(db.prefs) : null; },
+    async savePrefs(dados) { db.prefs = structuredClone(dados); persist(); },
     async addFixo(row) { const r = { ...row, id: uuid() }; db.fixos.push(r); persist(); return { ...r }; },
     async updateFixo(id, patch) { Object.assign(db.fixos.find((r) => r.id === id) || {}, patch); persist(); },
     async deleteFixo(id) { db.fixos = db.fixos.filter((r) => r.id !== id); db.pagos = db.pagos.filter((p) => p.fixo_id !== id); persist(); },
@@ -99,9 +115,10 @@ export function demoSeed(hojeISO) {
     add(prev, 22, "Farmácia", "Despesa", "Saúde", "Pix", 47.3);
     add(prev, 26, "Feira", "Despesa", "Mercado", "Dinheiro", 86);
     add(prev, 28, "Reserva do mês", "Reserva", "Reserva de emergência", "", 300);
+    add(prev, 28, "Tesouro Direto", "Reserva", "Investimentos", "", 200);
     // mês atual (só até hoje)
-    const cand = [[2, "Padaria", "Despesa", "Alimentação", "Pix", 18.5], [4, "Mercado do mês", "Despesa", "Mercado", "Débito", 578.2],
-      [5, "Salário", "Receita", "Salário", "", 3200], [7, "Gasolina", "Despesa", "Transporte", "Cartão de crédito", 150],
+    const cand = [[1, "Salário", "Receita", "Salário", "", 3200], [1, "Padaria", "Despesa", "Alimentação", "Pix", 18.5],
+      [2, "Mercado do mês", "Despesa", "Mercado", "Débito", 578.2], [3, "Farmácia", "Despesa", "Saúde", "Pix", 42.9], [6, "Reserva do mês", "Reserva", "Reserva de emergência", "", 150], [7, "Gasolina", "Despesa", "Transporte", "Cartão de crédito", 150],
       [9, "Delivery", "Despesa", "Alimentação", "Cartão de crédito", 62.9], [13, "Presente de aniversário", "Despesa", "Outros", "Pix", 95],
       [16, "Show", "Despesa", "Lazer", "Cartão de crédito", 140], [19, "Uber", "Despesa", "Transporte", "Pix", 27.6],
       [21, "Mercado", "Despesa", "Mercado", "Débito", 134.8], [24, "Cabeleireiro", "Despesa", "Beleza", "Pix", 60]];

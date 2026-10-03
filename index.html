@@ -27,15 +27,16 @@
     <h1>Meus Gastos</h1>
     <p class="auth-sub">Lance seus gastos no dia a dia e veja quanto o mês vai custar.</p>
     <form id="authForm" class="auth-form" autocomplete="on">
-      <label class="f">E-mail<input class="in" id="aEmail" name="email" type="email" autocomplete="username" autocapitalize="none" spellcheck="false" required></label>
-      <label class="f">Senha<span class="pw"><input class="in" id="aSenha" name="password" type="password" autocomplete="current-password" minlength="6" required><button class="olho" type="button" aria-pressed="false" aria-label="Mostrar senha">Mostrar</button></span></label>
+      <label class="f">E-mail<input class="in" id="aEmail" type="email" autocomplete="email" required></label>
+      <label class="f">Senha<input class="in" id="aSenha" type="password" autocomplete="current-password" minlength="6" required></label>
       <div class="auth-actions">
         <button class="btn primary" type="submit" id="aEntrar">Entrar</button>
-        <button class="btn" type="submit" id="aCriar">Criar conta</button>
+        <button class="btn" type="button" id="aCriar">Criar conta</button>
       </div>
       <button class="link" type="button" id="aEsqueci">Esqueci minha senha</button>
     </form>
     <p class="auth-msg" id="authMsg" role="status"></p>
+    <div id="authSuporte"></div>
     <div class="auth-demo">
       <button class="btn ghost" type="button" id="aDemo">Ver demonstração sem criar conta</button>
       <p class="hint" id="demoHint">Usa dados de exemplo guardados só neste aparelho.</p>
@@ -60,6 +61,7 @@
       <button class="btn" id="btnImport" type="button">⬆ Importar Excel</button>
       <button class="btn" id="btnExport" type="button">⬇ Baixar Excel</button>
       <input type="file" id="fileIn" accept=".xlsx,.xls" hidden>
+      <button class="btn" id="btnAjustes" type="button">⚙ Ajustes</button>
       <span class="who"><span id="whoName"></span><button class="link" id="btnSair" type="button">Sair</button></span>
     </div>
   </div>
@@ -72,14 +74,14 @@
       <div class="seg" role="group" aria-label="Tipo de lançamento" id="tipoSeg">
         <button type="button" data-t="Despesa" aria-pressed="true">Gasto</button>
         <button type="button" data-t="Receita" aria-pressed="false">Entrada</button>
-        <button type="button" data-t="Reserva" aria-pressed="false">Guardar na reserva</button>
+        <button type="button" data-t="Reserva" aria-pressed="false">Guardar</button>
       </div>
     </div>
     <form id="formLanc" class="fields" autocomplete="off">
       <label class="f">Valor (R$)<input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
       <label class="f desc">Descrição<input class="in" id="fDesc" placeholder="Ex.: mercado, uber, farmácia" maxlength="80"></label>
-      <label class="f">Categoria<select class="in" id="fCat"></select></label>
-      <label class="f" id="fFormaWrap">Forma de pagamento<select class="in" id="fForma"></select></label>
+      <label class="f"><span id="fCatLbl">Categoria</span><select class="in" id="fCat"></select></label>
+      <label class="f" id="fFormaWrap"><span id="fFormaLbl">Forma de pagamento</span><select class="in" id="fForma"></select></label>
       <label class="f">Data<input class="in" type="date" id="fData" required></label>
       <button class="btn primary" id="fOk" type="submit">Lançar gasto</button>
     </form>
@@ -89,16 +91,18 @@
   <section class="kpis" id="kpis" aria-label="Resumo do mês"></section>
   <p class="insight" id="insight"></p>
 
+  <section class="panel" id="venc" aria-label="Próximos vencimentos"></section>
+
   <div class="two">
     <section class="panel">
       <h2>Custo acumulado no mês</h2>
-      <p class="hint">Gastos do dia a dia somados aos fixos no dia do vencimento.</p>
+      <p class="hint">Gastos do dia a dia, fixos e faturas de cartão, no dia em que são cobrados.</p>
       <div class="legend"><span><i></i>Custo até agora</span><span id="lgProj"><i class="d"></i>Projeção</span><span><i class="r"></i>Entradas do mês</span></div>
       <div class="chart" id="chCusto"></div>
     </section>
     <section class="panel">
       <h2>Por categoria</h2>
-      <p class="hint">Gastos do dia a dia e fixos do mês.</p>
+      <p class="hint">Para onde foi o custo do mês.</p>
       <div class="chart" id="chCat"></div>
     </section>
   </div>
@@ -114,7 +118,7 @@
     <div id="pane-c" role="tabpanel" hidden></div>
   </section>
 
-  <p class="foot">Compras no cartão de crédito entram no custo do mês em que você compra. A aba Cartões serve para acompanhar quanto falta pagar de fatura; ela não soma de novo no custo.</p>
+  <p class="foot">Compras no cartão de crédito não entram no custo na hora: a cobrança entra no mês em que a fatura vence, quando você lança a fatura na aba Cartões. O dinheiro que você guarda (reserva, investimentos e outros) sai do saldo do mês e fica somado no quadro Dinheiro guardado.</p>
 </div>
 
 <dialog id="dlg"><div id="dlgBody"></div></dialog>

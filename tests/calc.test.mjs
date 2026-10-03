@@ -1,7 +1,7 @@
 // Testes das regras de cálculo e da importação. Rode com: node --test
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { parseMoney, addM, dim, fixosDoMes, calcMes, catMap, custoAcumulado } from "../js/calc.js";
+import { parseMoney, addM, dim, fixosDoMes, calcMes, catMap, custoAcumulado, comprasCartaoPorCategoria } from "../js/calc.js";
 import { cellToISO, importKey, parseWorkbook, guessCat } from "../js/excel.js";
 
 test("parseMoney entende formatos brasileiros", () => {
@@ -45,29 +45,50 @@ test("fixos só contam entre desde e até", () => {
 test("custo, saldo e cartão de um mês fechado", () => {
   const c = calcMes(base(), "2026-03", "2026-09-29");
   assert.equal(c.fase, "passado");
-  assert.equal(c.vari, 6650);
+  assert.equal(c.vari, 350);            // só o que foi pago fora do cartão
+  assert.equal(c.comprasCartao, 6300);  // o carro foi no cartão: não entra no custo de março
   assert.equal(c.fxT, 350);
-  assert.equal(c.custo, 7000);
-  assert.equal(c.saldo, 1600 - 7000 - 100);
+  assert.equal(c.fatT, 0);
+  assert.equal(c.custo, 700);
+  assert.equal(c.saldo, 1600 - 700 - 100);
   assert.equal(c.fxPend, 0);
   assert.equal(c.ccAberto, 800);
-  assert.equal(c.comprasCartao, 6300);
   assert.equal(c.proj, c.custo);
+});
+
+test("a fatura entra no custo do mês em que vence", () => {
+  const abr = calcMes(base(), "2026-04", "2026-09-29");   // fatura de 800 vence em 10/04
+  assert.equal(abr.fatT, 800);
+  assert.equal(abr.fatAberta, 800);
+  assert.equal(abr.custo, 350 + 800);                     // condomínio + fatura
+  assert.deepEqual(catMap(abr), [["Faturas de cartão", 800], ["Moradia", 350]]);
+  const { cum } = custoAcumulado(abr);
+  assert.equal(cum[9], 0); assert.equal(cum[10], 800); assert.equal(cum[15], 1150);
+});
+
+test("fixo no cartão não entra no custo direto, só pela fatura", () => {
+  const st = base();
+  st.fixos.push({ id: "f3", descricao: "Streaming", categoria: "Lazer", dia: 5, valor: 40, forma: "Cartão de crédito", desde: "2026-03-01", ate: null });
+  const c = calcMes(st, "2026-03", "2026-09-29");
+  assert.equal(c.fxT, 390);
+  assert.equal(c.fxCartao, 40);
+  assert.equal(c.custo, 700);
+  assert.deepEqual(comprasCartaoPorCategoria(c), [["Carro", 6300], ["Lazer", 40]]);
 });
 
 test("projeção do mês atual usa a média diária", () => {
   const c = calcMes(base(), "2026-03", "2026-03-10"); // 10 de 31 dias
   assert.equal(c.fase, "atual");
-  assert.equal(c.proj, Math.round(((6650 / 10) * 31 + 350) * 100) / 100);
+  assert.equal(c.proj, Math.round(((350 / 10) * 31 + 350) * 100) / 100);
 });
 
 test("categorias somam dia a dia e fixos", () => {
   const c = calcMes(base(), "2026-03", "2026-09-29");
-  assert.deepEqual(catMap(c), [["Carro", 6300], ["Beleza", 350], ["Moradia", 350]]);
+  assert.deepEqual(catMap(c), [["Beleza", 350], ["Moradia", 350]]);
   const { cum } = custoAcumulado(c);
   assert.equal(cum[14], 350);   // só beleza até o dia 14
   assert.equal(cum[15], 700);   // + condomínio no dia 15
-  assert.equal(cum[31], 7000);
+  assert.equal(cum[31], 700);   // o carro, no cartão, não entra
 });
 
 test("datas do Excel", () => {
@@ -114,4 +135,79 @@ test("lê a planilha antiga (DIA | RECEITA/DESPESA | VALOR)", () => {
   assert.deepEqual(r.lancamentos.map((x) => [x.data, x.tipo, x.categoria, x.valor]), [
     ["2026-03-05", "Receita", "Salário", 1600], ["2026-03-05", "Despesa", "Beleza", 350], ["2026-03-15", "Despesa", "Moradia", 350]]);
   assert.equal(guessCat("Parcela Caixa", "Despesa"), "Parcelas e financiamentos");
+});
+
+import { categoriasIniciais, primeiroMes, saldoAnterior, reservaAcumulada, guardadoPorDestino, RETIRADA, CATS_PADRAO } from "../js/calc.js";
+
+test("guardado: guardar tira do saldo, retirar devolve, e o total fica separado por destino", () => {
+  const st = base();   // março: 100 na Reserva de emergência
+  st.lancamentos.push({ id: "5", data: "2026-04-10", descricao: "Emergência", tipo: "Reserva", categoria: "Reserva de emergência", forma: RETIRADA, valor: 60 });
+  st.lancamentos.push({ id: "6", data: "2026-04-05", descricao: "Salário", tipo: "Receita", categoria: "Salário", forma: "", valor: 1000 });
+  st.lancamentos.push({ id: "7", data: "2026-04-06", descricao: "Tesouro", tipo: "Reserva", categoria: "Investimentos", forma: "", valor: 200 });
+  const mar = calcMes(st, "2026-03", "2026-09-29"), abr = calcMes(st, "2026-04", "2026-09-29");
+  assert.equal(mar.res, 100);
+  assert.equal(abr.res, 140);                          // guardou 200, retirou 60
+  assert.equal(abr.saldo, 1000 - 350 - 800 - 140);     // entrada − fixo − fatura − guardado líquido
+  assert.equal(reservaAcumulada(st, "2026-03"), 100);
+  assert.equal(reservaAcumulada(st, "2026-04"), 240);
+  assert.equal(reservaAcumulada(st, "2026-02"), 0);
+  assert.deepEqual(guardadoPorDestino(st, "2026-04"), [["Investimentos", 200], ["Reserva de emergência", 40]]);
+});
+
+test("saldo que passa de um mês para o outro", () => {
+  const st = base();
+  assert.equal(primeiroMes(st), "2026-01");            // fixo f2 começa em janeiro
+  const jan = calcMes(st, "2026-01", "2026-09-29").saldo, fev = calcMes(st, "2026-02", "2026-09-29").saldo;
+  assert.equal(jan, -90); assert.equal(fev, -90);
+  assert.equal(saldoAnterior(st, "2026-03", "2026-09-29"), -180);
+  assert.equal(saldoAnterior(st, "2026-04", "2026-09-29"), -180 + (1600 - 700 - 100));
+  assert.equal(saldoAnterior(st, "2026-04", "2026-09-29", "2026-04"), 0);   // começa a contar em abril
+  assert.equal(saldoAnterior(st, "2026-01", "2026-09-29"), 0);
+  assert.equal(saldoAnterior({ lancamentos: [], fixos: [], pagos: [], faturas: [] }, "2026-03", "2026-09-29"), 0);
+});
+
+test("categorias iniciais incluem as que a pessoa já usou", () => {
+  const c = categoriasIniciais(base());
+  assert.ok(c.Despesa.includes("Carro"));
+  assert.ok(c.Despesa.includes("Mercado"));
+  assert.equal(c.Despesa.filter((x) => x === "Beleza").length, 1);
+  assert.deepEqual(c.Receita, CATS_PADRAO.Receita);
+  assert.deepEqual(c.Reserva, CATS_PADRAO.Reserva);
+});
+
+import { proximosVencimentos, diasEntre } from "../js/calc.js";
+
+test("próximos vencimentos: faturas em aberto e fixos não pagos, com dias até vencer", () => {
+  assert.equal(diasEntre("2026-03-28", "2026-04-07"), 10);
+  const st = base();                               // condomínio dia 15 (pago em março), fatura 800 em 10/04
+  const v = proximosVencimentos(st, "2026-03-31", 30);
+  assert.deepEqual(v.map((x) => [x.titulo, x.data, x.dias, x.valor]), [
+    ["Fatura X", "2026-04-10", 10, 800],
+    ["Condomínio", "2026-04-15", 15, 350],        // março já foi pago; aparece o de abril
+  ]);
+  st.faturas[0].status = "Paga";
+  assert.deepEqual(proximosVencimentos(st, "2026-03-31").map((x) => x.titulo), ["Condomínio"]);
+  // fixo de março não pago aparece como atrasado
+  st.pagos = [];
+  const a = proximosVencimentos(st, "2026-03-20", 10);
+  assert.deepEqual(a.map((x) => [x.titulo, x.dias]), [["Condomínio", -5]]);
+});
+
+import { projetaDiaADia } from "../js/calc.js";
+
+test("previsão: compra pontual grande não é repetida; com histórico, mistura com a média", () => {
+  const g = (data, valor) => ({ id: data + valor, data, descricao: "", tipo: "Despesa", categoria: "Outros", forma: "Pix", valor });
+  const st = { lancamentos: [g("2026-10-01", 20), g("2026-10-02", 600), g("2026-10-03", 40)], fixos: [], pagos: [], faturas: [] };
+  // sem histórico: 660 já gastos + (20+40)/3 por dia nos 28 dias restantes
+  assert.equal(Math.round(projetaDiaADia(st, "2026-10", st.lancamentos, 3, 31)), 660 + Math.round((60 / 3) * 28));
+  assert.equal(calcMes(st, "2026-10", "2026-10-03").proj, 1220);
+  // com histórico de 900 em setembro: no dia 3 de 31 pesa quase só o histórico
+  st.lancamentos.push(g("2026-09-10", 900));
+  const out = st.lancamentos.filter((x) => x.data.startsWith("2026-10"));
+  const w = 3 / 31, esperado = w * (660 / 3) * 31 + (1 - w) * 900;
+  assert.ok(Math.abs(projetaDiaADia(st, "2026-10", out, 3, 31) - esperado) < 0.01);
+  // nunca abaixo do que já foi gasto
+  st.lancamentos.push(g("2026-10-03", 5000));
+  const out2 = st.lancamentos.filter((x) => x.data.startsWith("2026-10"));
+  assert.ok(projetaDiaADia(st, "2026-10", out2, 3, 31) >= 5660);
 });

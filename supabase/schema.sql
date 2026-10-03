@@ -53,6 +53,13 @@ create table if not exists public.faturas (
   created_at  timestamptz not null default now()
 );
 
+-- Preferências de cada usuário: categorias próprias, saldo acumulado, boas-vindas
+create table if not exists public.preferencias (
+  user_id     uuid primary key default auth.uid() references auth.users (id) on delete cascade,
+  dados       jsonb not null default '{}'::jsonb,
+  updated_at  timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------------
 -- Segurança: cada pessoa acessa apenas os próprios dados
 -- ---------------------------------------------------------------------
@@ -60,6 +67,7 @@ alter table public.lancamentos enable row level security;
 alter table public.fixos       enable row level security;
 alter table public.fixos_pagos enable row level security;
 alter table public.faturas     enable row level security;
+alter table public.preferencias enable row level security;
 
 drop policy if exists "dono" on public.lancamentos;
 create policy "dono" on public.lancamentos for all
@@ -71,6 +79,10 @@ create policy "dono" on public.fixos for all
 
 drop policy if exists "dono" on public.fixos_pagos;
 create policy "dono" on public.fixos_pagos for all
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+drop policy if exists "dono" on public.preferencias;
+create policy "dono" on public.preferencias for all
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 drop policy if exists "dono" on public.faturas;

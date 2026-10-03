@@ -1,6 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
-import { SUPABASE_URL, SUPABASE_ANON_KEY } from "./config.js";
-import { CATS, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado } from "./calc.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO } from "./config.js";
+import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
+  categoriasIniciais, primeiroMes, saldoAnterior, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, CARTAO } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
 import { parseWorkbook, buildWorkbook, importKey, norm } from "./excel.js";
 
@@ -18,26 +19,23 @@ const S = {
   mes: mKey(hoje()), tipo: "Despesa", tab: "l",
   data: { lancamentos: [], fixos: [], pagos: [], faturas: [] },
   store: null, client: null, loaded: false,
+  prefs: prefsPadrao(),
 };
+function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, boasVindas: false }; }
+/** Categorias disponíveis para um tipo: as da pessoa, ou as padrão. */
+function cats(tipo) {
+  return S.prefs.categorias?.[tipo]?.length ? S.prefs.categorias[tipo] : CATS_PADRAO[tipo];
+}
+const salvaPrefs = () => grava(() => S.store.savePrefs(S.prefs));
+const MOVS = ["Guardar", "Retirar"];
+const formaDe = (tipo, v) => (tipo === "Despesa" ? v : tipo === "Reserva" && v === "Retirar" ? RETIRADA : "");
+const opts = (lista, atual) => lista.map((c) => `<option${c === atual ? " selected" : ""}>${esc(c)}</option>`).join("");
 
 /* ================= inicialização e login ================= */
 const configured = () => Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
 
-// Quando um link do e-mail (nova senha, confirmação) falha, o Supabase volta
-// para o site com o erro no endereço: #error=...&error_code=otp_expired
-function erroDoLink() {
-  const p = new URLSearchParams(location.hash.slice(1));
-  const codigo = p.get("error_code") || p.get("error");
-  if (!codigo) return;
-  // Limpa o endereço para o erro não voltar a aparecer ao recarregar a página.
-  history.replaceState(null, "", location.pathname + location.search);
-  authMsg(codigo === "otp_expired"
-    ? "Esse link expirou ou já foi usado. Clique em Esqueci minha senha para receber um novo e use sempre o e-mail mais recente."
-    : "Não foi possível usar o link do e-mail. Peça um novo em Esqueci minha senha.", "err");
-}
-
 async function boot() {
-  erroDoLink();
+  $("authSuporte").innerHTML = suporteHtml();
   if (!configured()) {
     $("authForm").hidden = true;
     $("authMsg").textContent = "Login ainda não configurado neste endereço. Você pode testar tudo na demonstração.";
@@ -72,50 +70,24 @@ const traduzErro = (e) => {
   return "Não deu certo: " + m;
 };
 
-const emailDigitado = () => $("aEmail").value.trim().toLowerCase();
-
-// Botão "Mostrar/Ocultar" dos campos de senha. Um único ouvinte no documento
-// atende a todos, inclusive os que aparecem depois (como o da nova senha).
-function mostrarSenha(botao, mostrar) {
-  const campo = botao.previousElementSibling;
-  campo.type = mostrar ? "text" : "password";
-  botao.textContent = mostrar ? "Ocultar" : "Mostrar";
-  botao.setAttribute("aria-pressed", String(mostrar));
-  botao.setAttribute("aria-label", mostrar ? "Ocultar senha" : "Mostrar senha");
-}
-document.addEventListener("click", (e) => {
-  const botao = e.target.closest(".olho");
-  if (!botao) return;
-  e.preventDefault();
-  mostrarSenha(botao, botao.getAttribute("aria-pressed") !== "true");
-  botao.previousElementSibling.focus();
-});
-
-// "Entrar" e "Criar conta" enviam o mesmo formulário: assim o navegador
-// oferece salvar a senha nos dois casos.
 $("authForm").addEventListener("submit", async (e) => {
   e.preventDefault();
-  // Volta a esconder a senha ao enviar, para ela não ficar exposta na tela.
-  mostrarSenha($("authForm").querySelector(".olho"), false);
-  if (e.submitter?.id === "aCriar") return criarConta();
   authMsg("Entrando…");
-  const { error } = await S.client.auth.signInWithPassword({ email: emailDigitado(), password: $("aSenha").value });
+  const { error } = await S.client.auth.signInWithPassword({ email: $("aEmail").value.trim(), password: $("aSenha").value });
   if (error) authMsg(traduzErro(error), "err");
 });
-async function criarConta() {
+$("aCriar").addEventListener("click", async () => {
+  if (!$("authForm").reportValidity()) return;
   authMsg("Criando sua conta…");
   const { data, error } = await S.client.auth.signUp({
-    email: emailDigitado(), password: $("aSenha").value,
+    email: $("aEmail").value.trim(), password: $("aSenha").value,
     options: { emailRedirectTo: location.origin + location.pathname },
   });
   if (error) return authMsg(traduzErro(error), "err");
-  // Com confirmação de e-mail ligada, o Supabase não dá erro para e-mail repetido:
-  // devolve um usuário sem identidades. Cada e-mail só pode ter uma conta.
-  if (data.user && data.user.identities?.length === 0) return authMsg("Esse e-mail já tem conta. Use Entrar ou Esqueci minha senha.", "err");
   if (!data.session) authMsg("Conta criada. Abra o e-mail de confirmação que enviamos e depois volte para entrar.", "ok");
-}
+});
 $("aEsqueci").addEventListener("click", async () => {
-  const email = emailDigitado();
+  const email = $("aEmail").value.trim();
   if (!email) { $("aEmail").focus(); return authMsg("Digite seu e-mail acima para receber o link de nova senha."); }
   const { error } = await S.client.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
   authMsg(error ? traduzErro(error) : "Enviamos um link para criar uma nova senha no seu e-mail.", error ? "err" : "ok");
@@ -128,7 +100,7 @@ $("btnSair").addEventListener("click", async () => {
 
 function pedirNovaSenha() {
   openDlg(`<h3>Criar nova senha</h3><form id="novaSenha" style="display:grid;gap:12px">
-    <label class="f">Nova senha<span class="pw"><input class="in" id="ns1" type="password" minlength="6" required autocomplete="new-password"><button class="olho" type="button" aria-pressed="false" aria-label="Mostrar senha">Mostrar</button></span></label>
+    <label class="f">Nova senha<input class="in" id="ns1" type="password" minlength="6" required autocomplete="new-password"></label>
     <div class="actions"><button class="btn primary" type="submit">Salvar senha</button></div><p class="auth-msg" id="nsMsg"></p></form>`);
   $("novaSenha").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -140,7 +112,7 @@ function pedirNovaSenha() {
 
 function startDemo() {
   try { localStorage.setItem("cg-modo", "demo"); } catch { /* nada */ }
-  const store = createLocalStore("cg-demo-v1", demoSeed(hoje()));
+  const store = createLocalStore("cg-demo-v3", demoSeed(hoje()));
   startApp(store, "Demonstração");
   showBanner(`Modo demonstração: dados de exemplo guardados só neste aparelho.`, [["Recomeçar exemplo", () => { store.reset(); startDemo(); }]]);
 }
@@ -152,8 +124,15 @@ async function startApp(store, quem) {
   $("btnSair").textContent = store.kind === "supabase" ? "Sair" : "Sair da demonstração";
   showBanner("");
   render();
-  try { S.data = await store.loadAll(); S.loaded = true; render(); }
-  catch (e) { showBanner("Não foi possível carregar seus dados. Confira a internet e recarregue a página."); }
+  S.prefs = prefsPadrao();
+  try {
+    S.data = await store.loadAll();
+    const p = await store.loadPrefs().catch(() => null);
+    S.prefs = { ...prefsPadrao(), ...(p || {}) };
+    if (!S.prefs.categorias) S.prefs.categorias = categoriasIniciais(S.data);
+    S.loaded = true; render();
+    if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) boasVindas();
+  } catch (e) { console.error(e); showBanner("Não foi possível carregar seus dados. Confira a internet e recarregue a página."); }
 }
 
 function showBanner(t, acoes = []) {
@@ -180,39 +159,76 @@ function render() {
   $("mesTitulo").textContent = `${MESES[mo - 1]} ${y}`;
   $("hoje").hidden = S.mes === mKey(hoje());
   const c = calcMes(S.data, S.mes, hoje());
-  renderForm(); renderKpis(c); renderCusto(c); renderCat(c); renderTabs(c);
+  renderForm(); renderKpis(c); renderVenc(); renderCusto(c); renderCat(c); renderTabs(c);
 }
 
 function renderForm() {
   document.querySelectorAll("#tipoSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.t === S.tipo));
   const sel = $("fCat");
-  if (sel.dataset.t !== S.tipo) { sel.innerHTML = CATS[S.tipo].map((c) => `<option>${esc(c)}</option>`).join(""); sel.dataset.t = S.tipo; }
-  const fs = $("fForma"); if (!fs.options.length) fs.innerHTML = FORMAS.map((c) => `<option>${esc(c)}</option>`).join("");
-  $("fFormaWrap").style.visibility = S.tipo === "Despesa" ? "visible" : "hidden";
+  const lista = cats(S.tipo), chave = S.tipo + "|" + lista.join("|");
+  if (sel.dataset.k !== chave) { sel.innerHTML = opts(lista); sel.dataset.k = chave; }
+  $("fCatLbl").textContent = S.tipo === "Reserva" ? "Onde guardar" : "Categoria";
+  // No tipo Guardado, o segundo seletor vira o movimento (guardar ou retirar).
+  const fs = $("fForma"), modo = S.tipo === "Reserva" ? "mov" : "forma";
+  if (fs.dataset.modo !== modo) { fs.innerHTML = opts(modo === "mov" ? MOVS : FORMAS); fs.dataset.modo = modo; }
+  $("fFormaLbl").textContent = modo === "mov" ? "Movimento" : "Forma de pagamento";
+  $("fFormaWrap").style.visibility = S.tipo === "Receita" ? "hidden" : "visible";
   const fd = $("fData"); if (!fd.value || mKey(fd.value) !== S.mes) fd.value = mKey(hoje()) === S.mes ? hoje() : S.mes + "-01";
-  $("fOk").textContent = S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : "Guardar";
+  $("fOk").textContent = S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : "Lançar";
 }
 
 function renderKpis(c) {
   const saldoPill = c.saldo < 0 ? `<span class="pill bad">● No vermelho</span>` : `<span class="pill good">● No azul</span>`;
-  const projTxt = c.fase === "atual" ? `No ritmo atual: <b>${brl0(c.proj)}</b>` : c.fase === "passado" ? "Mês fechado" : "Só os fixos previstos";
+  const projTxt = c.fase === "atual" ? `Previsão do mês: <b>${brl0(c.proj)}</b>` : c.fase === "passado" ? "Mês fechado" : "Só os fixos previstos";
+  const ant = S.prefs.levarSaldo ? saldoAnterior(S.data, S.mes, hoje(), S.prefs.saldoDesde) : 0;
+  const noCartao = round2(c.comprasCartao + c.fxCartao);
+  const acum = round2(ant + c.saldo), resTotal = reservaAcumulada(S.data, S.mes), destinos = guardadoPorDestino(S.data, S.mes);
+  const resMes = c.res > 0 ? `+ ${brl0(c.res)} neste mês` : c.res < 0 ? `− ${brl0(-c.res)} neste mês` : "Nada guardado neste mês";
+  const resLinhas = destinos.length > 1 ? `<ul class="dest">${destinos.map(([k, v]) => `<li><span>${esc(k)}</span><b>${brl0(v)}</b></li>`).join("")}</ul>` : destinos.length === 1 ? `<span class="n">${esc(destinos[0][0])}</span>` : "";
   $("kpis").innerHTML = `
    <div class="kpi hero"><span class="l">Custo do mês</span><span class="v">${brl(c.custo)}</span><span class="n">${projTxt}</span></div>
-   <div class="kpi"><span class="l">Entradas</span><span class="v">${brl(c.rec)}</span><span class="n">${c.res ? `${brl(c.res)} guardado na reserva` : "Salário e outras entradas"}</span></div>
-   <div class="kpi"><span class="l">Saldo</span><span class="v" style="color:${c.saldo < 0 ? "var(--bad)" : "var(--good)"}">${sgn(c.saldo)}</span>${saldoPill}</div>
-   <div class="kpi"><span class="l">Gastos fixos</span><span class="v">${brl(c.fxT)}</span>${c.fxPend ? `<span class="pill warn">${brl0(c.fxPend)} a pagar</span>` : (c.fx.length ? `<span class="pill good">✓ Todos pagos</span>` : `<span class="n">Nenhum cadastrado</span>`)}</div>
-   <div class="kpi"><span class="l">Cartão a pagar</span><span class="v">${brl(c.ccAberto)}</span><span class="n">${c.comprasCartao ? `${brl0(c.comprasCartao)} em compras no mês` : "Faturas em aberto"}</span></div>`;
+   <div class="kpi"><span class="l">Entradas</span><span class="v">${brl(c.rec)}</span><span class="n">Salário e outras entradas</span></div>
+   <div class="kpi"><span class="l">Saldo do mês</span><span class="v" style="color:${c.saldo < 0 ? "var(--bad)" : "var(--good)"}">${sgn(c.saldo)}</span>${saldoPill}${S.prefs.levarSaldo && ant !== 0 ? `<span class="n">Com meses anteriores: <b>${sgn(acum)}</b></span>` : ""}</div>
+   <div class="kpi reserva"><span class="l">Dinheiro guardado</span><span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
+   <div class="kpi"><span class="l">Gastos fixos</span><span class="v">${brl(c.fxT)}</span>${c.fxPend ? `<span class="pill warn">${brl0(c.fxPend)} a pagar</span>` : (c.fx.length ? `<span class="pill good">✓ Todos pagos</span>` : `<span class="n">Nenhum cadastrado</span>`)}${c.fxCartao ? `<span class="n">${brl0(c.fxCartao)} no cartão</span>` : ""}</div>
+   <div class="kpi"><span class="l">Faturas do mês</span><span class="v">${brl(c.fatT)}</span>${c.fatAberta ? `<span class="pill warn">${brl0(c.fatAberta)} a pagar</span>` : (c.fat.length ? `<span class="pill good">✓ Pagas</span>` : `<span class="n">Nenhuma fatura neste mês</span>`)}${noCartao ? `<span class="n">${brl0(noCartao)} em compras para a próxima</span>` : ""}</div>`;
   let t = "";
   if (!S.loaded) t = "Carregando seus lançamentos…";
   else if (!c.it.length && !c.fx.length) t = "Nenhum lançamento neste mês ainda. Use o formulário acima ou importe sua planilha do Excel.";
   else if (c.fase === "atual") {
     const med = c.dias ? c.vari / c.dias : 0;
-    t = `Em ${c.dias} ${c.dias === 1 ? "dia" : "dias"} você gastou <strong>${brl(c.vari)}</strong> no dia a dia, média de ${brl(med)} por dia. Somando os fixos, <strong>o mês deve fechar com custo de ${brl0(c.proj)}</strong>${c.rec ? ` e saldo de ${sgn(round2(c.rec - c.proj - c.res))}` : ""}.`;
+    t = `Em ${c.dias} ${c.dias === 1 ? "dia" : "dias"} você gastou <strong>${brl(c.vari)}</strong> no dia a dia, média de ${brl(med)} por dia. Somando os fixos${c.fatT ? " e as faturas" : ""}, <strong>o mês deve fechar com custo de ${brl0(c.proj)}</strong>${c.rec ? ` e saldo de ${sgn(round2(c.rec - c.proj - c.res))}` : ""}.${c.comprasCartao ? ` As compras no cartão (${brl0(c.comprasCartao)}) entram no mês em que a fatura vencer.` : ""}`;
   } else if (c.fase === "passado") {
     const top = catMap(c)[0];
     t = `O mês fechou com custo de <strong>${brl(c.custo)}</strong>${top ? `. A maior categoria foi <strong>${esc(top[0])}</strong> (${brl0(top[1])}, ${Math.round((top[1] / c.custo) * 100)}% do custo)` : ""}.`;
   } else t = `Mês futuro: por enquanto aparecem só os gastos fixos previstos (${brl(c.fxT)}).`;
   $("insight").innerHTML = t;
+}
+
+/** Quadro de contas a vencer nos próximos 30 dias (não depende do mês que está na tela). */
+function renderVenc() {
+  const host = $("venc"), l = S.loaded ? proximosVencimentos(S.data, hoje(), 30) : [];
+  if (!l.length) {
+    host.innerHTML = `<h2>Próximos vencimentos</h2><p class="hint" style="margin-bottom:0">${S.loaded ? "Nenhuma conta para os próximos 30 dias. Cadastre seus gastos fixos e as faturas do cartão para ser avisado aqui." : "Carregando…"}</p>`;
+    return;
+  }
+  const quando = (d) => d < 0 ? `Atrasada há ${-d} ${-d === 1 ? "dia" : "dias"}` : d === 0 ? "Vence hoje" : d === 1 ? "Vence amanhã" : `Em ${d} dias`;
+  const cls = (d) => (d < 0 ? "bad" : d <= 3 ? "warn" : "ok");
+  const total = round2(l.reduce((t, x) => t + x.valor, 0)), atras = l.filter((x) => x.dias < 0).length;
+  host.innerHTML = `<div class="venc-head"><div><h2>Próximos vencimentos</h2>
+      <p class="hint" style="margin-bottom:0">${l.length} ${l.length === 1 ? "conta" : "contas"} nos próximos 30 dias, somando <b>${brl(total)}</b>${atras ? `. ${atras} ${atras === 1 ? "está atrasada" : "estão atrasadas"}` : ""}.</p></div></div>
+    <ul class="venc">${l.map((x, i) => `<li>
+      <span class="quando ${cls(x.dias)}">${quando(x.dias)}</span>
+      <span class="oque"><b>${esc(x.titulo)}</b><span>${ddmm(x.data)} · ${x.tipo === "fatura" ? "cartão" : "gasto fixo"}</span></span>
+      <span class="num">${brl(x.valor)}</span>
+      <button class="btn sm" type="button" data-pg="${i}">Marcar como pago</button></li>`).join("")}</ul>`;
+  host.querySelectorAll("[data-pg]").forEach((b) => (b.onclick = async () => {
+    const x = l[Number(b.dataset.pg)]; b.disabled = true;
+    if (x.tipo === "fatura") {
+      if (await grava(() => S.store.updateFatura(x.id, { status: "Paga" }))) { const f = S.data.faturas.find((z) => z.id === x.id); if (f) f.status = "Paga"; }
+    } else if (await grava(() => S.store.setPago(x.id, x.mes + "-01", true))) S.data.pagos.push({ fixo_id: x.id, mes: x.mes + "-01" });
+    render();
+  }));
 }
 
 const el = (t, a = {}, p) => { const e = document.createElementNS(NS, t); for (const k in a) e.setAttribute(k, a[k]); p && p.appendChild(e); return e; };
@@ -276,7 +292,7 @@ function renderCusto(c) {
 function renderCat(c) {
   const host = $("chCat"); host.innerHTML = "";
   const cats = catMap(c), tot = cats.reduce((s, x) => s + x[1], 0);
-  if (!cats.length) { host.innerHTML = `<div class="empty">As categorias aparecem aqui assim que você lançar um gasto.</div>`; return; }
+  if (!cats.length) { host.innerHTML = `<div class="empty">As categorias aparecem aqui assim que você lançar um gasto.</div>`; cartaoDoMes(c, host); return; }
   const W = Math.max(260, host.clientWidth || 400), rowH = 34, H = cats.length * rowH, labW = Math.min(150, W * 0.36), valW = 112, bw = W - labW - valW, max = cats[0][1];
   const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: H, role: "img", "aria-label": "Gastos por categoria" }, host);
   cats.forEach(([k, v], i) => {
@@ -287,6 +303,14 @@ function renderCat(c) {
     const vt = el("text", { x: labW + w + 8, y: yy + 14, "font-size": 12, fill: "var(--ink-2)", "font-family": "IBM Plex Mono, monospace" }, svg);
     vt.textContent = `${brl0(v)} · ${Math.round((v / tot) * 100)}%`;
   });
+  cartaoDoMes(c, host);
+}
+/** Lista do que foi para o cartão neste mês e ainda vai ser cobrado em uma fatura. */
+function cartaoDoMes(c, host) {
+  const l = comprasCartaoPorCategoria(c); if (!l.length) return;
+  const d = document.createElement("div"); d.className = "nocartao";
+  d.innerHTML = `<h3>No cartão neste mês</h3><p class="hint">Ainda não entrou no custo. Vai ser cobrado na fatura.</p><ul class="dest">${l.map(([k, v]) => `<li><span>${esc(k)}</span><b>${brl0(v)}</b></li>`).join("")}</ul>`;
+  host.appendChild(d);
 }
 
 /* ================= abas ================= */
@@ -311,10 +335,10 @@ function paneL(c) {
   }
   $("pane-l").innerHTML = `<div class="tbl"><table><thead><tr><th>Dia</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="hide-sm">Pagamento</th><th class="num">Valor</th><th></th></tr></thead><tbody>${
     it.map((x) => `<tr><td class="d">${ddmm(x.data)}</td><td>${esc(x.descricao || x.categoria)}</td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
-      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(x.forma || "—") : x.tipo === "Receita" ? "Entrada" : "Reserva"}</td>
-      <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? "→ " : "− "}${brl(x.valor)}</td>
-      <td style="text-align:right;white-space:nowrap">${btnEditar(x.id)}<button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody></table></div>`;
-  ligarEditar("pane-l", (id) => editarLancamento(S.data.lancamentos.find((x) => x.id === id)));
+      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? (x.forma === CARTAO ? "Cartão · na fatura" : esc(x.forma || "—")) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : "Guardou"}</td>
+      <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "← " : "→ ") : "− "}${brl(x.valor)}</td>
+      <td class="acts"><button class="act" type="button" data-ed="${esc(x.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">✎</span></button><button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody></table></div>`;
+  $("pane-l").querySelectorAll("[data-ed]").forEach((b) => (b.onclick = () => editarLancamento(b.dataset.ed)));
   $("pane-l").querySelectorAll("[data-del]").forEach((b) => armDelete(b, async () => {
     const id = b.dataset.del;
     if (await grava(() => S.store.deleteLancamento(id))) { S.data.lancamentos = S.data.lancamentos.filter((x) => x.id !== id); render(); }
@@ -327,7 +351,7 @@ function paneF(c) {
     const p = c.pagosSet.has(f.id);
     return `<tr><td class="d">dia ${pad(f.dia || 1)}</td><td>${esc(f.descricao)}</td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num">${brl(f.valor)}</td>
       <td><button type="button" class="chk ${p ? "on" : "off"}" data-pago="${esc(f.id)}" data-v="${p ? 0 : 1}">${p ? "✓ Pago" : "○ A pagar"}</button></td>
-      <td style="text-align:right;white-space:nowrap">${btnEditar(f.id)}<button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
+      <td class="acts"><button class="act" type="button" data-fed="${esc(f.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">✎</span></button><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
   }).join("");
   $("pane-f").innerHTML = `<p class="hint" style="margin-top:0">Cadastre uma vez as contas que se repetem todo mês. Elas entram no custo de cada mês sozinhas; é só marcar quando pagar.</p>
    ${fx.length ? `<div class="tbl"><table><thead><tr><th>Vence</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="num">Valor</th><th>${MES3[Number(S.mes.slice(5)) - 1]}</th><th></th></tr></thead><tbody>${rows}</tbody>
@@ -335,13 +359,13 @@ function paneF(c) {
      : `<div class="empty">Nenhum gasto fixo neste mês. Adicione aluguel, condomínio, internet, faculdade, parcelas…</div>`}
    <form class="addrow fx" id="formFx" autocomplete="off">
      <label class="f">Descrição<input class="in" id="xDesc" required maxlength="60" placeholder="Ex.: Condomínio"></label>
-     <label class="f">Categoria<select class="in" id="xCat">${CATS.Despesa.map((k) => `<option${k === "Moradia" ? " selected" : ""}>${esc(k)}</option>`).join("")}</select></label>
+     <label class="f">Categoria<select class="in" id="xCat">${opts(cats("Despesa"), "Moradia")}</select></label>
      <label class="f">Dia venc.<input class="in" id="xDia" type="number" min="1" max="31" value="10" required></label>
      <label class="f">Valor (R$)<input class="in money" id="xVal" inputmode="decimal" placeholder="0,00" required></label>
      <label class="f">Pagamento<select class="in" id="xForma">${FORMAS.map((k) => `<option>${esc(k)}</option>`).join("")}</select></label>
      <button class="btn primary" type="submit">Adicionar fixo</button>
    </form>`;
-  ligarEditar("pane-f", (id) => editarFixo(S.data.fixos.find((z) => z.id === id)));
+  $("pane-f").querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
   $("pane-f").querySelectorAll("[data-pago]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.pago, pago = b.dataset.v === "1", mes = S.mes + "-01";
     b.disabled = true;
@@ -369,14 +393,16 @@ function paneF(c) {
 }
 
 function paneC(c) {
-  const vis = S.data.faturas.filter((x) => x.status !== "Paga" || mKey(x.vencimento) === S.mes).sort((a, b) => a.vencimento.localeCompare(b.vencimento));
-  $("pane-c").innerHTML = `<p class="hint" style="margin-top:0">Anote o valor de cada fatura e quando vence. Aparecem as faturas em aberto e as pagas deste mês.</p>
+  const vis = S.data.faturas.filter((x) => mKey(x.vencimento) === S.mes || (x.status !== "Paga" && mKey(x.vencimento) < S.mes))
+    .sort((a, b) => a.vencimento.localeCompare(b.vencimento));
+  const atrasadas = round2(vis.filter((x) => mKey(x.vencimento) < S.mes).reduce((t, x) => t + x.valor, 0));
+  $("pane-c").innerHTML = `<p class="hint" style="margin-top:0">Lance cada fatura com o valor total e a data de vencimento. Ela entra no custo do mês em que vence. Aparecem as faturas deste mês e as de meses anteriores que ainda estão em aberto.</p>
    ${vis.length ? `<div class="tbl"><table><thead><tr><th>Vence</th><th>Cartão</th><th class="num">Fatura</th><th>Status</th><th></th></tr></thead><tbody>${
-     vis.map((x) => `<tr><td class="d">${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</td><td>${esc(x.cartao)}</td><td class="num">${brl(x.valor)}</td>
+     vis.map((x) => `<tr><td class="d">${ddmm(x.vencimento)}/${x.vencimento.slice(2, 4)}</td><td>${esc(x.cartao)}${mKey(x.vencimento) < S.mes ? ` <span class="tag">atrasada</span>` : ""}</td><td class="num">${brl(x.valor)}</td>
        <td><button type="button" class="chk ${x.status === "Paga" ? "on" : "off"}" data-st="${esc(x.id)}">${x.status === "Paga" ? "✓ Paga" : "○ Em aberto"}</button></td>
-       <td style="text-align:right;white-space:nowrap">${btnEditar(x.id)}<button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody>
-     <tfoot><tr><td></td><td style="font-weight:600">Em aberto</td><td class="num" style="font-weight:600">${brl(c.ccAberto)}</td><td colspan="2"></td></tr></tfoot></table></div>`
-     : `<div class="empty">Nenhuma fatura em aberto.</div>`}
+       <td class="acts"><button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">✕</span></button></td></tr>`).join("")}</tbody>
+     <tfoot><tr><td></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} atrasadas</span>` : ""}</td></tr></tfoot></table></div>`
+     : `<div class="empty">Nenhuma fatura com vencimento em ${nomeMes(S.mes)}.</div>`}
    <form class="addrow cc" id="formCc" autocomplete="off">
      <label class="f">Cartão<input class="in" id="cNome" required maxlength="40" placeholder="Ex.: Nubank"></label>
      <label class="f">Vencimento<input class="in" id="cVenc" type="date" required value="${S.mes}-10"></label>
@@ -384,7 +410,6 @@ function paneC(c) {
      <label class="f">Status<select class="in" id="cSt"><option>Aberta</option><option>Paga</option></select></label>
      <button class="btn primary" type="submit">Adicionar fatura</button>
    </form>`;
-  ligarEditar("pane-c", (id) => editarFatura(S.data.faturas.find((z) => z.id === id)));
   $("pane-c").querySelectorAll("[data-st]").forEach((b) => b.addEventListener("click", async () => {
     const f = S.data.faturas.find((z) => z.id === b.dataset.st); const status = f.status === "Paga" ? "Aberta" : "Paga";
     b.disabled = true;
@@ -403,79 +428,6 @@ function paneC(c) {
   });
 }
 
-/* ================= editar itens já salvos ================= */
-const btnEditar = (id) => `<button class="edt" type="button" data-edit="${esc(id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">✎</span></button>`;
-function ligarEditar(pane, abrir) {
-  $(pane).querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click", () => abrir(b.dataset.edit)));
-}
-// Valor em número (1234.5) → texto do campo ("1234,50"), no formato que parseMoney entende.
-const valorCampo = (v) => Number(v).toFixed(2).replace(".", ",");
-const opcoes = (lista, atual) => lista.map((k) => `<option${k === atual ? " selected" : ""}>${esc(k)}</option>`).join("");
-
-// Abre a janela com o formulário já preenchido. Ao salvar, lê os campos,
-// grava no banco e só então atualiza a tela.
-function janelaEditar(titulo, campos, salvar) {
-  openDlg(`<h3>${titulo}</h3><form id="formEd" style="display:grid;gap:12px" autocomplete="off">${campos}
-    <p class="auth-msg err" id="edMsg"></p>
-    <div class="actions"><button class="btn primary" type="submit">Salvar</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
-  $("formEd").addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const v = parseMoney($("eVal").value);
-    if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 25,90."; $("eVal").focus(); return; }
-    if (await salvar(round2(v))) { $("dlg").close(); render(); }
-  });
-}
-
-function editarLancamento(x) {
-  if (!x) return;
-  janelaEditar("Editar lançamento", `
-    <label class="f">Valor (R$)<input class="in money" id="eVal" inputmode="decimal" required value="${valorCampo(x.valor)}"></label>
-    <label class="f">Descrição<input class="in" id="eDesc" maxlength="80" value="${esc(x.descricao)}"></label>
-    <label class="f">Categoria<select class="in" id="eCat">${opcoes(CATS[x.tipo] || CATS.Despesa, x.categoria)}</select></label>
-    ${x.tipo === "Despesa" ? `<label class="f">Forma de pagamento<select class="in" id="eForma">${opcoes(FORMAS, x.forma)}</select></label>` : ""}
-    <label class="f">Data<input class="in" type="date" id="eData" required value="${esc(x.data)}"></label>`,
-  async (valor) => {
-    const patch = { valor, descricao: $("eDesc").value.trim(), categoria: $("eCat").value, data: $("eData").value,
-      forma: x.tipo === "Despesa" ? $("eForma").value : "" };
-    const ok = await grava(() => S.store.updateLancamento(x.id, patch));
-    if (ok) Object.assign(x, patch);
-    return ok;
-  });
-}
-
-function editarFixo(f) {
-  if (!f) return;
-  janelaEditar("Editar gasto fixo", `
-    <label class="f">Descrição<input class="in" id="eDesc" required maxlength="60" value="${esc(f.descricao)}"></label>
-    <label class="f">Categoria<select class="in" id="eCat">${opcoes(CATS.Despesa, f.categoria)}</select></label>
-    <label class="f">Dia do vencimento<input class="in" id="eDia" type="number" min="1" max="31" required value="${f.dia || 1}"></label>
-    <label class="f">Valor (R$)<input class="in money" id="eVal" inputmode="decimal" required value="${valorCampo(f.valor)}"></label>
-    <label class="f">Pagamento<select class="in" id="eForma">${opcoes(FORMAS, f.forma)}</select></label>
-    <p class="hint" style="margin:0">A mudança vale para todos os meses deste gasto fixo.</p>`,
-  async (valor) => {
-    const patch = { valor, descricao: $("eDesc").value.trim(), categoria: $("eCat").value, forma: $("eForma").value,
-      dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)) };
-    const ok = await grava(() => S.store.updateFixo(f.id, patch));
-    if (ok) Object.assign(f, patch);
-    return ok;
-  });
-}
-
-function editarFatura(x) {
-  if (!x) return;
-  janelaEditar("Editar fatura", `
-    <label class="f">Cartão<input class="in" id="eNome" required maxlength="40" value="${esc(x.cartao)}"></label>
-    <label class="f">Vencimento<input class="in" id="eVenc" type="date" required value="${esc(x.vencimento)}"></label>
-    <label class="f">Valor da fatura<input class="in money" id="eVal" inputmode="decimal" required value="${valorCampo(x.valor)}"></label>
-    <label class="f">Status<select class="in" id="eSt">${opcoes(["Aberta", "Paga"], x.status)}</select></label>`,
-  async (valor) => {
-    const patch = { valor, cartao: $("eNome").value.trim(), vencimento: $("eVenc").value, status: $("eSt").value };
-    const ok = await grava(() => S.store.updateFatura(x.id, patch));
-    if (ok) Object.assign(x, patch);
-    return ok;
-  });
-}
-
 /* ================= lançamento rápido ================= */
 $("tipoSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tipo = b.dataset.t; renderForm(); });
 $("formLanc").addEventListener("submit", async (e) => {
@@ -484,7 +436,7 @@ $("formLanc").addEventListener("submit", async (e) => {
   if (!(v > 0)) { flash.style.color = "var(--bad)"; flash.textContent = "Digite um valor maior que zero, por exemplo 25,90."; $("fValor").focus(); return; }
   const data = $("fData").value || hoje();
   const row = { data, descricao: $("fDesc").value.trim(), tipo: S.tipo, categoria: $("fCat").value,
-    forma: S.tipo === "Despesa" ? $("fForma").value : "", valor: round2(v), import_key: null };
+    forma: formaDe(S.tipo, $("fForma").value), valor: round2(v), import_key: null };
   $("fOk").disabled = true;
   let novos;
   const ok = await grava(async () => { novos = await S.store.addLancamentos([row]); });
@@ -500,20 +452,7 @@ $("prev").onclick = () => { S.mes = addM(S.mes, -1); render(); };
 $("next").onclick = () => { S.mes = addM(S.mes, 1); render(); };
 $("hoje").onclick = () => { S.mes = mKey(hoje()); render(); };
 document.querySelector(".tabs").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tab = b.dataset.tab; render(); });
-// Ao mudar o tamanho da tela, só os gráficos precisam ser redesenhados (eles
-// dependem da largura). Redesenhar tudo recriava os formulários e apagava o que
-// estava sendo digitado. No celular, abrir o teclado muda só a ALTURA da tela,
-// então ignoramos mudanças que não alteram a largura.
-let rt, larguraAntes = innerWidth;
-addEventListener("resize", () => {
-  clearTimeout(rt);
-  rt = setTimeout(() => {
-    if ($("app").hidden || innerWidth === larguraAntes) return;
-    larguraAntes = innerWidth;
-    const c = calcMes(S.data, S.mes, hoje());
-    renderCusto(c); renderCat(c);
-  }, 150);
-});
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => !$("app").hidden && render(), 150); });
 
 /* ================= Excel ================= */
 $("btnImport").onclick = () => $("fileIn").click();
@@ -553,6 +492,13 @@ $("fileIn").addEventListener("change", async (e) => {
         for (const mm of z.mesesPagos) { const mes = `${ano}-${pad(mm)}-01`; await S.store.setPago(novo.id, mes, true); S.data.pagos.push({ fixo_id: novo.id, mes }); }
       }
       for (const z of ccNovos) S.data.faturas.push(await S.store.addFatura(z));
+      // Categorias que vieram na planilha passam a aparecer nos menus.
+      const usadas = categoriasIniciais(S.data); let mudou = false;
+      for (const t of ["Despesa", "Receita", "Reserva"]) {
+        const novas = usadas[t].filter((c) => !cats(t).includes(c));
+        if (novas.length) { S.prefs.categorias = { ...S.prefs.categorias, [t]: [...cats(t), ...novas] }; mudou = true; }
+      }
+      if (mudou) await S.store.savePrefs(S.prefs);
     });
     if (meses.length) S.mes = meses[meses.length - 1];
     $("dlg").close(); render();
@@ -569,6 +515,117 @@ function openDlg(html) {
   $("dlgBody").querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => $("dlg").close()));
   $("dlg").showModal();
 }
+
+/* ================= editar ================= */
+const TIPOS = [["Despesa", "Gasto"], ["Receita", "Entrada"], ["Reserva", "Guardado"]];
+function editarLancamento(id) {
+  const x = S.data.lancamentos.find((z) => z.id === id); if (!x) return;
+  const catOpts = (tipo, atual) => { const l = cats(tipo); return opts(l.includes(atual) || !atual ? l : [atual, ...l], atual); };
+  openDlg(`<h3>Editar lançamento</h3><form id="edForm" class="dlg-form" autocomplete="off">
+    <label class="f">Tipo<select class="in" id="eTipo">${TIPOS.map(([v, r]) => `<option value="${v}"${v === x.tipo ? " selected" : ""}>${r}</option>`).join("")}</select></label>
+    <label class="f">Valor (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${esc(x.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}"></label>
+    <label class="f wide">Descrição<input class="in" id="eDesc" maxlength="80" value="${esc(x.descricao)}"></label>
+    <label class="f"><span id="eCatLbl">Categoria</span><select class="in" id="eCat">${catOpts(x.tipo, x.categoria)}</select></label>
+    <label class="f" id="eFormaWrap"><span id="eFormaLbl">Forma de pagamento</span><select class="in" id="eForma"></select></label>
+    <label class="f">Data<input class="in" type="date" id="eData" required value="${esc(x.data)}"></label>
+    <p class="auth-msg err wide" id="edMsg"></p>
+    <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
+  const sync = (atual) => {
+    const t = $("eTipo").value, mov = t === "Reserva";
+    $("eFormaWrap").hidden = t === "Receita";
+    $("eFormaLbl").textContent = mov ? "Movimento" : "Forma de pagamento";
+    $("eCatLbl").textContent = mov ? "Onde guardar" : "Categoria";
+    $("eForma").innerHTML = mov ? opts(MOVS, atual === RETIRADA ? "Retirar" : "Guardar") : opts(FORMAS, atual);
+  };
+  $("eTipo").onchange = () => { $("eCat").innerHTML = catOpts($("eTipo").value, ""); sync(""); };
+  sync(x.forma);
+  $("edForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const v = parseMoney($("eValor").value);
+    if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 25,90."; return; }
+    const tipo = $("eTipo").value;
+    const patch = { data: $("eData").value, descricao: $("eDesc").value.trim(), tipo, categoria: $("eCat").value,
+      forma: formaDe(tipo, $("eForma").value), valor: round2(v), import_key: null };
+    if (await grava(() => S.store.updateLancamento(id, patch))) { Object.assign(x, patch); $("dlg").close(); render(); }
+  });
+}
+function editarFixo(id) {
+  const f = S.data.fixos.find((z) => z.id === id); if (!f) return;
+  const l = cats("Despesa");
+  openDlg(`<h3>Editar gasto fixo</h3><p class="hint">A mudança vale para todos os meses em que esse fixo conta.</p><form id="edForm" class="dlg-form" autocomplete="off">
+    <label class="f wide">Descrição<input class="in" id="eDesc" required maxlength="60" value="${esc(f.descricao)}"></label>
+    <label class="f">Valor (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${esc(f.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}"></label>
+    <label class="f">Dia do vencimento<input class="in" id="eDia" type="number" min="1" max="31" required value="${esc(f.dia)}"></label>
+    <label class="f">Categoria<select class="in" id="eCat">${opts(l.includes(f.categoria) ? l : [f.categoria, ...l], f.categoria)}</select></label>
+    <label class="f">Pagamento<select class="in" id="eForma">${opts(FORMAS, f.forma)}</select></label>
+    <p class="auth-msg err wide" id="edMsg"></p>
+    <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
+  $("edForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const v = parseMoney($("eValor").value);
+    if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 350,00."; return; }
+    const patch = { descricao: $("eDesc").value.trim(), categoria: $("eCat").value, dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)), valor: round2(v), forma: $("eForma").value };
+    if (await grava(() => S.store.updateFixo(id, patch))) { Object.assign(f, patch); $("dlg").close(); render(); }
+  });
+}
+
+/* ================= ajustes e boas-vindas ================= */
+const suporteHtml = () => {
+  if (!SUPORTE_CONTATO) return "";
+  const link = /^https?:/.test(SUPORTE_CONTATO);
+  return `<p class="hint" style="margin:0">Precisa de ajuda? ${link ? `<a href="${esc(SUPORTE_CONTATO)}" target="_blank" rel="noopener">Fale com o suporte</a>` : `Escreva para <b style="user-select:all">${esc(SUPORTE_CONTATO)}</b>`}.</p>`;
+};
+function ajustes() {
+  const first = primeiroMes(S.data) || mKey(hoje()), cur = mKey(hoje()), meses = [];
+  for (let m = first, i = 0; m <= cur && i < 120; m = addM(m, 1), i++) meses.push(m);
+  const desde = S.prefs.saldoDesde && meses.includes(S.prefs.saldoDesde) ? S.prefs.saldoDesde : first;
+  const bloco = (tipo, titulo) => `<div class="aj-sec"><h4>${titulo}</h4><div class="chips">${
+    cats(tipo).map((c) => `<span class="chip">${esc(c)}<button type="button" data-rm="${esc(c)}" data-tipo="${tipo}" aria-label="Remover ${esc(c)}">✕</button></span>`).join("")}</div>
+    <form class="aj-add" data-add="${tipo}" autocomplete="off"><input class="in" maxlength="30" placeholder="${tipo === "Reserva" ? "Novo destino" : "Nova categoria"}" aria-label="Adicionar em ${titulo.toLowerCase()}"><button class="btn" type="submit">Adicionar</button></form></div>`;
+  openDlg(`<h3>Ajustes</h3>
+    ${bloco("Despesa", "Categorias de gasto")}${bloco("Receita", "Categorias de entrada")}${bloco("Reserva", "Onde você guarda dinheiro")}
+    <p class="hint" style="margin:-4px 0 0">Remover uma categoria não apaga os lançamentos que já usam ela.</p>
+    <div class="aj-sec"><h4>Saldo</h4>
+      <label class="check"><input type="checkbox" id="ajLevar" ${S.prefs.levarSaldo ? "checked" : ""}> Levar o saldo de um mês para o outro</label>
+      <label class="f" id="ajDesdeWrap" ${S.prefs.levarSaldo ? "" : "hidden"}>Começar a contar em<select class="in" id="ajDesde">${meses.map((m) => `<option value="${m}"${m === desde ? " selected" : ""}>${nomeMes(m)} de ${m.slice(0, 4)}</option>`).join("")}</select></label>
+    </div>
+    <div class="aj-sec"><button class="link" type="button" id="ajBV">Ver as boas-vindas de novo</button>${suporteHtml()}</div>
+    <div class="actions"><button class="btn primary" data-close>Pronto</button></div>`);
+  const body = $("dlgBody");
+  body.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = async () => {
+    const t = b.dataset.tipo, l = cats(t);
+    if (l.length <= 1) return;
+    S.prefs.categorias = { ...S.prefs.categorias, [t]: l.filter((c) => c !== b.dataset.rm) };
+    await salvaPrefs(); render(); ajustes();
+  }));
+  body.querySelectorAll("[data-add]").forEach((f) => f.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const t = f.dataset.add, nome = f.querySelector("input").value.trim(), l = cats(t);
+    if (!nome || l.some((c) => norm(c) === norm(nome))) { f.querySelector("input").focus(); return; }
+    S.prefs.categorias = { ...S.prefs.categorias, [t]: [...l, nome] };
+    await salvaPrefs(); render(); ajustes();
+  }));
+  $("ajLevar").onchange = async (e) => { S.prefs.levarSaldo = e.target.checked; $("ajDesdeWrap").hidden = !e.target.checked; await salvaPrefs(); render(); };
+  $("ajDesde").onchange = async (e) => { S.prefs.saldoDesde = e.target.value; await salvaPrefs(); render(); };
+  $("ajBV").onclick = boasVindas;
+}
+function boasVindas() {
+  openDlg(`<h3>Bem-vindo ao Meus Gastos</h3><p style="color:var(--ink-2);margin:0 0 10px">Em poucos passos você passa a ver quanto o seu mês vai custar.</p>
+    <ol class="passos">
+      <li><b>Cadastre seus gastos fixos.</b> Aluguel, internet, faculdade, parcelas. Eles entram sozinhos em todo mês.</li>
+      <li><b>Lance cada gasto na hora.</b> Valor, descrição e categoria, pelo formulário no topo. Entradas também.</li>
+      <li><b>Registre o que você guarda.</b> Reserva de emergência, investimentos ou outro destino. Esse dinheiro sai do saldo e fica somado em um quadro separado.</li>
+      <li><b>Lance as faturas do cartão.</b> O que você compra no cartão só pesa no mês em que a fatura vence.</li>
+      <li><b>Acompanhe o mês.</b> O app mostra o custo até agora, quanto o mês deve fechar e para onde o dinheiro está indo.</li>
+    </ol>
+    <p class="hint">Já controla em planilha? Use <b>Importar Excel</b> para trazer seus lançamentos. As categorias podem ser mudadas em <b>Ajustes</b>.</p>
+    ${suporteHtml()}
+    <div class="actions"><button class="btn primary" id="bvFixos">Cadastrar meus fixos</button><button class="btn" data-close>Começar a lançar</button></div>`);
+  const visto = () => { if (!S.prefs.boasVindas) { S.prefs.boasVindas = true; salvaPrefs(); } };
+  $("bvFixos").onclick = () => { $("dlg").close(); S.tab = "f"; render(); $("xDesc")?.focus(); };
+  $("dlg").addEventListener("close", visto, { once: true });
+}
+$("btnAjustes").onclick = ajustes;
 
 /* ================= PWA ================= */
 let installEvt = null;

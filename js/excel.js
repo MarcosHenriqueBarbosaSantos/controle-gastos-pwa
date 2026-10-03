@@ -3,7 +3,7 @@
 //   Lançamentos | Gastos Fixos | Cartões (+ Resumo, só na exportação)
 // Também lê a planilha "antiga" livre, com colunas DIA | RECEITA/DESPESA | VALOR.
 
-import { FORMAS, MES3, pad, mKey, parseMoney, round2 } from "./calc.js";
+import { FORMAS, RETIRADA, MES3, pad, mKey, parseMoney, round2 } from "./calc.js";
 
 export const norm = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().trim();
 
@@ -24,21 +24,21 @@ export function cellToISO(v) {
 const GUESS = [["salar", "Receita", "Salário"], ["adiant", "Receita", "Adiantamento"], ["condom", "Despesa", "Moradia"],
   ["aluguel", "Despesa", "Moradia"], ["internet", "Despesa", "Contas da casa"], ["luz", "Despesa", "Contas da casa"],
   ["agua", "Despesa", "Contas da casa"], ["faculd", "Despesa", "Educação"], ["curso", "Despesa", "Educação"],
-  ["parcela", "Despesa", "Parcelas e financiamentos"], ["carro", "Despesa", "Carro"], ["gasolina", "Despesa", "Carro"],
-  ["uber", "Despesa", "Transporte"], ["beleza", "Despesa", "Beleza"], ["terreiro", "Despesa", "Terreiro"],
+  ["parcela", "Despesa", "Parcelas e financiamentos"], ["carro", "Despesa", "Transporte"], ["gasolina", "Despesa", "Transporte"],
+  ["uber", "Despesa", "Transporte"], ["beleza", "Despesa", "Beleza"],
   ["mercado", "Despesa", "Mercado"], ["farmac", "Despesa", "Saúde"], ["cinema", "Despesa", "Lazer"]];
 export function guessCat(desc, tipo) {
   const d = norm(desc);
   for (const [k, t, c] of GUESS) if (d.includes(k) && t === tipo) return c;
   return "Outros";
 }
-const tipoDe = (v) => { const t = norm(v); return t === "entrada" || t === "receita" ? "Receita" : t === "reserva" ? "Reserva" : "Despesa"; };
-const tipoParaPlanilha = (t) => (t === "Receita" ? "Entrada" : t === "Despesa" ? "Gasto" : "Reserva");
+const tipoDe = (v) => { const t = norm(v); return t === "entrada" || t === "receita" ? "Receita" : t === "reserva" || t === "guardado" ? "Reserva" : "Despesa"; };
+const tipoParaPlanilha = (t) => (t === "Receita" ? "Entrada" : t === "Despesa" ? "Gasto" : "Guardado");
 
 /** Chave estável de um lançamento — reimportar a mesma planilha não duplica. */
 export function importKey(x) {
   let h = 5381;
-  for (const c of [x.data, norm(x.descricao), x.tipo, round2(x.valor)].join("|")) h = ((h << 5) + h + c.charCodeAt(0)) | 0;
+  for (const c of [x.data, norm(x.descricao), x.tipo, round2(x.valor)].join("|") + (x.forma === RETIRADA ? "|ret" : "")) h = ((h << 5) + h + c.charCodeAt(0)) | 0;
   return "imp-" + (h >>> 0).toString(36);
 }
 
@@ -74,7 +74,9 @@ export function parseWorkbook(XLSX, wb) {
         const tipo = tipoDe(r[ci.t]), descricao = String(r[ci.ds] ?? "").trim();
         let categoria = String(r[ci.c] ?? "").trim();
         if (!categoria) categoria = tipo === "Reserva" ? "Reserva de emergência" : guessCat(descricao, tipo);
-        const forma = tipo === "Despesa" ? (FORMAS.find((f) => norm(f) === norm(r[ci.f])) || "") : "";
+        // Em "Guardado", a coluna de forma diz o movimento: vazio = guardou, "Retirada" = retirou.
+        const forma = tipo === "Despesa" ? (FORMAS.find((f) => norm(f) === norm(r[ci.f])) || "")
+          : tipo === "Reserva" && norm(r[ci.f]).startsWith("retir") ? RETIRADA : "";
         out.lancamentos.push({ data, descricao, tipo, categoria, forma, valor: round2(v) });
       });
     }
@@ -147,14 +149,14 @@ export function buildWorkbook(XLSX, st, ano, calcMes, hoje) {
     ...MES3.map((_, i) => (pagos.has(`${f.id}|${ano}-${pad(i + 1)}`) ? "Pago" : ""))]));
   const C = [["Cartão", "Vencimento", "Valor da fatura (R$)", "Status"]];
   st.faturas.forEach((c) => C.push([c.cartao, br(c.vencimento), c.valor, c.status]));
-  const R = [["Mês", "Entradas", "Gastos do dia a dia", "Gastos fixos", "Custo do mês", "Guardado na reserva", "Saldo"]];
+  const R = [["Mês", "Entradas", "Gastos do dia a dia (fora do cartão)", "Gastos fixos (fora do cartão)", "Faturas de cartão", "Custo do mês", "Guardado no mês", "Saldo"]];
   MES3.forEach((nome, i) => {
     const c = calcMes(st, `${ano}-${pad(i + 1)}`, hoje);
-    R.push([`${nome}/${ano}`, c.rec, c.vari, c.fxT, c.custo, c.res, c.saldo]);
+    R.push([`${nome}/${ano}`, c.rec, c.vari, c.fxCusto, c.fatT, c.custo, c.res, c.saldo]);
   });
   const wb = XLSX.utils.book_new();
   const add = (rows, name, w) => { const ws = XLSX.utils.aoa_to_sheet(rows); ws["!cols"] = w.map((x) => ({ wch: x })); XLSX.utils.book_append_sheet(wb, ws, name); };
-  add(R, "Resumo", [12, 14, 20, 14, 14, 20, 14]);
+  add(R, "Resumo", [12, 14, 30, 26, 18, 14, 18, 14]);
   add(L, "Lançamentos", [12, 30, 10, 24, 20, 12]);
   add(F, "Gastos Fixos", [26, 24, 10, 16, 8, 18, ...MES3.map(() => 6)]);
   add(C, "Cartões", [20, 12, 18, 10]);
