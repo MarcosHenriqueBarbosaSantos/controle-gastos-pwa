@@ -2,7 +2,7 @@
 
 App web instalável no celular para **lançar gastos no dia a dia e acompanhar quanto o mês vai custar**. Cada pessoa tem sua conta, e os dados ficam salvos na nuvem com segurança por usuário.
 
-**[▶ Abrir o app](https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/)** · **[Site de apresentação](https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/site/)** · tem um modo demonstração, não precisa criar conta para testar.
+**[▶ Abrir o app](https://meugastos.com.br/)** · **[Site de apresentação](https://meugastos.com.br/site/)** · tem um modo demonstração, não precisa criar conta para testar.
 
 <p align="center">
   <img src="docs/screenshot-desktop.png" alt="Tela principal no computador" width="68%">
@@ -23,7 +23,9 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Gastos fixos** cadastrados uma vez: mensais (aluguel, internet) ou semanais (Uber de toda sexta, terapia), com marcação de "pago" a cada ocorrência. Quando o valor muda (o aluguel subiu), a alteração pode valer **só do mês em diante**, sem mexer nos meses anteriores.
 - **Entradas fixas**, como o salário: cadastradas uma vez, são lançadas sozinhas em todo mês, no dia escolhido.
 - **Cartão de crédito com fatura automática**: a pessoa cadastra o cartão com o dia de fechamento e o de vencimento, e o app monta cada fatura sozinho a partir das compras, incluindo as **parceladas** e os fixos cobrados no cartão. O que é comprado no cartão só pesa no mês em que a fatura vence. Dá para abrir a fatura, ver o que tem dentro, corrigir o valor se o banco cobrou diferente e marcar como paga. Faturas também podem ser lançadas à mão.
-- **Próximos vencimentos no topo**: a primeira coisa da tela são as contas dos próximos 30 dias, com as atrasadas em destaque, contagem de dias ("em 10 dias vence a fatura, R$ 299"), botão "Já paguei" e alerta quando o mês está ou vai fechar no vermelho.
+- **Leitor pela câmera**: a pessoa fotografa um comprovante (Pix, boleto, cupom, maquininha) ou a fatura do cartão, e o app preenche valor, data e descrição. Da fatura, lê só o total e o vencimento. A leitura é feita no próprio aparelho, sem enviar a imagem para servidor, e nada é salvo antes de a pessoa conferir.
+- **Resumo do mês no alto**: custo do mês, quanto das entradas ele já consumiu, entradas e saldo, em um quadro só.
+- **Próximos vencimentos logo abaixo**: as contas dos próximos 30 dias, com as atrasadas em destaque, contagem de dias ("em 10 dias vence a fatura, R$ 299"), botão "Já paguei" e alerta quando o mês está ou vai fechar no vermelho.
 - **Avisos por e-mail e notificação no celular**: de manhã, só nos dias em que há conta atrasada ou vencendo em até 3 dias. A pessoa liga e desliga em Ajustes.
 - **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
 - **Saldo acumulado**: o que sobrou ou faltou passa para o mês seguinte, se a pessoa quiser, partindo de um **saldo inicial** (quanto ela já tinha, ou devia, quando começou).
@@ -32,8 +34,8 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Detalhe com um toque**: tocar em um quadro (custo, entradas, saldo, guardado, fixos, faturas) ou em uma categoria do gráfico abre a lista do que compõe aquele valor.
 - **Importar e exportar Excel**: lê o modelo da pasta [`modelo/`](modelo/) e também planilhas antigas em formato livre. Reimportar a mesma planilha não duplica lançamentos.
 - **Login por e-mail** com Supabase Auth e isolamento de dados por usuário, via Row Level Security no PostgreSQL.
-- **Feito para o celular**: uma tela por vez, barra de navegação embaixo, botão "+" para lançar em tela cheia com teclado numérico e listas em formato de cartão. No computador, o mesmo app vira um painel completo.
-- **PWA**: instalável no Android e no iPhone, abre em tela cheia e tem tema claro e escuro.
+- **Feito para o celular**: uma tela por vez, barra de navegação embaixo, botão "+" para lançar em tela cheia com teclado numérico e listas em formato de cartão, separadas por dia. Tocar em um lançamento abre a edição. Cada categoria tem a sua cor, a mesma no gráfico e nas listas. No computador, o mesmo app vira um painel completo.
+- **PWA**: instalável no Android e no iPhone, abre em tela cheia. O tema escuro é o padrão, e o claro pode ser escolhido em Ajustes.
 - **Modo demonstração** com dados de exemplo guardados só no aparelho, para quem quiser testar sem criar conta.
 
 ## Tecnologias
@@ -45,9 +47,10 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 | Banco de dados | Supabase (PostgreSQL) | SQL de verdade, com login pronto e plano gratuito |
 | Segurança | Row Level Security | Cada usuário só lê e escreve as próprias linhas, garantido pelo banco |
 | Excel | SheetJS | Leitura e escrita de `.xlsx` no navegador |
+| Leitor pela câmera | Tesseract.js, carregado só quando o leitor é usado | Lê o texto da foto no aparelho, de graça e sem enviar a imagem para fora |
 | App instalável | Web App Manifest + Service Worker | Ícone na tela inicial e abertura em tela cheia |
 | Avisos | Supabase Edge Function + agendamento no banco (pg_cron) | E-mail (Resend ou Brevo) e Web Push, sem biblioteca externa |
-| Testes | `node:test` | Regras de cálculo, importação e servidor de avisos testados sem dependências |
+| Testes | `node:test` | Regras de cálculo, importação, leitor e servidor de avisos testados sem dependências |
 
 ## Arquitetura
 
@@ -55,6 +58,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 flowchart LR
   UI["app.js<br/>tela e interações"] --> CALC["calc.js<br/>regras de cálculo (puras)"]
   UI --> XL["excel.js<br/>importar / exportar"]
+  UI --> LE["leitor.js<br/>foto → texto → valor e data"]
   UI --> ST["store.js<br/>interface de dados"]
   ST -->|conta de usuário| SB[("Supabase<br/>PostgreSQL + RLS")]
   ST -->|modo demonstração| LS[("localStorage<br/>do aparelho")]
@@ -149,7 +153,7 @@ O esquema completo, com as políticas de segurança e a visão `resumo_mensal` p
 
 1. Crie um repositório público chamado `controle-gastos-pwa` e envie estes arquivos.
 2. Em **Settings → Pages**, escolha **Deploy from a branch**, depois `main` e `/ (root)`, e salve.
-3. Em 1 ou 2 minutos, o app estará em `https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/`.
+3. Em 1 ou 2 minutos, o app estará no endereço do GitHub Pages (`https://SEU-USUARIO.github.io/controle-gastos-pwa/`). Para usar um domínio próprio, aponte o DNS para o GitHub Pages e informe o domínio em **Settings → Pages → Custom domain**; o arquivo `CNAME` deste repositório guarda esse nome.
 
 ### 3. Ligar o login ao endereço publicado
 
@@ -188,6 +192,7 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 │   ├── calc.js             regras de cálculo (testadas)
 │   ├── store.js            dados: Supabase ou local (demo)
 │   ├── excel.js            importar / exportar .xlsx
+│   ├── leitor.js           leitor pela câmera: lê a foto e interpreta o texto (testado)
 │   └── config.js           URL e chave do Supabase
 ├── site/                   página de apresentação do app (preço e link de compra em OFERTA, no fim do index.html)
 ├── supabase/schema.sql     tabelas, RLS e visão de resumo

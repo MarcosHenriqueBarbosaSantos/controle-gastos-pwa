@@ -11,7 +11,7 @@ import { montaAviso, avisoDeTeste } from "./mensagem.js";
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
 const json = (obj, status = 200) => new Response(JSON.stringify(obj), { status, headers: { ...CORS, "Content-Type": "application/json" } });
-const APP_PADRAO = "https://marcoshenriquebarbosasantos.github.io/controle-gastos-pwa/";
+const APP_PADRAO = "https://meugastos.com.br/";
 
 /**
  * Autoteste: roda no servidor de verdade e compara com respostas conhecidas. Não usa o banco nem envia nada.

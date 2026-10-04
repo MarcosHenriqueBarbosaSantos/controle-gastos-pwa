@@ -27,7 +27,12 @@ const GUESS = [["salar", "Receita", "Salário"], ["adiant", "Receita", "Adiantam
   ["agua", "Despesa", "Contas da casa"], ["faculd", "Despesa", "Educação"], ["curso", "Despesa", "Educação"],
   ["parcela", "Despesa", "Parcelas e financiamentos"], ["carro", "Despesa", "Transporte"], ["gasolina", "Despesa", "Transporte"],
   ["uber", "Despesa", "Transporte"], ["beleza", "Despesa", "Beleza"],
-  ["mercado", "Despesa", "Mercado"], ["farmac", "Despesa", "Saúde"], ["cinema", "Despesa", "Lazer"]];
+  ["mercado", "Despesa", "Mercado"], ["farmac", "Despesa", "Saúde"], ["cinema", "Despesa", "Lazer"],
+  // Nomes de loja que aparecem em comprovantes lidos pela câmera.
+  ["atacad", "Despesa", "Mercado"], ["hortifruti", "Despesa", "Mercado"], ["acougue", "Despesa", "Mercado"],
+  ["padaria", "Despesa", "Alimentação"], ["restaurante", "Despesa", "Alimentação"], ["lanch", "Despesa", "Alimentação"], ["pizza", "Despesa", "Alimentação"],
+  ["drogaria", "Despesa", "Saúde"], ["combust", "Despesa", "Transporte"], ["auto posto", "Despesa", "Transporte"],
+  ["energia", "Despesa", "Contas da casa"], ["saneamento", "Despesa", "Contas da casa"], ["imobili", "Despesa", "Moradia"]];
 export function guessCat(desc, tipo) {
   const d = norm(desc);
   for (const [k, t, c] of GUESS) if (d.includes(k) && t === tipo) return c;

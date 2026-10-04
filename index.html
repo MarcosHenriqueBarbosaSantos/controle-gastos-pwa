@@ -5,14 +5,16 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meus Gastos</title>
 <meta name="description" content="Controle de gastos pessoal: lance no dia a dia, acompanhe o custo do mês e a projeção, gastos fixos e faturas de cartão.">
-<meta name="theme-color" content="#1f3a5f">
+<meta name="theme-color" content="#0a0f16">
+<script>/* Tema: escuro por padrão; claro só se a pessoa escolheu em Ajustes. Roda antes de a tela aparecer, para não piscar. */
+try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.dataset.tema = "claro"; } catch (e) {}</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Meus Gastos">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="css/style.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
@@ -51,31 +53,34 @@
     <div>
       <div class="eyebrow">Meus gastos</div>
       <div class="monthnav">
-        <button class="iconbtn" id="prev" type="button" aria-label="Mês anterior">‹</button>
+        <button class="iconbtn" id="prev" type="button" aria-label="Mês anterior"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button>
         <h1 id="mesTitulo">—</h1>
-        <button class="iconbtn" id="next" type="button" aria-label="Próximo mês">›</button>
+        <button class="iconbtn" id="next" type="button" aria-label="Próximo mês"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button>
         <button class="today" id="hoje" type="button">Mês atual</button>
       </div>
     </div>
-    <button class="iconbtn so-mobile" id="btnMenu" type="button" aria-label="Menu">☰</button>
+    <button class="iconbtn so-mobile" id="btnMenu" type="button" aria-label="Menu"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="actions">
-      <button class="btn" id="btnInstall" type="button" hidden>📲 Instalar app</button>
-      <button class="btn" id="btnImport" type="button">⬆ Importar Excel</button>
-      <button class="btn" id="btnExport" type="button">⬇ Baixar Excel</button>
+      <button class="btn" id="btnInstall" type="button" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM12 8v7M9 12l3 3 3-3"/></svg>Instalar app</button>
+      <button class="btn" id="btnImport" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Importar Excel</button>
+      <button class="btn" id="btnExport" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>Baixar Excel</button>
       <input type="file" id="fileIn" accept=".xlsx,.xls" hidden>
-      <button class="btn" id="btnAjustes" type="button">⚙ Ajustes</button>
+      <button class="btn" id="btnAjustes" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 5v4M7 15v4"/></svg>Ajustes</button>
       <span class="who"><span id="whoName"></span><button class="link" id="btnSair" type="button">Sair</button></span>
     </div>
   </div>
 
   <div class="banner" id="banner" role="status" hidden></div>
 
+  <section class="v-inicio" id="resumo" aria-label="Resumo do mês"></section>
+
   <section class="v-inicio" id="venc" aria-label="Próximos vencimentos"></section>
 
   <section class="panel quick" aria-label="Lançar">
     <div class="quick-head">
       <h2>Lançar</h2>
-      <button class="iconbtn so-mobile" id="lancFechar" type="button" aria-label="Fechar">✕</button>
+      <button class="btn sm ler" id="btnLer" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>Ler pela câmera</button>
+      <button class="iconbtn so-mobile" id="lancFechar" type="button" aria-label="Fechar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <div class="seg" role="group" aria-label="Tipo de lançamento" id="tipoSeg">
         <button type="button" data-t="Despesa" aria-pressed="true">Gasto</button>
         <button type="button" data-t="Receita" aria-pressed="false">Entrada</button>
@@ -102,7 +107,7 @@
     <div class="flash" id="flash" aria-live="polite"></div>
   </section>
 
-  <section class="kpis v-inicio" id="kpis" aria-label="Resumo do mês"></section>
+  <section class="kpis v-inicio" id="kpis" aria-label="Guardado, fixos e faturas"></section>
   <p class="insight v-inicio" id="insight"></p>
 
   <div class="two v-inicio">
@@ -145,6 +150,10 @@
   <button type="button" data-nav="c"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10h18M7 15h3"/></svg>Cartões</button>
 </nav>
 <div class="toast" id="toast" role="status" hidden></div>
+
+<!-- Leitor: a câmera (ou a galeria) entrega a imagem; a leitura é feita no próprio aparelho -->
+<input type="file" id="lerCamera" accept="image/*" capture="environment" hidden>
+<input type="file" id="lerGaleria" accept="image/*" hidden>
 
 <dialog id="dlg"><div id="dlgBody"></div></dialog>
 </body>
