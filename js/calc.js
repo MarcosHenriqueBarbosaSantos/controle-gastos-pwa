@@ -229,6 +229,89 @@ export function calcMes(st, m, hoje) {
     fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj };
 }
 
+/* ===================== Entender o mês ===================== */
+/**
+ * Para onde vai o dinheiro do mês: as partes do que sai, o que foi guardado e o que sobra (ou falta).
+ * As partes somadas com a sobra dão o que entra; a sobra é o saldo do mês.
+ * Quando a pessoa retirou mais do que guardou, a diferença conta como dinheiro que entrou.
+ * @returns {{partes:{k:string,nome:string,valor:number,pct:number}[], entra:number, saidas:number, sobra:number, sobraPct:number, limitePct:number|null}}
+ *   pct é a largura de cada parte em uma régua de 0 a 100; limitePct marca onde acaba o que entra, quando as saídas passam disso.
+ */
+export function raioX(c) {
+  const partes = [{ k: "fixos", nome: "Contas fixas", valor: c.fxCusto }, { k: "dia", nome: "Dia a dia", valor: c.vari },
+    { k: "faturas", nome: "Faturas", valor: c.fatT }, { k: "guardado", nome: "Guardado", valor: Math.max(0, c.res) }].filter((p) => p.valor > 0);
+  const saidas = round2(partes.reduce((t, p) => t + p.valor, 0)), entra = round2(c.rec + Math.max(0, -c.res));
+  const sobra = round2(entra - saidas), base = Math.max(entra, saidas, 0.01);
+  return { partes: partes.map((p) => ({ ...p, pct: (p.valor / base) * 100 })), entra, saidas, sobra,
+    sobraPct: sobra > 0 ? (sobra / base) * 100 : 0, limitePct: sobra < 0 && entra > 0 ? (entra / base) * 100 : null };
+}
+
+/**
+ * Quanto dá para gastar por dia, de hoje até o fim do mês, sem o mês fechar no vermelho.
+ * Parte do saldo do mês, que já desconta o que foi gasto, todas as contas fixas e as faturas. Só existe no mês atual.
+ */
+export function livrePorDia(c) {
+  if (c.fase !== "atual") return null;
+  const restam = c.n - c.dias + 1;   // contando hoje
+  return { restam, valor: c.saldo > 0 ? round2(c.saldo / restam) : 0 };
+}
+
+/**
+ * Dias seguidos com anotação, terminando hoje (ou ontem, se hoje ainda não tem nada).
+ * Conta o dia que tem algum lançamento ou que a pessoa marcou como "não gastei nada".
+ */
+export function sequenciaDeDias(st, hoje, semGasto = []) {
+  const dias = new Set([...st.lancamentos.map((x) => x.data), ...semGasto]), feitoHoje = dias.has(hoje);
+  const d = new Date(hoje + "T12:00:00"); if (!feitoHoje) d.setDate(d.getDate() - 1);
+  let n = 0; while (n < 3650 && dias.has(toISO(d))) { n++; d.setDate(d.getDate() - 1); }
+  return { dias: n, feitoHoje };
+}
+
+/** O que foi gasto em um dia: total e quantidade de lançamentos (com o que foi no cartão). */
+export function gastoDoDia(st, dia) {
+  const l = st.lancamentos.filter((x) => x.tipo === "Despesa" && x.data === dia);
+  return { total: round2(l.reduce((t, x) => t + Number(x.valor), 0)), n: l.length };
+}
+
+/**
+ * Compara o gasto do dia a dia deste mês, até hoje, com o do mês anterior até o mesmo dia.
+ * Devolve null quando o mês anterior não tem gastos até esse dia (não há com o que comparar) ou fora do mês atual.
+ */
+export function comparaComMesAnterior(st, c, m) {
+  if (c.fase !== "atual") return null;
+  const ant = addM(m, -1), ate = `${ant}-${pad(Math.min(c.dias, dim(ant)))}`;
+  const l = st.lancamentos.filter((x) => x.tipo === "Despesa" && !noCartao(x) && mKey(x.data) === ant && x.data <= ate);
+  if (!l.length) return null;
+  const antes = round2(l.reduce((t, x) => t + Number(x.valor), 0));
+  return { antes, agora: c.vari, dif: round2(c.vari - antes), mes: ant };
+}
+
+/**
+ * Limite do mês: o máximo que a pessoa estimou gastar. Compara com o custo do mês (dia a dia, contas fixas e faturas).
+ * nivel: 0 (tranquilo), 80 (chegou a 80% do limite), 100 (passou do limite) ou 120 (passou em mais de 20%).
+ * vaiPassar: ainda não passou, mas no ritmo atual o mês fecha acima do limite.
+ * Devolve null quando não há limite definido.
+ */
+export function usoDoTeto(c, teto) {
+  const t = round2(Number(teto) || 0);
+  if (!(t > 0)) return null;
+  const nivel = c.custo > t * 1.2 ? 120 : c.custo > t ? 100 : c.custo >= t * 0.8 ? 80 : 0, projecao = c.fase === "atual" ? c.proj : c.custo;
+  return { teto: t, gasto: c.custo, pct: Math.round((c.custo / t) * 100), resta: round2(t - c.custo), nivel, projecao, vaiPassar: c.custo <= t && projecao > t };
+}
+
+/**
+ * Limites de gasto por categoria: quanto já foi usado de cada limite no mês.
+ * @param {object} limites  { "Mercado": 800, ... }
+ * @returns {{cat:string, gasto:number, limite:number, pct:number, passou:number}[]}
+ */
+export function usoDosLimites(c, limites = {}) {
+  const gasto = new Map(catMap(c));
+  return Object.entries(limites || {}).filter(([, v]) => Number(v) > 0).map(([cat, v]) => {
+    const g = gasto.get(cat) || 0, limite = round2(Number(v));
+    return { cat, gasto: g, limite, pct: Math.round((g / limite) * 100), passou: g > limite ? round2(g - limite) : 0 };
+  }).sort((a, b) => b.pct - a.pct);
+}
+
 /**
  * Previsão dos gastos do dia a dia até o fim do mês.
  * - Com histórico (até 3 meses anteriores com gastos): mistura o ritmo atual com a média desses meses.

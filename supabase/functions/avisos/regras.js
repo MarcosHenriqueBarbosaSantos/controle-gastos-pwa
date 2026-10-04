@@ -1,4 +1,5 @@
 // GERADO a partir de js/calc.js por gera-regras.mjs. Não edite: mude o calc.js e gere de novo.
+export const RETIRADA = "Retirada";
 export const pad = (n) => String(n).padStart(2, "0");
 export const mKey = (iso) => iso.slice(0, 7);
 export function addM(m, k) {
@@ -76,6 +77,61 @@ export function faturasAte(st, ate) {
   if (!ms.length) return out;
   for (let m = ms.sort()[0], g = 0; m <= ate && g < 600; m = addM(m, 1), g++) out.push(...faturasDoMes(st, m));
   return out;
+}
+export function calcMes(st, m, hoje) {
+  const sum = (a) => round2(a.reduce((s, x) => s + Number(x.valor), 0));
+  const it = st.lancamentos.filter((x) => mKey(x.data) === m);
+  const recLanc = sum(it.filter((x) => x.tipo === "Receita"));
+  const fr = ocorrencias(st.fixos, m, "Receita");
+  const frT = sum(fr);
+  const rec = round2(recLanc + frT);
+  const desp = it.filter((x) => x.tipo === "Despesa");
+  const vari = sum(desp.filter((x) => !noCartao(x)));
+  const comprasCartao = sum(desp.filter(noCartao));
+  const resIn = sum(it.filter((x) => x.tipo === "Reserva" && x.forma !== RETIRADA));
+  const resOut = sum(it.filter((x) => x.tipo === "Reserva" && x.forma === RETIRADA));
+  const res = round2(resIn - resOut);
+  const fx = ocorrencias(st.fixos, m);
+  const fxT = sum(fx);
+  const fxCartao = sum(fx.filter(noCartao));
+  const fxCusto = round2(fxT - fxCartao);
+  const pagosSet = new Set(st.pagos.map((p) => p.fixo_id + "|" + p.mes));
+  const fxPend = sum(fx.filter((o) => !noCartao(o) && !pagosSet.has(o.id + "|" + o.chave)));
+  const fat = faturasDoMes(st, m);
+  const fatT = sum(fat);
+  const fatAberta = sum(fat.filter((c) => c.status !== "Paga"));
+  const custo = round2(vari + fxCusto + fatT);
+  const saldo = round2(rec - custo - res);
+  const cur = mKey(hoje), n = dim(m);
+  const fase = m < cur ? "passado" : m > cur ? "futuro" : "atual";
+  const dias = fase === "atual" ? Number(hoje.slice(8, 10)) : fase === "passado" ? n : 0;
+  const proj = fase === "atual" && dias > 0
+    ? round2(projetaDiaADia(st, m, desp.filter((x) => !noCartao(x)), dias, n) + fxCusto + fatT) : custo;
+  const frAReceber = fase === "futuro" ? frT : fase === "atual" ? sum(fr.filter((o) => Number(o.data.slice(8, 10)) > dias)) : 0;
+  return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
+    fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj };
+}
+export function usoDoTeto(c, teto) {
+  const t = round2(Number(teto) || 0);
+  if (!(t > 0)) return null;
+  const nivel = c.custo > t * 1.2 ? 120 : c.custo > t ? 100 : c.custo >= t * 0.8 ? 80 : 0, projecao = c.fase === "atual" ? c.proj : c.custo;
+  return { teto: t, gasto: c.custo, pct: Math.round((c.custo / t) * 100), resta: round2(t - c.custo), nivel, projecao, vaiPassar: c.custo <= t && projecao > t };
+}
+export function projetaDiaADia(st, m, gastos, dias, n) {
+  const total = gastos.reduce((t, x) => t + Number(x.valor), 0);
+  const porMes = {};
+  st.lancamentos.filter((x) => x.tipo === "Despesa" && !noCartao(x) && mKey(x.data) < m)
+    .forEach((x) => { const k = mKey(x.data); porMes[k] = (porMes[k] || 0) + Number(x.valor); });
+  const ult = Object.keys(porMes).sort().slice(-3);
+  if (ult.length) {
+    const hist = ult.reduce((t, k) => t + porMes[k], 0) / ult.length, w = dias / n;
+    return Math.max(total, w * (total / dias) * n + (1 - w) * hist);
+  }
+  if (dias < 5 || gastos.length < 5) return total;
+  const vals = gastos.map((x) => Number(x.valor)).sort((a, b) => a - b);
+  const mediana = vals.length ? vals[Math.floor((vals.length - 1) / 2)] : 0;
+  const rotina = vals.filter((v) => v <= 5 * mediana).reduce((t, v) => t + v, 0);
+  return total + (rotina / dias) * (n - dias);
 }
 export function diasEntre(a, b) {
   const t = (iso) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));

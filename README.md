@@ -23,8 +23,12 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Gastos fixos** cadastrados uma vez: mensais (aluguel, internet) ou semanais (Uber de toda sexta, terapia), com marcação de "pago" a cada ocorrência. Quando o valor muda (o aluguel subiu), a alteração pode valer **só do mês em diante**, sem mexer nos meses anteriores.
 - **Entradas fixas**, como o salário: cadastradas uma vez, são lançadas sozinhas em todo mês, no dia escolhido.
 - **Cartão de crédito com fatura automática**: a pessoa cadastra o cartão com o dia de fechamento e o de vencimento, e o app monta cada fatura sozinho a partir das compras, incluindo as **parceladas** e os fixos cobrados no cartão. O que é comprado no cartão só pesa no mês em que a fatura vence. Dá para abrir a fatura, ver o que tem dentro, corrigir o valor se o banco cobrou diferente e marcar como paga. Faturas também podem ser lançadas à mão.
-- **Leitor pela câmera**: a pessoa fotografa um comprovante (Pix, boleto, cupom, maquininha) ou a fatura do cartão, e o app preenche valor, data e descrição. Da fatura, lê só o total e o vencimento. A leitura é feita no próprio aparelho, sem enviar a imagem para servidor, e nada é salvo antes de a pessoa conferir.
-- **Resumo do mês no alto**: custo do mês, quanto das entradas ele já consumiu, entradas e saldo, em um quadro só.
+- **Importar o extrato do cartão**: o arquivo que o banco exporta (CSV, OFX ou Excel) vira uma lista de compras para conferir, com categoria sugerida, e todas são lançadas de uma vez no cartão. A fatura é montada pela soma delas. Parcelas, pagamento da fatura e estornos são reconhecidos, e importar de novo um arquivo mais recente só traz as compras que faltam. No OFX (o formato que o Nubank exporta), o app também aproveita o nome do banco, o período da fatura e o vencimento para escolher a fatura certa e, se ainda não houver cartão, cadastrá-lo com os dias que vêm no arquivo. Um arquivo de exemplo está em [`modelo/extrato-cartao-exemplo.csv`](modelo/extrato-cartao-exemplo.csv).
+- **Leitor por foto ou PDF**: a pessoa fotografa ou escolhe o arquivo de um comprovante (Pix, boleto, cupom, maquininha), da fatura do cartão ou do holerite, e o app preenche valor, data e descrição. Da fatura, lê só o total e o vencimento; do holerite, o valor líquido, que entra como entrada. PDF com senha é aberto depois de a pessoa digitar a senha. A leitura é feita no próprio aparelho, sem enviar o arquivo para servidor, e nada é salvo antes de a pessoa conferir.
+- **Resumo que se explica**: a tela abre dizendo quanto sobra (ou falta) no mês e mostra, em uma régua colorida, para onde o dinheiro vai: contas fixas, dia a dia, faturas, guardado e sobra. "Entenda essa conta" detalha a soma com os números da pessoa. Quando o mês fica no vermelho, o quadro muda de cor.
+- **Quanto dá para gastar por dia**: a sobra dividida pelos dias que faltam, e a previsão de como o mês fecha no ritmo atual.
+- **Seu dia**: o que foi gasto hoje, o botão "Não gastei nada" e a sequência de dias anotados, para criar o hábito de abrir o app.
+- **Limites de gasto**: um limite para o mês e limites por categoria, em uma aba própria. O app mostra quanto do limite já foi usado, avisa na hora ao lançar e manda e-mail e notificação quando a pessoa chega a 80% do limite, passa dele ou passa em mais de 20%.
 - **Próximos vencimentos logo abaixo**: as contas dos próximos 30 dias, com as atrasadas em destaque, contagem de dias ("em 10 dias vence a fatura, R$ 299"), botão "Já paguei" e alerta quando o mês está ou vai fechar no vermelho.
 - **Avisos por e-mail e notificação no celular**: de manhã, só nos dias em que há conta atrasada ou vencendo em até 3 dias. A pessoa liga e desliga em Ajustes.
 - **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
@@ -47,10 +51,10 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 | Banco de dados | Supabase (PostgreSQL) | SQL de verdade, com login pronto e plano gratuito |
 | Segurança | Row Level Security | Cada usuário só lê e escreve as próprias linhas, garantido pelo banco |
 | Excel | SheetJS | Leitura e escrita de `.xlsx` no navegador |
-| Leitor pela câmera | Tesseract.js, carregado só quando o leitor é usado | Lê o texto da foto no aparelho, de graça e sem enviar a imagem para fora |
+| Leitor por foto ou PDF | Tesseract.js (foto) e pdf.js (PDF), carregados só quando o leitor é usado | Leem o texto no aparelho, de graça e sem enviar o arquivo para fora |
 | App instalável | Web App Manifest + Service Worker | Ícone na tela inicial e abertura em tela cheia |
 | Avisos | Supabase Edge Function + agendamento no banco (pg_cron) | E-mail (Resend ou Brevo) e Web Push, sem biblioteca externa |
-| Testes | `node:test` | Regras de cálculo, importação, leitor e servidor de avisos testados sem dependências |
+| Testes | `node:test` | Regras de cálculo, importação, extrato do cartão, leitor e servidor de avisos testados sem dependências |
 
 ## Arquitetura
 
@@ -58,7 +62,8 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 flowchart LR
   UI["app.js<br/>tela e interações"] --> CALC["calc.js<br/>regras de cálculo (puras)"]
   UI --> XL["excel.js<br/>importar / exportar"]
-  UI --> LE["leitor.js<br/>foto → texto → valor e data"]
+  UI --> LE["leitor.js<br/>foto ou PDF → texto → valor e data"]
+  UI --> EX["extrato.js<br/>extrato do banco → compras do cartão"]
   UI --> ST["store.js<br/>interface de dados"]
   ST -->|conta de usuário| SB[("Supabase<br/>PostgreSQL + RLS")]
   ST -->|modo demonstração| LS[("localStorage<br/>do aparelho")]
@@ -75,6 +80,9 @@ A tela não sabe onde os dados estão guardados: ela usa a interface de `store.j
 - **Valor da fatura**: a soma das compras, a menos que a pessoa corrija o valor à mão. No gráfico por categoria, cada compra da fatura aparece na sua categoria.
 - **Fixo alterado a partir de um mês**: o fixo antigo é encerrado no mês anterior e um novo começa no mês escolhido. O passado não muda.
 - **Saldo acumulado** = saldo inicial + saldo dos meses anteriores + saldo do mês.
+- **Sobra do mês** = entradas − custo − dinheiro guardado; é o saldo do mês, mostrado em partes na régua.
+- **Pode gastar por dia** = sobra ÷ dias que faltam no mês, contando hoje (zero quando não há sobra).
+- **Limite do mês**: compara o custo do mês com o valor definido. Níveis de aviso: 80% do limite, acima do limite e mais de 20% acima. Cada nível gera um aviso por mês.
 - **Entradas** = entradas lançadas + entradas fixas do mês.
 - **Saldo do mês** = entradas − custo − dinheiro guardado no mês (guardou menos retirou).
 - **Dinheiro guardado** = soma de tudo que foi guardado menos o que foi retirado, por destino.
@@ -192,7 +200,8 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 │   ├── calc.js             regras de cálculo (testadas)
 │   ├── store.js            dados: Supabase ou local (demo)
 │   ├── excel.js            importar / exportar .xlsx
-│   ├── leitor.js           leitor pela câmera: lê a foto e interpreta o texto (testado)
+│   ├── extrato.js          extrato do cartão em CSV, OFX ou Excel → lista de compras (testado)
+│   ├── leitor.js           leitor por foto ou PDF: lê o arquivo e interpreta o texto (testado)
 │   └── config.js           URL e chave do Supabase
 ├── site/                   página de apresentação do app (preço e link de compra em OFERTA, no fim do index.html)
 ├── supabase/schema.sql     tabelas, RLS e visão de resumo

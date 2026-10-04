@@ -1,10 +1,11 @@
-// Gera regras.js: só as regras de js/calc.js que o servidor de avisos usa (vencimentos, fixos e faturas).
+// Gera regras.js: só as regras de js/calc.js que o servidor de avisos usa (vencimentos, fixos, faturas, custo do mês e limite).
 // Rode depois de mudar o calc.js:  node supabase/functions/avisos/gera-regras.mjs
 // O teste tests/avisos.test.mjs falha se o regras.js estiver desatualizado.
 import { readFileSync, writeFileSync } from "node:fs";
 
 const NOMES = ["pad", "mKey", "addM", "dim", "round2", "fixosDoMes", "diaDaSemana", "ocorrencias", "CARTAO", "noCartao", "diaNoMes", "mesesEntre",
-  "mesDaFatura", "valorDasParcelas", "faturasDoMes", "faturasAte", "diasEntre", "proximosVencimentos", "pendenciasParaAviso"];
+  "mesDaFatura", "valorDasParcelas", "faturasDoMes", "faturasAte", "diasEntre", "proximosVencimentos", "pendenciasParaAviso",
+  "RETIRADA", "calcMes", "projetaDiaADia", "usoDoTeto"];
 
 export function geraRegras(calc) {
   // Cada declaração de primeiro nível começa na coluna 0 e vai até a próxima.

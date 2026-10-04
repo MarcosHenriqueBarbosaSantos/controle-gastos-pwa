@@ -22,9 +22,13 @@ export function cellToISO(v) {
   return m ? `${m[1]}-${m[2]}-${m[3]}` : null;
 }
 
-const GUESS = [["salar", "Receita", "Salário"], ["adiant", "Receita", "Adiantamento"], ["condom", "Despesa", "Moradia"],
-  ["aluguel", "Despesa", "Moradia"], ["internet", "Despesa", "Contas da casa"], ["luz", "Despesa", "Contas da casa"],
-  ["agua", "Despesa", "Contas da casa"], ["faculd", "Despesa", "Educação"], ["curso", "Despesa", "Educação"],
+const GUESS = [
+  // Nomes que parecem uma categoria mas são outra: precisam vir antes das regras gerais.
+  ["mercado livre", "Despesa", "Outros"], ["mercadolivre", "Despesa", "Outros"], ["mercado pago", "Despesa", "Outros"], ["mercadopago", "Despesa", "Outros"],
+  ["uber eats", "Despesa", "Alimentação"], ["ubereats", "Despesa", "Alimentação"],
+  ["salar", "Receita", "Salário"], ["adiant", "Receita", "Adiantamento"], ["condom", "Despesa", "Moradia"],
+  ["aluguel", "Despesa", "Moradia"], ["internet", "Despesa", "Contas da casa"], [" luz ", "Despesa", "Contas da casa"],
+  [" agua ", "Despesa", "Contas da casa"], ["faculd", "Despesa", "Educação"], ["curso", "Despesa", "Educação"],
   ["parcela", "Despesa", "Parcelas e financiamentos"], ["carro", "Despesa", "Transporte"], ["gasolina", "Despesa", "Transporte"],
   ["uber", "Despesa", "Transporte"], ["beleza", "Despesa", "Beleza"],
   ["mercado", "Despesa", "Mercado"], ["farmac", "Despesa", "Saúde"], ["cinema", "Despesa", "Lazer"],
@@ -32,9 +36,27 @@ const GUESS = [["salar", "Receita", "Salário"], ["adiant", "Receita", "Adiantam
   ["atacad", "Despesa", "Mercado"], ["hortifruti", "Despesa", "Mercado"], ["acougue", "Despesa", "Mercado"],
   ["padaria", "Despesa", "Alimentação"], ["restaurante", "Despesa", "Alimentação"], ["lanch", "Despesa", "Alimentação"], ["pizza", "Despesa", "Alimentação"],
   ["drogaria", "Despesa", "Saúde"], ["combust", "Despesa", "Transporte"], ["auto posto", "Despesa", "Transporte"],
-  ["energia", "Despesa", "Contas da casa"], ["saneamento", "Despesa", "Contas da casa"], ["imobili", "Despesa", "Moradia"]];
+  ["energia", "Despesa", "Contas da casa"], ["saneamento", "Despesa", "Contas da casa"], ["imobili", "Despesa", "Moradia"],
+  // Nomes comuns em extrato de cartão.
+  ["carrefour", "Despesa", "Mercado"], ["assai", "Despesa", "Mercado"], ["pao de acucar", "Despesa", "Mercado"], ["sacolao", "Despesa", "Mercado"], ["emporio", "Despesa", "Mercado"],
+  ["ifood", "Despesa", "Alimentação"], ["rappi", "Despesa", "Alimentação"], ["burger", "Despesa", "Alimentação"], ["mc donald", "Despesa", "Alimentação"], ["mcdonald", "Despesa", "Alimentação"],
+  ["pizzaria", "Despesa", "Alimentação"], ["churrasc", "Despesa", "Alimentação"], ["cafeteria", "Despesa", "Alimentação"], ["sorvet", "Despesa", "Alimentação"], [" bar ", "Despesa", "Alimentação"], ["restaurant", "Despesa", "Alimentação"],
+  ["99app", "Despesa", "Transporte"], ["99 pop", "Despesa", "Transporte"], [" 99", "Despesa", "Transporte"], [" posto ", "Despesa", "Transporte"], [" shell", "Despesa", "Transporte"], ["ipiranga", "Despesa", "Transporte"],
+  ["estacionamento", "Despesa", "Transporte"], ["pedagio", "Despesa", "Transporte"], ["sem parar", "Despesa", "Transporte"], [" metro ", "Despesa", "Transporte"], ["passagem", "Despesa", "Transporte"],
+  ["drogasil", "Despesa", "Saúde"], ["droga raia", "Despesa", "Saúde"], ["drogaria", "Despesa", "Saúde"], ["pague menos", "Despesa", "Saúde"], ["clinica", "Despesa", "Saúde"], ["laboratorio", "Despesa", "Saúde"],
+  ["odonto", "Despesa", "Saúde"], ["hospital", "Despesa", "Saúde"], ["academia", "Despesa", "Saúde"], ["smart fit", "Despesa", "Saúde"],
+  ["netflix", "Despesa", "Lazer"], ["spotify", "Despesa", "Lazer"], ["disney", "Despesa", "Lazer"], [" hbo", "Despesa", "Lazer"], ["prime video", "Despesa", "Lazer"], ["youtube", "Despesa", "Lazer"],
+  ["ingresso", "Despesa", "Lazer"], ["steam", "Despesa", "Lazer"], ["playstation", "Despesa", "Lazer"], ["livraria", "Despesa", "Lazer"],
+  ["renner", "Despesa", "Roupas"], ["riachuelo", "Despesa", "Roupas"], ["c&a", "Despesa", "Roupas"], ["calcados", "Despesa", "Roupas"], [" zara ", "Despesa", "Roupas"],
+  ["barbearia", "Despesa", "Beleza"], ["salao", "Despesa", "Beleza"], ["boticario", "Despesa", "Beleza"], ["cabeleireir", "Despesa", "Beleza"],
+  ["escola", "Despesa", "Educação"], ["colegio", "Despesa", "Educação"], ["udemy", "Despesa", "Educação"], ["alura", "Despesa", "Educação"], ["universidade", "Despesa", "Educação"],
+  [" vivo ", "Despesa", "Contas da casa"], [" claro ", "Despesa", "Contas da casa"], [" tim ", "Despesa", "Contas da casa"], ["telefon", "Despesa", "Contas da casa"],
+  ["renegocia", "Despesa", "Parcelas e financiamentos"], ["parcelamento", "Despesa", "Parcelas e financiamentos"], ["financiamento", "Despesa", "Parcelas e financiamentos"], ["emprestimo", "Despesa", "Parcelas e financiamentos"],
+  ["anuidade", "Despesa", "Parcelas e financiamentos"], ["juros", "Despesa", "Parcelas e financiamentos"], [" iof ", "Despesa", "Parcelas e financiamentos"], ["encargo", "Despesa", "Parcelas e financiamentos"],
+  ["supermercad", "Despesa", "Mercado"], ["restaurantes", "Despesa", "Alimentação"], ["vestuario", "Despesa", "Roupas"], ["saude", "Despesa", "Saúde"], ["educacao", "Despesa", "Educação"], ["lazer", "Despesa", "Lazer"], ["transporte", "Despesa", "Transporte"]];
 export function guessCat(desc, tipo) {
-  const d = norm(desc);
+  // Espaço nas pontas e no lugar de pontuação: assim uma regra como " iof " só vale para a palavra inteira.
+  const d = " " + norm(desc).replace(/[^a-z0-9&]+/g, " ").trim() + " ";
   for (const [k, t, c] of GUESS) if (d.includes(k) && t === tipo) return c;
   return "Outros";
 }

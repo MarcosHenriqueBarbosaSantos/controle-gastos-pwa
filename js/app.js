@@ -2,10 +2,11 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
-  faturasAte, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura } from "./calc.js";
+  faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
 import { parseWorkbook, buildWorkbook, importKey, norm, guessCat } from "./excel.js";
-import { lerImagem, interpretaTexto } from "./leitor.js";
+import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
+import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
 
 const $ = (id) => document.getElementById(id);
 const NS = "http://www.w3.org/2000/svg";
@@ -37,6 +38,11 @@ const ICO = {
   fixo: "M4 9a8 8 0 0 1 14-4l2 2M20 4v4h-4M20 15a8 8 0 0 1-14 4l-2-2M4 20v-4h4",
   cartao: "M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10h18M7 15h3",
   luz: "M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10.5c.7.7 1 1.5 1 2.5h6c0-1 .3-1.8 1-2.5A6 6 0 0 0 12 3z",
+  dia: "M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM4 10h16M8 3v4M16 3v4M12 13v4M10 15h4",
+  rumo: "M4 17l5-5 4 3 7-8M15 7h5v5",
+  ok: "M5 12.5l4.5 4.5L19 7.5",
+  fogo: "M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.2.4-2.2 1-3 .3 1.2 1 2 2 2.3C10.5 8.5 11 5.5 12 3zM7 14a5 5 0 0 0 10 0",
+  alvo: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01",
 };
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICO[n]}"/></svg>`;
 
@@ -63,7 +69,7 @@ const S = {
   store: null, client: null, loaded: false,
   prefs: prefsPadrao(),
 };
-function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, saldoInicial: 0, boasVindas: false, avisos: { email: true } }; }
+function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, saldoInicial: 0, boasVindas: false, avisos: { email: true }, limites: {}, semGasto: [], teto: 0 }; }
 /** Categorias disponíveis para um tipo: as da pessoa, ou as padrão. */
 function cats(tipo) {
   return S.prefs.categorias?.[tipo]?.length ? S.prefs.categorias[tipo] : CATS_PADRAO[tipo];
@@ -255,7 +261,7 @@ function render() {
   const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab;
   const onde = S.view === "inicio" ? "inicio" : S.tab === "r" ? "f" : S.tab;
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
-  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : "";
+  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Limites de gasto" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   renderForm(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderTabs(c);
 }
@@ -299,28 +305,36 @@ function cartaoDoForm() {
 }
 
 function renderKpis(c) {
-  const projTxt = c.fase === "atual" ? `Previsão do mês: <b>${brl0(c.proj)}</b>` : c.fase === "passado" ? "Mês fechado" : "Só os fixos previstos";
   const noCartao = round2(c.comprasCartao + c.fxCartao);
   // Saldo acumulado: o que a pessoa já tinha (saldo inicial), mais os meses anteriores, mais este mês.
   const acum = S.prefs.levarSaldo ? saldoAcumulado(S.data, S.mes, hoje(), { desde: S.prefs.saldoDesde, inicial: S.prefs.saldoInicial }) : c.saldo;
   const resTotal = reservaAcumulada(S.data, S.mes), destinos = guardadoPorDestino(S.data, S.mes);
   const resMes = c.res > 0 ? `+ ${brl0(c.res)} neste mês` : c.res < 0 ? `− ${brl0(-c.res)} neste mês` : "Nada guardado neste mês";
   const resLinhas = destinos.length > 1 ? `<ul class="dest">${destinos.map(([k, v]) => `<li><span>${esc(k)}</span><b>${brl0(v)}</b></li>`).join("")}</ul>` : destinos.length === 1 ? `<span class="n">${esc(destinos[0][0])}</span>` : "";
-  // Resumo no alto: custo do mês, quanto das entradas ele já consumiu, entradas e saldo.
-  const pct = c.rec > 0 ? Math.round((c.custo / c.rec) * 100) : null;
-  const marca = c.fase === "atual" && c.rec > 0 && c.proj > c.custo ? Math.min(100, (c.proj / c.rec) * 100) : null;
-  const entTxt = c.frAReceber ? `${brl0(c.frAReceber)} a receber` : c.frT ? `${brl0(c.frT)} de entradas fixas` : "Salário e outras entradas";
-  $("resumo").innerHTML = `<div class="hero">
-    <div class="hero-main" data-det="custo" role="button" tabindex="0">
-      <span class="l">Custo de ${nomeMes(S.mes)}<i aria-hidden="true">${ico("chev")}</i></span>
-      <span class="v">${brl(c.custo)}</span>
-      ${pct !== null ? `<span class="prog${pct > 100 ? " over" : ""}" aria-hidden="true"><i style="width:${Math.min(100, pct)}%"></i>${marca !== null ? `<em style="left:${marca.toFixed(1)}%"></em>` : ""}</span>` : ""}
-      <span class="n">${pct !== null ? `<b>${pct}%</b> das entradas · ` : ""}${projTxt}</span>
+  // Resumo no alto: quanto sobra (ou falta) no mês e, em uma régua, para onde o dinheiro vai.
+  const rx = raioX(c), livre = livrePorDia(c), mesNome = nomeMes(S.mes), falta = rx.sobra < 0;
+  const verbo = c.fase === "passado" ? (falta ? "Faltaram" : "Sobraram") : c.fase === "futuro" ? (falta ? "Devem faltar" : "Devem sobrar") : falta ? "Faltam" : "Sobram";
+  const COR = { fixos: "#ffc857", dia: "#ff8fa3", faturas: "#c3b4ff", guardado: "#7ee0d2" }, DET = { fixos: "fixos", dia: "custo", faturas: "faturas", guardado: "guardado" };
+  const regua = rx.partes.length || rx.sobra > 0 ? `<div class="regua${falta ? " over" : ""}" role="img" aria-label="${esc(rx.partes.map((p) => `${p.nome}: ${brl0(p.valor)}`).concat(falta ? [`Faltam ${brl0(-rx.sobra)}`] : [`Sobra ${brl0(rx.sobra)}`]).join(". "))}">
+      ${rx.partes.map((p) => `<i style="width:${p.pct.toFixed(2)}%;background:${COR[p.k]}"></i>`).join("")}${rx.limitePct !== null ? `<em style="left:${rx.limitePct.toFixed(2)}%"></em>` : ""}</div>
+    <ul class="regua-leg">${rx.partes.map((p) => `<li><button type="button" data-det="${DET[p.k]}"><i style="background:${COR[p.k]}"></i>${p.nome}<b>${brl0(p.valor)}</b></button></li>`).join("")}
+      <li><button type="button" data-det="saldo"><i class="${falta ? "falta" : "sobra"}"></i>${falta ? "Falta" : "Sobra"}<b>${brl0(Math.abs(rx.sobra))}</b></button></li></ul>` : "";
+  const proj = c.fase === "atual" ? round2(c.rec - c.proj - c.res) : null;
+  $("resumo").innerHTML = `<div class="hero${falta ? " neg" : ""}">
+    <div class="hero-main">
+      <span class="l">${verbo} em ${mesNome}</span>
+      <span class="v" data-det="saldo" role="button" tabindex="0">${brl(Math.abs(rx.sobra))}</span>
+      <span class="n">${c.rec > 0 ? `Entram <button type="button" class="ln" data-det="entradas">${brl(c.rec)}</button>.` : `<button type="button" class="ln" data-det="entradas">Nenhuma entrada lançada</button>.`} Custo do mês: <button type="button" class="ln" data-det="custo">${brl(c.custo)}</button>.</span>
+      ${acum !== c.saldo ? `<span class="n">Com os meses anteriores, o saldo acumulado é <b>${sgn(acum)}</b>.</span>` : ""}
     </div>
-    <div class="hero-duo">
-      <div class="hstat" data-det="entradas" role="button" tabindex="0"><span class="l">${ico("entra")}Entradas</span><span class="v">${brl(c.rec)}</span><span class="n">${entTxt}</span></div>
-      <div class="hstat" data-det="saldo" role="button" tabindex="0"><span class="l">${ico("saldo")}Saldo do mês</span><span class="v">${sgn(c.saldo)}</span><span class="n"><span class="dot ${c.saldo < 0 ? "bad" : "good"}"></span>${c.saldo < 0 ? "No vermelho" : "No azul"}</span>${acum !== c.saldo ? `<span class="n">Acumulado: <b>${sgn(acum)}</b></span>` : ""}</div>
-    </div></div>`;
+    ${regua}
+    ${c.fase === "atual" ? `<div class="hero-duo">
+      <div class="hstat"><span class="l">${ico("dia")}Pode gastar por dia</span><span class="v">${livre.valor > 0 ? brl(livre.valor) : "R$ 0,00"}</span><span class="n">${livre.valor > 0 ? (livre.restam === 1 ? "hoje, último dia do mês" : `nos ${livre.restam} dias que faltam`) : "o mês já está no limite"}</span></div>
+      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">${ico("rumo")}No ritmo atual, ${proj < 0 ? "faltam" : "sobram"}</span><span class="v">${brl0(Math.abs(proj))}</span><span class="n">no fim do mês</span></div>
+    </div>` : ""}
+    <button type="button" class="entenda" id="entenda">${ico("luz")}Entenda essa conta</button></div>`;
+  $("entenda").onclick = () => entendaAConta(c);
+  renderDia(c); renderTeto(c);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
   $("kpis").innerHTML = `
    <div class="kpi reserva" data-det="guardado" role="button" tabindex="0">${cab("cofre", "Dinheiro guardado")}<span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
@@ -336,7 +350,119 @@ function renderKpis(c) {
     const top = catMap(c)[0];
     t = `O mês fechou com custo de <strong>${brl(c.custo)}</strong>${top ? `. A maior categoria foi <strong>${esc(top[0])}</strong> (${brl0(top[1])}, ${Math.round((top[1] / c.custo) * 100)}% do custo)` : ""}.`;
   } else t = `Mês futuro: por enquanto aparecem só os gastos fixos previstos (${brl(c.fxT)}).`;
-  $("insight").innerHTML = ico("luz") + `<span>${t}</span>`;
+  // Duas leituras a mais, quando existem: como está em relação ao mês passado e os limites perto de estourar.
+  const cmp = S.loaded ? comparaComMesAnterior(S.data, c, S.mes) : null;
+  if (cmp && Math.abs(cmp.dif) >= 1) t += ` No dia a dia, são <strong>${brl0(Math.abs(cmp.dif))} a ${cmp.dif > 0 ? "mais" : "menos"}</strong> do que em ${nomeMes(cmp.mes)} até o dia ${pad(c.dias)}.`;
+  const perto = S.loaded ? usoDosLimites(c, S.prefs.limites).filter((u) => u.pct >= 80) : [];
+  const alerta = perto.length ? `<span class="lim-aviso">${perto.slice(0, 3).map((u) => u.passou ? `<b class="txt-bad">${esc(u.cat)} passou ${brl0(u.passou)} do limite</b>` : `<b>${esc(u.cat)} já usou ${u.pct}% do limite</b>`).join(" · ")}</span>` : "";
+  $("insight").innerHTML = ico("luz") + `<span>${t}${alerta}</span>`;
+}
+
+/** "Seu dia": o que foi gasto hoje, o convite para anotar e a sequência de dias anotados. Só aparece no mês atual. */
+function renderDia(c) {
+  const host = $("dia"), hj = hoje();
+  if (!S.loaded || c.fase !== "atual") { host.hidden = true; host.innerHTML = ""; return; }
+  const g = gastoDoDia(S.data, hj), seq = sequenciaDeDias(S.data, hj, S.prefs.semGasto || []), zero = (S.prefs.semGasto || []).includes(hj);
+  const titulo = g.n ? `Hoje você gastou ${brl(g.total)}` : zero ? "Hoje: dia sem gastos" : "Nada anotado hoje";
+  const sub = g.n ? `em ${g.n} ${g.n === 1 ? "lançamento" : "lançamentos"}` : zero ? "Anotado. Se aparecer um gasto, é só lançar." : "Anote os gastos de hoje ou marque que não gastou nada.";
+  const seqTxt = seq.feitoHoje ? (seq.dias > 1 ? `${seq.dias} dias seguidos anotando` : "Primeiro dia da sequência") : seq.dias ? `Anote hoje para manter ${seq.dias === 1 ? "o dia de ontem em sequência" : `os ${seq.dias} dias seguidos`}` : "";
+  host.hidden = false;
+  host.innerHTML = `<div class="dia${seq.feitoHoje ? " feito" : ""}">
+    <span class="ava ${seq.feitoHoje ? "in" : "res"}">${ico(seq.feitoHoje ? "ok" : "dia")}</span>
+    <div class="tx"><b>${titulo}</b><span>${sub}</span>${seqTxt ? `<span class="seq">${ico("fogo")}${seqTxt}</span>` : ""}</div>
+    <div class="acoes"><button class="btn sm primary" type="button" id="diaLancar">Lançar gasto</button>${g.n || zero ? "" : `<button class="btn sm" type="button" id="diaZero">Não gastei nada</button>`}</div></div>`;
+  $("diaLancar").onclick = () => { S.tipo = "Despesa"; renderForm(); if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } };
+  if ($("diaZero")) $("diaZero").onclick = () => {
+    S.prefs.semGasto = [...new Set([...(S.prefs.semGasto || []), hj])].sort().slice(-90);   // guarda só os últimos 90 dias
+    salvaPrefs(); render();
+  };
+}
+
+/* ---------- limite de gastos do mês ---------- */
+const irParaLimites = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
+$("btnLimites").onclick = irParaLimites;
+/** Frases do limite do mês, iguais no quadro do início e na aba Limites. */
+function textoDoTeto(u) {
+  const titulo = u.nivel >= 120 ? "Muito acima do limite" : u.nivel >= 100 ? "Passou do limite" : u.nivel >= 80 ? "Perto do limite" : "Dentro do limite";
+  const frase = u.resta < 0 ? `Já são ${brl(-u.resta)} a mais${u.nivel >= 120 ? ` (${u.pct - 100}% acima)` : ""}.` : `Ainda cabem ${brl(u.resta)}.`;
+  const ritmo = u.vaiPassar ? ` No ritmo atual o mês fecha em ${brl0(u.projecao)}, ${brl0(u.projecao - u.teto)} acima do limite.` : "";
+  return { titulo, frase: frase + ritmo, cls: u.nivel >= 100 ? "bad" : u.nivel >= 80 || u.vaiPassar ? "warn" : "ok" };
+}
+const barraDoTeto = (u) => { const esc2 = Math.max(100, u.pct); return `<span class="tbar"><i style="width:${Math.min(100, (u.pct / esc2) * 100).toFixed(1)}%"></i><em style="left:${(80 / esc2 * 100).toFixed(1)}%"></em>${u.pct > 100 ? `<em class="fim" style="left:${(100 / esc2 * 100).toFixed(1)}%"></em>` : ""}</span>`; };
+
+/** Quadro do início: quanto do limite do mês já foi usado. Sem limite, convida a definir um. */
+function renderTeto(c) {
+  const host = $("teto"), u = S.loaded ? usoDoTeto(c, S.prefs.teto) : null;
+  if (!S.loaded || (!u && c.fase !== "atual")) { host.hidden = true; host.innerHTML = ""; return; }
+  host.hidden = false;
+  if (!u) {
+    host.innerHTML = `<div class="teto vazio"><span class="ava res">${ico("alvo")}</span><div class="tx"><b>Quanto você quer gastar no máximo por mês?</b><span>Defina um limite e o app avisa quando você estiver perto ou passar dele.</span></div><button class="btn sm" type="button" id="tetoIr">Definir limite</button></div>`;
+  } else {
+    const t = textoDoTeto(u);
+    host.innerHTML = `<button type="button" class="teto ${t.cls}" id="tetoIr" aria-label="Limite do mês: ${u.pct}% usado. ${t.titulo}. Abrir limites">
+      <span class="topo"><span class="l">${ico("alvo")}Limite de ${nomeMes(S.mes)}</span><span class="pill ${t.cls === "ok" ? "good" : t.cls}">${t.titulo}</span></span>
+      <span class="num"><b>${brl(u.gasto)}</b> de ${brl(u.teto)} <em>${u.pct}%</em></span>${barraDoTeto(u)}<span class="n">${t.frase}</span></button>`;
+  }
+  $("tetoIr").onclick = irParaLimites;
+}
+
+/** Aba Limites: o limite do mês, os avisos e os limites por categoria. */
+function paneM(c) {
+  const host = $("pane-m"), u = usoDoTeto(c, S.prefs.teto), cur = mKey(hoje()), catL = cats("Despesa"), gasto = new Map(catMap(c));
+  // Para ajudar a estimar: a média do custo dos últimos meses fechados que têm lançamentos.
+  const antes = [1, 2, 3].map((k) => calcMes(S.data, addM(cur, -k), hoje())).filter((x) => x.custo > 0), media = antes.length ? round2(antes.reduce((t, x) => t + x.custo, 0) / antes.length) : 0;
+  const atual = calcMes(S.data, cur, hoje()), dinheiro = (v) => (v > 0 ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "");
+  const avisar = S.prefs.avisos?.limite !== false, t = u ? textoDoTeto(u) : null, lim = S.prefs.limites || {};
+  host.innerHTML = `<p class="hint" style="margin-top:0;font-size:13px">Diga quanto você quer gastar no máximo por mês. O app mostra quanto do limite já foi usado e avisa quando você estiver perto ou passar dele.</p>
+    <form id="tetoForm" class="teto-form" autocomplete="off">
+      <label class="f">Limite de gastos por mês (R$)<input class="in money" id="tetoValor" inputmode="decimal" placeholder="Ex.: 3.500,00" value="${esc(dinheiro(Number(S.prefs.teto) || 0))}"></label>
+      <button class="btn primary" type="submit">${u ? "Mudar limite" : "Salvar limite"}</button>
+      <p class="hint">Entra na conta tudo o que sai no mês: contas fixas, gastos do dia a dia e faturas de cartão. Dinheiro guardado não entra.${media ? ` Para se basear: ${antes.length === 1 ? "no último mês" : `nos últimos ${antes.length} meses`} seu custo foi de <b>${brl(media)}</b>${antes.length > 1 ? " em média" : ""}${atual.rec ? `, e neste mês entram ${brl(atual.rec)}` : ""}. <button class="link" type="button" id="tetoUsar">Usar ${brl0(Math.ceil(media / 50) * 50)}</button>` : ""}${u ? " Para tirar o limite, apague o valor e salve." : ""}</p>
+    </form>
+    ${u ? `<div class="teto ${t.cls} parado"><span class="topo"><span class="l">${ico("alvo")}Uso do limite em ${nomeMes(S.mes)}</span><span class="pill ${t.cls === "ok" ? "good" : t.cls}">${t.titulo}</span></span>
+      <span class="num"><b>${brl(u.gasto)}</b> de ${brl(u.teto)} <em>${u.pct}%</em></span>${barraDoTeto(u)}<span class="n">${t.frase}</span></div>` : ""}
+    <h3 class="sub-h">Avisos do limite</h3>
+    <label class="check"><input type="checkbox" id="tetoAvisar" ${avisar ? "checked" : ""}> Avisar por e-mail e notificação no celular</label>
+    <p class="hint" style="margin:6px 0 0">Você recebe um aviso de manhã quando chegar a <b>80%</b> do limite, outro quando <b>passar</b> e outro se passar em <b>mais de 20%</b>. Cada um chega uma vez no mês. Dentro do app, o quadro do início muda de cor na hora.
+      ${S.store?.kind === "local" ? "Na demonstração os avisos por e-mail e notificação não são enviados." : `Os canais (e-mail e notificação neste aparelho) são os mesmos dos avisos de contas. <button class="link" type="button" id="tetoCanais">Ver em Ajustes</button>`}</p>
+    <h3 class="sub-h">Limite por categoria</h3>
+    <p class="hint" style="margin-top:0">Opcional. Deixe em branco as categorias que não precisam de limite.</p>
+    <form id="limCats" class="lim-cats" autocomplete="off">
+      ${catL.map((k, i) => `<label class="lc">${ava(k)}<span class="tx"><b>${esc(k)}</b><span>${brl(gasto.get(k) || 0)} em ${nomeMes(S.mes)}</span></span><input class="in money" data-cat="${i}" inputmode="decimal" placeholder="Sem limite" aria-label="Limite para ${esc(k)}" value="${esc(dinheiro(Number(lim[k]) || 0))}"></label>`).join("")}
+      <button class="btn" type="submit">Salvar limites das categorias</button>
+    </form>`;
+  if ($("tetoUsar")) $("tetoUsar").onclick = () => { $("tetoValor").value = dinheiro(Math.ceil(media / 50) * 50); $("tetoValor").focus(); };
+  if ($("tetoCanais")) $("tetoCanais").onclick = () => $("btnAjustes").click();
+  $("tetoForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const v = parseMoney($("tetoValor").value); S.prefs.teto = v > 0 ? round2(v) : 0;
+    await salvaPrefs(); render();
+    toastOuFlash(v > 0 ? `Limite do mês: ${brl(round2(v))}.` : "O mês ficou sem limite.");
+  });
+  $("tetoAvisar").onchange = async (e) => { S.prefs.avisos = { ...S.prefs.avisos, limite: e.target.checked }; await salvaPrefs(); toastOuFlash(e.target.checked ? "Avisos do limite ligados." : "Avisos do limite desligados."); };
+  $("limCats").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const novo = {}; host.querySelectorAll("[data-cat]").forEach((inp) => { const v = parseMoney(inp.value); if (v > 0) novo[catL[Number(inp.dataset.cat)]] = round2(v); });
+    // Limite de categoria que não está mais na lista (foi removida em Ajustes) continua guardado.
+    for (const [k, v] of Object.entries(lim)) if (!catL.includes(k)) novo[k] = v;
+    S.prefs.limites = novo; await salvaPrefs(); render();
+    toastOuFlash(`${Object.keys(novo).length} ${Object.keys(novo).length === 1 ? "categoria com limite" : "categorias com limite"}.`);
+  });
+}
+
+/** Explica, com os números da pessoa, como o app chega ao que sobra e ao quanto dá para gastar por dia. */
+function entendaAConta(c) {
+  const rx = raioX(c), livre = livrePorDia(c), mes = nomeMes(S.mes), menos = (v) => `− ${brl(v)}`;
+  const linha = (t, s2, v, cls = "") => `<li><span></span><span>${t}${s2 ? `<span class="mini">${s2}</span>` : ""}</span><b class="${cls}">${v}</b></li>`;
+  const expl = { fixos: "aluguel, internet e o que mais se repete todo mês, pago ou não", dia: "o que você lançou no dia a dia, fora do cartão", faturas: "faturas que vencem neste mês", guardado: "o que você separou para reserva ou investimento" };
+  abreDetalhe(`A conta de ${mes}`, "De onde vem cada número do resumo.", [{ html: `<ul class="itens conta">
+      ${linha("Entra no mês", c.frT ? `${brl(c.frT)} de entradas fixas${c.recLanc ? ` e ${brl(c.recLanc)} lançados` : ""}` : "o que você lançou como entrada", brl(c.rec), "pos")}
+      ${c.res < 0 ? linha("Retirado do que estava guardado", "", "+ " + brl(-c.res), "pos") : ""}
+      ${rx.partes.map((p) => linha(p.nome, expl[p.k], menos(p.valor))).join("")}
+      <li class="tot"><span></span><span>${rx.sobra < 0 ? "Falta" : "Sobra"}</span><b class="${rx.sobra < 0 ? "txt-bad" : "pos"}">${brl(Math.abs(rx.sobra))}</b></li></ul>
+    ${livre ? `<p class="hint" style="margin:10px 0 0;font-size:13px">${livre.valor > 0 ? `Dividindo a sobra pelos ${livre.restam} ${livre.restam === 1 ? "dia que falta" : "dias que faltam"} (contando hoje), dá <b>${brl(livre.valor)} por dia</b>. Gastando até isso, o mês não fecha no vermelho.` : "Como não há sobra, o valor por dia fica em zero: cada gasto novo aumenta o que falta."}</p>
+      <p class="hint" style="margin:8px 0 0;font-size:13px">"No ritmo atual" é a previsão: o app supõe que os gastos do dia a dia continuam no mesmo passo até o fim do mês.</p>` : ""}
+    ${c.comprasCartao ? `<p class="hint" style="margin:8px 0 0;font-size:13px">As compras no cartão deste mês (${brl(c.comprasCartao)}) não entram agora: elas pesam no mês em que a fatura vencer.</p>` : ""}` }]);
 }
 
 /** Quadro de contas a vencer nos próximos 30 dias (não depende do mês que está na tela). */
@@ -460,12 +586,17 @@ function renderCat(c) {
   const cats = catMap(c), tot = cats.reduce((s, x) => s + x[1], 0);
   if (!cats.length) { host.innerHTML = `<div class="empty">As categorias aparecem aqui assim que você lançar um gasto.</div>`; cartaoDoMes(c, host); return; }
   // Uma linha por categoria: nome, valor e uma barra na cor da categoria. Tocar abre a lista dos gastos.
+  // Com limite definido, a barra mostra quanto do limite já foi usado e fica vermelha quando passa.
+  const lim = new Map(usoDosLimites(c, S.prefs.limites).map((u) => [u.cat, u]));
+  const linhas = [...cats, ...[...lim.values()].filter((u) => !cats.some(([k]) => k === u.cat)).map((u) => [u.cat, 0])];
   const max = cats[0][1], box = document.createElement("div"); box.className = "cats";
-  box.innerHTML = cats.map(([k, v], i) => `<button type="button" class="cat-row" data-i="${i}" style="--c:${corCat(k)}" aria-label="${esc(k)}: ${brl0(v)}. Ver os gastos">
-    <span class="nm"><i></i>${esc(k)}</span><span class="vl">${brl0(v)}<em>${Math.round((v / tot) * 100)}%</em></span>
-    <span class="bar"><i style="width:${Math.max(2, (v / max) * 100).toFixed(1)}%"></i></span></button>`).join("");
+  box.innerHTML = linhas.map(([k, v], i) => {
+    const u = lim.get(k);
+    return `<button type="button" class="cat-row${u?.passou ? " over" : ""}" data-i="${i}" style="--c:${corCat(k)}" aria-label="${esc(k)}: ${brl0(v)}${u ? ` de ${brl0(u.limite)} de limite` : ""}. Ver os gastos">
+    <span class="nm"><i></i>${esc(k)}${u?.passou ? ` <span class="tag bad">passou ${brl0(u.passou)}</span>` : ""}</span><span class="vl">${brl0(v)}<em>${u ? `de ${brl0(u.limite)}` : `${Math.round((v / tot) * 100)}%`}</em></span>
+    <span class="bar${u ? " lim" : ""}"><i style="width:${Math.max(v ? 2 : 0, u ? Math.min(100, u.pct) : (v / max) * 100).toFixed(1)}%"></i></span></button>`; }).join("");
   host.appendChild(box);
-  box.querySelectorAll(".cat-row").forEach((b) => (b.onclick = () => detalheCategoria(cats[Number(b.dataset.i)][0])));
+  box.querySelectorAll(".cat-row").forEach((b) => (b.onclick = () => detalheCategoria(linhas[Number(b.dataset.i)][0])));
   cartaoDoMes(c, host);
 }
 /** Lista do que foi para o cartão neste mês e ainda vai ser cobrado em uma fatura. */
@@ -480,8 +611,8 @@ function cartaoDoMes(c, host) {
 function renderTabs(c) {
   document.querySelectorAll(".tabs button").forEach((b) => b.setAttribute("aria-selected", b.dataset.tab === S.tab));
   // Só a aba ativa fica montada: as abas de fixos usam os mesmos campos.
-  ["l", "f", "r", "c"].forEach((k) => { const p = $("pane-" + k); p.hidden = S.tab !== k; if (S.tab !== k) p.innerHTML = ""; });
-  if (S.tab === "l") paneL(c); else if (S.tab === "f") paneF(c, "Despesa"); else if (S.tab === "r") paneF(c, "Receita"); else paneC(c);
+  ["l", "f", "r", "c", "m"].forEach((k) => { const p = $("pane-" + k); p.hidden = S.tab !== k; if (S.tab !== k) p.innerHTML = ""; });
+  if (S.tab === "l") paneL(c); else if (S.tab === "f") paneF(c, "Despesa"); else if (S.tab === "r") paneF(c, "Receita"); else if (S.tab === "m") paneM(c); else paneC(c);
 }
 function armDelete(b, fn) {
   b.addEventListener("click", () => {
@@ -633,7 +764,7 @@ function paneC(c) {
      <button class="btn primary" type="submit">Adicionar cartão</button>
      ${soltos.length ? `<label class="check"><input type="checkbox" id="kLigar" ${cartoes.length ? "" : "checked"}> Usar este cartão nas ${soltos.length} ${soltos.length === 1 ? "compra no cartão que já lancei" : "compras no cartão que já lancei"} sem cartão escolhido</label>` : ""}
    </form>
-   <h3 class="sub-h">Faturas de ${nomeMes(S.mes)} <button class="btn sm ler" type="button" id="lerFatura">${ico("camera")}Ler fatura</button></h3>
+   <h3 class="sub-h">Faturas de ${nomeMes(S.mes)} <button class="btn sm ler" type="button" id="lerFatura">${ico("camera")}Ler fatura</button><button class="btn sm ler" type="button" id="impExtrato">${ico("subir")}Importar extrato</button></h3>
    ${vis.length ? `<div class="tbl"><table class="cards"><thead><tr><th>Vence</th><th>Cartão</th><th class="hide-sm">Origem</th><th class="num">Fatura</th><th>Situação</th><th></th></tr></thead><tbody>${vis.map(linhaFatura).join("")}</tbody>
      <tfoot><tr><td class="d"></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} de meses anteriores</span>` : ""}</td></tr></tfoot></table></div>`
      : `<div class="empty">Nenhuma fatura com vencimento em ${nomeMes(S.mes)}.</div>`}
@@ -657,6 +788,7 @@ function paneC(c) {
   }));
   host.querySelectorAll("[data-fat]").forEach((b) => (b.onclick = () => editarFatura(vis[Number(b.dataset.fat)])));
   $("lerFatura").onclick = () => abrirLeitor("fatura");
+  $("impExtrato").onclick = abrirExtrato;
   host.querySelectorAll("[data-cdel]").forEach((b) => armDelete(b, async () => {
     const id = b.dataset.cdel;
     if (await grava(() => S.store.deleteFatura(id))) { S.data.faturas = S.data.faturas.filter((z) => z.id !== id); render(); }
@@ -750,6 +882,8 @@ function fecharLancar(viaVoltar = false) {
   try { if (!viaVoltar && history.state?.lanc) history.back(); } catch { /* nada */ }
 }
 /** Depois de salvar: no celular fecha a tela e mostra um aviso; no computador volta o foco para o valor. */
+/** Nível do limite do mês atual: 0, 80, 100 ou 120 (ver usoDoTeto). */
+const nivelDoTeto = () => usoDoTeto(calcMes(S.data, mKey(hoje()), hoje()), S.prefs.teto)?.nivel || 0;
 function aposLancar(texto) { if (noCelular()) { fecharLancar(); toast(texto); } else $("fValor").focus(); }
 addEventListener("popstate", () => fecharLancar(true));
 $("lancFechar").onclick = () => fecharLancar();
@@ -763,6 +897,7 @@ $("bnav").addEventListener("click", (e) => {
 });
 $("btnMenu").onclick = () => {
   openDlg(`<h3>Menu</h3><p class="hint" style="margin:0 0 12px">${esc($("whoName").textContent)}</p><div class="menu-lista">
+    <button class="btn" data-go="btnLimites">${ico("alvo")}Limites de gasto</button>
     <button class="btn" data-go="btnAjustes">${ico("ajustes")}Ajustes e categorias</button>
     <button class="btn" data-go="btnImport">${ico("subir")}Importar Excel</button>
     <button class="btn" data-go="btnExport">${ico("baixar")}Baixar Excel</button>
@@ -795,6 +930,7 @@ $("formLanc").addEventListener("submit", async (e) => {
   }
   const row = { data, descricao: $("fDesc").value.trim(), tipo: S.tipo, categoria: $("fCat").value,
     forma: formaDe(S.tipo, $("fForma").value), valor: round2(v), import_key: null, ...cartaoDoForm() };
+  const nivelAntes = nivelDoTeto();
   $("fOk").disabled = true;
   let novos;
   const ok = await grava(async () => { novos = await S.store.addLancamentos([row]); });
@@ -805,6 +941,9 @@ $("formLanc").addEventListener("submit", async (e) => {
   const kc = cartaoPorId(row.cartao_id || "");
   flash.textContent = `Lançado: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}${mKey(data) !== S.mes ? " (outro mês)" : ""}.`
     + (kc ? ` ${row.parcelas > 1 ? `Em ${row.parcelas}x no ${kc.nome}: a primeira parcela vem` : `No ${kc.nome}: vem`} na fatura de ${nomeMes(mesDaFatura(kc, data))}.` : "");
+  // Aviso na hora, quando este lançamento fez o mês chegar perto do limite ou passar dele.
+  const nivelDepois = nivelDoTeto();
+  if (nivelDepois > nivelAntes) { const u = usoDoTeto(calcMes(S.data, mKey(hoje()), hoje()), S.prefs.teto), t = textoDoTeto(u); flash.style.color = "var(--warn)"; flash.textContent += ` ${t.titulo} do mês: ${u.pct}% usado. ${t.frase}`; }
   $("fValor").value = ""; $("fDesc").value = ""; $("fParc").value = "1";
   aposLancar(flash.textContent);
   render();
@@ -901,7 +1040,7 @@ $("btnExport").onclick = () => {
 function openDlg(html) {
   $("dlgBody").innerHTML = html;
   $("dlgBody").querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => $("dlg").close()));
-  $("dlg").showModal();
+  if (!$("dlg").open) $("dlg").showModal();   // trocar o conteúdo de um quadro já aberto não precisa abrir de novo
 }
 
 /* ================= editar ================= */
@@ -944,7 +1083,8 @@ function editarLancamento(id) {
     if (!(v > 0)) { $("edMsg").textContent = "Digite um valor maior que zero, por exemplo 25,90."; return; }
     const tipo = $("eTipo").value;
     const patch = { data: $("eData").value, descricao: $("eDesc").value.trim(), tipo, categoria: $("eCat").value,
-      forma: formaDe(tipo, $("eForma").value), valor: round2(v), import_key: null,
+      forma: formaDe(tipo, $("eForma").value), valor: round2(v),
+      import_key: String(x.import_key || "").startsWith("ext|") ? x.import_key : null,   // compra vinda do extrato continua marcada, para não voltar na próxima importação
       ...(S.data.cartoes.length || x.cartao_id ? { cartao_id: noCartao() ? $("eCartao").value || null : null, parcelas: noCartao() && $("eCartao").value ? Number($("eParc").value) || 1 : 1 } : {}) };
     if (await grava(() => S.store.updateLancamento(id, patch))) { Object.assign(x, patch); $("dlg").close(); render(); }
   });
@@ -1137,9 +1277,20 @@ const linhaFaturaDet = (hj) => (f) => ({ d: ddmm(f.vencimento), t: `Fatura ${f.c
 /** Gastos de uma categoria no mês: o que aparece na barra do gráfico "Por categoria". */
 function detalheCategoria(nome) {
   const c = calcMes(S.data, S.mes, hoje()), l = itensDoCusto(c).filter((i) => i.categoria === nome).sort(porData);
-  const total = round2(l.reduce((t, i) => t + i.valor, 0));
+  const total = round2(l.reduce((t, i) => t + i.valor, 0)), atual = Number(S.prefs.limites?.[nome]) || 0;
   abreDetalhe(`${esc(nome)} em ${nomeMes(S.mes)}`, `Total: <b>${brl(total)}</b>${c.custo ? ` · ${Math.round((total / c.custo) * 100)}% do custo do mês` : ""} · ${l.length} ${l.length === 1 ? "item" : "itens"}`,
-    [{ itens: l.map((i) => ({ ...linhaCusto(i), s: origemTxt(i) })) }], ["Ver nos lançamentos", "l"]);
+    [{ itens: l.map((i) => ({ ...linhaCusto(i), s: origemTxt(i) })) },
+     { html: `<form class="limite" id="limForm" autocomplete="off">
+        <label class="f">Limite por mês para ${esc(nome)} (R$)<input class="in money" id="limValor" inputmode="decimal" placeholder="Sem limite" value="${atual ? esc(atual.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) : ""}"></label>
+        <button class="btn" type="submit">${atual ? "Mudar limite" : "Definir limite"}</button>
+        <p class="hint">${atual ? (total > atual ? `Você passou ${brl(round2(total - atual))} do limite neste mês.` : `Ainda dá para gastar ${brl(round2(atual - total))} nesta categoria neste mês.`) + " Para tirar o limite, apague o valor e salve." : "Com um limite, a barra da categoria mostra quanto dele já foi usado e o app avisa quando estiver perto."}</p></form>` }], ["Ver nos lançamentos", "l"]);
+  $("limForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const v = parseMoney($("limValor").value), lim = { ...(S.prefs.limites || {}) };
+    if (v > 0) lim[nome] = round2(v); else delete lim[nome];
+    S.prefs.limites = lim; salvaPrefs(); $("dlg").close(); render();
+    toastOuFlash(v > 0 ? `Limite de ${brl(round2(v))} por mês para ${nome}.` : `${nome} ficou sem limite.`);
+  });
 }
 ["resumo", "kpis"].forEach((id) => {
   $(id).addEventListener("click", (e) => { const k = e.target.closest("[data-det]"); if (k) detalheKpi(k.dataset.det); });
@@ -1218,85 +1369,122 @@ function ajustes() {
   };
   if ($("ajEmail")) ligaAjustesDeAvisos();
 }
-/* ================= leitor pela câmera: comprovante ou fatura ================= */
-// A foto é lida no próprio aparelho (js/leitor.js). O app nunca salva direto: mostra o que entendeu para a pessoa conferir.
+/* ================= leitor por foto ou PDF: comprovante, fatura ou holerite ================= */
+// A foto ou o PDF é lido no próprio aparelho (js/leitor.js). O app nunca salva direto: mostra o que entendeu para a pessoa conferir.
 let leitura = 0;   // muda a cada leitura; resultado de uma leitura cancelada é ignorado
 function abrirLeitor(preferido = "") {
   S.lerComo = preferido;
-  openDlg(`<h3>Ler pela câmera</h3>
-    <p class="hint" style="margin:0 0 10px;font-size:13px">Fotografe ${preferido === "fatura" ? "a fatura do cartão" : "um comprovante de pagamento ou a fatura do cartão"}. O app lê o valor e a data e deixa tudo preenchido para você conferir.</p>
-    <ul class="dicas"><li>Deixe o valor e a data bem visíveis, com boa luz e sem sombra.</li><li>Print de comprovante (Pix, transferência) costuma ler melhor do que foto de papel.</li><li>A leitura é feita no seu aparelho. A imagem não é enviada para nenhum servidor.</li></ul>
-    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="lerFoto">${ico("camera")}Tirar foto</button><button class="btn" type="button" id="lerEscolher">${ico("imagem")}Escolher uma imagem</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
+  openDlg(`<h3>${preferido === "fatura" ? "Ler fatura" : "Ler foto ou PDF"}</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">${preferido === "fatura" ? "Fotografe a fatura do cartão ou escolha o PDF que o banco mandou." : "Fotografe ou escolha o arquivo de um comprovante de pagamento, da fatura do cartão ou do holerite."} O app lê o valor e a data e deixa tudo preenchido para você conferir.</p>
+    <ul class="dicas"><li>PDF e print de tela leem melhor do que foto de papel.</li><li>Na foto, deixe o valor e a data bem visíveis, com boa luz e sem sombra.</li><li>Da fatura o app pega só o total e o vencimento; do holerite, o valor líquido.</li><li>A leitura é feita no seu aparelho. O arquivo não é enviado para nenhum servidor.</li></ul>
+    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="lerFoto">${ico("camera")}Tirar foto</button><button class="btn" type="button" id="lerEscolher">${ico("imagem")}Escolher imagem ou PDF</button><button class="btn" type="button" id="lerExtrato">${ico("subir")}Importar extrato do cartão</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
   $("lerFoto").onclick = () => $("lerCamera").click();
   $("lerEscolher").onclick = () => $("lerGaleria").click();
+  $("lerExtrato").onclick = abrirExtrato;
+}
+/** Explica o que é o extrato e abre a escolha do arquivo. */
+function abrirExtrato() {
+  openDlg(`<h3>Importar extrato do cartão</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">Em vez de digitar compra por compra, traga o arquivo que o banco exporta. O app lança todas as compras no cartão e a fatura é montada sozinha.</p>
+    <ul class="dicas"><li>No app ou no site do banco, abra a fatura do cartão e procure exportar ou enviar por e-mail em <b>CSV</b>, <b>OFX</b> ou <b>Excel</b>.</li><li>Você confere a lista e as categorias antes de lançar.</li><li>Pode importar de novo quando a fatura tiver compras novas: o que já entrou não é repetido.</li><li>O arquivo é lido no seu aparelho; só as compras que você lançar são salvas na sua conta.</li></ul>
+    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="extEscolher">${ico("subir")}Escolher o arquivo</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
+  $("extEscolher").onclick = () => $("extratoIn").click();
 }
 $("btnLer").onclick = () => abrirLeitor();
-["lerCamera", "lerGaleria"].forEach((id) => $(id).addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) processaLeitura(f); }));
+["lerCamera", "lerGaleria"].forEach((id) => $(id).addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; if (!ehPdf(f) && !/^image\//.test(f.type) && ehExtrato(f)) importarExtrato(f); else processaLeitura(f); }));
 
-async function processaLeitura(arquivo) {
-  const vez = ++leitura;
-  openDlg(`<h3>Lendo a imagem…</h3><p class="hint" id="lerEtapa" style="margin:0;font-size:13px">Preparando o leitor. Na primeira vez demora um pouco mais, porque ele é baixado.</p>
+/** PDF protegido: pede a senha. Ela só é usada aqui, para abrir o arquivo no aparelho; não é guardada nem enviada. */
+function pedirSenhaDoPdf(arquivo, errada) {
+  openDlg(`<h3>Esse PDF tem senha</h3>
+    <p style="color:var(--ink-2);margin:0 0 12px">Digite a senha do arquivo. Em fatura de cartão, o banco costuma explicar a senha no e-mail (muitas vezes são alguns números do CPF). A senha é usada só neste aparelho para abrir o arquivo; não é guardada nem enviada.</p>
+    <form id="pdfSenhaForm" autocomplete="off"><label class="f">Senha do PDF<input class="in" id="pdfSenha" type="password" autocomplete="off" required></label>
+    <p class="auth-msg err" style="margin:8px 0 0">${errada ? "Essa senha não abriu o arquivo. Confira e tente de novo." : ""}</p>
+    <div class="actions" style="margin-top:12px"><button class="btn primary" type="submit">Abrir o PDF</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
+  $("pdfSenha").focus();
+  $("pdfSenhaForm").addEventListener("submit", (e) => { e.preventDefault(); const s = $("pdfSenha").value; if (s) processaLeitura(arquivo, s); });
+}
+
+async function processaLeitura(arquivo, senha = "") {
+  const vez = ++leitura, pdf = ehPdf(arquivo), preparando = "Preparando o leitor. Na primeira vez demora um pouco mais, porque ele é baixado.";
+  openDlg(`<h3>${pdf ? "Lendo o PDF…" : "Lendo a imagem…"}</h3><p class="hint" id="lerEtapa" style="margin:0;font-size:13px">${preparando}</p>
     <div class="barra"><i id="lerBarra"></i></div><div class="actions"><button class="btn" type="button" id="lerCancela">Cancelar</button></div>`);
   $("lerCancela").onclick = () => { leitura++; $("dlg").close(); };
+  const anda = (rotulo) => (p) => {
+    if (vez !== leitura || !$("lerBarra")) return;
+    $("lerEtapa").textContent = p.etapa === "lendo" ? `${rotulo} ${p.pct}%` : preparando;
+    $("lerBarra").style.width = (p.etapa === "lendo" ? 30 + p.pct * 0.7 : Math.min(30, 4 + p.pct * 0.26)) + "%";
+  };
   try {
-    const r = await lerImagem(arquivo, (p) => {
-      if (vez !== leitura || !$("lerBarra")) return;
-      $("lerEtapa").textContent = p.etapa === "lendo" ? `Lendo o texto da imagem… ${p.pct}%` : "Preparando o leitor. Na primeira vez demora um pouco mais, porque ele é baixado.";
-      $("lerBarra").style.width = (p.etapa === "lendo" ? 30 + p.pct * 0.7 : Math.min(30, 4 + p.pct * 0.26)) + "%";
-    });
+    let texto, previa;
+    if (pdf) {
+      const r = await lerPdf(arquivo, { senha, aoProgredir: anda("Lendo o PDF…") });
+      if (vez !== leitura) return;
+      texto = r.texto; previa = r.tela.toDataURL("image/jpeg", 0.72);
+      // PDF que é só uma foto digitalizada não tem texto dentro: lê a primeira página como imagem.
+      if (texto.replace(/\s/g, "").length < 40) texto = (await lerImagem(r.tela, anda("Esse PDF é uma imagem. Lendo o texto…"))).texto;
+    } else {
+      texto = (await lerImagem(arquivo, anda("Lendo o texto da imagem…"))).texto; previa = URL.createObjectURL(arquivo);
+    }
     if (vez !== leitura) return;
-    conferirLeitura(interpretaTexto(r.texto, hoje()), r.texto, arquivo);
+    conferirLeitura(interpretaTexto(texto, hoje()), texto, previa);
   } catch (e) {
     if (vez !== leitura) return;
+    const cod = String(e?.message);
+    if (/pdf-senha/.test(cod)) return pedirSenhaDoPdf(arquivo, /errada/.test(cod));
     console.error(e);
-    const semLeitor = /leitor-indisponivel/.test(String(e?.message));
-    openDlg(`<h3>${semLeitor ? "O leitor não carregou" : "Não consegui ler essa imagem"}</h3>
-      <p style="color:var(--ink-2);margin:0 0 14px">${semLeitor ? "O leitor é baixado da internet na primeira vez que é usado. Confira a conexão e tente de novo." : "Tente outra foto, com mais luz e o valor bem enquadrado, ou lance à mão."}</p>
+    const semLeitor = /leitor-indisponivel/.test(cod), ruim = /pdf-invalido/.test(cod);
+    openDlg(`<h3>${semLeitor ? "O leitor não carregou" : ruim ? "Não consegui abrir esse PDF" : "Não consegui ler essa imagem"}</h3>
+      <p style="color:var(--ink-2);margin:0 0 14px">${semLeitor ? "O leitor é baixado da internet na primeira vez que é usado. Confira a conexão e tente de novo."
+        : ruim ? "O arquivo pode estar danificado ou não ser um PDF. Tente baixar de novo, ou mande um print da tela." : "Tente outra foto, com mais luz e o valor bem enquadrado, ou lance à mão."}</p>
       <div class="actions"><button class="btn primary" type="button" id="lerDeNovo">Tentar de novo</button><button class="btn" type="button" data-close>Lançar à mão</button></div>`);
     $("lerDeNovo").onclick = () => abrirLeitor(S.lerComo);
   }
 }
 
-/** Mostra o que foi lido, já preenchido, para a pessoa conferir e salvar. */
-function conferirLeitura(r, texto, arquivo) {
+/** Mostra o que foi lido, já preenchido, para a pessoa conferir e salvar. `previa` é o endereço da miniatura (foto ou 1ª página do PDF). */
+function conferirLeitura(r, texto, previa) {
   const dinheiro = (v) => (v > 0 ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "");
-  const tipoIni = S.lerComo === "fatura" || r.tipo === "fatura" ? "fatura" : "gasto";
-  const catL = cats("Despesa"), palpite = guessCat(r.descricao, "Despesa"), cat = catL.includes(palpite) ? palpite : catL.includes("Outros") ? "Outros" : catL[0];
+  // gasto, entrada (holerite ou outro recebimento) ou fatura de cartão
+  const tipoIni = S.lerComo === "fatura" || r.tipo === "fatura" ? "fatura" : r.tipo === "holerite" ? "entrada" : "gasto";
+  const escolhe = (lista, palpite) => (lista.includes(palpite) ? palpite : lista.includes("Outros") ? "Outros" : lista[0]);
+  const catL = cats("Despesa"), catE = cats("Receita");
   const ativos = cartoesAtivos(), achado = ativos.find((k) => r.cartao && (norm(k.nome).includes(norm(r.cartao)) || norm(r.cartao).includes(norm(k.nome))));
   // Na fatura, só escolhe o cartão sozinho quando o nome lido bate com um cartão cadastrado. Senão a pessoa escolhe, para não trocar o valor da fatura errada.
   const sugerido = achado || ativos[0];
-  const foto = URL.createObjectURL(arquivo);
   openDlg(`<h3>Conferir leitura</h3>
-    <div class="ler-topo"><img src="${foto}" alt="Imagem lida">
-      <div><p class="hint" style="font-size:13px">${r.valor ? "Confira os campos antes de salvar. O leitor pode trocar algum número." : "Não achei o valor nessa imagem. Preencha abaixo, ou tente outra foto."}</p>
+    <div class="ler-topo"><img src="${previa}" alt="Arquivo lido">
+      <div><p class="hint" style="font-size:13px">${r.valor ? (r.tipo === "holerite" ? "Parece um holerite: peguei o valor líquido. Confira os campos antes de salvar." : "Confira os campos antes de salvar. O leitor pode trocar algum número.") : "Não achei o valor nesse arquivo. Preencha abaixo, ou tente outro."}</p>
       ${r.valores.length ? `<div class="ler-chips" aria-label="Outros valores encontrados">${r.valores.map((v) => `<button type="button" data-usar="${v}">${brl(v)}</button>`).join("")}</div>` : ""}</div></div>
-    <div class="seg" id="lTipoSeg" role="group" aria-label="O que é essa imagem"><button type="button" data-lt="gasto">Gasto</button><button type="button" data-lt="fatura">Fatura de cartão</button></div>
+    <div class="seg" id="lTipoSeg" role="group" aria-label="O que é esse arquivo"><button type="button" data-lt="gasto">Gasto</button><button type="button" data-lt="entrada">Entrada</button><button type="button" data-lt="fatura">Fatura</button></div>
     <form id="lerForm" class="dlg-form" autocomplete="off" novalidate>
-      <label class="f" data-g="gasto">Valor (R$)<input class="in money" id="lValor" inputmode="decimal" placeholder="0,00" value="${esc(dinheiro(r.valor))}"></label>
-      <label class="f" data-g="gasto">Data<input class="in" type="date" id="lData" value="${esc(r.data || hoje())}"></label>
-      <label class="f wide" data-g="gasto">Descrição<input class="in" id="lDesc" maxlength="80" value="${esc(r.descricao)}" placeholder="Ex.: mercado, farmácia"></label>
-      <label class="f" data-g="gasto">Categoria<select class="in" id="lCat">${opts(catL, cat)}</select></label>
+      <label class="f" data-g="gasto entrada">Valor (R$)<input class="in money" id="lValor" inputmode="decimal" placeholder="0,00" value="${esc(dinheiro(r.valor))}"></label>
+      <label class="f" data-g="gasto entrada"><span id="lDataLbl">Data</span><input class="in" type="date" id="lData" value="${esc(r.data || hoje())}"></label>
+      <label class="f wide" data-g="gasto entrada">Descrição<input class="in" id="lDesc" maxlength="80" value="${esc(r.descricao)}" placeholder="Ex.: mercado, farmácia"></label>
+      <label class="f" data-g="gasto">Categoria<select class="in" id="lCat">${opts(catL, escolhe(catL, guessCat(r.descricao, "Despesa")))}</select></label>
+      <label class="f wide" data-g="entrada">Categoria<select class="in" id="leCat">${opts(catE, escolhe(catE, guessCat(r.descricao, "Receita")))}</select></label>
       <label class="f" data-g="gasto">Forma de pagamento<select class="in" id="lForma">${opts(FORMAS, r.forma || "Pix")}</select></label>
       <label class="f" data-g="gasto" id="lCartaoWrap" hidden>Cartão<select class="in" id="lCartao">${optsCartao(sugerido?.id)}</select></label>
       <label class="f" data-g="gasto" id="lParcWrap" hidden>Parcelas<select class="in" id="lParc">${optsParcelas(r.valor || 0, 1)}</select></label>
-      <label class="f wide" data-g="fatura">Cartão<select class="in" id="lfCartao">${ativos.length && !achado ? `<option value="?" selected disabled>Escolha o cartão${r.cartao ? ` (na imagem aparece ${esc(r.cartao)})` : ""}</option>` : ""}${ativos.map((k) => `<option value="${esc(k.id)}"${k === achado ? " selected" : ""}>${esc(k.nome)}</option>`).join("")}<option value="">Outro cartão (digitar o nome)</option></select></label>
+      <label class="f wide" data-g="fatura">Cartão<select class="in" id="lfCartao">${ativos.length && !achado ? `<option value="?" selected disabled>Escolha o cartão</option>` : ""}${ativos.map((k) => `<option value="${esc(k.id)}"${k === achado ? " selected" : ""}>${esc(k.nome)}</option>`).join("")}<option value="">Outro cartão (digitar o nome)</option></select></label>
+      ${ativos.length && !achado && r.cartao ? `<p class="hint wide" data-g="fatura" style="margin:-4px 0 0;font-size:12.5px">No arquivo aparece o nome ${esc(r.cartao)}.</p>` : ""}
       <p class="hint wide" data-g="fatura" id="lfDica" style="margin:-4px 0 0;font-size:12.5px">O valor lido passa a valer como o total dessa fatura, no lugar da soma das compras lançadas.</p>
       <label class="f wide" data-g="fatura" id="lfNomeWrap">Nome do cartão<input class="in" id="lfNome" maxlength="40" value="${esc(r.cartao)}" placeholder="Ex.: Nubank"></label>
       <label class="f" data-g="fatura">Valor da fatura (R$)<input class="in money" id="lfValor" inputmode="decimal" placeholder="0,00" value="${esc(dinheiro(r.valor))}"></label>
       <label class="f" data-g="fatura">Vencimento<input class="in" type="date" id="lfVenc" value="${esc(r.vencimento || "")}"></label>
       <label class="f" data-g="fatura">Situação<select class="in" id="lfSt"><option value="Aberta">Em aberto</option><option value="Paga">Paga</option></select></label>
       <p class="auth-msg err wide" id="lerMsg"></p>
-      <div class="actions wide"><button class="btn primary" type="submit" id="lerSalvar">Salvar</button><button class="btn" type="button" id="lerOutra">Ler outra</button><button class="btn" type="button" data-close>Cancelar</button></div>
+      <div class="actions wide"><button class="btn primary" type="submit" id="lerSalvar">Salvar</button><button class="btn" type="button" id="lerOutra">Ler outro</button><button class="btn" type="button" data-close>Cancelar</button></div>
     </form>
     <details class="lido"><summary>Ver o texto que foi lido</summary><pre>${esc(texto.trim() || "(nenhum texto encontrado)")}</pre></details>`);
-  $("dlg").addEventListener("close", () => URL.revokeObjectURL(foto), { once: true });
+  if (previa.startsWith("blob:")) $("dlg").addEventListener("close", () => URL.revokeObjectURL(previa), { once: true });
   let tipo = tipoIni, avisado = "";
   const sync = () => {
     document.querySelectorAll("#lTipoSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lt === tipo));
-    document.querySelectorAll("#lerForm [data-g]").forEach((el) => (el.hidden = el.dataset.g !== tipo));
+    document.querySelectorAll("#lerForm [data-g]").forEach((el) => (el.hidden = !el.dataset.g.split(" ").includes(tipo)));
     if (tipo === "gasto") { const cc = $("lForma").value === CARTAO && ativos.length > 0; $("lCartaoWrap").hidden = !cc; $("lParcWrap").hidden = !cc; }
-    else { const k = $("lfCartao").value; $("lfNomeWrap").hidden = k !== ""; $("lfDica").hidden = k === "" || k === "?"; }
-    $("lerSalvar").textContent = tipo === "fatura" ? "Salvar fatura" : "Lançar gasto"; $("lerMsg").textContent = ""; avisado = "";
+    else if (tipo === "fatura") { const k = $("lfCartao").value; $("lfNomeWrap").hidden = k !== ""; $("lfDica").hidden = k === "" || k === "?"; }
+    $("lDataLbl").textContent = tipo === "entrada" ? "Dia em que recebeu" : "Data";
+    $("lerSalvar").textContent = tipo === "fatura" ? "Salvar fatura" : tipo === "entrada" ? "Lançar entrada" : "Lançar gasto"; $("lerMsg").textContent = ""; avisado = "";
   };
   $("lTipoSeg").onclick = (e) => { const b = e.target.closest("button"); if (b) { tipo = b.dataset.lt; sync(); } };
   $("lForma").onchange = sync; $("lfCartao").onchange = sync;
@@ -1308,25 +1496,28 @@ function conferirLeitura(r, texto, arquivo) {
   $("lerForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const msg = (t) => { $("lerMsg").textContent = t; };
-    if (tipo === "gasto") {
-      const v = parseMoney($("lValor").value), data = $("lData").value;
+    // Avisa uma vez antes de salvar algo que pode estar em dobro; no segundo toque, salva.
+    const confirma = (chave, texto) => { if (avisado === chave) return true; avisado = chave; $("lerSalvar").textContent = "Salvar mesmo assim"; msg(texto); return false; };
+    if (tipo === "gasto" || tipo === "entrada") {
+      const ent = tipo === "entrada", v = parseMoney($("lValor").value), data = $("lData").value, T = ent ? "Receita" : "Despesa";
       if (!(v > 0)) return msg("Digite o valor, por exemplo 25,90.");
-      if (!data) return msg("Escolha a data do gasto.");
-      // Mesmo valor no mesmo dia já lançado: avisa uma vez, para não duplicar a mesma compra.
-      const chave = data + "|" + round2(v);
-      if (avisado !== chave && S.data.lancamentos.some((x) => x.tipo === "Despesa" && x.data === data && round2(x.valor) === round2(v))) {
-        avisado = chave; $("lerSalvar").textContent = "Salvar mesmo assim";
-        return msg(`Já existe um gasto de ${brl(v)} em ${ddmm(data)}. Se for outra compra, toque em Salvar mesmo assim.`);
-      }
-      const forma = $("lForma").value, cc = forma === CARTAO && ativos.length > 0;
-      const row = { data, descricao: $("lDesc").value.trim(), tipo: "Despesa", categoria: $("lCat").value, forma, valor: round2(v), import_key: null,
+      if (!data) return msg(ent ? "Escolha o dia em que você recebeu." : "Escolha a data do gasto.");
+      const chave = [tipo, data, round2(v)].join("|");
+      // Mesmo valor no mesmo dia já lançado: pode ser o mesmo comprovante lido duas vezes.
+      if (S.data.lancamentos.some((x) => x.tipo === T && x.data === data && round2(x.valor) === round2(v))
+        && !confirma(chave, `Já existe ${ent ? "uma entrada" : "um gasto"} de ${brl(v)} em ${ddmm(data)}. Se for ${ent ? "outro recebimento" : "outra compra"}, toque em Salvar mesmo assim.`)) return;
+      // Entrada fixa (como o salário cadastrado) já é lançada sozinha todo mês: lançar o holerite também contaria em dobro.
+      const fixas = ent ? calcMes(S.data, mKey(data), hoje()).fr : [];
+      if (fixas.length && !confirma(chave, `Você já tem entrada fixa em ${nomeMes(mKey(data))} (${fixas.map((f) => `${f.descricao} ${brl(f.valor)}`).join(", ")}), que o app lança sozinho. Se for o mesmo dinheiro, não lance de novo: ajuste o valor em Entradas fixas. Se for outro recebimento, toque em Salvar mesmo assim.`)) return;
+      const forma = ent ? "" : $("lForma").value, cc = !ent && forma === CARTAO && ativos.length > 0;
+      const row = { data, descricao: $("lDesc").value.trim(), tipo: T, categoria: $(ent ? "leCat" : "lCat").value, forma, valor: round2(v), import_key: null,
         ...(cc ? { cartao_id: $("lCartao").value || null, parcelas: Number($("lParc").value) || 1 } : {}) };
       $("lerSalvar").disabled = true;
       let novos; const ok = await grava(async () => { novos = await S.store.addLancamentos([row]); });
       if (!ok) { $("lerSalvar").disabled = false; return; }
       S.data.lancamentos.push(...novos); S.mes = mKey(data);
       $("dlg").close(); fecharLancar(); render();
-      toastOuFlash(`Lançado pela leitura: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}.`);
+      toastOuFlash(`${ent ? "Entrada lançada" : "Lançado"} pela leitura: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}.`);
       return;
     }
     const v = parseMoney($("lfValor").value), venc = $("lfVenc").value, id = $("lfCartao").value, status = $("lfSt").value;
@@ -1349,6 +1540,150 @@ function conferirLeitura(r, texto, arquivo) {
     $("dlg").close(); fecharLancar(); render();
     toastOuFlash(`Fatura ${nome} salva: ${brl(round2(v))}, vence em ${ddmmaa(venc)}.`);
   });
+}
+
+/* ================= extrato do cartão: lançar as compras em lote ================= */
+// O banco exporta a fatura ou o extrato do cartão em CSV, OFX ou Excel. O app lê o arquivo (js/extrato.js), mostra as compras
+// para a pessoa conferir e lança todas de uma vez no cartão escolhido. Importar de novo um arquivo mais novo só traz o que falta.
+$("extratoIn").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) importarExtrato(f); });
+
+async function importarExtrato(arquivo) {
+  let ext = null;
+  try {
+    if (ehPlanilha(arquivo)) {
+      if (typeof XLSX === "undefined") return showBanner("Não foi possível abrir o leitor de Excel. Confira a internet e recarregue a página.");
+      const wb = XLSX.read(await arquivo.arrayBuffer(), { type: "array" });
+      // Fica com a aba que tem mais compras.
+      ext = wb.SheetNames.map((n) => leExtrato({ linhas: XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null }), hoje: hoje(), nome: arquivo.name }))
+        .sort((a, b) => b.compras.length - a.compras.length)[0];
+    } else ext = leExtrato({ texto: decodifica(new Uint8Array(await arquivo.arrayBuffer())), hoje: hoje(), nome: arquivo.name });
+  } catch (e) { console.error(e); }
+  if (!ext || !ext.compras.length) {
+    return openDlg(`<h3>Não achei compras nesse arquivo</h3>
+      <p style="color:var(--ink-2);margin:0 0 14px">O arquivo precisa ter, em cada linha, a data, a descrição e o valor da compra. No app ou no site do banco, abra a fatura do cartão e procure a opção de exportar ou enviar por e-mail em <b>CSV</b>, <b>OFX</b> ou <b>Excel</b>. Fatura em PDF ou foto vai pelo botão Ler fatura.</p>
+      <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  }
+  if (!cartoesAtivos().length) {
+    // Sem cartão cadastrado: o próprio arquivo costuma dizer o banco e o dia em que a fatura fecha (e o Nubank põe o vencimento no nome).
+    const i = ext.info, dia = (d) => (d ? Number(d.slice(8, 10)) : "");
+    openDlg(`<h3>Cadastre o cartão para importar</h3>
+      <p style="color:var(--ink-2);margin:0 0 12px">Achei ${ext.compras.length} ${ext.compras.length === 1 ? "compra" : "compras"} no arquivo. Elas entram em um cartão: confira os dados abaixo${i.fecha ? ", que vieram do arquivo," : ""} e continue.</p>
+      <form id="extK" class="dlg-form" autocomplete="off">
+        <label class="f wide">Nome do cartão<input class="in" id="ekNome" required maxlength="40" value="${esc(i.banco)}" placeholder="Ex.: Nubank"></label>
+        <label class="f">Dia que a fatura fecha<input class="in" id="ekFech" type="number" inputmode="numeric" min="1" max="31" required value="${dia(i.fecha)}" placeholder="Ex.: 3"></label>
+        <label class="f">Dia que a fatura vence<input class="in" id="ekVenc" type="number" inputmode="numeric" min="1" max="31" required value="${dia(i.vencimento)}" placeholder="Ex.: 10"></label>
+        <p class="auth-msg err wide" id="ekMsg"></p>
+        <div class="actions wide"><button class="btn primary" type="submit">Cadastrar e continuar</button><button class="btn" type="button" data-close>Cancelar</button></div>
+      </form>`);
+    $("extK").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const nome = $("ekNome").value.trim(), d = (id) => Math.min(31, Math.max(1, Math.round(Number($(id).value)) || 0));
+      if (!nome || !Number($("ekFech").value) || !Number($("ekVenc").value)) { $("ekMsg").textContent = "Preencha o nome e os dois dias."; return; }
+      if (S.data.cartoes.some((k) => norm(k.nome) === norm(nome))) { $("ekMsg").textContent = `Já existe um cartão chamado ${nome}, mas ele está desativado. Reative na aba Cartões ou use outro nome.`; return; }
+      let novo; if (!(await grava(async () => { novo = await S.store.addCartao({ nome, fechamento: d("ekFech"), vencimento: d("ekVenc") }); }))) return;
+      S.data.cartoes.push(novo); render();
+      conferirExtrato(ext, arquivo.name || "extrato");
+    });
+    return;
+  }
+  conferirExtrato(ext, arquivo.name || "extrato");
+}
+
+/** Lista as compras do extrato para a pessoa conferir, escolher o cartão e a fatura, e lançar tudo de uma vez. */
+function conferirExtrato(ext, nomeArquivo) {
+  const ativos = cartoesAtivos(), catL = cats("Despesa");
+  // Categoria: primeiro o que a pessoa já usou para a mesma descrição; depois o palpite pelo nome; por fim a categoria do banco.
+  const historico = new Map();
+  [...S.data.lancamentos].sort((a, b) => a.data.localeCompare(b.data)).forEach((x) => { if (x.tipo === "Despesa" && x.descricao) historico.set(norm(x.descricao.replace(/\s*\(\d+\/\d+\)$/, "")), x.categoria); });
+  const sugere = (it) => { const h = historico.get(norm(it.descricao)); let c = h || guessCat(it.descricao, "Despesa"); if (c === "Outros" && it.catBanco) c = guessCat(it.catBanco, "Despesa"); return catL.includes(c) ? c : catL.includes("Outros") ? "Outros" : catL[0]; };
+  const info = ext.info, pelaNome = ativos.find((k) => norm(nomeArquivo).includes(norm(k.nome)) || (info.banco && (norm(k.nome).includes(norm(info.banco)) || norm(info.banco).includes(norm(k.nome)))));
+  const est = { cartao: (pelaNome || ativos[0]).id, mes: "", itens: ext.compras.map((it) => ({ ...it, cat: sugere(it), marcado: null })) };
+
+  const monta = () => {
+    const k = cartaoPorId(est.cartao), provavel = faturaProvavel(k, ext.compras, hoje(), info);
+    // O arquivo diz o dia em que a fatura fecha (e às vezes o do vencimento). Se o cadastro do cartão está diferente, oferece acertar.
+    const dFech = info.fecha ? Number(info.fecha.slice(8, 10)) : 0, dVenc = info.vencimento ? Number(info.vencimento.slice(8, 10)) : 0;
+    const difere = (dFech && dFech !== Number(k.fechamento)) || (dVenc && dVenc !== Number(k.vencimento));
+    if (!est.mes) est.mes = provavel;
+    const meses = [...new Set([-2, -1, 0, 1, 2].map((d) => addM(provavel, d)).concat(est.mes === "datas" ? [] : [est.mes]))].sort();
+    const mesDo = (it) => (est.mes === "datas" ? mesDaFatura(k, it.data) : est.mes);
+    const vence = (m) => { const [a, mo] = m.split("-").map(Number); return `${m}-${pad(Math.min(Number(k.vencimento), new Date(a, mo, 0).getDate()))}`; };
+    // O que já está no app: importado antes (mesma chave) ou já presente na fatura (lançado à mão, parcela de compra antiga, fixo no cartão).
+    const chaves = new Set(S.data.lancamentos.map((x) => x.import_key).filter(Boolean)), porId = new Map(S.data.lancamentos.map((x) => [x.id, x]));
+    const sobras = new Map();
+    const naFatura = (m) => { if (!sobras.has(m)) sobras.set(m, (faturasDoMes(S.data, m).find((f) => f.auto && f.cartao_id === k.id)?.itens || []).filter((i) => !String(porId.get(i.id)?.import_key || "").startsWith("ext|")).map((i) => i.valor)); return sobras.get(m); };
+    const comChave = comChaves(k.id, est.itens);
+    est.itens.forEach((it, i) => {
+      it.chave = comChave[i].chave;
+      if (chaves.has(it.chave)) { it.estado = "importada"; return; }
+      const l = naFatura(mesDo(it)), j = l.findIndex((v) => Math.abs(v - it.valor) < 0.005);
+      if (j >= 0) { l.splice(j, 1); it.estado = "parecida"; } else it.estado = "nova";
+    });
+    const vis = est.itens.map((it, i) => ({ it, i })).filter((x) => x.it.estado !== "importada"), antigas = est.itens.length - vis.length;
+    const ligado = (it) => (it.marcado === null ? it.estado === "nova" : it.marcado);
+    const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, soma = (l) => round2(l.reduce((t, x) => t + x.valor, 0));
+    const fora = [ext.pagamentos.length ? `${plural(ext.pagamentos.length, "pagamento de fatura", "pagamentos de fatura")} (${brl(soma(ext.pagamentos))})` : "",
+      ext.estornos.length ? `${plural(ext.estornos.length, "estorno", "estornos")} (${brl(soma(ext.estornos))})` : ""].filter(Boolean).join(" e ");
+    openDlg(`<div class="ext"><h3>Importar extrato do cartão</h3>
+      <p class="hint" style="margin:0 0 12px;font-size:13px">Achei <b>${plural(est.itens.length, "compra", "compras")}</b> em ${esc(nomeArquivo)}. Confira, ajuste as categorias e lance tudo de uma vez.</p>
+      <form id="extForm" autocomplete="off">
+      <div class="dlg-form">
+        <label class="f">Cartão<select class="in" id="extCartao">${ativos.map((c) => `<option value="${esc(c.id)}"${c.id === k.id ? " selected" : ""}>${esc(c.nome)}</option>`).join("")}</select></label>
+        <label class="f">Fatura<select class="in" id="extMes">${meses.map((m) => `<option value="${m}"${m === est.mes ? " selected" : ""}>vence em ${ddmmaa(vence(m))}</option>`).join("")}<option value="datas"${est.mes === "datas" ? " selected" : ""}>Pela data de cada compra</option></select></label>
+      </div>
+      ${info.fecha ? `<p class="hint" style="margin:8px 0 0">No arquivo${info.banco ? ` do ${esc(info.banco)}` : ""}: fatura de ${info.inicio ? ddmm(info.inicio) + " a " : ""}${ddmm(info.fecha)}${info.vencimento ? `, vence em ${ddmm(info.vencimento)}` : ""}.</p>` : ""}
+      ${difere ? `<p class="aviso" style="margin:8px 0 0">No cadastro, o ${esc(k.nome)} fecha dia ${pad(k.fechamento)} e vence dia ${pad(k.vencimento)}. Pelo arquivo, a fatura fecha dia ${pad(dFech)}${dVenc ? ` e vence dia ${pad(dVenc)}` : ""}. Se o arquivo é mesmo desse cartão, acerte o cadastro para as próximas faturas caírem no mês certo. <button class="link" type="button" id="extAcerta">Acertar o cartão</button></p>` : ""}
+      <p class="hint" style="margin:8px 0 0">${est.mes === "datas" ? "Cada compra entra na fatura do mês em que foi feita, pelo dia de fechamento do cartão. Use para arquivo com vários meses."
+        : `Todas as compras entram na fatura que vence em ${nomeMes(est.mes)}, como no extrato do banco.`}</p>
+      ${vis.length ? `<div class="ext-topo"><b id="extSoma"></b><button class="link" type="button" id="extTodas"></button></div>
+      <ul class="ext-lista">${vis.map(({ it, i }) => `<li class="${it.estado}">
+          <input type="checkbox" data-i="${i}" ${ligado(it) ? "checked" : ""} aria-label="Lançar ${esc(it.descricao)}">
+          <span class="oque"><b>${esc(it.descricao)}${it.de > 1 ? ` <span class="tag">${it.parcela}/${it.de}</span>` : ""}</b>
+            <span>${ddmm(it.data)}${it.estado === "parecida" ? ` · <em>parece já estar na fatura</em>` : ""}</span></span>
+          <b class="v">${brl(it.valor)}</b>
+          <select class="in" data-c="${i}" aria-label="Categoria de ${esc(it.descricao)}">${opts(catL, it.cat)}</select></li>`).join("")}</ul>`
+        : `<div class="empty" style="margin-top:12px">Todas as compras desse arquivo já foram importadas antes.</div>`}
+      ${antigas ? `<p class="hint" style="margin:10px 0 0">${plural(antigas, "compra já tinha sido importada", "compras já tinham sido importadas")} antes e ${antigas === 1 ? "ficou" : "ficaram"} de fora.</p>` : ""}
+      ${fora ? `<p class="hint" style="margin:6px 0 0">Não entram: ${fora}.${ext.estornos.length ? " Para descontar o estorno, corrija o valor da fatura depois, em Editar." : ""}</p>` : ""}
+      <p class="auth-msg err" id="extMsg" style="margin:8px 0 0"></p>
+      <div class="actions" style="margin-top:12px">${vis.length ? `<button class="btn primary" type="submit" id="extSalvar">Lançar</button>` : ""}<button class="btn" type="button" data-close>${vis.length ? "Cancelar" : "Fechar"}</button></div>
+      </form></div>`);
+    $("extCartao").onchange = (e) => { est.cartao = e.target.value; est.mes = ""; est.itens.forEach((it) => (it.marcado = null)); monta(); };
+    $("extMes").onchange = (e) => { est.mes = e.target.value; est.itens.forEach((it) => (it.marcado = null)); monta(); };
+    if ($("extAcerta")) $("extAcerta").onclick = async () => {
+      const patch = { fechamento: dFech || Number(k.fechamento), vencimento: dVenc || Number(k.vencimento) };
+      if (await grava(() => S.store.updateCartao(k.id, patch))) { Object.assign(k, patch); est.mes = ""; est.itens.forEach((it) => (it.marcado = null)); render(); monta(); }
+    };
+    if (!vis.length) return;
+    const conta = () => {
+      const sel = vis.filter((x) => ligado(x.it)).map((x) => x.it);
+      $("extSoma").textContent = `${plural(sel.length, "compra marcada", "compras marcadas")} · ${brl(soma(sel))}`;
+      $("extSalvar").textContent = sel.length ? `Lançar ${plural(sel.length, "compra", "compras")}` : "Lançar"; $("extSalvar").disabled = !sel.length;
+      $("extTodas").textContent = sel.length === vis.length ? "Desmarcar todas" : "Marcar todas";
+    };
+    $("dlgBody").querySelectorAll("[data-i]").forEach((b) => (b.onchange = () => { est.itens[Number(b.dataset.i)].marcado = b.checked; conta(); }));
+    $("dlgBody").querySelectorAll("[data-c]").forEach((b) => (b.onchange = () => { est.itens[Number(b.dataset.c)].cat = b.value; }));
+    $("extTodas").onclick = () => { const tudo = vis.every((x) => ligado(x.it)); vis.forEach((x) => (x.it.marcado = !tudo)); $("dlgBody").querySelectorAll("[data-i]").forEach((b) => (b.checked = !tudo)); conta(); };
+    conta();
+
+    $("extForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const sel = vis.filter((x) => ligado(x.it)).map((x) => x.it); if (!sel.length) return;
+      // A compra é lançada no cartão, com a data que a faz cair na fatura escolhida. Parcela entra só com o valor deste mês.
+      const linhas = sel.map((it) => ({ data: est.mes === "datas" ? it.data : dataNaFatura(k, est.mes, it.data), descricao: it.descricao + (it.de > 1 ? ` (${it.parcela}/${it.de})` : ""),
+        tipo: "Despesa", categoria: it.cat, forma: CARTAO, valor: it.valor, cartao_id: k.id, parcelas: 1, import_key: it.chave }));
+      $("extSalvar").disabled = true; $("extSalvar").textContent = "Lançando…";
+      let novos; const ok = await grava(async () => { novos = await S.store.addLancamentos(linhas); });
+      if (!ok) { $("extSalvar").disabled = false; conta(); return; }
+      S.data.lancamentos.push(...novos);
+      const m = est.mes === "datas" ? linhas.map((l) => mesDaFatura(k, l.data)).sort().pop() : est.mes;
+      S.mes = m; S.view = "listas"; S.tab = "c";
+      $("dlg").close(); fecharLancar(); render();
+      const f = faturasDoMes(S.data, m).find((x) => x.auto && x.cartao_id === k.id);
+      toastOuFlash(`${plural(novos.length, "compra lançada", "compras lançadas")} no ${k.nome}.${f ? ` Fatura de ${nomeMes(m)}: ${brl(f.valor)}${f.valor_fixo ? ` (valor corrigido à mão; a soma das compras é ${brl(f.calculado)})` : ""}.` : ""}`);
+    });
+  };
+  monta();
 }
 
 /* ================= avisos: e-mail e notificação no celular ================= */

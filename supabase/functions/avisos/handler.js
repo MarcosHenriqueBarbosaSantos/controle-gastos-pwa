@@ -1,12 +1,13 @@
 // Servidor de avisos do Meus Gastos (Supabase Edge Function).
 //   GET                         → { chavePublica }: chave que o app usa para ligar as notificações no aparelho
 //   GET ?autoteste=1            → confere, no próprio servidor, as regras e a criptografia com respostas conhecidas
-//   POST + x-avisos-segredo     → rotina diária (chamada pelo agendamento do banco): avisa quem tem pendência
+//   POST + x-avisos-segredo     → rotina diária (chamada pelo agendamento do banco): avisa quem tem conta para vencer
+//                                 ou chegou perto, passou ou passou muito do limite de gastos do mês
 //   POST + login do usuário     → { teste: true }: manda um aviso de teste só para quem pediu
 // As dependências chegam por parâmetro para o mesmo código rodar nos testes (Node) e no Supabase (Deno).
-import { pendenciasParaAviso } from "./regras.js";
-import { enviaPush, gerarChaves, cifra, b64u, deB64u } from "./webpush.js";
-import { montaAviso, avisoDeTeste } from "./mensagem.js";
+import { pendenciasParaAviso, calcMes, usoDoTeto, mKey, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias } from "./regras.js";
+import { enviaPush, gerarChaves, cifra, b64u, deB64u, cabecalhoVapid } from "./webpush.js";
+import { montaAviso, avisoDeTeste, avisoDoLimite } from "./mensagem.js";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
@@ -30,7 +31,7 @@ export async function autoteste() {
   confere("totais", [p.atrasadas, p.hoje, p.total], [1, 1, 1590]);
   const a = montaAviso(p, "https://app/");
   confere("título", a.titulo, "1 conta atrasada e 4 para vencer");
-  confere("valor em reais", a.assunto.replace(/\u00a0/g, " "), "Meus Gastos: 1 conta atrasada e 4 para vencer (R$ 1.590,00)");
+  confere("valor em reais", a.assunto.replace(/ /g, " "), "Meus Gastos: 1 conta atrasada e 4 para vencer (R$ 1.590,00)");
   confere("data de Brasília", new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date("2026-10-04T02:30:00Z")), "2026-10-03");
   // Criptografia: exemplo oficial da RFC 8291 (apêndice A).
   const asPub = deB64u("BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8");
@@ -42,7 +43,22 @@ export async function autoteste() {
   confere("criptografia", b64u(cif), "DGv6ra1nlYgDCS1FRnbzlwAAEABBBP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A_yl95bQpu6cVPTpK4Mqgkf1CXztLVBSt2Ks3oZwbuwXPXLWyouBWLVWGNWQexSgSxsj_Qulcy4a-fN");
   const k = await gerarChaves();
   confere("chave gerada", deB64u(k.publica).length, 65);
-  return { ok: falhas.length === 0, conferidos: 7, falhas };
+  // Limite do mês: custo de outubro = fixos fora do cartão (1.000 + 100 + 349 + 50 + 4 domingos × 30 do Uber) + faturas (120 + 340) = 2.079.
+  const u = usoDoTeto(calcMes(st, "2026-10", "2026-10-03"), 2000);
+  confere("limite do mês", [u.gasto, u.pct, u.nivel, u.resta], [2079, 104, 100, -79]);
+  confere("aviso do limite", avisoDoLimite(u, "2026-10-03").titulo, "Você passou do limite de outubro");
+  return { ok: falhas.length === 0, conferidos: 9, falhas, assinatura: assinatura() };
+}
+
+/**
+ * Impressão digital do código que está rodando: um número calculado a partir do texto das funções principais.
+ * Depois de publicar, o número do servidor tem de ser igual ao calculado aqui no projeto (ver tests/avisos.test.mjs).
+ */
+export function assinatura() {
+  const texto = [criaHandler, autoteste, montaAviso, avisoDeTeste, avisoDoLimite, pendenciasParaAviso, calcMes, usoDoTeto, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias,
+    enviaPush, gerarChaves, cifra, cabecalhoVapid].map(String).join("\n");
+  let h = 5381; for (let i = 0; i < texto.length; i++) h = ((h << 5) + h + texto.charCodeAt(i)) | 0;
+  return `${texto.length}-${(h >>> 0).toString(36)}`;
 }
 
 export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => new Date() }) {
@@ -110,15 +126,29 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
     return { aparelhos: (subs || []).length, entregues: ok };
   }
 
+  /**
+   * Limite do mês: devolve o uso quando a pessoa chegou a um nível (80%, passou, passou muito) que ainda não foi avisado neste mês.
+   * O nível já avisado fica anotado em avisos_enviados (campo canais), então cada nível gera um aviso só.
+   */
+  async function limiteParaAvisar(db, uid, st, dados, dia) {
+    if (!(Number(dados?.teto) > 0) || dados?.avisos?.limite === false) return null;
+    const u = usoDoTeto(calcMes(st, mKey(dia), dia), dados.teto);
+    if (!u || !u.nivel) return null;
+    const { data } = await db.from("avisos_enviados").select("dia, canais").eq("user_id", uid);
+    const jaAvisado = Math.max(0, ...(data || []).filter((r) => String(r.dia).slice(0, 7) === mKey(dia)).map((r) => Number((String(r.canais || "").match(/limite: (\d+)/) || [])[1]) || 0));
+    return u.nivel > jaAvisado ? u : null;
+  }
+
   async function avisaUsuario(db, user, k, { teste = false } = {}) {
-    const p = pendenciasParaAviso(await estado(db, user.id), hoje());
-    if (!p.itens.length && !teste) return null;
-    const aviso = p.itens.length ? montaAviso(p, urlApp()) : avisoDeTeste(urlApp());
+    const dia = hoje(), st = await estado(db, user.id), p = pendenciasParaAviso(st, dia);
     const { data: pref } = await db.from("preferencias").select("dados").eq("user_id", user.id).maybeSingle();
+    const lim = await limiteParaAvisar(db, user.id, st, pref?.dados, dia);
+    if (!p.itens.length && !lim && !teste) return null;
+    const aviso = p.itens.length || lim ? montaAviso(p, urlApp(), lim && avisoDoLimite(lim, dia)) : avisoDeTeste(urlApp());
     const querEmail = pref?.dados?.avisos?.email !== false;
     const email = user.email && querEmail ? await mandaEmail(user.email, aviso) : "desligado";
     const push = await mandaPush(db, user.id, aviso, k);
-    return { pendencias: p.itens.length, email, push };
+    return { pendencias: p.itens.length, limite: lim ? lim.nivel : 0, email, push };
   }
 
   async function rotinaDiaria(db) {
@@ -136,7 +166,7 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
           if (!r) continue;
           res.avisados++; if (r.email === "enviado") res.emails++; res.notificacoes += r.push.entregues;
           if (/^erro/.test(r.email)) res.erros.push(`e-mail: ${r.email}`);
-          await db.from("avisos_enviados").insert({ user_id: user.id, dia, canais: `email: ${r.email}; push: ${r.push.entregues}/${r.push.aparelhos}`.slice(0, 300) });
+          await db.from("avisos_enviados").insert({ user_id: user.id, dia, canais: `${r.limite ? `limite: ${r.limite}; ` : ""}email: ${r.email}; push: ${r.push.entregues}/${r.push.aparelhos}`.slice(0, 300) });
         } catch (e) { res.erros.push(String(e?.message || e).slice(0, 200)); }
       }
       if (data.users.length < 200) break;

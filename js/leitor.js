@@ -1,6 +1,7 @@
-// Leitor de comprovantes e faturas pela câmera.
-// 1) lerImagem: transforma a foto em texto, no próprio aparelho (biblioteca Tesseract.js). Nada é enviado para servidor.
-// 2) interpretaTexto: acha no texto o valor, a data e o que mais der. É uma função pura, testada em tests/leitor.test.mjs.
+// Leitor de comprovantes, faturas de cartão e holerites, por foto ou por PDF.
+// 1) lerImagem: transforma a foto em texto, no próprio aparelho (biblioteca Tesseract.js).
+// 2) lerPdf: tira o texto de um PDF (biblioteca pdf.js), também no aparelho. Nada é enviado para servidor.
+// 3) interpretaTexto: acha no texto o valor, a data e o que mais der. É uma função pura, testada em tests/leitor.test.mjs.
 // A leitura nunca é salva direto: o app mostra o que entendeu e a pessoa confere.
 
 const semAcento = (s) => String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
@@ -85,10 +86,41 @@ function achaDescricao(linhas, norm, fiscal) {
 }
 
 /**
- * Interpreta o texto lido de uma foto.
+ * Holerite: o que interessa é o valor líquido, o que cai na conta.
+ * Devolve o valor, ou null quando não acha.
+ */
+function liquidoDoHolerite(linhas, norm) {
+  const vals = linhas.map((l) => valoresDaLinha(l)), todos = vals.flat().map((x) => x.v);
+  // Confere pela conta: líquido = vencimentos − descontos. Em uma linha de totais (vencimentos, descontos, líquido),
+  // tanto os descontos quanto o líquido fecham a conta; o líquido é o que vem por último.
+  const fecha = (c) => todos.some((a) => a > c && todos.some((b) => b > 0 && Math.abs(a - b - c) < 0.006));
+  const daLinha = (l) => l.length === 1 ? l[0] : [...l].reverse().find(fecha) ?? l[l.length - 1];
+  const rot = /liquido a receber|valor liquido|total liquido|salario liquido|liquido a pagar|liquido de|\bliquido\b/;
+  for (let i = 0; i < norm.length; i++) {
+    const m = norm[i].match(rot); if (!m) continue;
+    const depois = vals[i].filter((x) => x.pos > m.index);
+    if (depois.length) return depois[0].v;                           // "Líquido a receber  3.900,00"
+    if (vals[i].length) return daLinha(vals[i].map((x) => x.v));     // valor antes do rótulo
+    // Rótulo sozinho na linha: o valor vem mais abaixo. Em tabela, na linha seguinte. Em foto, o leitor costuma separar
+    // a coluna dos nomes da coluna dos valores: aí vem uma fila de valores, um por linha, e o líquido é o último dela.
+    const j = vals.findIndex((l, k) => k > i && k <= i + 4 && l.length);
+    if (j < 0) continue;
+    const soValor = (k) => vals[k]?.length && !/[a-z]{3}/.test(norm[k].replace(/r\s?[$s5]/g, ""));
+    let fim = j; while (soValor(fim + 1)) fim++;
+    const fila = vals.slice(j, fim + 1);
+    return soValor(j) && fila.length > 1 && fila.every((l) => l.length === 1) ? fila[fila.length - 1][0].v : daLinha(vals[j].map((x) => x.v));
+  }
+  // Sem a palavra "líquido": usa a conta, partindo do maior valor do documento. Entre descontos e líquido, o líquido é o maior.
+  const ord = [...new Set(todos)].sort((a, b) => b - a);
+  for (const a of ord) for (const b of ord) { const c = Math.round((a - b) * 100) / 100; if (b < a && c > 0 && c !== b && ord.includes(c)) return Math.max(b, c); }
+  return null;
+}
+
+/**
+ * Interpreta o texto lido de uma foto ou de um PDF.
  * @param {string} texto  texto bruto devolvido pelo leitor
  * @param {string} hoje   data de hoje, "AAAA-MM-DD"
- * @returns {{tipo:"comprovante"|"fatura", valor:number|null, valores:number[], data:string|null, vencimento:string|null,
+ * @returns {{tipo:"comprovante"|"fatura"|"holerite", valor:number|null, valores:number[], data:string|null, vencimento:string|null,
  *            descricao:string, forma:string, cartao:string, achouData:boolean}}
  */
 export function interpretaTexto(texto, hoje) {
@@ -99,7 +131,24 @@ export function interpretaTexto(texto, hoje) {
   // Que tipo de documento é?
   const pf = (tem(/\bfatura\b/) ? 2 : 0) + (tem(/vencimento|vence em/) ? 1 : 0) + (tem(/pagamento minimo|minimo/) ? 2 : 0) + (tem(/limite/) ? 1 : 0) + (tem(/total (da|desta) fatura|valor (da|desta) fatura/) ? 3 : 0) + (tem(/fechamento/) ? 1 : 0);
   const pc = (tem(/comprovante/) ? 3 : 0) + (tem(/\bpix\b/) ? 2 : 0) + (tem(/transferencia/) ? 2 : 0) + (tem(/pagamento (realizado|efetuado|aprovado)/) ? 2 : 0) + (tem(/cupom|nfc-?e|nota fiscal|danfe/) ? 3 : 0) + (tem(/favorecido|recebedor|destinatario|quem recebeu/) ? 1 : 0) + (tem(/autenticacao|protocolo|nsu|autorizacao/) ? 1 : 0);
-  const tipo = pf >= 3 && pf > pc ? "fatura" : "comprovante";
+  const ph = (tem(/holerite|contracheque|contra-cheque|recibo de pagamento de salario/) ? 4 : 0) + (tem(/demonstrativo de pagamento|folha de pagamento|folha mensal/) ? 3 : 0)
+    + (tem(/salario base|salario contratual|salario mensal/) ? 2 : 0) + (tem(/\bfgts\b/) ? 2 : 0) + (tem(/\binss\b/) ? 1 : 0) + (tem(/\birrf\b|imposto de renda/) ? 1 : 0)
+    + (tem(/\bliquido\b/) ? 2 : 0) + (tem(/total de (vencimentos|proventos)|total (vencimentos|proventos)/) ? 2 : 0) + (tem(/total de descontos|total descontos/) ? 1 : 0)
+    + (tem(/competencia|matricula|admissao|\bcbo\b|funcionario|empregado/) ? 1 : 0);
+  const tipo = ph >= 5 && ph > pf && ph > pc ? "holerite" : pf >= 3 && pf > pc ? "fatura" : "comprovante";
+  if (tipo === "holerite") {
+    const valor = liquidoDoHolerite(linhas, norm);
+    // Só vale uma data que o holerite chama de pagamento ou crédito (a de admissão, por exemplo, não serve).
+    const ds = []; linhas.forEach((l, i) => datasDaLinha(l, ano).forEach((d) => { if (!d.semAno) ds.push({ ...d, linha: i }); }));
+    const pago = ds.find((d) => [0, 1].some((k) => d.linha - k >= 0 && /data (de|do) (pagamento|credito)|pagamento em|credito em|pago em|data pagto|dt\.? ?pag/.test(norm[d.linha - k])));
+    const amanha = new Date(hoje); amanha.setDate(amanha.getDate() + 1);
+    const data = pago && new Date(pago.data) <= amanha ? pago.data : null;
+    const outros = [...new Set(linhas.flatMap((l, i) => /total|liquido|vencimentos|proventos|descontos|salario base/.test(norm[i]) || (i > 0 && /total|liquido/.test(norm[i - 1])) ? valoresDaLinha(l).map((x) => x.v) : []))]
+      .filter((v) => v !== valor).sort((a, b) => b - a).slice(0, 4);
+    // Sem totais na mesma linha do nome (foto com as colunas separadas): sugere os maiores valores do documento.
+    if (outros.length < 2) outros.splice(0, outros.length, ...[...new Set(linhas.flatMap((l) => valoresDaLinha(l).map((x) => x.v)))].filter((v) => v !== valor).sort((a, b) => b - a).slice(0, 4));
+    return { tipo, valor, valores: outros, data, vencimento: null, descricao: "Salário", forma: "", cartao: "", achouData: Boolean(data) };
+  }
 
   // Valor: cada valor ganha pontos pelas palavras da própria linha e, se a linha só tem o número, pelas da linha de cima.
   const cands = [];
@@ -140,6 +189,63 @@ export function interpretaTexto(texto, hoje) {
   // O nome do banco só interessa na fatura (no comprovante, o banco que aparece costuma ser o de quem recebeu).
   return { tipo, valor, valores, data, vencimento, descricao, forma: tipo === "fatura" ? "" : forma,
     cartao: tipo === "fatura" && banco ? arruma(banco.toUpperCase()) : "", achouData: Boolean(data || vencimento) };
+}
+
+/* ===================== PDF ===================== */
+/**
+ * Junta os pedaços de texto de uma página de PDF em linhas, de cima para baixo e da esquerda para a direita.
+ * Cada item vem com o texto e a posição na página (x, y, com y crescendo para cima). Função pura.
+ * @param {{str:string, x:number, y:number, h?:number}[]} itens
+ * @returns {string[]}
+ */
+export function linhasDoPdf(itens) {
+  const us = itens.filter((i) => i.str && i.str.trim()).sort((a, b) => b.y - a.y || a.x - b.x), linhas = [];
+  for (const it of us) {
+    const tol = Math.max(2, (it.h || 10) * 0.45), l = linhas.find((x) => Math.abs(x.y - it.y) <= tol);
+    if (l) l.itens.push(it); else linhas.push({ y: it.y, itens: [it] });
+  }
+  return linhas.map((l) => l.itens.sort((a, b) => a.x - b.x).map((i) => i.str.trim()).join(" ").replace(/\s+/g, " ").trim()).filter(Boolean);
+}
+export const ehPdf = (arquivo) => arquivo?.type === "application/pdf" || /\.pdf$/i.test(arquivo?.name || "");
+
+const PDFJS = "https://cdn.jsdelivr.net/npm/pdfjs-dist@5.7.284/legacy/build/";
+let pdfLib = null, pdfFalhas = 0;
+/** Carrega o leitor de PDF só quando a pessoa escolhe um PDF pela primeira vez. */
+async function carregaPdf() {
+  if (pdfLib) return pdfLib;
+  // O navegador guarda a falha de um endereço que não carregou; por isso, cada nova tentativa usa um endereço diferente.
+  try { const lib = await import(PDFJS + "pdf.min.mjs" + (pdfFalhas ? "?t=" + pdfFalhas : "")); lib.GlobalWorkerOptions.workerSrc = PDFJS + "pdf.worker.min.mjs"; pdfLib = lib; }
+  catch { pdfFalhas++; throw new Error("leitor-indisponivel"); }
+  return pdfLib;
+}
+
+/**
+ * Lê um PDF: devolve o texto das primeiras páginas e a primeira página como imagem (para a miniatura e,
+ * se o PDF for só uma foto digitalizada, para a leitura por imagem).
+ * Lança Error("pdf-senha") se o arquivo pede senha, Error("pdf-senha-errada") se a senha não abriu,
+ * Error("pdf-invalido") se não é um PDF que dê para abrir e Error("leitor-indisponivel") se a biblioteca não carregou.
+ */
+export async function lerPdf(arquivo, { senha = "", aoProgredir = () => {} } = {}) {
+  aoProgredir({ etapa: "carregando", pct: 0 });
+  const lib = await carregaPdf();
+  const tarefa = lib.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()), ...(senha ? { password: senha } : {}) });
+  let doc;
+  try { doc = await tarefa.promise; }
+  catch (e) { tarefa.destroy().catch(() => {}); throw new Error(e?.name === "PasswordException" ? (senha ? "pdf-senha-errada" : "pdf-senha") : "pdf-invalido"); }
+  try {
+    const n = Math.min(doc.numPages, 3), partes = [];
+    for (let i = 1; i <= n; i++) {
+      const pg = await doc.getPage(i), tc = await pg.getTextContent();
+      partes.push(linhasDoPdf(tc.items.map((it) => ({ str: it.str, x: it.transform[4], y: it.transform[5], h: it.height }))).join("\n"));
+      aoProgredir({ etapa: "lendo", pct: Math.round((i / (n + 1)) * 100) });
+    }
+    const pg = await doc.getPage(1), base = pg.getViewport({ scale: 1 });
+    const vp = pg.getViewport({ scale: Math.min(2, 2000 / Math.max(base.width, base.height)) });
+    const tela = document.createElement("canvas"); tela.width = Math.ceil(vp.width); tela.height = Math.ceil(vp.height);
+    await pg.render({ canvas: tela, canvasContext: tela.getContext("2d"), viewport: vp }).promise;
+    aoProgredir({ etapa: "lendo", pct: 100 });
+    return { texto: partes.join("\n"), tela, paginas: doc.numPages };
+  } finally { tarefa.destroy().catch(() => {}); }
 }
 
 /* ===================== leitura da imagem (só no navegador) ===================== */

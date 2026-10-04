@@ -65,6 +65,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
       <button class="btn" id="btnImport" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Importar Excel</button>
       <button class="btn" id="btnExport" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>Baixar Excel</button>
       <input type="file" id="fileIn" accept=".xlsx,.xls" hidden>
+      <button class="btn" id="btnLimites" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01"/></svg>Limites</button>
       <button class="btn" id="btnAjustes" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 5v4M7 15v4"/></svg>Ajustes</button>
       <span class="who"><span id="whoName"></span><button class="link" id="btnSair" type="button">Sair</button></span>
     </div>
@@ -73,13 +74,15 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
   <div class="banner" id="banner" role="status" hidden></div>
 
   <section class="v-inicio" id="resumo" aria-label="Resumo do mês"></section>
+  <section class="v-inicio" id="dia" aria-label="Seu dia" hidden></section>
+  <section class="v-inicio" id="teto" aria-label="Limite de gastos do mês" hidden></section>
 
   <section class="v-inicio" id="venc" aria-label="Próximos vencimentos"></section>
 
   <section class="panel quick" aria-label="Lançar">
     <div class="quick-head">
       <h2>Lançar</h2>
-      <button class="btn sm ler" id="btnLer" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>Ler pela câmera</button>
+      <button class="btn sm ler" id="btnLer" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>Ler foto ou PDF</button>
       <button class="iconbtn so-mobile" id="lancFechar" type="button" aria-label="Fechar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
       <div class="seg" role="group" aria-label="Tipo de lançamento" id="tipoSeg">
         <button type="button" data-t="Despesa" aria-pressed="true">Gasto</button>
@@ -119,7 +122,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
     </section>
     <section class="panel">
       <h2>Por categoria</h2>
-      <p class="hint">Para onde foi o custo do mês. Toque em uma categoria para ver os gastos.</p>
+      <p class="hint">Para onde foi o custo do mês. Toque em uma categoria para ver os gastos e definir um limite.</p>
       <div class="chart" id="chCat"></div>
     </section>
   </div>
@@ -131,11 +134,13 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
       <button role="tab" id="tab-f" aria-selected="false" data-tab="f">Gastos fixos</button>
       <button role="tab" id="tab-r" aria-selected="false" data-tab="r">Entradas fixas</button>
       <button role="tab" id="tab-c" aria-selected="false" data-tab="c">Cartões</button>
+      <button role="tab" id="tab-m" aria-selected="false" data-tab="m">Limites</button>
     </div>
     <div id="pane-l" role="tabpanel"></div>
     <div id="pane-f" role="tabpanel" hidden></div>
     <div id="pane-r" role="tabpanel" hidden></div>
     <div id="pane-c" role="tabpanel" hidden></div>
+    <div id="pane-m" role="tabpanel" hidden></div>
   </section>
 
   <p class="foot v-inicio">Compras no cartão de crédito não entram no custo na hora: a cobrança entra no mês em que a fatura vence. Com o cartão cadastrado na aba Cartões, a fatura é montada sozinha, incluindo as parcelas. O dinheiro que você guarda (reserva, investimentos e outros) sai do saldo do mês e fica somado no quadro Dinheiro guardado.</p>
@@ -151,9 +156,11 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
 </nav>
 <div class="toast" id="toast" role="status" hidden></div>
 
-<!-- Leitor: a câmera (ou a galeria) entrega a imagem; a leitura é feita no próprio aparelho -->
+<!-- Leitor: a câmera entrega a foto; a galeria entrega imagem ou PDF. A leitura é feita no próprio aparelho -->
 <input type="file" id="lerCamera" accept="image/*" capture="environment" hidden>
-<input type="file" id="lerGaleria" accept="image/*" hidden>
+<input type="file" id="lerGaleria" accept="image/*,application/pdf,.pdf" hidden>
+<!-- Extrato do cartão exportado pelo banco (CSV, OFX ou Excel). Sem filtro de tipo: alguns celulares escondem arquivos .ofx e .csv quando há filtro -->
+<input type="file" id="extratoIn" hidden>
 
 <dialog id="dlg"><div id="dlgBody"></div></dialog>
 </body>
