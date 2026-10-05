@@ -3,12 +3,17 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Meus Gastos: controle de gastos no celular. Lance cada gasto na hora, veja quanto o mês vai custar e seja avisado antes de cada conta vencer.">
+<meta name="description" content="Meus Gastos: controle de gastos no celular. Veja quanto sobra no mês e quanto dá para gastar por dia, defina um limite e seja avisado antes de cada conta vencer.">
 <meta property="og:title" content="Meus Gastos">
-<meta property="og:description" content="Saiba quanto o mês vai custar antes de ele acabar.">
+<meta property="og:description" content="Veja quanto sobra no mês antes de ele acabar.">
 <meta property="og:type" content="website">
 <meta name="theme-color" content="#0c2038">
 <link rel="icon" href="img/icone.png">
+<!-- O site fica dentro do app (pasta site/). Com estas linhas, o navegador oferece a instalação do app a partir daqui. -->
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="apple-touch-icon" href="../icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Meus Gastos">
 <title>Meus Gastos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
@@ -61,6 +66,8 @@ p{margin:0;max-width:60ch}
 .topo nav a.lk:hover{color:var(--band-ink)}
 .topo nav a.lk.aqui{background:rgba(241,246,252,.12);color:var(--band-ink)}
 .topo nav .btn{padding:9px 16px;font-size:.9rem;margin-left:8px;box-shadow:none}
+.topo nav a.entrar{text-decoration:none;color:var(--band-ink);font-weight:600;padding:7px 12px;border-radius:999px;transition:background .2s}
+.topo nav a.entrar:hover{background:rgba(241,246,252,.12)}
 
 /* abertura */
 .abre{position:relative;overflow:hidden;background:
@@ -107,7 +114,17 @@ p{margin:0;max-width:60ch}
 .medidor b{position:absolute;top:-4px;bottom:-4px;width:2px;background:#fff;left:93.5%;transition:left .6s cubic-bezier(.2,.7,.2,1);opacity:.9}
 .medidor.estourou i{background:#f07b7b}
 .custo .p{font-size:.84rem;opacity:.9}
-.custo .p b.neg{color:#ff9d9d}
+.custo .p b.neg,.custo .n.neg{color:#ff9d9d}
+/* limite do mês, no exemplo */
+.sim-lim{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 14px;transition:border-color .3s}
+.sim-lim .t{font-size:.9rem;font-weight:600}
+.sim-lim .t{white-space:nowrap}
+.sim-lim .tb{grid-column:1/-1;height:6px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+.sim-lim .tb i{display:block;height:100%;border-radius:999px;background:var(--good);width:84%;transition:width .6s cubic-bezier(.2,.7,.2,1),background .3s}
+.sim-lim .d{grid-column:1/-1;font-size:.82rem;color:var(--ink-2)}
+.sim-lim .d b{color:var(--ink);font-variant-numeric:tabular-nums}
+.sim-lim.warn{border-color:rgba(240,180,58,.45)} .sim-lim.warn .tb i{background:var(--warn)}
+.sim-lim.bad{border-color:rgba(240,123,123,.55)} .sim-lim.bad .tb i{background:var(--bad)}
 .sim-add{display:grid;gap:8px;padding:4px}
 .sim-add .q{font-size:.86rem;color:var(--ink-2);font-weight:500}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -144,7 +161,7 @@ section{padding-block:72px}
 .fone{width:100%;max-width:292px;border:9px solid var(--frame);border-radius:38px;overflow:hidden;background:var(--frame);box-shadow:var(--shadow);aspect-ratio:585/1266}
 .palco .fone{max-width:min(292px,calc(min(660px,82vh) * .462))}
 .fone img{width:100%;height:100%;object-fit:cover}
-.pontos{position:absolute;right:-22px;top:50%;transform:translateY(-50%);display:grid;gap:8px}
+.pontos{position:absolute;right:-16px;top:50%;transform:translateY(-50%);display:grid;gap:8px}
 .pontos i{width:8px;height:8px;border-radius:50%;background:var(--line);transition:background .3s,transform .3s}
 .pontos i.on{background:var(--accent);transform:scale(1.4)}
 /* aviso: e-mail e notificação como chegam */
@@ -160,6 +177,8 @@ section{padding-block:72px}
 .email table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
 .email td{padding:8px 4px;border-top:1px solid var(--line);vertical-align:top}
 .email td:last-child{text-align:right;white-space:nowrap;font-family:var(--mono);font-size:.82rem}
+.email .lim{display:grid;gap:2px;background:var(--warn-soft);border-left:3px solid var(--warn);border-radius:8px;padding:9px 11px;margin-bottom:12px;font-size:.84rem;color:var(--ink-2)}
+.email .lim b{color:var(--warn);font-size:.9rem}
 .email td small{display:block;color:var(--muted)} .email td small.bad{color:var(--bad)} .email td small.warn{color:var(--warn)}
 
 /* mais recursos */
@@ -174,6 +193,33 @@ section{padding-block:72px}
 .como li{counter-increment:p;display:grid;gap:8px;align-content:start;position:relative}
 .como li::before{content:counter(p);font-family:var(--display);font-weight:800;font-size:1.3rem;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);margin-bottom:6px;box-shadow:0 0 0 6px var(--bg)}
 .como p{color:var(--ink-2);font-size:.97rem}
+/* instalar */
+.instalar .col{display:grid;gap:22px}
+.inst-topo{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,.85fr);gap:44px;align-items:center;background:radial-gradient(520px 300px at 0% 0%,rgba(79,151,236,.20),transparent 65%),var(--surface);border:1px solid var(--line);border-radius:24px;padding:38px}
+.inst-txt{display:grid;gap:14px;justify-items:start}
+.inst-txt p{color:var(--ink-2)}
+.inst-acao{display:flex;flex-wrap:wrap;gap:12px;margin-top:6px}
+.inst-acao [hidden]{display:none}
+button.btn{cursor:pointer}
+.inst-msg{font-size:.92rem;color:var(--ink-2);min-height:1.5em}
+.inst-msg.ok{color:var(--good);font-weight:600}
+.inst-qr{display:grid;grid-template-columns:132px minmax(0,1fr);gap:18px;align-items:center;background:var(--bg);border:1px solid var(--line);border-radius:18px;padding:16px}
+.qr{width:132px;height:132px;border-radius:10px;display:block}
+.inst-qr b{display:block;font-family:var(--display);font-size:1.08rem;line-height:1.2;margin-bottom:5px}
+.inst-qr span{display:block;font-size:.9rem;color:var(--ink-2)}
+.plats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
+.plat{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:0 20px 18px;transition:border-color .2s}
+.plat.aqui-so{border-color:var(--accent)}
+.plat summary{list-style:none;padding:18px 0 0;font-family:var(--display);font-weight:700;font-size:1.15rem;letter-spacing:-.01em;cursor:default}
+.plat summary::-webkit-details-marker{display:none}
+.plat summary small{display:block;font-family:var(--sans);font-weight:400;font-size:.84rem;letter-spacing:0;color:var(--muted);margin-top:2px}
+.plat ol{margin:14px 0 0;padding:0;list-style:none;counter-reset:i;display:grid;gap:10px;color:var(--ink-2);font-size:.95rem}
+.plat ol li{counter-increment:i;position:relative;padding-left:34px;min-height:24px}
+.plat ol li::before{content:counter(i);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--luz);font-family:var(--display);font-weight:700;font-size:.82rem}
+.plat ol b{color:var(--ink);font-weight:600}
+.plat ol svg{width:17px;height:17px;vertical-align:-3px;stroke:var(--luz);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.plat p{font-size:.86rem;color:var(--muted);margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line)}
+.lk-inst{justify-self:center;font-size:.92rem;color:var(--ink-2)}
 /* para quem é */
 .paraquem{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:28px}
 .paraquem div{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px}
@@ -234,8 +280,9 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   .abre h1{order:2;margin:10px 0 12px;font-size:clamp(2.05rem,9.4vw,2.9rem)}
   .abre .lead{order:3;font-size:1.02rem}
   .acoes{order:4;margin-top:18px}
-  .acoes .btn.sec{display:none}
+  .acoes{gap:10px}
   .acoes .btn{width:100%;padding:16px}
+  .acoes .btn.sec{padding:13px}
   .sim{order:5;margin-top:22px;border-radius:22px;padding:14px}
   .abre .nota{order:6;margin-top:16px;text-align:center;max-width:none}
   .selos{order:7;justify-content:center;margin-top:12px}
@@ -283,7 +330,20 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   .como li{padding-left:66px;min-height:48px} .como li::before{position:absolute;left:0;top:0;margin:0}
   .paraquem{gap:12px;margin-top:20px} .paraquem div{padding:18px}
   .cartao-oferta{padding:22px}
-  .topo nav a.lk{display:none}
+  /* instalar: o aparelho de quem está lendo vem primeiro e aberto; os outros ficam recolhidos */
+  .instalar .col{gap:10px}
+  .inst-topo{grid-template-columns:minmax(0,1fr);gap:0;padding:22px;border-radius:20px}
+  .inst-qr{display:none}
+  .inst-acao{width:100%} .inst-acao .btn{width:100%}
+  .plats{grid-template-columns:minmax(0,1fr);gap:8px}
+  .plat{padding:0 18px}
+  .plat.aqui-so{order:-1}
+  .plat summary{cursor:pointer;padding:15px 30px 15px 0;position:relative;font-size:1.05rem}
+  .plat summary::after{content:"+";position:absolute;right:0;top:50%;transform:translateY(-50%);font-size:1.4rem;color:var(--accent);transition:transform .2s}
+  .plat[open] summary::after{transform:translateY(-50%) rotate(45deg)}
+  .plat ol{margin-top:2px}
+  .plat p{margin-bottom:18px} .plat ol:last-child{margin-bottom:18px}
+  .topo nav a.lk,.topo nav a.entrar{display:none}
   section{padding-block:46px} .dor{padding-block:44px 16px}
   .faq summary{padding-block:17px}
   .fixo{display:block}
@@ -300,8 +360,9 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 <header class="topo"><div class="col">
   <a class="marca" href="#inicio"><img src="img/icone.png" alt="" width="32" height="32">Meus Gastos</a>
   <nav aria-label="Seções">
-    <a class="lk" href="#recursos">Recursos</a><a class="lk" href="#como">Como funciona</a><a class="lk" href="#perguntas">Perguntas</a>
-    <a class="btn pri" data-cta href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Testar agora</a>
+    <a class="lk" href="#recursos">Recursos</a><a class="lk" href="#como">Como funciona</a><a class="lk" href="#instalar">Instalar</a><a class="lk" href="#perguntas">Perguntas</a>
+    <a class="entrar" data-app="" href="https://meugastos.com.br/" target="_blank" rel="noopener">Entrar</a>
+    <a class="btn pri" data-cta data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Testar agora</a>
   </nav>
 </div></header>
 
@@ -309,25 +370,30 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 <div class="abre"><div class="col">
   <div>
     <span class="rot">Controle de gastos no celular</span>
-    <h1>Saiba quanto o mês vai custar <em>antes de ele acabar.</em></h1>
-    <p class="lead">Lance cada gasto na hora, cadastre uma vez o que é fixo e os seus cartões. O Meus Gastos soma tudo, avisa o que está para vencer e mostra se o mês fecha no azul.</p>
+    <h1>Veja quanto sobra no mês <em>antes de ele acabar.</em></h1>
+    <p class="lead">Lance cada gasto na hora ou traga o extrato do cartão. O Meus Gastos soma tudo, mostra quanto ainda dá para gastar por dia e avisa antes de uma conta vencer ou de o seu limite estourar.</p>
     <div class="acoes" id="acoesTopo">
-      <a class="btn pri" data-cta href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a>
-      <a class="btn sec" href="#recursos">Ver o que ele faz</a>
+      <a class="btn pri" data-cta data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a>
+      <a class="btn sec" href="#instalar">Instalar no celular</a>
     </div>
     <p class="nota" data-nota>Abre no navegador, sem cadastro. Os dados de exemplo ficam só no seu aparelho.</p>
-    <ul class="selos"><li>Android e iPhone</li><li>Aviso por e-mail e notificação</li><li>Fatura do cartão automática</li></ul>
+    <ul class="selos"><li>Android e iPhone</li><li>Aviso por e-mail e notificação</li><li>Lê foto, PDF e extrato do cartão</li></ul>
   </div>
 
   <div class="sim" id="sim" aria-label="Exemplo do app que responde ao toque">
     <div class="sim-top"><b>Outubro</b><span class="rot">Exemplo · toque para testar</span></div>
-    <div class="venc" data-venc><span class="dt"><b>08</b><span>OUT</span></span><span class="oq"><b>Fatura Cartão roxo</b><span>4 compras, com a parcela do tênis</span></span><span class="dir"><span class="pill warn" data-pill>em 5 dias</span><span class="v">R$ 300,90</span><button class="mini" type="button" data-pagar>Já paguei</button></span></div>
-    <div class="venc" data-venc><span class="dt"><b>10</b><span>OUT</span></span><span class="oq"><b>Aluguel</b><span>Gasto fixo</span></span><span class="dir"><span class="pill warn" data-pill>em 7 dias</span><span class="v">R$ 1.100,00</span><button class="mini" type="button" data-pagar>Já paguei</button></span></div>
+    <div class="venc" data-venc><span class="dt"><b>08</b><span>OUT</span></span><span class="oq"><b>Fatura Cartão roxo</b><span>4 compras, com a parcela do tênis</span></span><span class="dir"><span class="pill warn" data-pill>em 4 dias</span><span class="v">R$ 300,90</span><button class="mini" type="button" data-pagar>Já paguei</button></span></div>
+    <div class="venc" data-venc><span class="dt"><b>10</b><span>OUT</span></span><span class="oq"><b>Aluguel</b><span>Gasto fixo</span></span><span class="dir"><span class="pill warn" data-pill>em 6 dias</span><span class="v">R$ 1.100,00</span><button class="mini" type="button" data-pagar>Já paguei</button></span></div>
     <div class="custo">
-      <span class="l">Custo do mês até agora</span>
-      <span class="n" id="simCusto">R$ 2.939,40</span>
-      <div class="medidor" id="simMed" role="img" aria-label="Custo do mês comparado com as entradas de R$ 3.900"><i id="simBarra"></i><b id="simMarca"></b></div>
-      <span class="p" id="simPrev">No ritmo atual, o mês fecha em <b>R$ 3.648</b> e sobram <b>R$ 252</b>.</span>
+      <span class="l" id="simRot">Sobram em outubro</span>
+      <span class="n" id="simCusto">R$ 960,60</span>
+      <div class="medidor" id="simMed" role="img" aria-label="Quanto das entradas de R$ 3.900 já está comprometido"><i id="simBarra"></i><b id="simMarca"></b></div>
+      <span class="p" id="simPrev">Dá para gastar <b>R$ 34,31</b> por dia nos 28 dias que faltam. No ritmo atual, sobram <b>R$ 277</b> no fim do mês.</span>
+    </div>
+    <div class="sim-lim warn" id="simLim">
+      <span class="t">Limite de outubro</span><span class="pill warn" id="simLimPill">Perto do limite</span>
+      <div class="tb"><i id="simLimBarra"></i></div>
+      <span class="d"><b id="simLimPct">84%</b> usado. <span id="simLimTxt">Ainda cabem R$ 560,60 no limite de R$ 3.500 que você definiu.</span></span>
     </div>
     <div class="sim-add">
       <span class="q">Lance um gasto e veja o mês mudar:</span>
@@ -355,27 +421,50 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 <section id="recursos" style="padding-top:30px">
 <div class="col so-cel cab-rec">
   <span class="rot">O que ele faz</span>
-  <h2 style="margin-top:8px">Quatro motivos para abrir o app todo dia.</h2>
+  <h2 style="margin-top:8px">Seis motivos para abrir o app todo dia.</h2>
   <div class="atalhos" id="atalhos" role="tablist" aria-label="Recursos">
-    <button type="button" class="on" data-ir="0">Avisos</button><button type="button" data-ir="1">Cartão</button><button type="button" data-ir="2">Lançar</button><button type="button" data-ir="3">Detalhes</button>
+    <button type="button" class="on" data-ir="0">Resumo</button><button type="button" data-ir="1">Limites</button><button type="button" data-ir="2">Avisos</button><button type="button" data-ir="3">Cartão</button><button type="button" data-ir="4">Extrato</button><button type="button" data-ir="5">Lançar</button>
   </div>
 </div>
 <div class="col vit">
   <div class="trilho" id="trilho">
     <article class="passo ativo" data-tela="0">
-      <span class="rot">Vencimentos e avisos</span>
-      <h2>O que vence primeiro aparece primeiro.</h2>
-      <p>Na tela inicial ficam as contas dos próximos 30 dias, com a contagem de dias e o botão "Já paguei".</p>
+      <span class="rot">Resumo do mês</span>
+      <h2>A primeira tela responde: quanto sobra?</h2>
+      <p>O que entra menos tudo o que sai no mês, em um número grande. Logo abaixo, quanto você ainda pode gastar por dia até o mês acabar.</p>
       <ul>
-        <li>Aviso por e-mail e notificação no celular, de manhã, só nos dias em que há conta atrasada ou vencendo em até 3 dias.</li>
-        <li>Alerta quando o mês já está, ou vai fechar, no vermelho.</li>
+        <li>Uma barra colorida mostra para onde o dinheiro foi: contas fixas, dia a dia, faturas e o que ainda sobra.</li>
+        <li>Previsão de como o mês fecha se o ritmo de gastos continuar o mesmo.</li>
+        <li>Toque em qualquer número para abrir a lista do que compõe aquele valor.</li>
+      </ul>
+      <div class="so-fone"><div class="fone"><img src="img/tela-inicio.png" alt="Tela inicial: sobram R$ 960,60 em outubro, com a barra do dinheiro e quanto dá para gastar por dia" loading="lazy" width="585" height="1266"></div></div>
+    </article>
+    <article class="passo" data-tela="1">
+      <span class="rot">Limites de gasto</span>
+      <h2>Você define o teto do mês. O app acompanha.</h2>
+      <p>Na aba Limites, diga quanto quer gastar no máximo por mês. O app mostra quanto do limite já foi usado e se, no ritmo atual, o mês vai passar dele.</p>
+      <ul>
+        <li>Limite também por categoria, como mercado, lazer ou transporte.</li>
+        <li>O quadro muda de cor ao chegar a 80% do limite e quando você passa dele.</li>
+        <li>Sem ideia de valor? O app sugere um a partir do que você gastou no mês anterior.</li>
+      </ul>
+      <div class="so-fone"><div class="fone"><img src="img/tela-limites.png" alt="Aba Limites: limite de R$ 3.500 por mês, com 84% usado e o aviso de que está perto do limite" loading="lazy" width="585" height="1266"></div></div>
+    </article>
+    <article class="passo" data-tela="2">
+      <span class="rot">Avisos</span>
+      <h2>O aviso chega antes do problema.</h2>
+      <p>De manhã, o app avisa por e-mail e por notificação no celular. Só nos dias em que há algo para resolver.</p>
+      <ul>
+        <li>Contas atrasadas ou vencendo em até 3 dias, com o valor de cada uma.</li>
+        <li>Limite do mês: um aviso ao chegar a 80%, outro ao passar e outro se passar em mais de 20%.</li>
+        <li>Na tela inicial ficam os vencimentos dos próximos 30 dias, com o botão "Já paguei".</li>
         <li>Você liga e desliga cada aviso quando quiser.</li>
       </ul>
       <div class="so-fone"><div class="avisos">
-        <div class="notif"><img src="img/icone.png" alt=""><div><small><span>Meus Gastos</span><span>08:00</span></small><b>1 conta atrasada e 2 para vencer</b><span>Terapia: R$ 90,00, atrasada há 2 dias</span><span>Fatura Cartão roxo: R$ 300,90, vence em 3 dias</span></div></div>
+        <div class="notif"><img src="img/icone.png" alt=""><div><small><span>Meus Gastos</span><span>08:00</span></small><b>1 conta atrasada e 2 para vencer</b><span>Terapia: R$ 90,00, atrasada há 2 dias</span><span>Fatura Cartão roxo: R$ 300,90, vence em 3 dias</span><span>Você já usou 84% do limite de outubro</span></div></div>
       </div></div>
     </article>
-    <article class="passo" data-tela="1">
+    <article class="passo" data-tela="3">
       <span class="rot">Cartão de crédito</span>
       <h2>A fatura deixa de ser surpresa.</h2>
       <p>Cadastre o cartão com o dia em que a fatura fecha e o dia em que vence. A partir daí, cada compra entra sozinha na fatura certa.</p>
@@ -386,42 +475,47 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
       </ul>
       <div class="so-fone"><div class="fone baixo"><img src="img/tela-fatura.png" alt="Tela da fatura do cartão, com as compras e a parcela 1 de 3 do tênis" loading="lazy" width="585" height="1266"></div></div>
     </article>
-    <article class="passo" data-tela="2">
-      <span class="rot">Lançamento</span>
-      <h2>Anotar um gasto leva dez segundos.</h2>
-      <p>Toque no botão +, digite o valor e escolha a categoria. O custo do mês e a previsão se atualizam na hora.</p>
+    <article class="passo" data-tela="4">
+      <span class="rot">Extrato do cartão</span>
+      <h2>Traga o extrato e não digite compra por compra.</h2>
+      <p>Baixe o extrato do cartão no aplicativo do seu banco e abra no Meus Gastos. Ele lista as compras, sugere a categoria de cada uma e coloca tudo na fatura certa.</p>
       <ul>
-        <li>Gastos fixos são cadastrados uma vez: todo mês, como o aluguel, ou toda semana, como a terapia.</li>
-        <li>O salário e outras entradas fixas entram sozinhos no dia certo.</li>
-        <li>Se o aluguel subir, a mudança vale só do mês em diante. O passado fica como estava.</li>
+        <li>Aceita os arquivos que os bancos geram: CSV, OFX e planilha do Excel.</li>
+        <li>Você confere, desmarca o que não quiser e lança tudo de uma vez.</li>
+        <li>Abrir o mesmo extrato duas vezes não duplica as compras.</li>
+        <li>O app não acessa a sua conta no banco. Quem escolhe o arquivo é você.</li>
       </ul>
-      <div class="so-fone"><div class="fone"><img src="img/tela-lancar.png" alt="Tela de lançar um gasto de R$ 359,70 no cartão, em 3 parcelas de R$ 119,90" loading="lazy" width="585" height="1266"></div></div>
+      <div class="so-fone"><div class="fone"><img src="img/tela-extrato.png" alt="Importar extrato do cartão: 8 compras encontradas, cada uma com a categoria sugerida" loading="lazy" width="585" height="1266"></div></div>
     </article>
-    <article class="passo" data-tela="3">
-      <span class="rot">Transparência</span>
-      <h2>Um toque mostra de onde veio cada número.</h2>
-      <p>Toque no custo do mês, nas entradas, no saldo ou em uma categoria do gráfico. O app abre a lista do que compõe aquele valor.</p>
+    <article class="passo" data-tela="5">
+      <span class="rot">Lançamento</span>
+      <h2>Anotar um gasto leva dez segundos. Ou uma foto.</h2>
+      <p>Toque no botão +, digite o valor e escolha a categoria. Se preferir, aponte a câmera para o comprovante: o app lê o valor, a data e a descrição, e você só confere.</p>
       <ul>
-        <li>Gráfico do custo acumulado no mês, comparado com o que entrou.</li>
-        <li>Categorias que você mesmo define.</li>
-        <li>As compras da fatura aparecem cada uma na sua categoria.</li>
+        <li>Lê foto e PDF de comprovante, fatura de cartão e holerite.</li>
+        <li>A leitura é feita no próprio aparelho. O documento não é enviado para nenhum servidor.</li>
+        <li>Gastos fixos e salário são cadastrados uma vez e entram sozinhos, todo mês ou toda semana.</li>
       </ul>
-      <div class="so-fone"><div class="fone baixo"><img src="img/tela-detalhe.png" alt="Detalhe do custo do mês: gastos do dia a dia, gastos fixos e faturas" loading="lazy" width="585" height="1266"></div></div>
+      <div class="so-fone"><div class="fone"><img src="img/tela-leitura.png" alt="Conferir leitura: o app preencheu valor, data e descrição a partir da foto de um comprovante" loading="lazy" width="585" height="1266"></div></div>
     </article>
   </div>
   <div class="palco" aria-hidden="true">
-    <div class="camada on" data-c="0"><div class="avisos">
-      <div class="notif"><img src="img/icone.png" alt=""><div><small><span>Meus Gastos</span><span>08:00</span></small><b>1 conta atrasada e 2 para vencer</b><span>Terapia: R$ 90,00, atrasada há 2 dias</span><span>Fatura Cartão roxo: R$ 300,90, vence em 3 dias</span></div></div>
-      <div class="email"><div class="de">De: Meus Gastos · Para: você</div><h4>Você tem 3 contas para resolver, somando R$ 480,90</h4>
+    <div class="camada on" data-c="0"><div class="fone"><img src="img/tela-inicio.png" alt="" width="585" height="1266"></div></div>
+    <div class="camada" data-c="1"><div class="fone"><img src="img/tela-limites.png" alt="" loading="lazy" width="585" height="1266"></div></div>
+    <div class="camada" data-c="2"><div class="avisos">
+      <div class="notif"><img src="img/icone.png" alt=""><div><small><span>Meus Gastos</span><span>08:00</span></small><b>1 conta atrasada e 2 para vencer</b><span>Terapia: R$ 90,00, atrasada há 2 dias</span><span>Fatura Cartão roxo: R$ 300,90, vence em 3 dias</span><span>Você já usou 84% do limite de outubro</span></div></div>
+      <div class="email"><div class="de">De: Meus Gastos · Para: você</div>
+        <div class="lim"><b>Você já usou 84% do limite de outubro</b><span>Seu custo de outubro está em R$ 2.939,40, e o limite que você definiu é R$ 3.500,00. Ainda cabem R$ 560,60.</span></div>
+        <h4>Você tem 3 contas para resolver, somando R$ 480,90</h4>
         <table><tr><td>Terapia<small class="bad">atrasada há 2 dias</small></td><td>R$ 90,00</td></tr><tr><td>Fatura Cartão roxo<small class="warn">vence em 3 dias</small></td><td>R$ 300,90</td></tr><tr><td>Terapia<small>vence em 3 dias</small></td><td>R$ 90,00</td></tr></table></div>
     </div></div>
-    <div class="camada" data-c="1"><div class="fone"><img src="img/tela-fatura.png" alt="" width="585" height="1266"></div></div>
-    <div class="camada" data-c="2"><div class="fone"><img src="img/tela-lancar.png" alt="" width="585" height="1266"></div></div>
-    <div class="camada" data-c="3"><div class="fone"><img src="img/tela-detalhe.png" alt="" width="585" height="1266"></div></div>
-    <div class="pontos"><i class="on"></i><i></i><i></i><i></i></div>
+    <div class="camada" data-c="3"><div class="fone"><img src="img/tela-fatura.png" alt="" loading="lazy" width="585" height="1266"></div></div>
+    <div class="camada" data-c="4"><div class="fone"><img src="img/tela-extrato.png" alt="" loading="lazy" width="585" height="1266"></div></div>
+    <div class="camada" data-c="5"><div class="fone"><img src="img/tela-leitura.png" alt="" loading="lazy" width="585" height="1266"></div></div>
+    <div class="pontos"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
   </div>
 </div>
-<div class="col so-cel dica-rec"><span class="pontos-cel" id="pontosCel"><i class="on"></i><i></i><i></i><i></i></span><span>Arraste para o lado</span></div>
+<div class="col so-cel dica-rec"><span class="pontos-cel" id="pontosCel"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span><span>Arraste para o lado</span></div>
 </section>
 
 <section><div class="col">
@@ -430,10 +524,10 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   <div class="grade">
     <div class="sobe"><h3>Dinheiro guardado à parte</h3><p>Reserva de emergência, investimentos e outros destinos ficam em um quadro separado do saldo.</p></div>
     <div class="sobe d1"><h3>Saldo que passa de mês</h3><p>O que sobrou ou faltou segue para o mês seguinte, partindo do valor que você já tinha.</p></div>
-    <div class="sobe d2"><h3>Traga a sua planilha</h3><p>Importe os lançamentos do Excel e baixe tudo de volta quando quiser.</p></div>
-    <div class="sobe"><h3>No celular e no computador</h3><p>Instala na tela inicial do Android e do iPhone. No computador, vira um painel completo.</p></div>
+    <div class="sobe d2"><h3>Relatório de gastos</h3><p>Baixe uma planilha do Excel com os lançamentos, os fixos, as faturas e o resumo de cada mês do ano.</p></div>
+    <div class="sobe"><h3>No celular e no computador</h3><p>Instala na tela inicial do Android e do iPhone, com tema escuro ou claro. No computador, vira um painel completo.</p></div>
     <div class="sobe d1"><h3>Cada pessoa com a sua conta</h3><p>Entrada por e-mail e senha. Cada conta só acessa os próprios dados, e essa regra é aplicada no banco de dados.</p></div>
-    <div class="sobe d2"><h3>Tema escuro</h3><p>Confortável para usar à noite. Quem preferir pode trocar para o claro em Ajustes.</p></div>
+    <div class="sobe d2"><h3>O seu dia em um quadro</h3><p>Quanto você gastou hoje e há quantos dias seguidos vem anotando. Não gastou nada? Um toque registra isso também.</p></div>
   </div>
   <div class="larga sobe"><img src="img/tela-computador.png" alt="O app no computador: quadros de custo, entradas, saldo, dinheiro guardado, fixos e faturas, com os gráficos do mês" loading="lazy" width="1120" height="577"></div>
 </div></section>
@@ -443,9 +537,42 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   <h2 class="sobe" style="margin-top:10px">Três passos, e o mês passa a ter previsão.</h2>
   <ol class="como">
     <li class="sobe"><h3>Cadastre o que é fixo</h3><p>Aluguel, internet, faculdade, salário e seus cartões. Isso é feito uma vez.</p></li>
-    <li class="sobe d1"><h3>Lance cada gasto na hora</h3><p>No mercado, no Uber, na farmácia. Valor, categoria e pronto.</p></li>
-    <li class="sobe d2"><h3>Acompanhe e seja avisado</h3><p>Veja o custo até agora, quanto o mês deve fechar e o que está para vencer.</p></li>
+    <li class="sobe d1"><h3>Lance cada gasto na hora</h3><p>No mercado, no Uber, na farmácia: valor, categoria e pronto. Ou fotografe o comprovante e traga o extrato do cartão.</p></li>
+    <li class="sobe d2"><h3>Acompanhe e seja avisado</h3><p>Veja quanto sobra, quanto dá para gastar por dia e o que está para vencer. Defina um limite e o app avisa quando você chegar perto.</p></li>
   </ol>
+</div></section>
+
+<section class="instalar" id="instalar" style="padding-top:20px"><div class="col">
+  <div class="inst-topo sobe">
+    <div class="inst-txt">
+      <span class="rot">Instalar</span>
+      <h2>Leve o app para a tela inicial do celular.</h2>
+      <p>O Meus Gastos é instalado por esta página, direto pelo navegador, sem loja de aplicativos. Ele ganha ícone próprio, abre em tela cheia e passa a enviar notificações.</p>
+      <div class="inst-acao">
+        <button type="button" class="btn pri" id="instBtn" hidden>Instalar agora</button>
+        <a class="btn pri" id="instIr" href="https://meugastos.com.br/site/#instalar" target="_blank" rel="noopener" hidden>Abrir a página de instalação</a>
+        <a class="btn sec" data-app="" href="https://meugastos.com.br/" target="_blank" rel="noopener">Abrir no navegador</a>
+      </div>
+      <p class="inst-msg" id="instMsg" role="status"></p>
+    </div>
+    <div class="inst-qr">
+      <svg class="qr" viewBox="-4 -4 37 37" role="img" aria-label="Código QR que abre a página de instalação do Meus Gastos" shape-rendering="crispEdges"><rect x="-4" y="-4" width="37" height="37" fill="#fff"/><path fill="#0b1118" d="M0 0h7v1h-7zM8 0h2v1h-2zM13 0h1v1h-1zM16 0h1v1h-1zM18 0h3v1h-3zM22 0h7v1h-7zM0 1h1v1h-1zM6 1h1v1h-1zM16 1h1v1h-1zM20 1h1v1h-1zM22 1h1v1h-1zM28 1h1v1h-1zM0 2h1v1h-1zM2 2h3v1h-3zM6 2h1v1h-1zM8 2h1v1h-1zM11 2h3v1h-3zM16 2h1v1h-1zM20 2h1v1h-1zM22 2h1v1h-1zM24 2h3v1h-3zM28 2h1v1h-1zM0 3h1v1h-1zM2 3h3v1h-3zM6 3h1v1h-1zM8 3h2v1h-2zM11 3h1v1h-1zM13 3h3v1h-3zM17 3h1v1h-1zM19 3h1v1h-1zM22 3h1v1h-1zM24 3h3v1h-3zM28 3h1v1h-1zM0 4h1v1h-1zM2 4h3v1h-3zM6 4h1v1h-1zM8 4h4v1h-4zM14 4h7v1h-7zM22 4h1v1h-1zM24 4h3v1h-3zM28 4h1v1h-1zM0 5h1v1h-1zM6 5h1v1h-1zM9 5h1v1h-1zM12 5h2v1h-2zM16 5h2v1h-2zM19 5h2v1h-2zM22 5h1v1h-1zM28 5h1v1h-1zM0 6h7v1h-7zM8 6h1v1h-1zM10 6h1v1h-1zM12 6h1v1h-1zM14 6h1v1h-1zM16 6h1v1h-1zM18 6h1v1h-1zM20 6h1v1h-1zM22 6h7v1h-7zM9 7h1v1h-1zM11 7h1v1h-1zM16 7h2v1h-2zM0 8h4v1h-4zM6 8h1v1h-1zM8 8h1v1h-1zM14 8h1v1h-1zM17 8h1v1h-1zM21 8h1v1h-1zM24 8h3v1h-3zM28 8h1v1h-1zM1 9h1v1h-1zM3 9h3v1h-3zM8 9h2v1h-2zM14 9h1v1h-1zM16 9h9v1h-9zM28 9h1v1h-1zM0 10h2v1h-2zM4 10h5v1h-5zM13 10h2v1h-2zM16 10h1v1h-1zM18 10h1v1h-1zM24 10h1v1h-1zM26 10h2v1h-2zM1 11h1v1h-1zM4 11h2v1h-2zM7 11h1v1h-1zM11 11h3v1h-3zM15 11h2v1h-2zM18 11h1v1h-1zM20 11h4v1h-4zM28 11h1v1h-1zM1 12h1v1h-1zM5 12h2v1h-2zM8 12h2v1h-2zM11 12h1v1h-1zM15 12h3v1h-3zM19 12h1v1h-1zM25 12h2v1h-2zM0 13h1v1h-1zM3 13h2v1h-2zM8 13h1v1h-1zM10 13h2v1h-2zM13 13h7v1h-7zM21 13h2v1h-2zM26 13h3v1h-3zM0 14h1v1h-1zM2 14h2v1h-2zM5 14h2v1h-2zM12 14h1v1h-1zM14 14h1v1h-1zM16 14h2v1h-2zM19 14h2v1h-2zM22 14h2v1h-2zM26 14h3v1h-3zM1 15h2v1h-2zM4 15h2v1h-2zM10 15h1v1h-1zM12 15h2v1h-2zM16 15h1v1h-1zM19 15h1v1h-1zM22 15h3v1h-3zM27 15h1v1h-1zM0 16h1v1h-1zM2 16h2v1h-2zM5 16h4v1h-4zM10 16h2v1h-2zM15 16h1v1h-1zM18 16h1v1h-1zM20 16h2v1h-2zM24 16h2v1h-2zM27 16h1v1h-1zM1 17h4v1h-4zM12 17h2v1h-2zM15 17h1v1h-1zM17 17h1v1h-1zM20 17h2v1h-2zM23 17h1v1h-1zM25 17h3v1h-3zM0 18h1v1h-1zM3 18h1v1h-1zM6 18h2v1h-2zM9 18h1v1h-1zM11 18h2v1h-2zM15 18h2v1h-2zM18 18h1v1h-1zM23 18h2v1h-2zM26 18h1v1h-1zM5 19h1v1h-1zM8 19h1v1h-1zM12 19h1v1h-1zM17 19h3v1h-3zM26 19h1v1h-1zM0 20h5v1h-5zM6 20h1v1h-1zM9 20h1v1h-1zM11 20h3v1h-3zM15 20h4v1h-4zM20 20h7v1h-7zM8 21h1v1h-1zM10 21h1v1h-1zM12 21h3v1h-3zM16 21h1v1h-1zM20 21h1v1h-1zM24 21h5v1h-5zM0 22h7v1h-7zM9 22h5v1h-5zM16 22h5v1h-5zM22 22h1v1h-1zM24 22h2v1h-2zM27 22h1v1h-1zM0 23h1v1h-1zM6 23h1v1h-1zM15 23h2v1h-2zM19 23h2v1h-2zM24 23h2v1h-2zM27 23h1v1h-1zM0 24h1v1h-1zM2 24h3v1h-3zM6 24h1v1h-1zM9 24h2v1h-2zM12 24h1v1h-1zM14 24h2v1h-2zM17 24h1v1h-1zM20 24h5v1h-5zM26 24h1v1h-1zM0 25h1v1h-1zM2 25h3v1h-3zM6 25h1v1h-1zM8 25h5v1h-5zM14 25h2v1h-2zM17 25h1v1h-1zM19 25h1v1h-1zM21 25h1v1h-1zM23 25h3v1h-3zM28 25h1v1h-1zM0 26h1v1h-1zM2 26h3v1h-3zM6 26h1v1h-1zM8 26h1v1h-1zM10 26h2v1h-2zM13 26h1v1h-1zM18 26h2v1h-2zM23 26h1v1h-1zM26 26h1v1h-1zM28 26h1v1h-1zM0 27h1v1h-1zM6 27h1v1h-1zM8 27h1v1h-1zM11 27h1v1h-1zM14 27h1v1h-1zM16 27h1v1h-1zM19 27h2v1h-2zM22 27h4v1h-4zM27 27h1v1h-1zM0 28h7v1h-7zM8 28h1v1h-1zM12 28h1v1h-1zM14 28h2v1h-2zM19 28h4v1h-4zM24 28h1v1h-1zM27 28h1v1h-1z"/></svg>
+      <div><b>Está no computador?</b><span>Aponte a câmera do celular para o código. Ele abre esta página no aparelho, e a instalação termina lá.</span></div>
+    </div>
+  </div>
+  <div class="plats" id="plats">
+    <details class="plat" data-so="android" open><summary>No Android<small>Chrome, Edge ou Samsung Internet</small></summary>
+      <ol><li>Toque em <b>Instalar agora</b>, no quadro acima.</li><li>Confirme em <b>Instalar</b> na janela que o navegador abre.</li><li>O ícone do Meus Gastos aparece na tela inicial.</li></ol>
+      <p>Se o botão não aparecer, abra o menu <b>⋮</b> do navegador e toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</p>
+    </details>
+    <details class="plat" data-so="ios" open><summary>No iPhone<small>Safari</small></summary>
+      <ol><li>Toque em <b>Compartilhar</b> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>, na barra do Safari.</li><li>Role a lista e toque em <b>Adicionar à Tela de Início</b>.</li><li>Confirme em <b>Adicionar</b>.</li></ol>
+      <p>No iPhone, a notificação de contas só funciona com o app instalado desta forma.</p>
+    </details>
+    <details class="plat" data-so="pc" open><summary>No computador<small>Chrome ou Edge</small></summary>
+      <ol><li>Clique em <b>Instalar agora</b>, no quadro acima, ou no ícone de instalar que aparece na barra de endereço.</li><li>Confirme em <b>Instalar</b>.</li><li>O Meus Gastos abre em uma janela própria, como um programa.</li></ol>
+    </details>
+  </div>
 </div></section>
 
 <section style="padding-top:20px"><div class="col">
@@ -453,7 +580,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   <h2 class="sobe" style="margin-top:10px">Para quem ele serve, e para quem não serve.</h2>
   <div class="paraquem">
     <div class="sobe"><h3>É para você se</h3><ul><li>Quer enxergar o mês enquanto ele acontece, e não depois.</li><li>Usa cartão parcelado e se perde nas faturas.</li><li>Já tentou planilha e cansou de atualizar.</li></ul></div>
-    <div class="sobe d1"><h3>Não é para você se</h3><ul><li>Espera que o app leia o extrato do banco sozinho. Aqui é você quem lança cada gasto.</li><li>Procura um app de investimentos. O foco é o gasto do mês.</li></ul></div>
+    <div class="sobe d1"><h3>Não é para você se</h3><ul><li>Quer um app que se conecte ao banco e puxe tudo sozinho. Aqui nada entra sem você ver: você lança, fotografa ou traz o extrato do cartão.</li><li>Procura um app de investimentos. O foco é o gasto do mês.</li></ul></div>
   </div>
 </div></section>
 
@@ -461,13 +588,14 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   <div class="txt">
     <span class="rot">Comece agora</span>
     <h2 data-oferta-titulo>Veja o app funcionando antes de decidir.</h2>
-    <p data-oferta-texto>A demonstração tem tudo o que o app faz, com um mês de exemplo já preenchido: gastos, fixos, cartão com compra parcelada e vencimentos.</p>
+    <p data-oferta-texto>A demonstração tem tudo o que o app faz, com um mês de exemplo já preenchido: gastos, fixos, cartão com compra parcelada, vencimentos e limites.</p>
   </div>
   <div class="cartao-oferta sobe">
     <span class="rot" data-oferta-rot>Demonstração</span>
     <div class="preco" data-oferta-preco>Grátis</div>
     <p data-oferta-detalhe>Sem cadastro e sem cartão. Abre direto no navegador do celular ou do computador.</p>
-    <a class="btn pri" data-cta href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a>
+    <a class="btn pri" data-cta data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a>
+    <a class="lk-inst" href="#instalar">Instalar no celular</a>
     <small data-oferta-rodape>Os dados de exemplo ficam só no seu aparelho.</small>
   </div>
 </div></section>
@@ -476,22 +604,24 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   <span class="rot">Perguntas frequentes</span>
   <h2 class="sobe" style="margin-top:10px">Antes de começar.</h2>
   <div class="faq">
-    <details><summary>Preciso instalar alguma coisa?</summary><p>Não. O Meus Gastos abre no navegador. Se quiser, dá para instalar na tela inicial do celular e ele passa a abrir como um app, em tela cheia.</p></details>
+    <details><summary>Preciso instalar alguma coisa?</summary><p>Não é obrigatório: o Meus Gastos abre no navegador. Instalado, ele ganha ícone na tela inicial, abre em tela cheia e envia notificações. A instalação é feita em <a href="#instalar">Instalar</a>, nesta página: um toque no Android e três no iPhone.</p></details>
+    <details><summary>Procurei na loja de aplicativos e não achei. Onde baixo?</summary><p>Ele não fica na Play Store nem na App Store. A instalação é feita por esta página, pelo próprio navegador do celular, e ocupa muito pouco espaço. Veja em <a href="#instalar">Instalar</a>.</p></details>
     <details><summary>Funciona no iPhone e no Android?</summary><p>Sim, nos dois, e também no computador. No iPhone, a notificação de contas funciona com o app instalado na tela de início.</p></details>
-    <details><summary>O app se conecta ao meu banco?</summary><p>Não. Ele não lê extrato nem pede senha de banco. Você lança os gastos, e por isso sabe exatamente o que está registrado.</p></details>
+    <details><summary>O app se conecta ao meu banco?</summary><p>Não. Ele não pede senha de banco nem acessa a sua conta. Para não digitar tudo, você pode abrir no app o extrato do cartão que o próprio banco gera (CSV, OFX ou Excel) ou fotografar um comprovante. Você confere antes de salvar.</p></details>
+    <details><summary>A foto do comprovante vai para algum servidor?</summary><p>Não. A leitura de fotos e PDFs é feita no próprio aparelho. O que fica guardado na sua conta são só os campos que você confirma: valor, data, descrição e categoria.</p></details>
     <details><summary>Meus dados ficam seguros?</summary><p>Cada pessoa entra com e-mail e senha e só acessa os próprios dados. Essa regra é aplicada no banco de dados, e não só na tela do app.</p></details>
-    <details><summary>Já controlo em planilha. Perco o que tenho?</summary><p>Não. Você importa os lançamentos do Excel e pode baixar tudo de volta em planilha a qualquer momento.</p></details>
-    <details><summary>Como funcionam os avisos?</summary><p>De manhã, o app envia um e-mail e uma notificação no celular, mas só nos dias em que há conta atrasada ou vencendo em até 3 dias. Cada aviso pode ser desligado em Ajustes.</p></details>
+    <details><summary>Consigo tirar os meus dados do app?</summary><p>Sim. A qualquer momento você baixa um relatório de gastos em planilha do Excel, com os lançamentos, os gastos fixos, as faturas e o resumo de cada mês.</p></details>
+    <details><summary>Como funcionam os avisos?</summary><p>De manhã, o app envia um e-mail e uma notificação no celular, mas só nos dias em que há conta atrasada ou vencendo em até 3 dias, ou quando você chega perto do limite de gastos que definiu ou passa dele. Cada aviso pode ser desligado quando você quiser.</p></details>
   </div>
 </div></section>
 </main>
 
 <footer><div class="col">
   <span>Meus Gastos · feito por Marcos Henrique Barbosa Santos</span>
-  <span><a href="https://meugastos.com.br/" target="_blank" rel="noopener">Abrir o app</a> · <a href="https://github.com/MarcosHenriqueBarbosaSantos/controle-gastos-pwa" target="_blank" rel="noopener">Código no GitHub</a></span>
+  <span><a data-app="" href="https://meugastos.com.br/" target="_blank" rel="noopener">Abrir o app</a> · <a href="#instalar">Instalar</a> · <a href="https://github.com/MarcosHenriqueBarbosaSantos/controle-gastos-pwa" target="_blank" rel="noopener">Código no GitHub</a></span>
 </div></footer>
 
-<div class="fixo" id="fixo"><a class="btn pri" data-cta href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a></div>
+<div class="fixo" id="fixo"><a class="btn pri" data-cta data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a></div>
 
 <script>
 // ================= OFERTA =================
@@ -503,8 +633,21 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 const OFERTA = { preco: "", detalhe: "", link: "" };
 
 const q = (s) => document.querySelector(s), qa = (s) => [...document.querySelectorAll(s)];
+
+// ================= onde está o app =================
+// Publicado junto com o app (na pasta site/), os botões abrem o app que está ao lado, na mesma aba.
+// Fora dele (uma prévia deste arquivo em outro endereço), levam ao endereço oficial.
+const NO_APP = /\/site\/(index\.html)?$/.test(location.pathname), APP = NO_APP ? "../" : "https://meugastos.com.br/";
+const abertoPeloIcone = () => matchMedia("(display-mode: standalone)").matches || navigator.standalone === true;
+if (NO_APP) {
+  if (abertoPeloIcone()) location.replace(APP);   // quem abre pelo ícone instalado vai direto para o app
+  try { localStorage.setItem("cg-conhece", "1"); } catch { /* sem armazenamento */ }   // da próxima vez, o endereço do app abre o app
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("../sw.js", { scope: "../" }).catch(() => {});
+}
+qa("[data-app]").forEach((a) => { a.href = APP + a.dataset.app; if (NO_APP) { a.removeAttribute("target"); a.removeAttribute("rel"); } });
+
 if (OFERTA.link && OFERTA.preco) {
-  qa("[data-cta]").forEach((a) => { a.href = OFERTA.link; a.textContent = "Quero o Meus Gastos"; });
+  qa("[data-cta]").forEach((a) => { a.href = OFERTA.link; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Quero o Meus Gastos"; });
   q("[data-nota]").textContent = "Compra pela página de pagamento da plataforma de vendas.";
   q("[data-oferta-titulo]").textContent = "Comece a enxergar o seu mês hoje.";
   q("[data-oferta-texto]").textContent = "Você cria sua conta, cadastra o que é fixo e passa a acompanhar o mês com previsão e avisos.";
@@ -515,27 +658,40 @@ if (OFERTA.link && OFERTA.preco) {
 }
 
 // ================= exemplo que responde ao toque =================
-// Números do mês de exemplo: entradas de R$ 3.900, custo até agora e previsão de fechamento.
-const BASE = { entradas: 3900, custo: 2939.4, previsao: 3648 };
+// Números do mês de exemplo: entradas de R$ 3.900, custo até agora, previsão de fechamento,
+// limite de gastos que a pessoa definiu e dias que faltam para o mês acabar (contando hoje).
+const BASE = { entradas: 3900, custo: 2939.4, previsao: 3623, limite: 3500, faltam: 28 };
 const sim = { custo: BASE.custo, previsao: BASE.previsao, itens: [] };
 const brl = (v, casas = 2) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
 const calmo = matchMedia("(prefers-reduced-motion: reduce)").matches;
-let mostrado = BASE.custo, quadro;
+let mostrado = BASE.entradas - BASE.custo, quadro;
 function contaAte(alvo) {
   cancelAnimationFrame(quadro);
   const el = q("#simCusto"), de = mostrado, t0 = performance.now(), dur = calmo ? 0 : 550;
   const passo = (t) => { const k = dur ? Math.min(1, (t - t0) / dur) : 1, e = 1 - Math.pow(1 - k, 3);
-    mostrado = de + (alvo - de) * e; el.textContent = brl(mostrado); if (k < 1) quadro = requestAnimationFrame(passo); };
+    mostrado = de + (alvo - de) * e; el.textContent = brl(Math.abs(mostrado)); if (k < 1) quadro = requestAnimationFrame(passo); };
   quadro = requestAnimationFrame(passo);
   el.classList.remove("pulsa"); void el.offsetWidth; el.classList.add("pulsa");
 }
 function pintaSim() {
-  const sobra = Math.round(BASE.entradas - sim.previsao), pct = (v) => Math.min(100, (v / BASE.entradas) * 100) + "%";
+  const sobra = BASE.entradas - sim.custo, noFim = Math.round(BASE.entradas - sim.previsao), pct = (v) => Math.min(100, (v / BASE.entradas) * 100) + "%";
   q("#simBarra").style.width = pct(sim.custo); q("#simMarca").style.left = pct(sim.previsao);
-  q("#simMed").classList.toggle("estourou", sobra < 0);
-  q("#simPrev").innerHTML = sobra >= 0
-    ? `No ritmo atual, o mês fecha em <b>${brl(sim.previsao, 0)}</b> e sobram <b>${brl(sobra, 0)}</b>.`
-    : `Atenção: no ritmo atual, o mês fecha <b class="neg">${brl(-sobra, 0)} no vermelho</b>.`;
+  q("#simMed").classList.toggle("estourou", noFim < 0);
+  q("#simRot").textContent = sobra >= 0 ? "Sobram em outubro" : "Faltam em outubro";
+  q("#simCusto").classList.toggle("neg", sobra < 0);
+  q("#simPrev").innerHTML = sobra <= 0 ? `As saídas já passaram do que entra no mês. Hora de segurar os gastos.`
+    : `Dá para gastar <b>${brl(sobra / BASE.faltam)}</b> por dia nos ${BASE.faltam} dias que faltam. ` + (noFim >= 0
+      ? `No ritmo atual, sobram <b>${brl(noFim, 0)}</b> no fim do mês.`
+      : `Mas, no ritmo atual, o mês fecha <b class="neg">${brl(-noFim, 0)} no vermelho</b>.`);
+  // Limite do mês: mesma regra do app (perto a partir de 80%, passou acima de 100%, muito acima depois de 120%).
+  const uso = sim.custo / BASE.limite, resta = BASE.limite - sim.custo, nivel = uso > 1.2 ? 3 : uso > 1 ? 2 : uso >= 0.8 ? 1 : 0;
+  q("#simLim").className = "sim-lim " + ["", "warn", "bad", "bad"][nivel];
+  q("#simLimPct").textContent = Math.round(uso * 100) + "%";
+  q("#simLimPill").textContent = ["Dentro do limite", "Perto do limite", "Passou do limite", "Muito acima do limite"][nivel];
+  q("#simLimPill").className = "pill " + ["ok", "warn", "bad", "bad"][nivel];
+  q("#simLimBarra").style.width = Math.min(100, uso * 100) + "%";
+  q("#simLimTxt").textContent = resta >= 0 ? `Ainda cabem ${brl(resta)} no limite de ${brl(BASE.limite, 0)} que você definiu.`
+    : `Já são ${brl(-resta)} acima do limite de ${brl(BASE.limite, 0)}. No app, esse aviso chega também por e-mail.`;
   q("#simLista").innerHTML = sim.itens.length
     ? sim.itens.slice(-3).reverse().map((i) => `<li><span>${i.d} · lançado agora</span><b>− ${brl(i.v)}</b></li>`).join("")
     : `<li class="vazio">Nenhum gasto lançado neste exemplo ainda.</li>`;
@@ -543,7 +699,7 @@ function pintaSim() {
 }
 qa("[data-add]").forEach((b) => b.addEventListener("click", () => {
   const v = Number(b.dataset.add); sim.custo += v; sim.previsao += v; sim.itens.push({ d: b.dataset.d, v });
-  contaAte(sim.custo); pintaSim();
+  contaAte(BASE.entradas - sim.custo); pintaSim();
 }));
 qa("[data-pagar]").forEach((b) => b.addEventListener("click", () => {
   const c = b.closest("[data-venc]"), p = c.querySelector("[data-pill]");
@@ -552,8 +708,39 @@ qa("[data-pagar]").forEach((b) => b.addEventListener("click", () => {
 q("#simZera").addEventListener("click", () => {
   sim.custo = BASE.custo; sim.previsao = BASE.previsao; sim.itens = [];
   qa(".venc.paga").forEach((c) => { const p = c.querySelector("[data-pill]"); c.classList.remove("paga"); p.textContent = p.dataset.antes; p.className = "pill warn"; c.querySelector("[data-pagar]").hidden = false; });
-  contaAte(sim.custo); pintaSim();
+  contaAte(BASE.entradas - sim.custo); pintaSim();
 });
+pintaSim();
+
+// ================= instalar =================
+// Android e computador (Chrome, Edge): o navegador avisa quando o app pode ser instalado e o botão chama a janela dele.
+// iPhone: o Safari não oferece botão; a instalação é pelo menu Compartilhar, e a página mostra os passos.
+const uaSo = navigator.userAgent, iOS = /iPhone|iPad|iPod/.test(uaSo) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+const so = iOS ? "ios" : /Android/.test(uaSo) ? "android" : "pc";
+const inst = { convite: null, feito: false, recusou: false };
+function pintaInstalar() {
+  const btn = q("#instBtn"), msg = q("#instMsg");
+  btn.hidden = !inst.convite || inst.feito; q("#instIr").hidden = NO_APP;
+  msg.classList.toggle("ok", inst.feito);
+  msg.textContent = !NO_APP ? "A instalação é feita pelo endereço do app. O botão abre a página certa."
+    : inst.feito ? "Instalado. Procure o ícone do Meus Gastos na tela inicial."
+    : inst.convite ? "Um toque, e o navegador pede só a confirmação."
+    : inst.recusou ? "Tudo bem. Quando quiser, a opção Instalar app continua no menu do navegador."
+    : so === "ios" ? "No iPhone a instalação é feita pelo Safari, em três toques. Veja os passos abaixo."
+    : so === "android" ? "Se o botão de instalar não aparecer aqui, siga os passos abaixo."
+    : "Aponte a câmera do celular para o código ao lado. Para instalar neste computador, veja os passos abaixo.";
+}
+qa("#plats .plat").forEach((p) => { const aqui = p.dataset.so === so; p.classList.toggle("aqui-so", aqui); if (!aqui && matchMedia("(max-width:900px)").matches) p.open = false; });
+addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); inst.convite = e; inst.recusou = false; pintaInstalar(); });
+addEventListener("appinstalled", () => { inst.convite = null; inst.feito = true; pintaInstalar(); });
+q("#instBtn").addEventListener("click", async () => {
+  const c = inst.convite; if (!c) return;
+  inst.convite = null; c.prompt();
+  const r = await Promise.resolve(c.userChoice).catch(() => null);
+  if (r && r.outcome === "accepted") inst.feito = true; else inst.recusou = true;
+  pintaInstalar();
+});
+pintaInstalar();
 
 // ================= navegação =================
 document.documentElement.classList.add("mov");

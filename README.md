@@ -36,7 +36,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Categorias personalizáveis** por usuário, na tela de Ajustes.
 - **Gráficos**: custo acumulado no mês comparado às entradas, e custo por categoria.
 - **Detalhe com um toque**: tocar em um quadro (custo, entradas, saldo, guardado, fixos, faturas) ou em uma categoria do gráfico abre a lista do que compõe aquele valor.
-- **Importar e exportar Excel**: lê o modelo da pasta [`modelo/`](modelo/) e também planilhas antigas em formato livre. Reimportar a mesma planilha não duplica lançamentos.
+- **Relatório de gastos**: baixa uma planilha do Excel com os lançamentos, os fixos, as faturas e o resumo de cada mês do ano.
 - **Login por e-mail** com Supabase Auth e isolamento de dados por usuário, via Row Level Security no PostgreSQL.
 - **Feito para o celular**: uma tela por vez, barra de navegação embaixo, botão "+" para lançar em tela cheia com teclado numérico e listas em formato de cartão, separadas por dia. Tocar em um lançamento abre a edição. Cada categoria tem a sua cor, a mesma no gráfico e nas listas. No computador, o mesmo app vira um painel completo.
 - **PWA**: instalável no Android e no iPhone, abre em tela cheia. O tema escuro é o padrão, e o claro pode ser escolhido em Ajustes.
@@ -61,7 +61,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 ```mermaid
 flowchart LR
   UI["app.js<br/>tela e interações"] --> CALC["calc.js<br/>regras de cálculo (puras)"]
-  UI --> XL["excel.js<br/>importar / exportar"]
+  UI --> XL["excel.js<br/>relatório em planilha"]
   UI --> LE["leitor.js<br/>foto ou PDF → texto → valor e data"]
   UI --> EX["extrato.js<br/>extrato do banco → compras do cartão"]
   UI --> ST["store.js<br/>interface de dados"]
@@ -178,8 +178,12 @@ A função confere a si mesma em `/functions/v1/avisos?autoteste=1` (regras e cr
 
 ### 5. Instalar no celular
 
-- **Android (Chrome):** abra o endereço e toque em **Instalar app**, ou use o menu ⋮ → **Instalar app**.
+A página de apresentação tem uma seção **Instalar** (`/site/#instalar`), com o botão de instalação, os passos de cada aparelho e um código QR para quem está no computador.
+
+- **Android (Chrome):** toque em **Instalar agora** nessa página, ou use o menu ⋮ → **Instalar app**.
 - **iPhone (Safari):** toque em **Compartilhar** e depois em **Adicionar à Tela de Início**.
+
+Quem abre o endereço do app pela primeira vez, pelo navegador, é levado antes a essa página. Quem já usa, quem instalou ou quem chega por um link com destino (demonstração, confirmação de e-mail) vai direto para o app.
 
 ## Rodar no computador
 
@@ -199,15 +203,15 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 │   ├── app.js              interface e eventos
 │   ├── calc.js             regras de cálculo (testadas)
 │   ├── store.js            dados: Supabase ou local (demo)
-│   ├── excel.js            importar / exportar .xlsx
+│   ├── excel.js            relatório de gastos em .xlsx
 │   ├── extrato.js          extrato do cartão em CSV, OFX ou Excel → lista de compras (testado)
 │   ├── leitor.js           leitor por foto ou PDF: lê o arquivo e interpreta o texto (testado)
 │   └── config.js           URL e chave do Supabase
-├── site/                   página de apresentação do app (preço e link de compra em OFERTA, no fim do index.html)
+├── site/                   página de apresentação e de instalação do app (preço e link de compra em OFERTA, no fim do index.html)
 ├── supabase/schema.sql     tabelas, RLS e visão de resumo
 ├── supabase/avisos.sql     tabelas e agendamento dos avisos
 ├── supabase/functions/     servidor de avisos (e-mail e notificação)
-├── modelo/                 planilha modelo para importar
+├── modelo/                 exemplo de extrato de cartão para testar a importação
 ├── tests/                  testes com node:test
 ├── manifest.webmanifest    dados do app instalável
 └── sw.js                   service worker

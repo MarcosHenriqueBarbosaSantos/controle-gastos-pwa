@@ -1,5 +1,6 @@
-// Importar e exportar planilhas do Excel (usa a biblioteca SheetJS, global XLSX).
-// O formato é o mesmo do modelo em modelo/Meus_Gastos_Modelo.xlsx:
+// Relatório de gastos em planilha do Excel (usa a biblioteca SheetJS, global XLSX).
+// A leitura de planilha (parseWorkbook) continua aqui e testada, mas o app não oferece mais essa opção na tela:
+// para trazer dados de fora, o caminho é o extrato do cartão (extrato.js). Abas do relatório:
 //   Lançamentos | Gastos Fixos | Entradas Fixas | Cartões (+ Resumo e Meus Cartões, na exportação)
 // "Cartões" é a lista de faturas; "Meus Cartões" é o cadastro (nome, dia de fechamento e de vencimento).
 // Também lê a planilha "antiga" livre, com colunas DIA | RECEITA/DESPESA | VALOR.

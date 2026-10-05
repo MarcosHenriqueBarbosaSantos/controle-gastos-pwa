@@ -4,7 +4,7 @@ import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, par
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
-import { parseWorkbook, buildWorkbook, importKey, norm, guessCat } from "./excel.js";
+import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
 
@@ -342,7 +342,7 @@ function renderKpis(c) {
    <div class="kpi faturas" data-det="faturas" role="button" tabindex="0">${cab("cartao", "Faturas do mês")}<span class="v">${brl(c.fatT)}</span>${c.fatAberta ? `<span class="pill warn">${brl0(c.fatAberta)} a pagar</span>` : (c.fat.length ? `<span class="pill good">✓ Pagas</span>` : `<span class="n">Nenhuma fatura neste mês</span>`)}${noCartao ? `<span class="n">${brl0(noCartao)} em compras no cartão neste mês</span>` : ""}</div>`;
   let t = "";
   if (!S.loaded) t = "Carregando seus lançamentos…";
-  else if (!c.it.length && !c.fx.length && !c.fr.length) t = "Nenhum lançamento neste mês ainda. Use o formulário acima ou importe sua planilha do Excel.";
+  else if (!c.it.length && !c.fx.length && !c.fr.length) t = "Nenhum lançamento neste mês ainda. Lance o primeiro gasto, ou traga o extrato do cartão pela aba Cartões.";
   else if (c.fase === "atual") {
     const med = c.dias ? c.vari / c.dias : 0;
     t = `Em ${c.dias} ${c.dias === 1 ? "dia" : "dias"} você gastou <strong>${brl(c.vari)}</strong> no dia a dia, média de ${brl(med)} por dia. Somando os fixos${c.fatT ? " e as faturas" : ""}, <strong>o mês deve fechar com custo de ${brl0(c.proj)}</strong>${c.rec ? ` e saldo de ${sgn(round2(c.rec - c.proj - c.res))}` : ""}.${c.comprasCartao ? ` As compras no cartão (${brl0(c.comprasCartao)}) entram no mês em que a fatura vencer.` : ""}`;
@@ -629,7 +629,7 @@ function paneL(c) {
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
   const it = [...c.it, ...auto].sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
   if (!it.length) {
-    $("pane-l").innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)}.</b> Anote cada gasto no formulário lá em cima assim que ele acontecer. O custo do mês e a projeção se atualizam na hora.</p><p>Já tem uma planilha? Use <b>Importar Excel</b> para trazer os lançamentos dela.</p></div>`;
+    $("pane-l").innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)}.</b> Anote cada gasto no formulário lá em cima assim que ele acontecer. O custo do mês e a projeção se atualizam na hora.</p><p>Usa cartão? Na aba <b>Cartões</b> dá para importar o extrato do banco e lançar todas as compras de uma vez.</p></div>`;
     return;
   }
   // No celular a lista é separada por dia, com o total gasto em cada um.
@@ -899,8 +899,7 @@ $("btnMenu").onclick = () => {
   openDlg(`<h3>Menu</h3><p class="hint" style="margin:0 0 12px">${esc($("whoName").textContent)}</p><div class="menu-lista">
     <button class="btn" data-go="btnLimites">${ico("alvo")}Limites de gasto</button>
     <button class="btn" data-go="btnAjustes">${ico("ajustes")}Ajustes e categorias</button>
-    <button class="btn" data-go="btnImport">${ico("subir")}Importar Excel</button>
-    <button class="btn" data-go="btnExport">${ico("baixar")}Baixar Excel</button>
+    <button class="btn" data-go="btnExport">${ico("baixar")}Baixar relatório de gastos</button>
     ${$("btnInstall").hidden ? "" : `<button class="btn" data-go="btnInstall">${ico("instalar")}Instalar app</button>`}
     <button class="btn" data-go="btnSair">${ico("sair")}${esc($("btnSair").textContent)}</button>
     <button class="btn ghost" data-close>Fechar</button></div>`);
@@ -964,78 +963,12 @@ addEventListener("resize", () => {
 });
 
 /* ================= Excel ================= */
-$("btnImport").onclick = () => $("fileIn").click();
-$("fileIn").addEventListener("change", async (e) => {
-  const f = e.target.files[0]; e.target.value = ""; if (!f) return;
-  if (typeof XLSX === "undefined") return showBanner("Não foi possível abrir o leitor de Excel. Confira a internet e recarregue a página.");
-  let res;
-  try { res = parseWorkbook(XLSX, XLSX.read(await f.arrayBuffer(), { type: "array" })); }
-  catch { return openDlg(`<h3>Não consegui ler esse arquivo</h3><p>Confira se é uma planilha .xlsx e tente de novo.</p><div class="actions"><button class="btn" data-close>Fechar</button></div>`); }
-  const existentes = new Set(S.data.lancamentos.map((x) => x.import_key || importKey(x)));
-  const novos = res.lancamentos.map((x) => ({ ...x, import_key: importKey(x) })).filter((x) => !existentes.has(x.import_key));
-  const kNovos = res.cartoes.filter((z) => !S.data.cartoes.some((k) => norm(k.nome) === norm(z.nome)));
-  const fxAtuais = new Set(S.data.fixos.map((z) => (z.tipo || "Despesa") + "|" + norm(z.descricao)));
-  const fxNovos = res.fixos.filter((z) => !fxAtuais.has(z.tipo + "|" + norm(z.descricao)));
-  const ccAtuais = new Set(S.data.faturas.map((z) => z.cartao + z.vencimento + z.valor));
-  const ccNovos = res.faturas.filter((z) => !ccAtuais.has(z.cartao + z.vencimento + z.valor));
-  const meses = [...new Set(novos.map((x) => mKey(x.data)))].sort();
-  if (!novos.length && !fxNovos.length && !ccNovos.length && !kNovos.length) {
-    return openDlg(`<h3>Nada novo para importar</h3><p>${res.lancamentos.length || res.fixos.length ? "Tudo o que está nessa planilha já foi lançado aqui." : "Não encontrei lançamentos nessa planilha. Ela precisa ter colunas de data, descrição e valor."}</p><div class="actions"><button class="btn" data-close>Fechar</button></div>`);
-  }
-  const plural = (n, s, p) => `${n} ${n > 1 ? p : s}`;
-  openDlg(`<h3>Importar "${esc(f.name)}"</h3><p style="color:var(--ink-2);margin:0">Encontrei:</p><ul>
-    ${novos.length ? `<li>${plural(novos.length, "lançamento", "lançamentos")} (${meses.map((m) => nomeMes(m) + "/" + m.slice(2, 4)).join(", ")})</li>` : ""}
-    ${fxNovos.some((z) => z.tipo === "Despesa") ? `<li>${plural(fxNovos.filter((z) => z.tipo === "Despesa").length, "gasto fixo", "gastos fixos")}</li>` : ""}
-    ${fxNovos.some((z) => z.tipo === "Receita") ? `<li>${plural(fxNovos.filter((z) => z.tipo === "Receita").length, "entrada fixa", "entradas fixas")}</li>` : ""}
-    ${kNovos.length ? `<li>${plural(kNovos.length, "cartão", "cartões")}</li>` : ""}
-    ${ccNovos.length ? `<li>${plural(ccNovos.length, "fatura de cartão", "faturas de cartão")}</li>` : ""}</ul>
-    ${res.formato === "antigo" ? `<p class="hint">As categorias foram escolhidas pela descrição. Tudo entra como gasto do dia a dia; depois você pode cadastrar os fixos na aba Gastos fixos.</p>` : ""}
-    <p class="hint">Lançamentos que já existem aqui são ignorados, então pode importar a mesma planilha de novo sem duplicar.</p>
-    <div class="actions"><button class="btn primary" id="okImp">Importar</button><button class="btn" data-close>Cancelar</button></div>`);
-  $("okImp").onclick = async () => {
-    $("okImp").disabled = true; $("okImp").textContent = "Importando…";
-    const ok = await grava(async () => {
-      // Cartões primeiro: as compras e os fixos da planilha dizem o cartão pelo nome.
-      for (const z of kNovos) S.data.cartoes.push(await S.store.addCartao({ nome: z.nome, fechamento: z.fechamento, vencimento: z.vencimento, ...(z.ativo ? {} : { ativo: false }) }));
-      const idDe = (nome) => (nome ? S.data.cartoes.find((k) => norm(k.nome) === norm(nome))?.id || null : null), usados = new Set();
-      let linhas = novos.map(({ cartao, parcelas, ...x }) => {
-        const cartao_id = x.forma === CARTAO ? idDe(cartao) : null; if (cartao_id) usados.add(cartao_id);
-        return { ...x, cartao_id, parcelas: cartao_id ? parcelas || 1 : 1 };
-      });
-      // Planilha sem nenhum cartão: as linhas vão sem os campos de cartão, como nas versões anteriores.
-      if (!usados.size) linhas = linhas.map(({ cartao_id, parcelas, ...x }) => x);
-      if (linhas.length) S.data.lancamentos.push(...(await S.store.addLancamentos(linhas)));
-      const ano = (meses[meses.length - 1] || S.mes).slice(0, 4);
-      for (const z of fxNovos) {
-        const desde = z.mesesPagos.length ? `${ano}-${pad(Math.min(...z.mesesPagos))}-01` : S.mes + "-01";
-        const kId = z.forma === CARTAO ? idDe(z.cartao) : null; if (kId) usados.add(kId);
-        const novo = await S.store.addFixo({ tipo: z.tipo, descricao: z.descricao, categoria: z.categoria, dia: z.dia, valor: z.valor, forma: z.forma, desde, ate: z.ativo ? null : addM(S.mes, -1) + "-01",
-          ...(z.repete === "semanal" ? { repete: "semanal", dia_semana: z.dia_semana } : {}), ...(kId ? { cartao_id: kId } : {}) });
-        S.data.fixos.push(novo);
-        for (const mm of z.mesesPagos) { const mes = `${ano}-${pad(mm)}-01`; await S.store.setPago(novo.id, mes, true); S.data.pagos.push({ fixo_id: novo.id, mes }); }
-      }
-      for (const z of ccNovos) S.data.faturas.push(await S.store.addFatura(z));
-      // Fatura da planilha com o nome de um cartão cadastrado vale como o valor daquele mês (sem cobrar em dobro),
-      // e as faturas calculadas que já venceram entram como pagas, para não aparecerem todas como atrasadas.
-      for (const k of S.data.cartoes) await adotarFaturasManuais(k);
-      if (usados.size) await quitarVencidas(usados);
-      // Categorias que vieram na planilha passam a aparecer nos menus.
-      const usadas = categoriasIniciais(S.data); let mudou = false;
-      for (const t of ["Despesa", "Receita", "Reserva"]) {
-        const novas = usadas[t].filter((c) => !cats(t).includes(c));
-        if (novas.length) { S.prefs.categorias = { ...S.prefs.categorias, [t]: [...cats(t), ...novas] }; mudou = true; }
-      }
-      if (mudou) await S.store.savePrefs(S.prefs);
-    });
-    if (meses.length) S.mes = meses[meses.length - 1];
-    $("dlg").close(); render();
-    if (ok) { $("flash").style.color = "var(--good)"; $("flash").textContent = "Planilha importada."; }
-  };
-});
+// A importação de planilha saiu da tela: para trazer gastos de fora existem o extrato do cartão e o leitor de foto ou PDF.
+// O que fica é o relatório: uma planilha do Excel com tudo o que está no app.
 $("btnExport").onclick = () => {
-  if (typeof XLSX === "undefined") return showBanner("Não foi possível gerar o Excel. Confira a internet e recarregue a página.");
+  if (typeof XLSX === "undefined") return showBanner("Não foi possível gerar o relatório. Confira a internet e recarregue a página.");
   const wb = buildWorkbook(XLSX, S.data, S.mes.slice(0, 4), calcMes, hoje());
-  XLSX.writeFile(wb, `meus-gastos-${S.mes}.xlsx`);
+  XLSX.writeFile(wb, `meus-gastos-relatorio-${S.mes.slice(0, 4)}.xlsx`);
 };
 function openDlg(html) {
   $("dlgBody").innerHTML = html;
@@ -1753,7 +1686,7 @@ function boasVindas() {
       <li><b>Cadastre seu cartão de crédito.</b> Com o dia em que a fatura fecha e o dia em que vence, o app monta a fatura sozinho, com as parcelas. A compra só pesa no mês em que a fatura vence.</li>
       <li><b>Acompanhe o mês.</b> O app mostra o custo até agora, quanto o mês deve fechar e para onde o dinheiro está indo.</li>
     </ol>
-    <p class="hint">Já controla em planilha? Use <b>Importar Excel</b> para trazer seus lançamentos. Em <b>Ajustes</b> você muda as categorias e informa quanto já tinha na conta quando começou (saldo inicial).</p>
+    <p class="hint">Para não digitar tudo, importe o extrato do cartão na aba <b>Cartões</b> ou leia um comprovante por foto ou PDF. Em <b>Ajustes</b> você muda as categorias e informa quanto já tinha na conta quando começou (saldo inicial).</p>
     ${suporteHtml()}
     <div class="actions"><button class="btn primary" id="bvFixos">Cadastrar meus fixos</button><button class="btn" data-close>Começar a lançar</button></div>`);
   const visto = () => { if (!S.prefs.boasVindas) { S.prefs.boasVindas = true; salvaPrefs(); } };

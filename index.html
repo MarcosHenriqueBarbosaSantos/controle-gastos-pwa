@@ -6,6 +6,15 @@
 <title>Meus Gastos</title>
 <meta name="description" content="Controle de gastos pessoal: lance no dia a dia, acompanhe o custo do mês e a projeção, gastos fixos e faturas de cartão.">
 <meta name="theme-color" content="#0a0f16">
+<script>/* Quem chega pela primeira vez ao endereço do app, pelo navegador, vê antes o site que explica o app (pasta site/).
+   Quem já usa, quem instalou o app ou quem chega por um link com destino (demonstração, entrar, confirmação de e-mail) vai direto para o app. */
+try {
+  var jaUsa = localStorage.getItem("cg-conhece") || localStorage.getItem("cg-modo") || Object.keys(localStorage).some(function (k) { return /^sb-.+-auth-token$/.test(k) || /^cg-(prefs|demo)-/.test(k); });
+  var instalado = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
+  if (!jaUsa && !instalado && !location.hash && !location.search && /\/(index\.html)?$/.test(location.pathname)) location.replace("site/");
+  else localStorage.setItem("cg-conhece", "1");
+} catch (e) { /* sem armazenamento: abre o app normalmente */ }
+</script>
 <script>/* Tema: escuro por padrão; claro só se a pessoa escolheu em Ajustes. Roda antes de a tela aparecer, para não piscar. */
 try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.dataset.tema = "claro"; } catch (e) {}</script>
 <link rel="manifest" href="manifest.webmanifest">
@@ -40,6 +49,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
     </form>
     <p class="auth-msg" id="authMsg" role="status"></p>
     <div id="authSuporte"></div>
+    <a class="link auth-site" href="site/">Conhecer o Meus Gastos e instalar no celular</a>
     <div class="auth-demo">
       <button class="btn ghost" type="button" id="aDemo">Ver demonstração sem criar conta</button>
       <p class="hint" id="demoHint">Usa dados de exemplo guardados só neste aparelho.</p>
@@ -62,9 +72,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
     <button class="iconbtn so-mobile" id="btnMenu" type="button" aria-label="Menu"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="actions">
       <button class="btn" id="btnInstall" type="button" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM12 8v7M9 12l3 3 3-3"/></svg>Instalar app</button>
-      <button class="btn" id="btnImport" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Importar Excel</button>
-      <button class="btn" id="btnExport" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>Baixar Excel</button>
-      <input type="file" id="fileIn" accept=".xlsx,.xls" hidden>
+      <button class="btn" id="btnExport" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>Baixar relatório</button>
       <button class="btn" id="btnLimites" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01"/></svg>Limites</button>
       <button class="btn" id="btnAjustes" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 5v4M7 15v4"/></svg>Ajustes</button>
       <span class="who"><span id="whoName"></span><button class="link" id="btnSair" type="button">Sair</button></span>
