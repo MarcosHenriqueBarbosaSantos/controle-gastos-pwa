@@ -183,6 +183,7 @@ const traduzErro = (e) => {
   const seg = m.match(/after (\d+) seconds?/i);
   if (seg) return `Acabamos de enviar um e-mail para você. Espere ${seg[1]} segundos para pedir outro.`;
   if (/email rate limit|over_email_send_rate_limit/i.test(m + cod)) return "O envio de e-mails atingiu o limite desta hora. Tente de novo mais tarde.";
+  if (/error sending/i.test(m)) return "Não conseguimos enviar o e-mail agora. Tente de novo em alguns minutos. Se continuar, fale com o suporte.";
   if (/rate limit|too many|security purposes/i.test(m)) return "Muitas tentativas seguidas. Espere um minuto e tente de novo.";
   if (/expired|invalid.*(link|token)|otp/i.test(m + cod)) return "Esse código ou link já foi usado ou venceu. Peça um novo e use a mensagem mais recente.";
   if (/already registered/i.test(m)) return "Esse e-mail já tem conta. Use Entrar.";
