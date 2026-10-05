@@ -188,8 +188,17 @@ section{padding-block:72px}
 .grade p{color:var(--ink-2);font-size:.95rem}
 .larga{margin-top:36px;border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
 /* passos */
-.como{counter-reset:p;list-style:none;margin:34px 0 0;padding:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:26px;position:relative}
-.como::before{content:"";position:absolute;left:24px;right:calc((100% - 52px) / 3 - 24px);top:24px;height:2px;background:var(--line)}
+.como{counter-reset:p;list-style:none;margin:34px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px;position:relative}
+.como::before{content:"";position:absolute;left:24px;right:calc((100% - 88px) / 5 - 24px);top:24px;height:2px;background:var(--line)}
+.como h3 small{display:block;font-family:var(--sans);font-weight:500;font-size:.8rem;letter-spacing:0;color:var(--luz);margin-bottom:3px}
+/* vídeo do app em uso */
+.uso .col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,300px);gap:56px;align-items:center}
+.uso-txt{display:grid;gap:14px;justify-items:start}
+.uso-txt ul{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:10px;color:var(--ink-2)}
+.uso-txt li{padding-left:22px;position:relative}
+.uso-txt li::before{content:"";position:absolute;left:2px;top:.62em;width:9px;height:9px;border-radius:2px;background:var(--accent)}
+.uso-video{border:9px solid var(--frame);border-radius:36px;overflow:hidden;background:#0a0f16;box-shadow:var(--shadow);aspect-ratio:9/16}
+.uso-video video{width:100%;height:100%;display:block;object-fit:cover;background:#0a0f16}
 .como li{counter-increment:p;display:grid;gap:8px;align-content:start;position:relative}
 .como li::before{content:counter(p);font-family:var(--display);font-weight:800;font-size:1.3rem;width:48px;height:48px;border-radius:50%;display:grid;place-items:center;background:var(--accent);color:var(--accent-ink);margin-bottom:6px;box-shadow:0 0 0 6px var(--bg)}
 .como p{color:var(--ink-2);font-size:.97rem}
@@ -325,6 +334,8 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   .grade p{font-size:.92rem}
   .larga{display:none}   /* a tela do computador fica ilegível encolhida no celular */
   .como,.paraquem{grid-template-columns:minmax(0,1fr)}
+  .uso .col{grid-template-columns:minmax(0,1fr);gap:22px}
+  .uso-video{width:min(280px,100%);justify-self:center;border-radius:32px}
   .como{margin-top:26px;gap:22px}
   .como::before{left:24px;right:auto;top:24px;bottom:24px;width:2px;height:auto}
   .como li{padding-left:66px;min-height:48px} .como li::before{position:absolute;left:0;top:0;margin:0}
@@ -418,6 +429,23 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   </ul>
 </div></section>
 
+<section class="uso" id="video" style="padding-block:44px 30px"><div class="col">
+  <div class="uso-txt">
+    <span class="rot">Em 40 segundos</span>
+    <h2 class="sobe">Veja o app em uso.</h2>
+    <p style="color:var(--ink-2)">O vídeo mostra a demonstração do app no celular, com dados de exemplo.</p>
+    <ul>
+      <li>Abrir e ver quanto sobra no mês.</li>
+      <li>Anotar um gasto e ver o número mudar na hora.</li>
+      <li>Marcar uma conta como paga.</li>
+      <li>Abrir a fatura do cartão, montada pelo app.</li>
+      <li>Definir um limite de gastos.</li>
+    </ul>
+  </div>
+  <div class="uso-video sobe"><video controls playsinline muted preload="none" poster="img/video-capa.jpg" width="720" height="1280" aria-label="Vídeo sem som: o Meus Gastos em uso no celular">
+    <source src="video/meus-gastos.mp4" type="video/mp4"><source src="video/meus-gastos.webm" type="video/webm">O seu navegador não mostra vídeos. <a href="video/meus-gastos.mp4">Baixe o vídeo</a>.</video></div>
+</div></section>
+
 <section id="recursos" style="padding-top:30px">
 <div class="col so-cel cab-rec">
   <span class="rot">O que ele faz</span>
@@ -490,9 +518,9 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
     <article class="passo" data-tela="5">
       <span class="rot">Lançamento</span>
       <h2>Anotar um gasto leva dez segundos. Ou uma foto.</h2>
-      <p>Toque no botão +, digite o valor e escolha a categoria. Se preferir, aponte a câmera para o comprovante: o app lê o valor, a data e a descrição, e você só confere.</p>
+      <p>Toque no botão +, digite o valor e escolha a categoria. Se preferir, aponte a câmera para o comprovante ou para a conta: o app lê o valor, a data e a descrição, e você só confere.</p>
       <ul>
-        <li>Lê foto e PDF de comprovante, fatura de cartão e holerite.</li>
+        <li>Lê foto e PDF de comprovante, boleto, conta de consumo, recibo, fatura de cartão e holerite.</li>
         <li>A leitura é feita no próprio aparelho. O documento não é enviado para nenhum servidor.</li>
         <li>Gastos fixos e salário são cadastrados uma vez e entram sozinhos, todo mês ou toda semana.</li>
       </ul>
@@ -534,11 +562,14 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 
 <section id="como" style="padding-top:20px"><div class="col">
   <span class="rot">Como funciona</span>
-  <h2 class="sobe" style="margin-top:10px">Três passos, e o mês passa a ter previsão.</h2>
+  <h2 class="sobe" style="margin-top:10px">Seus primeiros 5 minutos.</h2>
+  <p class="sobe" style="color:var(--ink-2);margin-top:12px">O que você faz logo depois de instalar. No fim, o app já mostra o seu mês.</p>
   <ol class="como">
-    <li class="sobe"><h3>Cadastre o que é fixo</h3><p>Aluguel, internet, faculdade, salário e seus cartões. Isso é feito uma vez.</p></li>
-    <li class="sobe d1"><h3>Lance cada gasto na hora</h3><p>No mercado, no Uber, na farmácia: valor, categoria e pronto. Ou fotografe o comprovante e traga o extrato do cartão.</p></li>
-    <li class="sobe d2"><h3>Acompanhe e seja avisado</h3><p>Veja quanto sobra, quanto dá para gastar por dia e o que está para vencer. Defina um limite e o app avisa quando você chegar perto.</p></li>
+    <li class="sobe"><h3><small>1 minuto</small>Crie a sua conta</h3><p><a href="#instalar">Instale o app</a>, digite o seu e-mail, escolha uma senha e confirme pelo e-mail que chega.</p></li>
+    <li class="sobe d1"><h3><small>2 minutos</small>Responda três perguntas</h3><p>Quanto você recebe, quais contas paga todo mês e se usa cartão. O app pergunta na primeira vez que você entra.</p></li>
+    <li class="sobe d2"><h3><small>Na hora</small>Veja quanto sobra</h3><p>A tela inicial já mostra o que sobra no mês e quanto dá para gastar por dia.</p></li>
+    <li class="sobe"><h3><small>10 segundos</small>Lance o primeiro gasto</h3><p>Toque no +, digite o valor e pronto. Ou fotografe o comprovante.</p></li>
+    <li class="sobe d1"><h3><small>1 minuto</small>Ligue os avisos</h3><p>Em Ajustes, ative a notificação das contas a vencer. Na aba Limites, diga o seu teto do mês.</p></li>
   </ol>
 </div></section>
 
@@ -547,7 +578,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
     <div class="inst-txt">
       <span class="rot">Instalar</span>
       <h2>Leve o app para a tela inicial do celular.</h2>
-      <p>O Meus Gastos é instalado por esta página, direto pelo navegador, sem loja de aplicativos. Ele ganha ícone próprio, abre em tela cheia e passa a enviar notificações.</p>
+      <p>O Meus Gastos é instalado por esta página, direto pelo navegador, sem loja de aplicativos. Ele ganha ícone próprio, abre em tela cheia e passa a enviar notificações. Ao abrir pelo ícone, é só criar a sua conta.</p>
       <div class="inst-acao">
         <button type="button" class="btn pri" id="instBtn" hidden>Instalar agora</button>
         <a class="btn pri" id="instIr" href="https://meugastos.com.br/site/#instalar" target="_blank" rel="noopener" hidden>Abrir a página de instalação</a>
@@ -609,8 +640,10 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
     <details><summary>Funciona no iPhone e no Android?</summary><p>Sim, nos dois, e também no computador. No iPhone, a notificação de contas funciona com o app instalado na tela de início.</p></details>
     <details><summary>O app se conecta ao meu banco?</summary><p>Não. Ele não pede senha de banco nem acessa a sua conta. Para não digitar tudo, você pode abrir no app o extrato do cartão que o próprio banco gera (CSV, OFX ou Excel) ou fotografar um comprovante. Você confere antes de salvar.</p></details>
     <details><summary>A foto do comprovante vai para algum servidor?</summary><p>Não. A leitura de fotos e PDFs é feita no próprio aparelho. O que fica guardado na sua conta são só os campos que você confirma: valor, data, descrição e categoria.</p></details>
-    <details><summary>Meus dados ficam seguros?</summary><p>Cada pessoa entra com e-mail e senha e só acessa os próprios dados. Essa regra é aplicada no banco de dados, e não só na tela do app.</p></details>
+    <details><summary>Meus dados ficam seguros?</summary><p>Cada pessoa entra com e-mail e senha e só acessa os próprios dados. Essa regra é aplicada no banco de dados, e não só na tela do app. O app não vende dados nem mostra anúncios. Os detalhes estão na <a href="privacidade.html">Política de privacidade</a>.</p></details>
     <details><summary>Consigo tirar os meus dados do app?</summary><p>Sim. A qualquer momento você baixa um relatório de gastos em planilha do Excel, com os lançamentos, os gastos fixos, as faturas e o resumo de cada mês.</p></details>
+    <details><summary>Esqueci a senha. E agora?</summary><p>Na tela de entrada, toque em Esqueci minha senha e digite o seu e-mail. Você recebe uma mensagem com um código e um botão para criar a senha nova. Use sempre a mensagem mais recente.</p></details>
+    <details><summary>Como falo com o suporte?</summary><p>Escreva para <a href="mailto:suporte@meugastos.com.br">suporte@meugastos.com.br</a>. Dentro do app, o item Como usar, no menu, responde as dúvidas mais comuns.</p></details>
     <details><summary>Como funcionam os avisos?</summary><p>De manhã, o app envia um e-mail e uma notificação no celular, mas só nos dias em que há conta atrasada ou vencendo em até 3 dias, ou quando você chega perto do limite de gastos que definiu ou passa dele. Cada aviso pode ser desligado quando você quiser.</p></details>
   </div>
 </div></section>
@@ -618,7 +651,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 
 <footer><div class="col">
   <span>Meus Gastos · feito por Marcos Henrique Barbosa Santos</span>
-  <span><a data-app="" href="https://meugastos.com.br/" target="_blank" rel="noopener">Abrir o app</a> · <a href="#instalar">Instalar</a> · <a href="https://github.com/MarcosHenriqueBarbosaSantos/controle-gastos-pwa" target="_blank" rel="noopener">Código no GitHub</a></span>
+  <span><a data-app="" href="https://meugastos.com.br/" target="_blank" rel="noopener">Abrir o app</a> · <a href="#instalar">Instalar</a> · <a href="privacidade.html">Política de privacidade</a> · <a href="mailto:suporte@meugastos.com.br">Suporte: suporte@meugastos.com.br</a> · <a href="https://github.com/MarcosHenriqueBarbosaSantos/controle-gastos-pwa" target="_blank" rel="noopener">Código no GitHub</a></span>
 </div></footer>
 
 <div class="fixo" id="fixo"><a class="btn pri" data-cta data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a></div>
@@ -723,7 +756,7 @@ function pintaInstalar() {
   btn.hidden = !inst.convite || inst.feito; q("#instIr").hidden = NO_APP;
   msg.classList.toggle("ok", inst.feito);
   msg.textContent = !NO_APP ? "A instalação é feita pelo endereço do app. O botão abre a página certa."
-    : inst.feito ? "Instalado. Procure o ícone do Meus Gastos na tela inicial."
+    : inst.feito ? "Instalado. Abra pelo ícone do Meus Gastos, na tela inicial, e crie a sua conta."
     : inst.convite ? "Um toque, e o navegador pede só a confirmação."
     : inst.recusou ? "Tudo bem. Quando quiser, a opção Instalar app continua no menu do navegador."
     : so === "ios" ? "No iPhone a instalação é feita pelo Safari, em três toques. Veja os passos abaixo."

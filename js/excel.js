@@ -38,6 +38,9 @@ const GUESS = [
   ["padaria", "Despesa", "Alimentação"], ["restaurante", "Despesa", "Alimentação"], ["lanch", "Despesa", "Alimentação"], ["pizza", "Despesa", "Alimentação"],
   ["drogaria", "Despesa", "Saúde"], ["combust", "Despesa", "Transporte"], ["auto posto", "Despesa", "Transporte"],
   ["energia", "Despesa", "Contas da casa"], ["saneamento", "Despesa", "Contas da casa"], ["imobili", "Despesa", "Moradia"],
+  // Contas e tributos lidos de boleto ou guia.
+  [" iptu ", "Despesa", "Moradia"], [" ipva ", "Despesa", "Transporte"], ["licenciamento", "Despesa", "Transporte"], [" gas ", "Despesa", "Contas da casa"],
+  ["mensalidade escolar", "Despesa", "Educação"], ["plano de saude", "Despesa", "Saúde"],
   // Nomes comuns em extrato de cartão.
   ["carrefour", "Despesa", "Mercado"], ["assai", "Despesa", "Mercado"], ["pao de acucar", "Despesa", "Mercado"], ["sacolao", "Despesa", "Mercado"], ["emporio", "Despesa", "Mercado"],
   ["ifood", "Despesa", "Alimentação"], ["rappi", "Despesa", "Alimentação"], ["burger", "Despesa", "Alimentação"], ["mc donald", "Despesa", "Alimentação"], ["mcdonald", "Despesa", "Alimentação"],

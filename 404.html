@@ -1,0 +1,18 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Meus Gastos</title>
+<script>
+/* Endereço que não existe dentro do site. Acontece, por exemplo, quando o link de um e-mail (confirmar conta, criar nova senha)
+   volta para um endereço escrito errado nas configurações. Em vez de mostrar uma página de erro, leva a pessoa para o app,
+   mantendo o que veio depois de "?" e de "#": é ali que chega a resposta do link. */
+var base = /github\.io$/.test(location.hostname) ? "/" + location.pathname.split("/")[1] + "/" : "/";
+location.replace(base + location.search + location.hash);
+</script>
+<style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#0a0f16;color:#f2f6fb;font-family:system-ui,sans-serif;text-align:center;padding:24px}a{color:#8fc0ff}</style>
+</head>
+<body><p>Abrindo o Meus Gastos…<br><a href="/">Toque aqui se não abrir sozinho.</a></p></body>
+</html>

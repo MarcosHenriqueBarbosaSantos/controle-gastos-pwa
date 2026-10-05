@@ -2,7 +2,7 @@
 // a sequência de dias anotados, a comparação com o mês anterior e os limites por categoria.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RETIRADA, calcMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, round2 } from "../js/calc.js";
+import { RETIRADA, calcMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, primeirosPassos, round2 } from "../js/calc.js";
 
 const HOJE = "2026-10-04";
 const L = (data, descricao, tipo, categoria, forma, valor, extra = {}) => ({ id: data + descricao, data, descricao, tipo, categoria, forma, valor, ...extra });
@@ -83,4 +83,35 @@ test("limites por categoria: quanto foi usado e quanto passou", () => {
   assert.deepEqual(usoDosLimites(c, { Mercado: 500, Saúde: 100, Lazer: 200, Roupas: 0 }), [
     { cat: "Mercado", gasto: 578.2, limite: 500, pct: 116, passou: 78.2 }, { cat: "Saúde", gasto: 42.9, limite: 100, pct: 43, passou: 0 }, { cat: "Lazer", gasto: 0, limite: 200, pct: 0, passou: 0 }]);
   assert.deepEqual(usoDosLimites(c, {}), []); assert.deepEqual(usoDosLimites(c, null), []);
+});
+
+test("primeiros passos: conta nova não tem nada feito", () => {
+  const p = primeirosPassos({ lancamentos: [], fixos: [], pagos: [], faturas: [], cartoes: [] });
+  assert.deepEqual(p.itens.map((i) => [i.k, i.feito]), [["renda", false], ["contas", false], ["cartao", false], ["gasto", false]]);
+  assert.equal(p.feitos, 0); assert.equal(p.total, 4); assert.equal(p.completo, false);
+});
+
+test("primeiros passos: cada cadastro marca o seu item", () => {
+  const st = { lancamentos: [], fixos: [], pagos: [], faturas: [], cartoes: [] };
+  st.fixos.push({ id: "s", tipo: "Receita", descricao: "Salário", categoria: "Salário", dia: 5, valor: 3000, forma: "", desde: "2026-10-01", ate: null });
+  assert.deepEqual(primeirosPassos(st).itens.filter((i) => i.feito).map((i) => i.k), ["renda"]);
+  st.fixos.push({ id: "a", descricao: "Aluguel", categoria: "Moradia", dia: 10, valor: 1100, forma: "Pix", desde: "2026-10-01", ate: null });   // sem "tipo": é gasto
+  st.fixos.push({ id: "l", tipo: "Despesa", descricao: "Luz", categoria: "Contas da casa", dia: 15, valor: 120, forma: "Pix", desde: "2026-10-01", ate: null });
+  let p = primeirosPassos(st);
+  assert.equal(p.itens[1].feito, true); assert.equal(p.itens[1].n, 2); assert.equal(p.feitos, 2);
+  st.cartoes.push({ id: "k", nome: "Nubank", fechamento: 3, vencimento: 10 });
+  st.lancamentos.push(L("2026-10-04", "Padaria", "Despesa", "Alimentação", "Pix", 12));
+  p = primeirosPassos(st);
+  assert.equal(p.completo, true); assert.equal(p.feitos, 4);
+});
+
+test("primeiros passos: quem não tem renda fixa ou cartão pode dizer isso, e o item fica resolvido", () => {
+  const st = { lancamentos: [L("2026-10-04", "Padaria", "Despesa", "Alimentação", "Pix", 12)], fixos: [{ id: "a", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 10, valor: 900, forma: "Pix", desde: "2026-10-01", ate: null }], pagos: [], faturas: [], cartoes: [] };
+  assert.equal(primeirosPassos(st).feitos, 2);
+  assert.equal(primeirosPassos(st, { semRenda: true }).feitos, 3);
+  assert.equal(primeirosPassos(st, { semRenda: true, semCartao: true }).completo, true);
+  // Uma entrada lançada à mão ou uma fatura lançada à mão também resolvem.
+  st.lancamentos.push(L("2026-10-05", "Bico", "Receita", "Renda extra", "", 400));
+  st.faturas.push({ id: "f", cartao: "Loja", vencimento: "2026-10-10", valor: 200, status: "Aberta" });
+  assert.equal(primeirosPassos(st).completo, true);
 });

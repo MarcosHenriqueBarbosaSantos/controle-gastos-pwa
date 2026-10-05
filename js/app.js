@@ -2,7 +2,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
-  faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura } from "./calc.js";
+  faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
@@ -43,6 +43,9 @@ const ICO = {
   ok: "M5 12.5l4.5 4.5L19 7.5",
   fogo: "M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.2.4-2.2 1-3 .3 1.2 1 2 2 2.3C10.5 8.5 11 5.5 12 3zM7 14a5 5 0 0 0 10 0",
   alvo: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01",
+  ajuda: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.8M12 17h.01",
+  pessoa: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0",
+  olho: "M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
 };
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICO[n]}"/></svg>`;
 
@@ -69,7 +72,7 @@ const S = {
   store: null, client: null, loaded: false,
   prefs: prefsPadrao(),
 };
-function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, saldoInicial: 0, boasVindas: false, avisos: { email: true }, limites: {}, semGasto: [], teto: 0 }; }
+function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, saldoInicial: 0, boasVindas: false, avisos: { email: true }, limites: {}, semGasto: [], teto: 0, guia: { fechado: false, semRenda: false, semCartao: false } }; }
 /** Categorias disponíveis para um tipo: as da pessoa, ou as padrão. */
 function cats(tipo) {
   return S.prefs.categorias?.[tipo]?.length ? S.prefs.categorias[tipo] : CATS_PADRAO[tipo];
@@ -112,11 +115,11 @@ function erroDoLink() {
 async function boot() {
   $("authSuporte").innerHTML = suporteHtml();
   // Endereço terminado em #demo (usado no site de apresentação) abre direto a demonstração.
-  if (location.hash === "#demo") { try { localStorage.setItem("cg-modo", "demo"); } catch { /* nada */ } history.replaceState(null, "", location.pathname); }
-  const aviso = erroDoLink(); if (aviso) authMsg(aviso, "err");
+  if (location.hash === "#demo") { try { sessionStorage.setItem("cg-modo", "demo"); } catch { /* nada */ } history.replaceState(null, "", location.pathname); }
+  try { localStorage.removeItem("cg-modo"); } catch { /* nada */ }   // versões antigas guardavam a demonstração para sempre
+  S.avisoDeEntrada = erroDoLink();   // aparece na tela de entrada, se a pessoa cair nela
   if (!configured()) {
-    $("authForm").hidden = true;
-    $("authMsg").textContent = "Login ainda não configurado neste endereço. Você pode testar tudo na demonstração.";
+    S.semLogin = true;
   } else {
     S.client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
     // O setTimeout evita chamar o Supabase de dentro do próprio callback (recomendação da biblioteca).
@@ -130,78 +133,182 @@ async function boot() {
   }
   semSessao();
 }
+// A demonstração vale só enquanto o app estiver aberto: quem instala e abre pelo ícone cai em Entrar / Criar conta.
 function semSessao() {
-  let demo = false; try { demo = localStorage.getItem("cg-modo") === "demo"; } catch { /* sem armazenamento */ }
+  let demo = false; try { demo = sessionStorage.getItem("cg-modo") === "demo"; } catch { /* sem armazenamento */ }
   if (demo) startDemo(); else showAuth();
 }
 
-function showAuth() {
+/* ---------- tela de entrada: entrar, criar conta, esqueci a senha (pedir e-mail → código ou link) e confirmar e-mail ---------- */
+const AUTH = { modo: "entrar", email: "", ocupado: false, relogio: null };
+const voltaPara = () => location.origin + location.pathname;   // para onde os links de e-mail trazem a pessoa
+const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
+function showAuth(modo = "") {
+  const jaNaTela = !$("auth").hidden && !modo;
   S.store = null; $("app").hidden = true; $("bnav").hidden = true; $("auth").hidden = false; fecharLancar();
+  if (jaNaTela) return;   // a pessoa está no meio de um passo (código, confirmação): não desmancha
+  let lembrado = ""; try { lembrado = localStorage.getItem("cg-email") || ""; } catch { /* nada */ }
+  if (lembrado && !$("aEmail").value) $("aEmail").value = lembrado;
+  // Quem já entrou neste aparelho vê "Entrar"; quem nunca entrou vê "Criar conta".
+  const aviso = S.avisoDeEntrada || ""; S.avisoDeEntrada = "";
+  authModo(modo || (lembrado || aviso ? "entrar" : "criar"), aviso, aviso ? "err" : "");
 }
 function authMsg(t, kind = "") { const m = $("authMsg"); m.textContent = t; m.className = "auth-msg " + kind; }
+function authModo(m, msg = "", kind = "") {
+  AUTH.modo = m;
+  const entrada = m === "entrar" || m === "criar";
+  $("authEntrada").hidden = !entrada || Boolean(S.semLogin); $("authEsqueci").hidden = m !== "esqueci"; $("authCodigo").hidden = m !== "codigo"; $("authConfirma").hidden = m !== "confirma";
+  $("authRodape").hidden = !entrada;
+  document.querySelectorAll("#authSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.modo === m));
+  $("aEntrar").textContent = m === "criar" ? "Criar minha conta" : "Entrar";
+  $("aSenha").autocomplete = m === "criar" ? "new-password" : "current-password";
+  $("aSenhaDica").hidden = m !== "criar"; $("aEsqueci").hidden = m !== "entrar";
+  authMsg(S.semLogin && entrada ? "O login ainda não está ligado neste endereço. Você pode testar tudo na demonstração." : msg, kind);
+}
+/** Trava os botões enquanto um pedido está indo: um segundo toque mandaria outro e-mail e o primeiro deixaria de valer. */
+async function authFaz(botao, rotulo, fn) {
+  if (AUTH.ocupado) return;
+  AUTH.ocupado = true; const antes = botao.textContent; botao.disabled = true; botao.textContent = rotulo;
+  try { await fn(); } finally { AUTH.ocupado = false; botao.disabled = false; if (botao.textContent === rotulo) botao.textContent = antes; }
+}
+/** Depois de mandar um e-mail, o servidor só aceita outro pedido em um minuto: o botão conta o tempo. */
+function esperaReenvio(botao, seg = 60) {
+  clearInterval(AUTH.relogio);
+  const pinta = () => { botao.disabled = seg > 0; botao.textContent = seg > 0 ? `Enviar de novo em ${seg} s` : "Enviar de novo"; };
+  pinta(); AUTH.relogio = setInterval(() => { seg--; pinta(); if (seg <= 0) clearInterval(AUTH.relogio); }, 1000);
+}
 const traduzErro = (e) => {
-  const m = String(e?.message || e || "");
-  if (/invalid login/i.test(m)) return "E-mail ou senha incorretos. Confira os dois. Se ainda não tem conta, toque em Criar conta; se esqueceu a senha, use o link abaixo.";
+  const m = String(e?.message || e || ""), cod = String(e?.code || "");
+  if (/invalid login/i.test(m)) return "E-mail ou senha incorretos. Confira os dois. Se esqueceu a senha, toque em Esqueci minha senha.";
+  const seg = m.match(/after (\d+) seconds?/i);
+  if (seg) return `Acabamos de enviar um e-mail para você. Espere ${seg[1]} segundos para pedir outro.`;
+  if (/email rate limit|over_email_send_rate_limit/i.test(m + cod)) return "O envio de e-mails atingiu o limite desta hora. Tente de novo mais tarde.";
   if (/rate limit|too many|security purposes/i.test(m)) return "Muitas tentativas seguidas. Espere um minuto e tente de novo.";
-  if (/expired|invalid.*link|otp/i.test(m)) return "Esse link já foi usado ou expirou. Peça um novo em \"Esqueci minha senha\".";
+  if (/expired|invalid.*(link|token)|otp/i.test(m + cod)) return "Esse código ou link já foi usado ou venceu. Peça um novo e use a mensagem mais recente.";
   if (/already registered/i.test(m)) return "Esse e-mail já tem conta. Use Entrar.";
-  if (/email not confirmed/i.test(m)) return "Confirme seu e-mail pelo link que enviamos antes de entrar.";
-  if (/password/i.test(m) && /6/.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
+  if (/email not confirmed/i.test(m)) return "Falta confirmar o seu e-mail. Abra a mensagem que enviamos e toque no link.";
+  if (/different from the old/i.test(m)) return "A senha nova precisa ser diferente da anterior.";
+  if (/password/i.test(m) && /(6|short|weak|least)/i.test(m)) return "A senha precisa ter pelo menos 6 caracteres.";
+  if (/invalid.*email|email.*invalid/i.test(m)) return "Confira o e-mail: ele parece estar incompleto.";
   if (/fetch|network/i.test(m)) return "Sem conexão com a internet. Tente de novo.";
   return "Não deu certo: " + m;
 };
 
-$("authForm").addEventListener("submit", async (e) => {
+$("authSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) authModo(b.dataset.modo); });
+// Botão de mostrar a senha, em qualquer campo de senha.
+document.addEventListener("click", (e) => {
+  const b = e.target.closest("[data-ver]"); if (!b) return;
+  const campo = $(b.dataset.ver), ver = campo.type === "password";
+  campo.type = ver ? "text" : "password"; b.setAttribute("aria-pressed", ver); b.setAttribute("aria-label", ver ? "Esconder a senha" : "Mostrar a senha");
+});
+document.querySelectorAll("#auth [data-voltar]").forEach((b) => (b.onclick = () => { clearInterval(AUTH.relogio); authModo("entrar"); }));
+
+async function entrar(email, senha) {
+  const { error } = await S.client.auth.signInWithPassword({ email, password: senha });
+  if (!error) { try { localStorage.setItem("cg-email", email); } catch { /* nada */ } return authMsg(""); }
+  if (/email not confirmed/i.test(error.message)) { AUTH.email = email; $("fEmail").textContent = email; return authModo("confirma", "Esse e-mail ainda não foi confirmado.", "err"); }
+  authMsg(traduzErro(error), "err");
+}
+$("authForm").addEventListener("submit", (e) => {
   e.preventDefault();
-  authMsg("Entrando…");
-  const { error } = await S.client.auth.signInWithPassword({ email: $("aEmail").value.trim(), password: $("aSenha").value });
-  if (error) authMsg(traduzErro(error), "err");
-});
-$("aCriar").addEventListener("click", async () => {
-  if (!$("authForm").reportValidity()) return;
-  authMsg("Criando sua conta…");
-  const { data, error } = await S.client.auth.signUp({
-    email: $("aEmail").value.trim(), password: $("aSenha").value,
-    options: { emailRedirectTo: location.origin + location.pathname },
+  const email = $("aEmail").value.trim(), senha = $("aSenha").value, criar = AUTH.modo === "criar";
+  if (!emailOk(email)) { $("aEmail").focus(); return authMsg("Digite o seu e-mail completo, como voce@exemplo.com.", "err"); }
+  if (!senha) { $("aSenha").focus(); return authMsg(criar ? "Escolha uma senha." : "Digite a sua senha.", "err"); }
+  if (criar && senha.length < 6) { $("aSenha").focus(); return authMsg("A senha precisa ter pelo menos 6 caracteres.", "err"); }
+  authFaz($("aEntrar"), criar ? "Criando sua conta…" : "Entrando…", async () => {
+    if (!criar) return entrar(email, senha);
+    const { data, error } = await S.client.auth.signUp({ email, password: senha, options: { emailRedirectTo: voltaPara() } });
+    if (error) return authMsg(traduzErro(error), "err");
+    // Quando o e-mail já tem conta, o Supabase responde sem erro e sem identidades (para não revelar cadastros).
+    if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0)
+      return authModo("entrar", "Esse e-mail já tem conta. Entre com a sua senha, ou toque em Esqueci minha senha.", "err");
+    try { localStorage.setItem("cg-email", email); } catch { /* nada */ }
+    if (!data.session) { AUTH.email = email; $("fEmail").textContent = email; authModo("confirma"); esperaReenvio($("fReenviar")); }
   });
-  if (error) return authMsg(traduzErro(error), "err");
-  // Quando o e-mail já tem conta, o Supabase responde sem erro e sem identidades (para não revelar cadastros).
-  if (data.user && Array.isArray(data.user.identities) && data.user.identities.length === 0)
-    return authMsg("Esse e-mail já tem conta. Use Entrar. Se não lembra a senha, toque em \"Esqueci minha senha\".", "err");
-  if (!data.session) authMsg("Conta criada. Abra o e-mail de confirmação que enviamos (olhe também o spam), toque no link e depois volte aqui para entrar.", "ok");
 });
-$("aEsqueci").addEventListener("click", async () => {
-  const email = $("aEmail").value.trim();
-  if (!email) { $("aEmail").focus(); return authMsg("Digite seu e-mail acima para receber o link de nova senha."); }
-  const { error } = await S.client.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
-  authMsg(error ? traduzErro(error) : "Se esse e-mail tem conta, enviamos um link para criar uma nova senha. Olhe também o spam. Se não chegar, pode ser que a conta ainda não exista: use Criar conta.", error ? "err" : "ok");
+$("fEntrar").onclick = () => authFaz($("fEntrar"), "Entrando…", async () => {
+  const senha = $("aSenha").value;
+  if (!senha) return authModo("entrar", "Digite a sua senha para entrar.");
+  await entrar(AUTH.email, senha);
 });
-$("aVer").addEventListener("change", (e) => { $("aSenha").type = e.target.checked ? "text" : "password"; });
+$("fReenviar").onclick = () => authFaz($("fReenviar"), "Enviando…", async () => {
+  const { error } = await S.client.auth.resend({ type: "signup", email: AUTH.email, options: { emailRedirectTo: voltaPara() } });
+  authMsg(error ? traduzErro(error) : "Enviamos de novo. Use a mensagem mais recente.", error ? "err" : "ok");
+  if (!error || /after \d+ seconds/i.test(error.message)) esperaReenvio($("fReenviar"), Number(error?.message.match(/after (\d+)/)?.[1]) || 60);
+});
+
+/* Esqueci a senha. O e-mail traz um botão (link) e, se o modelo de e-mail do projeto tiver, um código de números.
+   O código é o caminho mais seguro: funciona dentro do app instalado e não depende de o link abrir no lugar certo. */
+$("aEsqueci").onclick = () => { $("rEmail").value = $("aEmail").value.trim(); authModo("esqueci"); if (!$("rEmail").value) $("rEmail").focus(); };
+async function pedirEmailDeSenha(email, botao) {
+  await authFaz(botao, "Enviando…", async () => {
+    const { error } = await S.client.auth.resetPasswordForEmail(email, { redirectTo: voltaPara() });
+    const espera = Number(error?.message.match(/after (\d+) seconds?/i)?.[1]) || 0;
+    if (error && !espera) return authMsg(traduzErro(error), "err");
+    AUTH.email = email; $("cEmail").textContent = email;
+    // "Espere N segundos" quer dizer que um e-mail acabou de sair: a pessoa segue para a tela do código, com o relógio certo.
+    authModo("codigo", espera ? "Já enviamos uma mensagem há pouco. Use essa." : "", "");
+    esperaReenvio($("cReenviar"), espera || 60);
+  });
+}
+$("authEsqueci").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const email = $("rEmail").value.trim();
+  if (!emailOk(email)) { $("rEmail").focus(); return authMsg("Digite o e-mail da sua conta, como voce@exemplo.com.", "err"); }
+  pedirEmailDeSenha(email, $("rEnviar"));
+});
+$("cReenviar").onclick = () => pedirEmailDeSenha(AUTH.email, $("cReenviar"));
+$("authCodigo").addEventListener("submit", (e) => {
+  e.preventDefault();
+  const codigo = $("cCodigo").value.replace(/\D/g, ""), senha = $("cSenha").value;
+  if (codigo.length < 6) { $("cCodigo").focus(); return authMsg("Digite o código de números que veio no e-mail. Se a mensagem só tem um botão, toque nele.", "err"); }
+  if (senha.length < 6) { $("cSenha").focus(); return authMsg("A senha nova precisa ter pelo menos 6 caracteres.", "err"); }
+  authFaz($("cSalvar"), "Salvando…", async () => {
+    const { error } = await S.client.auth.verifyOtp({ email: AUTH.email, token: codigo, type: "recovery" });
+    if (error) return authMsg("Código incorreto ou vencido. Confira na mensagem mais recente, ou peça outro.", "err");
+    // O código já colocou a pessoa dentro da conta; agora grava a senha nova.
+    const troca = await S.client.auth.updateUser({ password: senha });
+    clearInterval(AUTH.relogio); $("cCodigo").value = ""; $("cSenha").value = ""; authModo("entrar");
+    try { localStorage.setItem("cg-email", AUTH.email); } catch { /* nada */ }
+    if (troca.error) { S.recuperando = true; if (S.loaded) pedirNovaSenha(traduzErro(troca.error)); } else toast("Senha nova salva. Você já está dentro do app.");
+  });
+});
 $("aDemo").addEventListener("click", startDemo);
 $("btnSair").addEventListener("click", async () => {
   if (S.store?.kind === "supabase") { await desligarPush().catch(() => {}); await S.client.auth.signOut(); }
-  else { try { localStorage.removeItem("cg-modo"); } catch { /* nada */ } showAuth(); }
+  else { try { sessionStorage.removeItem("cg-modo"); } catch { /* nada */ } showAuth(); }
 });
 
-function pedirNovaSenha() {
-  openDlg(`<h3>Criar nova senha</h3><p class="hint" style="margin:0 0 4px">Escolha uma senha nova, com pelo menos 6 caracteres.</p><form id="novaSenha" style="display:grid;gap:12px">
-    <label class="f">Nova senha<input class="in" id="ns1" type="password" minlength="6" required autocomplete="new-password"></label>
-    <div class="actions"><button class="btn primary" type="submit">Salvar senha</button></div><p class="auth-msg" id="nsMsg"></p></form>`);
+/** Quem chegou pelo link do e-mail já está dentro da conta: falta só escolher a senha nova. */
+function pedirNovaSenha(aviso = "") {
+  openDlg(`<h3>Criar a senha nova</h3><p class="hint" style="margin:0 0 4px;font-size:13.5px">Você entrou pelo e-mail. Escolha agora a senha nova, com pelo menos 6 caracteres.</p><form id="novaSenha" style="display:grid;gap:12px" novalidate>
+    <label class="f">Senha nova<span class="senha"><input class="in" id="ns1" type="password" autocomplete="new-password"><button type="button" class="olho" data-ver="ns1" aria-label="Mostrar a senha" aria-pressed="false">${ico("olho")}</button></span></label>
+    <p class="auth-msg err" id="nsMsg" role="alert">${esc(aviso)}</p>
+    <div class="actions"><button class="btn primary" type="submit" id="nsSalvar">Salvar senha nova</button></div></form>`);
   $("novaSenha").addEventListener("submit", async (e) => {
     e.preventDefault();
+    if ($("ns1").value.length < 6) { $("ns1").focus(); $("nsMsg").textContent = "A senha precisa ter pelo menos 6 caracteres."; return; }
+    $("nsSalvar").disabled = true;
     const { error } = await S.client.auth.updateUser({ password: $("ns1").value });
-    if (error) { $("nsMsg").textContent = traduzErro(error); return; }
+    if (error) { $("nsSalvar").disabled = false; $("nsMsg").textContent = traduzErro(error); return; }
     S.recuperando = false;
-    $("dlg").close(); toast("Senha alterada. Você já está dentro do app.");
-    $("flash").style.color = "var(--good)"; $("flash").textContent = "Senha alterada.";
+    $("dlg").close(); showBanner(""); toastOuFlash("Senha nova salva. Você já está dentro do app.");
   });
+  // Fechou sem salvar: a pessoa continua dentro, mas a senha antiga segue valendo. Um aviso deixa o caminho à mão.
+  $("dlg").addEventListener("close", () => { if (S.recuperando) showBanner("Você entrou pelo e-mail, mas ainda não criou a senha nova.", [["Criar agora", () => pedirNovaSenha()]]); }, { once: true });
 }
 
+/** Sai da demonstração direto para a tela de criar conta. Os dados de exemplo não vão junto: a conta começa vazia, com os primeiros passos. */
+function contaAPartirDaDemo() {
+  try { sessionStorage.removeItem("cg-modo"); } catch { /* nada */ }
+  $("dlg").open && $("dlg").close(); showBanner(""); showAuth("criar"); scrollTo(0, 0);
+}
 function startDemo() {
-  try { localStorage.setItem("cg-modo", "demo"); } catch { /* nada */ }
+  try { sessionStorage.setItem("cg-modo", "demo"); } catch { /* nada */ }
   const store = createLocalStore("cg-demo-v8", demoSeed(hoje()));
   startApp(store, "Demonstração");
-  showBanner(`Modo demonstração: dados de exemplo guardados só neste aparelho.`, [["Recomeçar exemplo", () => { store.reset(); startDemo(); }]]);
+  showBanner(`Você está na demonstração, com dados de exemplo. Gostou? Crie a sua conta para usar com os seus números.`,
+    [...(S.semLogin ? [] : [["Criar minha conta", contaAPartirDaDemo]]), ["Recomeçar exemplo", () => { store.reset(); startDemo(); }]]);
 }
 
 async function startApp(store, quem) {
@@ -219,7 +326,7 @@ async function startApp(store, quem) {
     if (!S.prefs.categorias) S.prefs.categorias = categoriasIniciais(S.data);
     S.loaded = true; render();
     if (S.recuperando) pedirNovaSenha();
-    else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) boasVindas();
+    else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) { S.prefs.boasVindas = true; salvaPrefs(); guiaPasso("renda", true); }
     else conviteAvisos();
   } catch (e) { console.error(e); showBanner("Não foi possível carregar seus dados. Confira a internet e recarregue a página."); }
 }
@@ -334,7 +441,7 @@ function renderKpis(c) {
     </div>` : ""}
     <button type="button" class="entenda" id="entenda">${ico("luz")}Entenda essa conta</button></div>`;
   $("entenda").onclick = () => entendaAConta(c);
-  renderDia(c); renderTeto(c);
+  renderGuia(); renderDia(c); renderTeto(c);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
   $("kpis").innerHTML = `
    <div class="kpi reserva" data-det="guardado" role="button" tabindex="0">${cab("cofre", "Dinheiro guardado")}<span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
@@ -393,7 +500,8 @@ const barraDoTeto = (u) => { const esc2 = Math.max(100, u.pct); return `<span cl
 /** Quadro do início: quanto do limite do mês já foi usado. Sem limite, convida a definir um. */
 function renderTeto(c) {
   const host = $("teto"), u = S.loaded ? usoDoTeto(c, S.prefs.teto) : null;
-  if (!S.loaded || (!u && c.fase !== "atual")) { host.hidden = true; host.innerHTML = ""; return; }
+  // Sem limite definido, o convite só aparece depois dos primeiros passos: uma coisa de cada vez.
+  if (!S.loaded || (!u && (c.fase !== "atual" || guiaVisivel()))) { host.hidden = true; host.innerHTML = ""; return; }
   host.hidden = false;
   if (!u) {
     host.innerHTML = `<div class="teto vazio"><span class="ava res">${ico("alvo")}</span><div class="tx"><b>Quanto você quer gastar no máximo por mês?</b><span>Defina um limite e o app avisa quando você estiver perto ou passar dele.</span></div><button class="btn sm" type="button" id="tetoIr">Definir limite</button></div>`;
@@ -896,15 +1004,44 @@ $("bnav").addEventListener("click", (e) => {
   render(); scrollTo(0, 0);
 });
 $("btnMenu").onclick = () => {
+  const naDemo = S.store?.kind === "local" && !S.semLogin;
   openDlg(`<h3>Menu</h3><p class="hint" style="margin:0 0 12px">${esc($("whoName").textContent)}</p><div class="menu-lista">
+    ${naDemo ? `<button class="btn primary" id="menuCriar">${ico("pessoa")}Criar minha conta</button>` : ""}
     <button class="btn" data-go="btnLimites">${ico("alvo")}Limites de gasto</button>
+    <button class="btn" data-go="btnAjuda">${ico("ajuda")}Como usar</button>
     <button class="btn" data-go="btnAjustes">${ico("ajustes")}Ajustes e categorias</button>
     <button class="btn" data-go="btnExport">${ico("baixar")}Baixar relatório de gastos</button>
     ${$("btnInstall").hidden ? "" : `<button class="btn" data-go="btnInstall">${ico("instalar")}Instalar app</button>`}
     <button class="btn" data-go="btnSair">${ico("sair")}${esc($("btnSair").textContent)}</button>
     <button class="btn ghost" data-close>Fechar</button></div>`);
   $("dlgBody").querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { $("dlg").close(); $(b.dataset.go).click(); }));
+  if ($("menuCriar")) $("menuCriar").onclick = contaAPartirDaDemo;
 };
+
+/* ---------- Como usar: respostas curtas para as dúvidas mais comuns, sempre no menu ---------- */
+const AJUDA = [
+  ["O que é o número grande do início?", `É quanto sobra no mês: tudo o que entra, menos tudo o que sai (contas fixas, gastos do dia a dia, faturas de cartão e o que você guardou). Toque no número, ou em <b>Entenda essa conta</b>, para ver de onde ele veio.`],
+  ["O que é o custo do mês?", `É a soma do que sai no mês: contas fixas, gastos do dia a dia e as faturas de cartão que vencem nele. Dinheiro guardado fica separado e não entra no custo.`],
+  ["Por que a compra no cartão não aparece neste mês?", `Porque ela só pesa no mês em que a fatura vence, como no seu bolso. A compra fica na aba <b>Cartões</b>, dentro da fatura. Se foi parcelada, cada parcela cai na fatura do mês dela. O app sabe a fatura certa pelo dia em que ela fecha e pelo dia em que vence, que você informa ao cadastrar o cartão.`],
+  ["O que é “Pode gastar por dia”?", `É o que sobra no mês dividido pelos dias que faltam, contando hoje. Cada gasto que você anota diminui esse valor na hora.`],
+  ["E “No ritmo atual”?", `É a previsão de como o mês termina se você continuar gastando no mesmo ritmo dos dias que já passaram. Serve de aviso antecipado: dá tempo de segurar os gastos.`],
+  ["Qual a diferença entre gasto fixo e lançamento?", `<b>Fixo</b> é o que se repete: aluguel, internet, salário. Você cadastra uma vez e ele entra sozinho em todo mês (ou em toda semana). <b>Lançamento</b> é um gasto que aconteceu uma vez, como o mercado de hoje.`],
+  ["Como marco uma conta como paga?", `No início, em <b>Próximos vencimentos</b>, toque em <b>Já paguei</b>. Também dá para marcar na aba <b>Fixos</b> e, para a fatura, na aba <b>Cartões</b>.`],
+  ["Como registro o dinheiro que guardei?", `Em Lançar, escolha <b>Guardar</b> e diga onde o dinheiro ficou (reserva, investimento). Ele sai do que sobra no mês e passa a somar no quadro <b>Dinheiro guardado</b>. Para tirar, use o mesmo caminho e escolha Retirar.`],
+  ["Como funciona o limite de gastos?", `Na aba <b>Limites</b> você diz quanto quer gastar no máximo por mês e, se quiser, por categoria. O app mostra quanto já foi usado e avisa ao chegar a 80%, ao passar do limite e se passar em mais de 20%.`],
+  ["Errei um lançamento. Como corrijo?", `Na aba <b>Lançamentos</b>, toque no lançamento para mudar o valor, a data, a categoria ou para excluir.`],
+  ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Ler foto ou PDF</b> para o app ler um comprovante, boleto, conta ou holerite. Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
+  ["Como recebo avisos e instalo no celular?", `Em <b>Ajustes</b> você liga os avisos por e-mail e a notificação no aparelho. Para instalar, use <b>Instalar app</b> no menu; no iPhone, abra pelo Safari, toque em Compartilhar e em Adicionar à Tela de Início.`],
+  ["Meus dados ficam seguros? Consigo levar embora?", `Cada conta só enxerga os próprios dados, e essa regra é aplicada no banco de dados. Fotos e PDFs são lidos no seu aparelho e não são enviados. Em <b>Baixar relatório</b> você leva tudo em planilha. Os detalhes estão na <a href="site/privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.`],
+];
+function ajuda() {
+  openDlg(`<h3>Como usar</h3><p class="hint" style="margin:0 0 12px;font-size:13.5px">Toque em uma pergunta para ver a resposta.</p>
+    <div class="ajuda">${AJUDA.map(([q, r]) => `<details><summary>${q}</summary><p>${r}</p></details>`).join("")}</div>
+    <div class="aj-sec" style="margin-top:14px"><button class="link" type="button" id="ajudaPassos">Refazer os primeiros passos</button>${suporteHtml()}</div>
+    <div class="actions"><button class="btn primary" data-close>Fechar</button></div>`);
+  $("ajudaPassos").onclick = () => { guiaDe().fechado = false; salvaPrefs(); guiaPasso("renda", true); };
+}
+$("btnAjuda").onclick = ajuda;
 $("formLanc").addEventListener("submit", async (e) => {
   e.preventDefault();
   const flash = $("flash"), v = parseMoney($("fValor").value);
@@ -1234,7 +1371,7 @@ function detalheCategoria(nome) {
 const suporteHtml = () => {
   if (!SUPORTE_CONTATO) return "";
   const link = /^https?:/.test(SUPORTE_CONTATO);
-  return `<p class="hint" style="margin:0">Precisa de ajuda? ${link ? `<a href="${esc(SUPORTE_CONTATO)}" target="_blank" rel="noopener">Fale com o suporte</a>` : `Escreva para <b style="user-select:all">${esc(SUPORTE_CONTATO)}</b>`}.</p>`;
+  return `<p class="hint" style="margin:0">Precisa de ajuda? ${link ? `<a href="${esc(SUPORTE_CONTATO)}" target="_blank" rel="noopener">Fale com o suporte</a>` : `Escreva para <a href="mailto:${esc(SUPORTE_CONTATO)}">${esc(SUPORTE_CONTATO)}</a>`}.</p>`;
 };
 function ajustes() {
   const first = primeiroMes(S.data) || mKey(hoje()), cur = mKey(hoje()), meses = [];
@@ -1266,7 +1403,7 @@ function ajustes() {
       <p class="hint" style="margin:0" id="ajPushMsg">${pushDisponivel() ? "" : "Neste aparelho a notificação só funciona com o app instalado. No iPhone: Compartilhar → Adicionar à Tela de Início, e abra o app por lá."}</p>
       <button class="btn" type="button" id="ajTeste" style="justify-self:start">Enviar um aviso de teste agora</button>
     </div>` : ""}
-    <div class="aj-sec"><button class="link" type="button" id="ajBV">Ver as boas-vindas de novo</button>${suporteHtml()}</div>
+    <div class="aj-sec"><button class="link" type="button" id="ajBV">Refazer os primeiros passos</button>${suporteHtml()}</div>
     <div class="actions"><button class="btn primary" data-close>Pronto</button></div>`);
   const body = $("dlgBody");
   body.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = async () => {
@@ -1292,7 +1429,7 @@ function ajustes() {
     await salvaPrefs(); render();
   };
   $("ajIni").onchange = salvaIni; $("ajIniSinal").onchange = salvaIni;
-  $("ajBV").onclick = boasVindas;
+  $("ajBV").onclick = () => { guiaDe().fechado = false; salvaPrefs(); guiaPasso("renda", true); };
   // O tema fica guardado neste aparelho: escuro é o padrão, claro é opção.
   $("ajTema").onchange = (e) => {
     const claro = e.target.value === "claro";
@@ -1309,7 +1446,7 @@ function abrirLeitor(preferido = "") {
   S.lerComo = preferido;
   openDlg(`<h3>${preferido === "fatura" ? "Ler fatura" : "Ler foto ou PDF"}</h3>
     <p class="hint" style="margin:0 0 10px;font-size:13px">${preferido === "fatura" ? "Fotografe a fatura do cartão ou escolha o PDF que o banco mandou." : "Fotografe ou escolha o arquivo de um comprovante de pagamento, da fatura do cartão ou do holerite."} O app lê o valor e a data e deixa tudo preenchido para você conferir.</p>
-    <ul class="dicas"><li>PDF e print de tela leem melhor do que foto de papel.</li><li>Na foto, deixe o valor e a data bem visíveis, com boa luz e sem sombra.</li><li>Da fatura o app pega só o total e o vencimento; do holerite, o valor líquido.</li><li>A leitura é feita no seu aparelho. O arquivo não é enviado para nenhum servidor.</li></ul>
+    <ul class="dicas"><li>PDF e print de tela leem melhor do que foto de papel.</li><li>Na foto de papel: chegue perto, enquadre só o documento e segure o celular reto por cima dele, com boa luz.</li><li>Em boleto e conta, deixe o código de barras e a fileira de números aparecendo: o valor também está escrito ali.</li><li>Da fatura o app pega só o total e o vencimento; do holerite, o valor líquido.</li><li>A leitura é feita no seu aparelho. O arquivo não é enviado para nenhum servidor.</li></ul>
     <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="lerFoto">${ico("camera")}Tirar foto</button><button class="btn" type="button" id="lerEscolher">${ico("imagem")}Escolher imagem ou PDF</button><button class="btn" type="button" id="lerExtrato">${ico("subir")}Importar extrato do cartão</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
   $("lerFoto").onclick = () => $("lerCamera").click();
   $("lerEscolher").onclick = () => $("lerGaleria").click();
@@ -1344,22 +1481,22 @@ async function processaLeitura(arquivo, senha = "") {
   $("lerCancela").onclick = () => { leitura++; $("dlg").close(); };
   const anda = (rotulo) => (p) => {
     if (vez !== leitura || !$("lerBarra")) return;
-    $("lerEtapa").textContent = p.etapa === "lendo" ? `${rotulo} ${p.pct}%` : preparando;
+    $("lerEtapa").textContent = p.etapa !== "lendo" ? preparando : p.vez > 1 ? `Olhando de outro jeito, para achar o valor e a data (${p.vez}ª tentativa)… ${p.pct}%` : `${rotulo} ${p.pct}%`;
     $("lerBarra").style.width = (p.etapa === "lendo" ? 30 + p.pct * 0.7 : Math.min(30, 4 + p.pct * 0.26)) + "%";
   };
   try {
-    let texto, previa;
+    let texto, previa, lido = null;
     if (pdf) {
       const r = await lerPdf(arquivo, { senha, aoProgredir: anda("Lendo o PDF…") });
       if (vez !== leitura) return;
       texto = r.texto; previa = r.tela.toDataURL("image/jpeg", 0.72);
       // PDF que é só uma foto digitalizada não tem texto dentro: lê a primeira página como imagem.
-      if (texto.replace(/\s/g, "").length < 40) texto = (await lerImagem(r.tela, anda("Esse PDF é uma imagem. Lendo o texto…"))).texto;
+      if (texto.replace(/\s/g, "").length < 40) ({ texto, leitura: lido } = await lerImagem(r.tela, anda("Esse PDF é uma imagem. Lendo o texto…"), hoje()));
     } else {
-      texto = (await lerImagem(arquivo, anda("Lendo o texto da imagem…"))).texto; previa = URL.createObjectURL(arquivo);
+      ({ texto, leitura: lido } = await lerImagem(arquivo, anda("Lendo o texto da imagem…"), hoje())); previa = URL.createObjectURL(arquivo);
     }
     if (vez !== leitura) return;
-    conferirLeitura(interpretaTexto(texto, hoje()), texto, previa);
+    conferirLeitura(lido || interpretaTexto(texto, hoje()), texto, previa);
   } catch (e) {
     if (vez !== leitura) return;
     const cod = String(e?.message);
@@ -1386,7 +1523,11 @@ function conferirLeitura(r, texto, previa) {
   const sugerido = achado || ativos[0];
   openDlg(`<h3>Conferir leitura</h3>
     <div class="ler-topo"><img src="${previa}" alt="Arquivo lido">
-      <div><p class="hint" style="font-size:13px">${r.valor ? (r.tipo === "holerite" ? "Parece um holerite: peguei o valor líquido. Confira os campos antes de salvar." : "Confira os campos antes de salvar. O leitor pode trocar algum número.") : "Não achei o valor nesse arquivo. Preencha abaixo, ou tente outro."}</p>
+      <div><p class="hint" style="font-size:13px">${r.valor ? (r.tipo === "holerite" ? "Parece um holerite: peguei o valor líquido. Confira os campos antes de salvar."
+        : r.firme === false ? `Achei ${brl(r.valor)}, mas sem certeza de que é o valor certo. Confira${r.valores.length ? " ou toque em outro valor abaixo" : ""}.`
+        : "Confira os campos antes de salvar. O leitor pode trocar algum número.")
+        : r.valores.length ? "Não tive certeza de qual é o valor. Toque em um dos que encontrei, ou digite."
+        : "Não consegui ler o valor nessa foto. Digite abaixo, ou tire outra mais de perto, só do documento, com o celular reto por cima."}${r.vencimento && r.tipo !== "fatura" && !r.data ? ` Vence em ${ddmm(r.vencimento)}; deixei a data de hoje.` : ""}</p>
       ${r.valores.length ? `<div class="ler-chips" aria-label="Outros valores encontrados">${r.valores.map((v) => `<button type="button" data-usar="${v}">${brl(v)}</button>`).join("")}</div>` : ""}</div></div>
     <div class="seg" id="lTipoSeg" role="group" aria-label="O que é esse arquivo"><button type="button" data-lt="gasto">Gasto</button><button type="button" data-lt="entrada">Entrada</button><button type="button" data-lt="fatura">Fatura</button></div>
     <form id="lerForm" class="dlg-form" autocomplete="off" novalidate>
@@ -1677,21 +1818,156 @@ function conviteAvisos() {
     ["Agora não", () => showBanner("")]]);
 }
 
-function boasVindas() {
-  openDlg(`<h3>Bem-vindo ao Meus Gastos</h3><p style="color:var(--ink-2);margin:0 0 10px">Em poucos passos você passa a ver quanto o seu mês vai custar.</p>
-    <ol class="passos">
-      <li><b>Cadastre o que é fixo.</b> Gastos como aluguel, internet e parcelas, e entradas como o salário. Eles entram sozinhos em todo mês.</li>
-      <li><b>Lance cada gasto na hora.</b> Valor, descrição e categoria, pelo formulário no topo. Entradas também.</li>
-      <li><b>Registre o que você guarda.</b> Reserva de emergência, investimentos ou outro destino. Esse dinheiro sai do saldo e fica somado em um quadro separado.</li>
-      <li><b>Cadastre seu cartão de crédito.</b> Com o dia em que a fatura fecha e o dia em que vence, o app monta a fatura sozinho, com as parcelas. A compra só pesa no mês em que a fatura vence.</li>
-      <li><b>Acompanhe o mês.</b> O app mostra o custo até agora, quanto o mês deve fechar e para onde o dinheiro está indo.</li>
-    </ol>
-    <p class="hint">Para não digitar tudo, importe o extrato do cartão na aba <b>Cartões</b> ou leia um comprovante por foto ou PDF. Em <b>Ajustes</b> você muda as categorias e informa quanto já tinha na conta quando começou (saldo inicial).</p>
+/* ================= primeiros passos =================
+   Conta nova: três perguntas (quanto recebe, contas de todo mês, cartão) e, no fim, o "quanto sobra" já calculado.
+   O que ficar para depois aparece na lista "Comece por aqui", no início, até a pessoa resolver ou dispensar. */
+const GUIA_PASSOS = ["renda", "contas", "cartao"];
+const guiaDe = () => (S.prefs.guia ||= { fechado: false, semRenda: false, semCartao: false });
+const mesAtual = () => mKey(hoje());
+const escolheCat = (tipo, palpite) => { const l = cats(tipo); return l.includes(palpite) ? palpite : l.includes("Outros") ? "Outros" : l[0]; };
+const guiaVisivel = () => S.loaded && !guiaDe().fechado && !primeirosPassos(S.data, guiaDe()).completo;
+const lista3 = (nomes) => nomes.slice(0, 3).join(", ") + (nomes.length > 3 ? ` e mais ${nomes.length - 3}` : "");
+
+/** Lista "Comece por aqui", no início: o que já foi feito e o que falta. Some quando tudo está resolvido. */
+function renderGuia() {
+  const host = $("guia");
+  if (!guiaVisivel()) { host.hidden = true; host.innerHTML = ""; return; }
+  const g = guiaDe(), p = primeirosPassos(S.data, g), feito = Object.fromEntries(p.itens.map((i) => [i.k, i.feito]));
+  const nomes = (tipo) => S.data.fixos.filter((f) => (f.tipo || "Despesa") === tipo).map((f) => f.descricao);
+  const ITENS = [
+    ["renda", "Quanto você recebe", "Salário e outras entradas fixas. É daqui que sai o quanto sobra.", nomes("Receita").length ? lista3(nomes("Receita")) : g.semRenda ? "Você lança as entradas quando elas chegam" : "Entrada lançada"],
+    ["contas", "Suas contas de todo mês", "Aluguel, luz, internet. Você cadastra uma vez e elas entram sozinhas.", lista3(nomes("Despesa"))],
+    ["cartao", "Seu cartão de crédito", "Com o dia em que a fatura fecha e o dia em que vence, o app monta a fatura.", S.data.cartoes.length ? lista3(S.data.cartoes.map((k) => k.nome)) : g.semCartao ? "Você não usa cartão" : "Fatura lançada à mão"],
+    ["gasto", "Seu primeiro gasto", "Anote um gasto de hoje. Leva dez segundos.", "Feito"],
+  ];
+  host.hidden = false;
+  host.innerHTML = `<div class="guia">
+    <div class="guia-topo"><div><b>Comece por aqui</b><span>${p.feitos} de ${p.total} feitos. Com eles, o app mostra quanto sobra no seu mês.</span></div><button class="link" type="button" id="guiaFechar">Dispensar</button></div>
+    <div class="guia-barra" role="img" aria-label="${p.feitos} de ${p.total} passos feitos"><i style="width:${(p.feitos / p.total) * 100}%"></i></div>
+    <ul>${ITENS.map(([k, titulo, falta, pronto]) => feito[k]
+      ? `<li><div class="gi feito"><span class="m">${ico("ok")}</span><span class="tx"><b>${titulo}</b><span>${esc(pronto)}</span></span></div></li>`
+      : `<li><button type="button" class="gi" data-guia="${k}"><span class="m"></span><span class="tx"><b>${titulo}</b><span>${falta}</span></span>${ico("chev")}</button></li>`).join("")}</ul></div>`;
+  host.querySelectorAll("[data-guia]").forEach((b) => (b.onclick = () => (b.dataset.guia === "gasto" ? guiaLancar() : guiaPasso(b.dataset.guia))));
+  $("guiaFechar").onclick = () => { guiaDe().fechado = true; salvaPrefs(); render(); toast("Lista escondida. Para ver de novo: Ajustes, Refazer os primeiros passos."); };
+}
+/** Abre o formulário de lançar já no tipo Gasto. */
+function guiaLancar() {
+  S.tipo = "Despesa"; S.view = "inicio"; render();
+  if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
+}
+/** Depois de um passo: vai para o próximo que falta (ou para todos, no primeiro uso) e, no fim, mostra o resultado. */
+function guiaProximo(k, todos) {
+  const p = primeirosPassos(S.data, guiaDe());
+  const prox = GUIA_PASSOS.slice(GUIA_PASSOS.indexOf(k) + 1).find((x) => todos || !p.itens.find((i) => i.k === x).feito);
+  if (prox) guiaPasso(prox, todos); else guiaFim();
+}
+
+/**
+ * Um passo do guia, dentro do quadro de diálogo.
+ * @param {"renda"|"contas"|"cartao"} k
+ * @param {boolean} todos  true no primeiro uso: passa pelas três perguntas, mesmo as já respondidas
+ */
+function guiaPasso(k, todos = false) {
+  if (S.mes !== mesAtual()) { S.mes = mesAtual(); render(); }
+  const etapa = `<p class="guia-etapa">Passo ${GUIA_PASSOS.indexOf(k) + 1} de ${GUIA_PASSOS.length}</p>`;
+  const depois = `<button class="link gdepois" type="button" data-close>Fazer depois</button>`;
+  const erro = (t) => { $("gMsg").textContent = t; };
+
+  if (k === "cartao") {
+    const ja = S.data.cartoes;
+    openDlg(`<div class="guiad">${etapa}<h3>Você usa cartão de crédito?</h3>
+      <p class="gsub">Diga o dia em que a fatura fecha e o dia em que vence. Com isso, cada compra entra sozinha na fatura certa, com as parcelas.</p>
+      ${ja.length ? `<p class="gja">Já cadastrado: ${esc(lista3(ja.map((x) => x.nome)))}.</p>` : ""}
+      <form id="gForm" autocomplete="off">
+        <div class="dlg-form">
+          <label class="f wide">Nome do cartão<input class="in" id="gkNome" maxlength="40" placeholder="Ex.: Nubank"></label>
+          <label class="f">Dia que a fatura fecha<input class="in" id="gkFech" type="number" inputmode="numeric" min="1" max="31" placeholder="Ex.: 3"></label>
+          <label class="f">Dia que a fatura vence<input class="in" id="gkVenc" type="number" inputmode="numeric" min="1" max="31" placeholder="Ex.: 10"></label>
+        </div>
+        <p class="hint" style="margin:10px 0 0">As duas datas estão na fatura ou no aplicativo do banco. Se não tiver agora, toque em Fazer depois.</p>
+        <p class="gmsg" id="gMsg" role="alert"></p>
+        <div class="actions"><button class="btn primary" type="submit">${ja.length ? "Continuar" : "Cadastrar cartão"}</button><button class="btn" type="button" id="gAlt">${ja.length ? "Pular" : "Não uso cartão"}</button></div>
+        ${depois}
+      </form></div>`);
+    $("gAlt").onclick = () => { if (!ja.length) { guiaDe().semCartao = true; salvaPrefs(); render(); } guiaProximo(k, todos); };
+    $("gForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const nome = $("gkNome").value.trim(), dia = (id) => Math.min(31, Math.max(0, Math.round(Number($(id).value)) || 0)), fe = dia("gkFech"), ve = dia("gkVenc");
+      if (!nome && !fe && !ve && ja.length) return guiaProximo(k, todos);
+      if (!nome || !fe || !ve) return erro(ja.length ? "Para cadastrar outro cartão, preencha o nome e os dois dias." : "Preencha o nome e os dois dias, ou toque em Não uso cartão.");
+      if (S.data.cartoes.some((x) => norm(x.nome) === norm(nome))) return erro(`Já existe um cartão chamado ${nome}.`);
+      const bt = e.target.querySelector("[type=submit]"); bt.disabled = true;
+      const ok = await grava(async () => { const novo = await S.store.addCartao({ nome, fechamento: fe, vencimento: ve }); S.data.cartoes.push(novo); await adotarFaturasManuais(novo); });
+      render(); if (ok) guiaProximo(k, todos); else $("dlg").close();
+    });
+    return;
+  }
+
+  const ent = k === "renda", tipo = ent ? "Receita" : "Despesa", diaPadrao = ent ? 5 : 10;
+  const ja = S.data.fixos.filter((f) => (f.tipo || "Despesa") === tipo), tem = new Set(ja.map((f) => norm(f.descricao)));
+  // [como aparece na tela, nome que fica salvo, categoria]
+  const base = (ent ? [["Salário", "Salário", "Salário"], ["Adiantamento ou vale, se tiver", "Adiantamento", "Adiantamento"]]
+    : [["Aluguel", "Aluguel", "Moradia"], ["Condomínio", "Condomínio", "Moradia"], ["Luz", "Luz", "Contas da casa"], ["Água", "Água", "Contas da casa"], ["Internet", "Internet", "Contas da casa"], ["Celular", "Celular", "Contas da casa"]])
+    .filter(([, nome]) => !tem.has(norm(nome)));
+  const campos = (nome) => `<input class="in money" data-v inputmode="decimal" placeholder="0,00" aria-label="Valor de ${esc(nome)}"><input class="in" data-d type="number" inputmode="numeric" min="1" max="31" placeholder="${diaPadrao}" aria-label="Dia ${ent ? "em que recebe" : "do vencimento de"} ${esc(nome)}">`;
+  const livre = () => `<div class="glin"><input class="in" data-n maxlength="40" placeholder="${ent ? "Ex.: Pensão" : "Ex.: Academia"}" aria-label="${ent ? "Nome da entrada" : "Nome da conta"}">${campos(ent ? "outra entrada" : "outra conta")}</div>`;
+  openDlg(`<div class="guiad">${etapa}<h3>${ent ? "Quanto você recebe por mês?" : "Quais contas você paga todo mês?"}</h3>
+    <p class="gsub">${ent ? `${todos && !ja.length ? "São três perguntas rápidas. No fim, o app já mostra quanto sobra no seu mês. " : ""}Digite o valor que cai na conta e o dia em que você recebe.`
+      : "Preencha só as que você tem, com o valor de um mês normal. Elas passam a entrar sozinhas em todo mês."}</p>
+    ${ja.length ? `<p class="gja">Já cadastrado: ${esc(lista3(ja.map((f) => f.descricao)))}. Para mudar um valor, use a aba ${ent ? "Entradas fixas" : "Gastos fixos"}.</p>` : ""}
+    <form id="gForm" autocomplete="off">
+      <div class="glinhas" id="gLinhas">
+        <div class="gcab"><span>${ent ? "Entrada" : "Conta"}</span><span>Valor por mês</span><span>${ent ? "Dia" : "Vence dia"}</span></div>
+        ${base.map(([rot, nome, cat]) => `<div class="glin" data-nome="${esc(nome)}" data-cat="${esc(cat)}"><span class="gn">${esc(rot)}</span>${campos(nome)}</div>`).join("")}
+        ${base.length ? "" : livre()}
+      </div>
+      <button class="link gmais" type="button" id="gMais">+ ${ent ? "Outra entrada" : "Outra conta (assinatura, escola, academia, parcela)"}</button>
+      <p class="hint" style="margin:10px 0 0">Sem o dia, o app usa o dia ${diaPadrao}. Dá para mudar depois.</p>
+      <p class="gmsg" id="gMsg" role="alert"></p>
+      <div class="actions"><button class="btn primary" type="submit">Continuar</button><button class="btn" type="button" id="gAlt">${ent && !ja.length ? "Minha renda varia" : "Pular"}</button></div>
+      ${depois}
+    </form></div>`);
+  $("gMais").onclick = () => { $("gLinhas").insertAdjacentHTML("beforeend", livre()); $("gLinhas").lastElementChild.querySelector("[data-n]").focus(); };
+  $("gAlt").onclick = () => { if (ent && !ja.length) { guiaDe().semRenda = true; salvaPrefs(); render(); } guiaProximo(k, todos); };
+  $("gForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const linhas = [...$("gLinhas").querySelectorAll(".glin")].map((el) => {
+      const campoNome = el.querySelector("[data-n]"), nome = (campoNome ? campoNome.value.trim() : el.dataset.nome) || (ent ? "Outra entrada" : "Outra conta");
+      return { nome, valor: round2(parseMoney(el.querySelector("[data-v]").value) || 0), dia: Math.min(31, Math.max(1, Math.round(Number(el.querySelector("[data-d]").value)) || diaPadrao)),
+        cat: escolheCat(tipo, el.dataset.cat || (ent ? "Renda extra" : guessCat(nome, "Despesa"))) };
+    }).filter((l) => l.valor > 0);
+    if (!linhas.length) {
+      if (ja.length) return guiaProximo(k, todos);
+      return erro(ent ? "Digite quanto você recebe, ou toque em Minha renda varia." : "Preencha o valor de pelo menos uma conta, ou toque em Pular.");
+    }
+    const bt = e.target.querySelector("[type=submit]"); bt.disabled = true;
+    const ok = await grava(async () => {
+      for (const l of linhas) S.data.fixos.push(await S.store.addFixo({ tipo, descricao: l.nome, categoria: l.cat, dia: l.dia, valor: l.valor, forma: ent ? "" : "Pix", desde: mesAtual() + "-01", ate: null }));
+    });
+    render(); if (ok) guiaProximo(k, todos); else $("dlg").close();
+  });
+  setTimeout(() => $("gLinhas").querySelector("input")?.focus(), 60);
+}
+
+/** Fim do guia: o mês da pessoa, já com o que ela cadastrou. */
+function guiaFim() {
+  const c = calcMes(S.data, mesAtual(), hoje()), livre = livrePorDia(c), p = primeirosPassos(S.data, guiaDe());
+  const saem = round2(c.rec - c.saldo), soFixos = !c.vari && !c.fatT && !c.res, nada = !c.rec && !saem && !S.data.cartoes.length;
+  const falta = p.itens.filter((i) => !i.feito && i.k !== "gasto").length, temGasto = p.itens.find((i) => i.k === "gasto").feito;
+  const frase = nada ? "Você deixou as perguntas para depois. Elas ficam na lista Comece por aqui, na tela inicial."
+    : !c.rec ? "Falta dizer quanto entra para o app calcular quanto sobra. Quando receber, lance em Lançar, Entrada."
+    : c.saldo > 0 ? `Dá ${brl(livre.valor)} por dia até o fim de ${nomeMes(mesAtual())}. Cada gasto que você anotar é descontado daqui, na hora.`
+    : "As contas já passam do que entra neste mês. O app vai mostrar para onde o dinheiro está indo.";
+  openDlg(`<div class="guiad"><h3>${nada ? "Tudo certo, fica para depois" : c.rec ? "Pronto. Este é o seu mês." : "Anotado. Falta só a sua renda."}</h3>
+    ${nada ? "" : `<div class="gfim">
+      ${c.rec ? `<div><span>Entram</span><b>${brl(c.rec)}</b></div>` : ""}
+      <div><span>${soFixos ? "Contas de todo mês" : "Saídas do mês"}</span><b>${brl(saem)}</b></div>
+      ${c.rec ? `<div class="tot${c.saldo < 0 ? " neg" : ""}"><span>${c.saldo < 0 ? "Faltam" : "Sobram"} em ${nomeMes(mesAtual())}</span><b>${brl(Math.abs(c.saldo))}</b></div>` : ""}</div>`}
+    <p class="gsub">${frase}${!nada && falta ? " O que ficou para depois está na lista Comece por aqui, na tela inicial." : ""}</p>
     ${suporteHtml()}
-    <div class="actions"><button class="btn primary" id="bvFixos">Cadastrar meus fixos</button><button class="btn" data-close>Começar a lançar</button></div>`);
-  const visto = () => { if (!S.prefs.boasVindas) { S.prefs.boasVindas = true; salvaPrefs(); } };
-  $("bvFixos").onclick = () => { $("dlg").close(); S.view = "listas"; S.tab = "f"; render(); $("xDesc")?.focus(); };
-  $("dlg").addEventListener("close", visto, { once: true });
+    <div class="actions">${temGasto ? `<button class="btn primary" data-close>Ver meu mês</button>` : `<button class="btn primary" type="button" id="gLancar">Lançar meu primeiro gasto</button><button class="btn" data-close>Ver meu mês</button>`}</div></div>`);
+  if ($("gLancar")) $("gLancar").onclick = () => { $("dlg").close(); guiaLancar(); };
+  $("dlg").addEventListener("close", conviteAvisos, { once: true });
 }
 $("btnAjustes").onclick = ajustes;
 

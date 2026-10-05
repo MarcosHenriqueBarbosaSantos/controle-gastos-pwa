@@ -292,6 +292,25 @@ export function comparaComMesAnterior(st, c, m) {
  * vaiPassar: ainda não passou, mas no ritmo atual o mês fecha acima do limite.
  * Devolve null quando não há limite definido.
  */
+/**
+ * Primeiros passos: o que a pessoa já cadastrou e o que ainda falta para o app conseguir mostrar o mês dela.
+ * @param {object} st    dados (lancamentos, fixos, faturas, cartoes)
+ * @param {{semRenda?:boolean, semCartao?:boolean}} guia  o que a pessoa disse que não tem (renda fixa, cartão)
+ * @returns {{itens:{k:string, feito:boolean, n:number}[], feitos:number, total:number, completo:boolean}}
+ */
+export function primeirosPassos(st, guia = {}) {
+  const entradas = st.fixos.filter((f) => f.tipo === "Receita"), contas = st.fixos.filter((f) => (f.tipo || "Despesa") === "Despesa");
+  const gastos = st.lancamentos.filter((x) => x.tipo === "Despesa"), cartoes = st.cartoes || [];
+  const itens = [
+    { k: "renda", feito: entradas.length > 0 || st.lancamentos.some((x) => x.tipo === "Receita") || Boolean(guia?.semRenda), n: entradas.length },
+    { k: "contas", feito: contas.length > 0, n: contas.length },
+    { k: "cartao", feito: cartoes.length > 0 || (st.faturas || []).length > 0 || Boolean(guia?.semCartao), n: cartoes.length },
+    { k: "gasto", feito: gastos.length > 0, n: gastos.length },
+  ];
+  const feitos = itens.filter((i) => i.feito).length;
+  return { itens, feitos, total: itens.length, completo: feitos === itens.length };
+}
+
 export function usoDoTeto(c, teto) {
   const t = round2(Number(teto) || 0);
   if (!(t > 0)) return null;

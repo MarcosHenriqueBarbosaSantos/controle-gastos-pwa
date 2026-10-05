@@ -47,7 +47,7 @@ button{cursor:pointer}
 .iconbtn .ic{width:18px;height:18px}
 .today{border:0;background:var(--series-soft);color:var(--series);border-radius:999px;padding:6px 12px;font-size:12px;font-weight:600}
 .who{display:inline-flex;align-items:center;gap:8px;color:var(--ink-2);font-size:13px;max-width:100%}
-.who #whoName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:22ch}
+.who #whoName{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:20ch}
 .actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 
 /* ---------- botões, campos e textos comuns ---------- */
@@ -133,6 +133,43 @@ input.money{font-variant-numeric:tabular-nums;font-weight:600}
 .dia .seq{display:inline-flex;align-items:center;gap:5px;color:var(--warn)!important;font-weight:600;margin-top:2px} .dia .seq .ic{width:15px;height:15px}
 .dia .acoes{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .dia .btn.sm{padding:8px 14px;font-size:13px}
+
+/* ---------- primeiros passos ---------- */
+.guia{display:grid;gap:12px;background:linear-gradient(135deg,var(--series-soft),transparent 55%),var(--surface);border:1px solid var(--series);border-radius:var(--r);padding:16px;box-shadow:var(--shadow-sm)}
+.guia-topo{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.guia-topo b{display:block;font-family:var(--display);font-size:19px;font-weight:700;letter-spacing:-.02em;margin-bottom:2px}
+.guia-topo span{font-size:13px;color:var(--ink-2)}
+.guia-topo .link{flex:none;font-size:12.5px;font-weight:500;color:var(--muted)}
+.guia-barra{height:6px;border-radius:99px;background:var(--sunk);overflow:hidden}
+.guia-barra i{display:block;height:100%;border-radius:99px;background:var(--series);transition:width .4s}
+.guia ul{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.gi{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:12px;align-items:center;width:100%;text-align:left;background:var(--sunk);border:1px solid var(--border);border-radius:var(--r-sm);padding:11px 12px;color:var(--ink)}
+button.gi{cursor:pointer;transition:border-color .15s} button.gi:hover{border-color:var(--series)}
+.gi .m{width:24px;height:24px;border-radius:50%;border:2px solid var(--axis);display:grid;place-items:center}
+.gi .m .ic{width:14px;height:14px;stroke-width:2.6}
+.gi.feito{background:transparent} .gi.feito .m{border-color:transparent;background:var(--good-soft);color:var(--good)}
+.gi .tx{display:grid;gap:1px;min-width:0} .gi .tx b{font-size:14.5px;font-weight:600} .gi .tx span{font-size:12.5px;color:var(--muted)}
+.gi.feito .tx b{color:var(--ink-2)}
+.gi>.ic{width:16px;height:16px;color:var(--muted)}
+@media (min-width:701px){.guia ul{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* as perguntas, no quadro de diálogo */
+.guia-etapa{font-size:12.5px;font-weight:600;color:var(--series);margin:0 0 4px}
+.gsub{color:var(--ink-2);margin:0 0 14px;font-size:14.5px}
+.gja{font-size:13px;color:var(--ink-2);background:var(--sunk);border-radius:var(--r-sm);padding:9px 12px;margin:0 0 12px}
+.glinhas{display:grid;gap:8px}
+.glin,.gcab{display:grid;grid-template-columns:minmax(0,1fr) 108px 62px;gap:8px;align-items:center}
+.gcab{font-size:12px;color:var(--muted);font-weight:500}
+.glin .gn{font-size:14.5px;font-weight:600;line-height:1.25}
+.glin input.in{padding:9px 10px} .glin input.money{text-align:right}
+.gmais{display:block;margin:10px 0 0;font-size:13.5px;text-align:left}
+.gmsg{font-size:13px;color:var(--bad);margin:8px 0 0} .gmsg:empty{display:none}
+.guiad .actions{margin-top:14px}
+.gdepois{display:block;margin:12px auto 0;font-size:13px;font-weight:500;color:var(--muted)}
+.gfim{background:var(--sunk);border-radius:var(--r-sm);padding:2px 14px;margin:6px 0 12px}
+.gfim div{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:10px 0;border-top:1px solid var(--border);font-size:14.5px;color:var(--ink-2)}
+.gfim div:first-child{border-top:0}
+.gfim b{color:var(--ink);font-variant-numeric:tabular-nums;white-space:nowrap}
+.gfim .tot{color:var(--ink);font-weight:600} .gfim .tot b{font-family:var(--display);font-size:21px;color:var(--good)} .gfim .tot.neg b{color:var(--bad)}
 
 /* ---------- limite do mês ---------- */
 .teto{display:grid;gap:8px;width:100%;text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow-sm);color:var(--ink);transition:border-color .15s}
@@ -362,25 +399,54 @@ dialog:has(.ext){width:min(700px,94vw);max-width:min(700px,94vw)}
 .ext-lista select.in{padding:6px 8px;font-size:13px}
 .ext-lista li.parecida{border-style:dashed}
 .sub-h .btn.ler+.btn.ler{margin-left:6px}
+/* ---------- como usar ---------- */
+.ajuda{display:grid;gap:6px}
+.ajuda details{background:var(--sunk);border:1px solid var(--border);border-radius:var(--r-sm);padding:0 14px}
+.ajuda details[open]{border-color:var(--series)}
+.ajuda summary{cursor:pointer;list-style:none;font-weight:600;font-size:14.5px;padding:13px 26px 13px 0;position:relative}
+.ajuda summary::-webkit-details-marker{display:none}
+.ajuda summary::after{content:"+";position:absolute;right:0;top:50%;transform:translateY(-50%);font-size:20px;color:var(--series);transition:transform .2s}
+.ajuda details[open] summary::after{transform:translateY(-50%) rotate(45deg)}
+.ajuda p{margin:0;padding:0 0 14px;color:var(--ink-2);font-size:14px;line-height:1.5}
+.ajuda p b{color:var(--ink)}
+dialog:has(.ajuda){width:min(600px,94vw);max-width:min(600px,94vw)}
 /* ---------- entrada ---------- */
 .auth{min-height:100vh;min-height:100dvh;display:grid;place-items:center;padding:24px 16px;
   background:radial-gradient(600px 380px at 15% 0%,rgba(79,151,236,.2),transparent 70%),radial-gradient(520px 360px at 100% 100%,rgba(106,46,214,.2),transparent 70%)}
-.auth-card{width:min(410px,100%);background:var(--surface);border:1px solid var(--border);border-radius:26px;padding:30px 26px;display:grid;gap:14px;box-shadow:var(--shadow)}
-.auth-logo{border-radius:16px;box-shadow:0 10px 24px rgba(47,116,214,.35)}
-.auth h1{font-family:var(--display);margin:4px 0 0;font-size:30px;font-weight:800;letter-spacing:-.03em;color:var(--ink)}
-.auth-sub{margin:-8px 0 4px;color:var(--ink-2);font-size:15px}
+.auth-card{width:min(410px,100%);background:var(--surface);border:1px solid var(--border);border-radius:26px;padding:28px 24px;display:grid;gap:16px;box-shadow:var(--shadow)}
+.auth-marca{display:flex;align-items:center;gap:14px}
+.auth-logo{border-radius:14px;box-shadow:0 10px 24px rgba(47,116,214,.35);flex:none}
+.auth h1{font-family:var(--display);margin:0;font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.1;color:var(--ink)}
+.auth-sub{margin:3px 0 0;color:var(--ink-2);font-size:14px}
+.auth-bloco{display:grid;gap:14px}
+.auth-bloco[hidden]{display:none}
+.auth-seg{display:grid;grid-template-columns:1fr 1fr;width:100%}
+.auth-seg button{padding:10px 8px;font-size:15px}
 .auth-form{display:grid;gap:12px}
-.auth-form input.in{padding:12px 14px}
-.auth-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
-.auth-actions .btn{padding:12px}
-.auth-form .link{justify-self:start;font-size:13px}
-.ver-senha{font-size:13px;color:var(--ink-2);margin-top:-4px}
-.auth-msg{margin:0;font-size:13px;min-height:1em;color:var(--ink-2);line-height:1.4}
-.auth-msg.err{color:var(--bad)} .auth-msg.ok{color:var(--good)}
-.auth-site{justify-self:start;font-size:13px}
-.auth-demo{border-top:1px solid var(--grid);padding-top:14px;display:grid;gap:6px}
-.auth-demo .btn{padding:12px}
-.auth-demo .hint{margin:0;text-align:center}
+.auth-form label.f{font-size:13px}
+.auth-form input.in{padding:13px 14px;font-size:16px}
+.auth-form .btn{padding:13px;font-size:15px}
+.auth-form .hint{margin:-4px 0 0}
+.auth-form h2{font-family:var(--display);font-size:21px;font-weight:700;letter-spacing:-.02em;margin:0}
+.auth-txt{margin:0;color:var(--ink-2);font-size:14.5px;line-height:1.45;overflow-wrap:anywhere}
+.auth-txt b{color:var(--ink)}
+.auth-passos{margin:0;padding-left:20px;display:grid;gap:6px;color:var(--ink-2);font-size:14px;line-height:1.4}
+.auth-passos b{color:var(--ink)}
+.auth-form .link{justify-self:center;font-size:14px;padding:6px}
+/* campo de senha com o botão de mostrar */
+.senha{position:relative;display:block}
+.senha input.in{padding-right:50px}
+.olho{position:absolute;right:4px;top:50%;transform:translateY(-50%);width:42px;height:42px;border:0;background:none;border-radius:10px;color:var(--muted);display:grid;place-items:center}
+.olho .ic{width:20px;height:20px}
+.olho[aria-pressed="true"]{color:var(--series)}
+input.in.cod{font-family:var(--display);font-size:24px;font-weight:700;letter-spacing:.3em;text-align:center}
+input.in.cod::placeholder{color:var(--axis)}
+.auth-msg{margin:0;font-size:14px;color:var(--ink-2);line-height:1.4;border-radius:var(--r-sm)}
+.auth-msg:empty{display:none}
+.auth-msg.err{color:var(--bad);background:var(--bad-soft);padding:10px 12px} .auth-msg.ok{color:var(--good);background:var(--good-soft);padding:10px 12px}
+.auth-demo{border-top:1px solid var(--grid);padding-top:14px;display:grid;gap:8px;justify-items:center}
+.auth-demo .btn{padding:12px;width:100%}
+.auth-site{font-size:13.5px;padding:4px}
 
 /* ---------- telas médias ---------- */
 @media (max-width:980px){
@@ -424,7 +490,7 @@ dialog:has(.ext){width:min(700px,94vw);max-width:min(700px,94vw)}
   .btn.ler{order:3;width:100%;min-height:48px;font-size:15px;justify-content:center;border-radius:14px}
   .sub-h .btn.ler{margin:10px 0 0}
   .sub-h .btn.ler+.btn.ler{margin:8px 0 0}
-  dialog:has(.ext){width:100%;max-width:100%}
+  dialog:has(.ext),dialog:has(.ajuda){width:100%;max-width:100%}
   .ext-lista{max-height:none;overflow:visible}
   .ext-lista li{grid-template-columns:auto minmax(0,1fr) auto;padding:10px 12px}
   .ext-lista select.in{grid-column:2/-1;padding:9px 10px;font-size:14px}

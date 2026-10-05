@@ -9,7 +9,7 @@
 <script>/* Quem chega pela primeira vez ao endereço do app, pelo navegador, vê antes o site que explica o app (pasta site/).
    Quem já usa, quem instalou o app ou quem chega por um link com destino (demonstração, entrar, confirmação de e-mail) vai direto para o app. */
 try {
-  var jaUsa = localStorage.getItem("cg-conhece") || localStorage.getItem("cg-modo") || Object.keys(localStorage).some(function (k) { return /^sb-.+-auth-token$/.test(k) || /^cg-(prefs|demo)-/.test(k); });
+  var jaUsa = localStorage.getItem("cg-conhece") || Object.keys(localStorage).some(function (k) { return /^sb-.+-auth-token$/.test(k) || /^cg-(prefs|demo)-/.test(k); });
   var instalado = (window.matchMedia && matchMedia("(display-mode: standalone)").matches) || navigator.standalone === true;
   if (!jaUsa && !instalado && !location.hash && !location.search && /\/(index\.html)?$/.test(location.pathname)) location.replace("site/");
   else localStorage.setItem("cg-conhece", "1");
@@ -34,25 +34,65 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
 <!-- Tela de entrada -->
 <main id="auth" class="auth" hidden>
   <div class="auth-card">
-    <img src="icons/icon-192.png" alt="" width="56" height="56" class="auth-logo">
-    <h1>Meus Gastos</h1>
-    <p class="auth-sub">Lance seus gastos no dia a dia e veja quanto o mês vai custar.</p>
-    <form id="authForm" class="auth-form" autocomplete="on">
-      <label class="f">E-mail<input class="in" id="aEmail" type="email" autocomplete="email" required></label>
-      <label class="f">Senha<input class="in" id="aSenha" type="password" autocomplete="current-password" minlength="6" required></label>
-      <label class="check ver-senha"><input type="checkbox" id="aVer"> Mostrar senha</label>
-      <div class="auth-actions">
-        <button class="btn primary" type="submit" id="aEntrar">Entrar</button>
-        <button class="btn" type="button" id="aCriar">Criar conta</button>
+    <div class="auth-marca">
+      <img src="icons/icon-192.png" alt="" width="48" height="48" class="auth-logo">
+      <div><h1>Meus Gastos</h1><p class="auth-sub">Veja quanto sobra no seu mês.</p></div>
+    </div>
+
+    <!-- Entrar ou criar conta -->
+    <div id="authEntrada" class="auth-bloco">
+      <div class="seg auth-seg" role="group" aria-label="Entrar ou criar conta" id="authSeg">
+        <button type="button" data-modo="entrar" aria-pressed="true">Entrar</button>
+        <button type="button" data-modo="criar" aria-pressed="false">Criar conta</button>
       </div>
-      <button class="link" type="button" id="aEsqueci">Esqueci minha senha</button>
+      <form id="authForm" class="auth-form" autocomplete="on" novalidate>
+        <label class="f">E-mail<input class="in" id="aEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com"></label>
+        <label class="f">Senha<span class="senha"><input class="in" id="aSenha" type="password" autocomplete="current-password"><button type="button" class="olho" data-ver="aSenha" aria-label="Mostrar a senha" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></button></span></label>
+        <p class="hint" id="aSenhaDica" hidden>Pelo menos 6 caracteres. É com ela que você entra no app.</p>
+        <button class="btn primary" type="submit" id="aEntrar">Entrar</button>
+        <button class="link" type="button" id="aEsqueci">Esqueci minha senha</button>
+      </form>
+    </div>
+
+    <!-- Esqueci a senha: pedir o e-mail -->
+    <form id="authEsqueci" class="auth-form auth-bloco" novalidate hidden>
+      <h2>Criar uma senha nova</h2>
+      <p class="auth-txt">Digite o e-mail da sua conta. Você recebe uma mensagem para criar a senha nova.</p>
+      <label class="f">E-mail<input class="in" id="rEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com"></label>
+      <button class="btn primary" type="submit" id="rEnviar">Enviar e-mail</button>
+      <button class="link" type="button" data-voltar>Voltar para entrar</button>
     </form>
+
+    <!-- Esqueci a senha: e-mail enviado -->
+    <form id="authCodigo" class="auth-form auth-bloco" novalidate hidden>
+      <h2>Olhe o seu e-mail</h2>
+      <p class="auth-txt">Enviamos uma mensagem para <b id="cEmail"></b>. Pode levar um minuto. Olhe também a caixa de spam.</p>
+      <ol class="auth-passos">
+        <li>Abra a mensagem <b>mais recente</b> do Meus Gastos. As anteriores deixam de valer.</li>
+        <li>Toque no botão da mensagem para criar a senha nova. Se ela trouxer um código de números, digite aqui embaixo.</li>
+      </ol>
+      <label class="f">Código que veio no e-mail<input class="in cod" id="cCodigo" inputmode="numeric" autocomplete="one-time-code" maxlength="10" placeholder="000000"></label>
+      <label class="f">Senha nova<span class="senha"><input class="in" id="cSenha" type="password" autocomplete="new-password"><button type="button" class="olho" data-ver="cSenha" aria-label="Mostrar a senha" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></button></span></label>
+      <button class="btn primary" type="submit" id="cSalvar">Salvar senha nova</button>
+      <button class="btn" type="button" id="cReenviar">Enviar de novo</button>
+      <button class="link" type="button" data-voltar>Voltar para entrar</button>
+    </form>
+
+    <!-- Conta criada: falta confirmar o e-mail -->
+    <div id="authConfirma" class="auth-form auth-bloco" hidden>
+      <h2>Falta só confirmar o e-mail</h2>
+      <p class="auth-txt">Enviamos uma mensagem para <b id="fEmail"></b>. Abra, toque no link de confirmação e volte aqui. Pode levar um minuto. Olhe também a caixa de spam.</p>
+      <button class="btn primary" type="button" id="fEntrar">Já confirmei, entrar</button>
+      <button class="btn" type="button" id="fReenviar">Enviar de novo</button>
+      <button class="link" type="button" data-voltar>Usar outro e-mail</button>
+    </div>
+
     <p class="auth-msg" id="authMsg" role="status"></p>
     <div id="authSuporte"></div>
-    <a class="link auth-site" href="site/">Conhecer o Meus Gastos e instalar no celular</a>
-    <div class="auth-demo">
+    <div class="auth-demo" id="authRodape">
       <button class="btn ghost" type="button" id="aDemo">Ver demonstração sem criar conta</button>
-      <p class="hint" id="demoHint">Usa dados de exemplo guardados só neste aparelho.</p>
+      <a class="link auth-site" href="site/">Conhecer o app e instalar no celular</a>
+      <a class="link auth-site" href="site/privacidade.html">Política de privacidade</a>
     </div>
   </div>
 </main>
@@ -74,6 +114,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
       <button class="btn" id="btnInstall" type="button" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM12 8v7M9 12l3 3 3-3"/></svg>Instalar app</button>
       <button class="btn" id="btnExport" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>Baixar relatório</button>
       <button class="btn" id="btnLimites" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01"/></svg>Limites</button>
+      <button class="btn" id="btnAjuda" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.8M12 17h.01"/></svg>Ajuda</button>
       <button class="btn" id="btnAjustes" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 5v4M7 15v4"/></svg>Ajustes</button>
       <span class="who"><span id="whoName"></span><button class="link" id="btnSair" type="button">Sair</button></span>
     </div>
@@ -81,6 +122,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
 
   <div class="banner" id="banner" role="status" hidden></div>
 
+  <section class="v-inicio" id="guia" aria-label="Primeiros passos" hidden></section>
   <section class="v-inicio" id="resumo" aria-label="Resumo do mês"></section>
   <section class="v-inicio" id="dia" aria-label="Seu dia" hidden></section>
   <section class="v-inicio" id="teto" aria-label="Limite de gastos do mês" hidden></section>

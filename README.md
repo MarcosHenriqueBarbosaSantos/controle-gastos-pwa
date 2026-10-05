@@ -25,6 +25,8 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Cartão de crédito com fatura automática**: a pessoa cadastra o cartão com o dia de fechamento e o de vencimento, e o app monta cada fatura sozinho a partir das compras, incluindo as **parceladas** e os fixos cobrados no cartão. O que é comprado no cartão só pesa no mês em que a fatura vence. Dá para abrir a fatura, ver o que tem dentro, corrigir o valor se o banco cobrou diferente e marcar como paga. Faturas também podem ser lançadas à mão.
 - **Importar o extrato do cartão**: o arquivo que o banco exporta (CSV, OFX ou Excel) vira uma lista de compras para conferir, com categoria sugerida, e todas são lançadas de uma vez no cartão. A fatura é montada pela soma delas. Parcelas, pagamento da fatura e estornos são reconhecidos, e importar de novo um arquivo mais recente só traz as compras que faltam. No OFX (o formato que o Nubank exporta), o app também aproveita o nome do banco, o período da fatura e o vencimento para escolher a fatura certa e, se ainda não houver cartão, cadastrá-lo com os dias que vêm no arquivo. Um arquivo de exemplo está em [`modelo/extrato-cartao-exemplo.csv`](modelo/extrato-cartao-exemplo.csv).
 - **Leitor por foto ou PDF**: a pessoa fotografa ou escolhe o arquivo de um comprovante (Pix, boleto, cupom, maquininha), da fatura do cartão ou do holerite, e o app preenche valor, data e descrição. Da fatura, lê só o total e o vencimento; do holerite, o valor líquido, que entra como entrada. PDF com senha é aberto depois de a pessoa digitar a senha. A leitura é feita no próprio aparelho, sem enviar o arquivo para servidor, e nada é salvo antes de a pessoa conferir.
+- **Foto de papel**: antes de ler, o app iguala a luz (tira a sombra), apaga o que está em volta do documento, recorta no papel e endireita o texto. Se a primeira leitura não acha um valor firme e uma data, olha a foto de até três jeitos. Em boleto, guia e conta de consumo, o valor também sai da linha digitável ou do código de barras, conferido pelos dígitos verificadores; em recibo, do valor por extenso. Quando não tem certeza, diz isso e mostra os valores encontrados para tocar.
+- **Primeiros passos**: conta nova começa com três perguntas (quanto recebe, contas de todo mês, cartão) e termina já mostrando quanto sobra. O que ficar para depois aparece na lista "Comece por aqui", no início, até ser resolvido ou dispensado.
 - **Resumo que se explica**: a tela abre dizendo quanto sobra (ou falta) no mês e mostra, em uma régua colorida, para onde o dinheiro vai: contas fixas, dia a dia, faturas, guardado e sobra. "Entenda essa conta" detalha a soma com os números da pessoa. Quando o mês fica no vermelho, o quadro muda de cor.
 - **Quanto dá para gastar por dia**: a sobra dividida pelos dias que faltam, e a previsão de como o mês fecha no ritmo atual.
 - **Seu dia**: o que foi gasto hoje, o botão "Não gastei nada" e a sequência de dias anotados, para criar o hábito de abrir o app.
@@ -38,6 +40,8 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Detalhe com um toque**: tocar em um quadro (custo, entradas, saldo, guardado, fixos, faturas) ou em uma categoria do gráfico abre a lista do que compõe aquele valor.
 - **Relatório de gastos**: baixa uma planilha do Excel com os lançamentos, os fixos, as faturas e o resumo de cada mês do ano.
 - **Login por e-mail** com Supabase Auth e isolamento de dados por usuário, via Row Level Security no PostgreSQL.
+- **Entrada sem tropeço**: tela separada em Entrar e Criar conta, e-mail lembrado no aparelho, senha com botão de mostrar. Em Esqueci minha senha, a pessoa recebe um código (e um botão) por e-mail e cria a senha nova ali mesmo; o botão de reenviar conta um minuto, para não invalidar o e-mail anterior. A demonstração tem o botão Criar minha conta e não fica gravada: quem abre o app instalado cai em Entrar / Criar conta.
+- **Como usar**: no menu, respostas curtas para as dúvidas mais comuns (o que é o custo do mês, por que a compra no cartão não aparece neste mês, e outras).
 - **Feito para o celular**: uma tela por vez, barra de navegação embaixo, botão "+" para lançar em tela cheia com teclado numérico e listas em formato de cartão, separadas por dia. Tocar em um lançamento abre a edição. Cada categoria tem a sua cor, a mesma no gráfico e nas listas. No computador, o mesmo app vira um painel completo.
 - **PWA**: instalável no Android e no iPhone, abre em tela cheia. O tema escuro é o padrão, e o claro pode ser escolhido em Ajustes.
 - **Modo demonstração** com dados de exemplo guardados só no aparelho, para quem quiser testar sem criar conta.
@@ -176,7 +180,15 @@ No Supabase, abra **Authentication → URL Configuration** e coloque o endereço
 
 A função confere a si mesma em `/functions/v1/avisos?autoteste=1` (regras e criptografia, sem tocar no banco). As chaves das notificações são criadas pelo servidor e ficam em uma tabela que só ele lê.
 
-### 5. Instalar no celular
+### 5. E-mails da conta (confirmação e nova senha)
+
+No Supabase, em **Authentication**:
+
+1. **URL Configuration**: em **Site URL**, coloque `https://meugastos.com.br/` (sem `/**`). Em **Redirect URLs**, adicione `https://meugastos.com.br/**`. Com o Site URL errado, o link do e-mail leva a uma página que não existe; o arquivo [`404.html`](404.html) devolve a pessoa ao app mesmo assim, mas o certo é corrigir.
+2. **Emails → Templates**: cole os modelos da pasta [`supabase/emails`](supabase/emails) em **Confirm signup** e **Reset Password**. O de nova senha traz o código `{{ .Token }}`, que a pessoa digita no app.
+3. **Emails → SMTP Settings**: o envio padrão do Supabase aceita só alguns e-mails por hora, para o projeto inteiro. Para uso de verdade, ligue um SMTP próprio (com o Resend: host `smtp.resend.com`, porta `465`, usuário `resend`, senha = a chave de API, remetente de um domínio verificado).
+
+### 6. Instalar no celular
 
 A página de apresentação tem uma seção **Instalar** (`/site/#instalar`), com o botão de instalação, os passos de cada aparelho e um código QR para quem está no computador.
 
@@ -208,9 +220,12 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 │   ├── leitor.js           leitor por foto ou PDF: lê o arquivo e interpreta o texto (testado)
 │   └── config.js           URL e chave do Supabase
 ├── site/                   página de apresentação e de instalação do app (preço e link de compra em OFERTA, no fim do index.html)
+│                           privacidade.html: política de privacidade · video/: vídeo do app em uso
+├── 404.html                endereço que não existe volta para o app (protege os links de e-mail)
 ├── supabase/schema.sql     tabelas, RLS e visão de resumo
 ├── supabase/avisos.sql     tabelas e agendamento dos avisos
 ├── supabase/functions/     servidor de avisos (e-mail e notificação)
+├── supabase/emails/        modelos dos e-mails de confirmar cadastro e de nova senha
 ├── modelo/                 exemplo de extrato de cartão para testar a importação
 ├── tests/                  testes com node:test
 ├── manifest.webmanifest    dados do app instalável
