@@ -1,5 +1,5 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
-import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
@@ -146,7 +146,7 @@ const voltaPara = () => location.origin + location.pathname;   // para onde os l
 const emailOk = (e) => /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(e);
 function showAuth(modo = "") {
   const jaNaTela = !$("auth").hidden && !modo;
-  S.store = null; $("app").hidden = true; $("bnav").hidden = true; $("auth").hidden = false; fecharLancar();
+  S.store = null; $("app").hidden = true; $("bnav").hidden = true; $("acesso").hidden = true; $("auth").hidden = false; fecharLancar();
   if (jaNaTela) return;   // a pessoa está no meio de um passo (código, confirmação): não desmancha
   let lembrado = ""; try { lembrado = localStorage.getItem("cg-email") || ""; } catch { /* nada */ }
   if (lembrado && !$("aEmail").value) $("aEmail").value = lembrado;
@@ -164,6 +164,9 @@ function authModo(m, msg = "", kind = "") {
   $("aEntrar").textContent = m === "criar" ? "Criar minha conta" : "Entrar";
   $("aSenha").autocomplete = m === "criar" ? "new-password" : "current-password";
   $("aSenhaDica").hidden = m !== "criar"; $("aEsqueci").hidden = m !== "entrar";
+  // Com o app à venda, quem cria conta fica sabendo do preço e de que o e-mail tem de ser o da compra.
+  $("aPago").hidden = m !== "criar" || !LINK_COMPRA;
+  if (LINK_COMPRA) $("aPago").innerHTML = `O Meus Gastos custa <b>${esc(PRECO_PLANO)}</b>. Use aqui o mesmo e-mail da compra. <a href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">Ainda não comprei</a>`;
   authMsg(S.semLogin && entrada ? "O login ainda não está ligado neste endereço. Você pode testar tudo na demonstração." : msg, kind);
 }
 /** Trava os botões enquanto um pedido está indo: um segundo toque mandaria outro e-mail e o primeiro deixaria de valer. */
@@ -277,7 +280,8 @@ $("authCodigo").addEventListener("submit", (e) => {
 });
 $("aDemo").addEventListener("click", startDemo);
 $("btnSair").addEventListener("click", async () => {
-  if (S.store?.kind === "supabase") { await desligarPush().catch(() => {}); await S.client.auth.signOut(); }
+  // Desligar a notificação deste aparelho não pode segurar a saída: se o navegador não responder em 1,5 s, sai assim mesmo.
+  if (S.store?.kind === "supabase") { await Promise.race([desligarPush().catch(() => {}), new Promise((r) => setTimeout(r, 1500))]); await S.client.auth.signOut(); }
   else { try { sessionStorage.removeItem("cg-modo"); } catch { /* nada */ } showAuth(); }
 });
 
@@ -314,8 +318,8 @@ function startDemo() {
 }
 
 async function startApp(store, quem) {
-  S.store = store; S.loaded = false;
-  $("auth").hidden = true; $("app").hidden = false; $("bnav").hidden = false;
+  S.store = store; S.loaded = false; S.acesso = null;
+  $("auth").hidden = true; $("acesso").hidden = true; $("app").hidden = false; $("bnav").hidden = false;
   $("whoName").textContent = quem;
   $("btnSair").textContent = store.kind === "supabase" ? "Sair" : "Sair da demonstração";
   showBanner("");
@@ -327,11 +331,57 @@ async function startApp(store, quem) {
     S.prefs = { ...prefsPadrao(), ...(p || {}) };
     if (!p && store.kind === "local") S.prefs.metas = { "Reserva de emergência": { valor: 3000, ate: "", plano: { valor: 300, dia: 28 } } };   // exemplo da demonstração
     if (!S.prefs.categorias) S.prefs.categorias = categoriasIniciais(S.data);
-    S.loaded = true; render();
+    // Acesso de quem comprou. Se a conferência falhar (sem internet, banco sem essa parte), o app abre normalmente.
+    S.acesso = await store.meuAcesso().catch((e) => { console.warn("Acesso não conferido:", e?.message); return null; });
+    S.loaded = true;
+    if (S.acesso?.cobranca && !S.acesso.ativo) { telaDeAcesso(); if (S.recuperando) pedirNovaSenha(); return; }
+    render(); avisoDeRenovacao();
     if (S.recuperando) pedirNovaSenha();
     else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) { S.prefs.boasVindas = true; salvaPrefs(); guiaPasso("renda", true); }
     else conviteAvisos();
   } catch (e) { console.error(e); showBanner("Não foi possível carregar seus dados. Confira a internet e recarregue a página."); }
+}
+
+/* ---------- acesso de quem comprou ---------- */
+const ddmmaaaa = (iso) => `${ddmm(iso)}/${iso.slice(0, 4)}`;
+/** Tela de quem tem conta mas não tem acesso em dia: ainda não comprou, não renovou ou pediu reembolso. */
+function telaDeAcesso(msg = "", kind = "") {
+  const a = S.acesso || {}, email = $("whoName").textContent, temDados = S.data.lancamentos.length || S.data.fixos.length || S.data.faturas.length;
+  const devolvida = a.status === "reembolsado", venceu = !devolvida && Boolean(a.ate);
+  const titulo = devolvida ? "A compra desta conta foi reembolsada" : venceu ? "O seu acesso terminou" : "Falta liberar o seu acesso";
+  const texto = devolvida ? `O acesso de <b>${esc(email)}</b> foi encerrado junto com o reembolso.`
+    : venceu ? `O acesso de <b>${esc(email)}</b> valeu até ${ddmmaaaa(a.ate)}. Os seus dados continuam guardados e voltam a aparecer assim que você renovar.`
+    : `A conta <b>${esc(email)}</b> está criada, mas ainda não encontramos uma compra com este e-mail.`;
+  $("app").hidden = true; $("bnav").hidden = true; $("auth").hidden = true; $("acesso").hidden = false; showBanner(""); fecharLancar(); scrollTo(0, 0);
+  $("acessoCard").innerHTML = `<div class="auth-marca"><img src="icons/icon-192.png" alt="" width="48" height="48" class="auth-logo"><div><h1>Meus Gastos</h1><p class="auth-sub">Veja quanto sobra no seu mês.</p></div></div>
+    <h2>${titulo}</h2><p class="auth-txt">${texto}</p>
+    ${LINK_COMPRA ? `<a class="btn primary" id="acComprar" href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">${venceu ? "Renovar" : "Comprar"} por ${esc(PRECO_PLANO)}</a>` : `<p class="auth-txt">As vendas ainda não estão abertas.</p>`}
+    <button class="btn" type="button" id="acConferir">Já comprei: conferir de novo</button>
+    <p class="auth-msg ${kind}" id="acMsg" role="status">${esc(msg)}</p>
+    <p class="hint">O acesso vale para o e-mail usado na compra e costuma ser liberado em menos de um minuto depois do pagamento aprovado. Boleto pode levar até 3 dias úteis. Comprou com outro e-mail? Saia e entre com ele, ou fale com o suporte.</p>
+    <div class="auth-demo">${temDados ? `<button class="btn" type="button" id="acBaixar">Baixar meus dados em planilha</button>` : ""}
+      <button class="btn" type="button" id="acDemo">Ver a demonstração</button>
+      <button class="link" type="button" id="acSair">Sair desta conta</button></div>
+    ${suporteHtml()}`;
+  $("acConferir").onclick = async () => {
+    $("acConferir").disabled = true;
+    const novo = await S.store.meuAcesso().catch(() => null);
+    if (novo && (!novo.cobranca || novo.ativo)) { const st = S.store; return startApp(st, email).then(() => toast(novo.ate ? `Acesso liberado até ${ddmmaaaa(novo.ate)}.` : "Acesso liberado.")); }
+    if (novo) S.acesso = novo;
+    telaDeAcesso(novo ? `Ainda não encontramos a compra de ${email}. Se você acabou de pagar, espere um minuto e toque de novo.` : "Não foi possível conferir agora. Confira a internet e tente de novo.", "err");
+  };
+  if ($("acBaixar")) $("acBaixar").onclick = () => $("btnExport").click();
+  $("acDemo").onclick = startDemo;
+  $("acSair").onclick = () => $("btnSair").click();
+}
+/** Perto do fim do período: avisa quem cancelou a renovação (15 dias antes) e quem está com a renovação atrasada (3 dias). */
+function avisoDeRenovacao() {
+  const a = S.acesso;
+  if (!a?.cobranca || !a.ativo || !a.ate || S.store?.kind !== "supabase") return;
+  const d = Math.round((Date.UTC(+a.ate.slice(0, 4), +a.ate.slice(5, 7) - 1, +a.ate.slice(8, 10)) - Date.UTC(+hoje().slice(0, 4), +hoje().slice(5, 7) - 1, +hoje().slice(8, 10))) / 86400000);
+  if (d > (a.status === "cancelado" ? 15 : 3)) return;
+  showBanner(`O seu acesso vale até ${ddmmaaaa(a.ate)}${a.status === "cancelado" ? ", porque a renovação foi cancelada" : ". A renovação ainda não foi confirmada"}. Os seus dados não se perdem.`,
+    LINK_COMPRA ? [["Renovar", () => open(LINK_COMPRA, "_blank", "noopener")]] : []);
 }
 
 function showBanner(t, acoes = []) {
@@ -1579,6 +1629,9 @@ function ajustes() {
         <p class="hint" style="margin:0" id="ajIniMsg">O saldo inicial entra no saldo acumulado. Deixe em branco para começar do zero.</p>
       </div>
     </div>
+    ${S.acesso?.cobranca ? `<div class="aj-sec"><h4>Assinatura</h4><p class="aj-assina">${!S.acesso.ate ? "Acesso de cortesia, sem data de fim."
+      : S.acesso.status === "cancelado" ? `A renovação foi cancelada. O acesso vale até <b>${ddmmaaaa(S.acesso.ate)}</b>.`
+      : `Acesso ativo até <b>${ddmmaaaa(S.acesso.ate)}</b>. A renovação é anual e feita pela Hotmart, na forma de pagamento da compra. Para cancelar, use o e-mail de compra da Hotmart ou fale com o suporte.`}</p></div>` : ""}
     ${S.store.kind === "supabase" ? `<div class="aj-sec"><h4>Avisos de contas</h4>
       <p class="hint" style="margin:0">De manhã, só nos dias em que houver conta atrasada ou vencendo em até 3 dias.</p>
       <label class="check"><input type="checkbox" id="ajEmail" ${S.prefs.avisos?.email !== false ? "checked" : ""}> Receber por e-mail (${esc($("whoName").textContent)})</label>

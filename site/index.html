@@ -125,6 +125,11 @@ p{margin:0;max-width:60ch}
 .sim-lim .d b{color:var(--ink);font-variant-numeric:tabular-nums}
 .sim-lim.warn{border-color:rgba(240,180,58,.45)} .sim-lim.warn .tb i{background:var(--warn)}
 .sim-lim.bad{border-color:rgba(240,123,123,.55)} .sim-lim.bad .tb i{background:var(--bad)}
+.pill.info{background:var(--accent-soft);color:var(--luz)}
+.sim-meta .tb i{background:var(--accent);width:10%}
+.sim-meta .mini{grid-column:1/-1;justify-self:start;border-color:var(--accent);background:var(--accent-soft);padding:7px 14px;font-size:.84rem}
+.sim-meta .mini:disabled{opacity:.5;border-color:var(--line);background:var(--surface)}
+.sim-meta.feita{border-color:rgba(76,207,95,.45)} .sim-meta.feita .tb i{background:var(--good)}
 .sim-add{display:grid;gap:8px;padding:4px}
 .sim-add .q{font-size:.86rem;color:var(--ink-2);font-weight:500}
 .chips{display:flex;flex-wrap:wrap;gap:8px}
@@ -229,6 +234,8 @@ button.btn{cursor:pointer}
 .plat ol svg{width:17px;height:17px;vertical-align:-3px;stroke:var(--luz);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .plat p{font-size:.86rem;color:var(--muted);margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line)}
 .lk-inst{justify-self:center;font-size:.92rem;color:var(--ink-2)}
+.cartao-oferta .lanc{margin:0;font-weight:600;color:var(--good);background:var(--good-soft);border-radius:10px;padding:8px 12px;font-size:.95rem}
+.abre .nota a{color:inherit}
 /* para quem é */
 .paraquem{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:28px}
 .paraquem div{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px}
@@ -388,6 +395,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
       <a class="btn sec" href="#instalar">Instalar no celular</a>
     </div>
     <p class="nota" data-nota>Abre no navegador, sem cadastro. Os dados de exemplo ficam só no seu aparelho.</p>
+    <p class="nota" data-venda hidden><a data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Ver a demonstração grátis antes</a></p>
     <ul class="selos"><li>Android e iPhone</li><li>Aviso por e-mail e notificação</li><li>Lê foto, PDF e extrato do cartão</li></ul>
   </div>
 
@@ -406,8 +414,14 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
       <div class="tb"><i id="simLimBarra"></i></div>
       <span class="d"><b id="simLimPct">84%</b> usado. <span id="simLimTxt">Ainda cabem R$ 560,60 no limite de R$ 3.500 que você definiu.</span></span>
     </div>
+    <div class="sim-lim sim-meta" id="simMeta">
+      <span class="t">Meta: Reserva de emergência</span><span class="pill info" id="simMetaPill">10%</span>
+      <div class="tb"><i id="simMetaBarra"></i></div>
+      <span class="d"><b id="simMetaVal">R$ 300</b> de R$ 3.000. <span id="simMetaTxt">Guardando R$ 300 por mês, fica pronta em junho de 2027.</span></span>
+      <button type="button" class="mini" id="simGuardar">Guardar R$ 150</button>
+    </div>
     <div class="sim-add">
-      <span class="q">Lance um gasto e veja o mês mudar:</span>
+      <span class="q">Lance um gasto, ou guarde para a meta, e veja o mês mudar:</span>
       <div class="chips">
         <button type="button" data-add="120" data-d="Mercado">+ Mercado R$ 120</button>
         <button type="button" data-add="28" data-d="Uber">+ Uber R$ 28</button>
@@ -431,18 +445,19 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 
 <section class="uso" id="video" style="padding-block:44px 30px"><div class="col">
   <div class="uso-txt">
-    <span class="rot">Em 40 segundos</span>
+    <span class="rot">Em menos de 1 minuto</span>
     <h2 class="sobe">Veja o app em uso.</h2>
-    <p style="color:var(--ink-2)">O vídeo mostra a demonstração do app no celular, com dados de exemplo.</p>
+    <p style="color:var(--ink-2)">Um passeio narrado, com música, pela demonstração do app no celular. Os dados são de exemplo. Ligue o som.</p>
     <ul>
-      <li>Abrir e ver quanto sobra no mês.</li>
-      <li>Anotar um gasto e ver o número mudar na hora.</li>
+      <li>Ver quanto sobra no mês e quanto dá para gastar por dia.</li>
+      <li>Anotar um gasto, digitando ou pela foto do comprovante.</li>
       <li>Marcar uma conta como paga.</li>
-      <li>Abrir a fatura do cartão, montada pelo app.</li>
-      <li>Definir um limite de gastos.</li>
+      <li>Abrir a fatura do cartão e trazer o extrato do banco.</li>
+      <li>Definir um limite de gastos e criar uma meta.</li>
+      <li>Receber avisos e baixar o relatório.</li>
     </ul>
   </div>
-  <div class="uso-video sobe"><video controls playsinline muted preload="none" poster="img/video-capa.jpg" width="720" height="1280" aria-label="Vídeo sem som: o Meus Gastos em uso no celular">
+  <div class="uso-video sobe"><video controls playsinline preload="none" poster="img/video-capa.jpg" width="720" height="1280" aria-label="Vídeo narrado: o Meus Gastos em uso no celular">
     <source src="video/meus-gastos.mp4" type="video/mp4"><source src="video/meus-gastos.webm" type="video/webm">O seu navegador não mostra vídeos. <a href="video/meus-gastos.mp4">Baixe o vídeo</a>.</video></div>
 </div></section>
 
@@ -570,7 +585,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
     <div class="sobe d1"><h3>Cada pessoa com a sua conta</h3><p>Entrada por e-mail e senha. Cada conta só acessa os próprios dados, e essa regra é aplicada no banco de dados.</p></div>
     <div class="sobe d2"><h3>O seu dia em um quadro</h3><p>Quanto você gastou hoje e há quantos dias seguidos vem anotando. Não gastou nada? Um toque registra isso também.</p></div>
   </div>
-  <div class="larga sobe"><img src="img/tela-computador.png" alt="O app no computador: quadros de custo, entradas, saldo, dinheiro guardado, fixos e faturas, com os gráficos do mês" loading="lazy" width="1120" height="577"></div>
+  <div class="larga sobe"><img src="img/tela-computador.png" alt="O app no computador: o resumo do mês com quanto sobra, o quadro do dia e o limite de gastos" loading="lazy" width="1120" height="577"></div>
 </div></section>
 
 <section id="como" style="padding-top:20px"><div class="col">
@@ -582,7 +597,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
     <li class="sobe d1"><h3><small>2 minutos</small>Responda três perguntas</h3><p>Quanto você recebe, quais contas paga todo mês e se usa cartão. O app pergunta na primeira vez que você entra.</p></li>
     <li class="sobe d2"><h3><small>Na hora</small>Veja quanto sobra</h3><p>A tela inicial já mostra o que sobra no mês e quanto dá para gastar por dia.</p></li>
     <li class="sobe"><h3><small>10 segundos</small>Lance o primeiro gasto</h3><p>Toque no +, digite o valor e pronto. Ou fotografe o comprovante.</p></li>
-    <li class="sobe d1"><h3><small>1 minuto</small>Ligue os avisos</h3><p>Em Ajustes, ative a notificação das contas a vencer. Na aba Limites, diga o seu teto do mês.</p></li>
+    <li class="sobe d1"><h3><small>1 minuto</small>Ligue os avisos e crie uma meta</h3><p>Em Ajustes, ative a notificação das contas a vencer. Na aba Limites, diga o seu teto do mês. Em Dinheiro guardado, diga quanto quer juntar.</p></li>
   </ol>
 </div></section>
 
@@ -632,13 +647,15 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   <div class="txt">
     <span class="rot">Comece agora</span>
     <h2 data-oferta-titulo>Veja o app funcionando antes de decidir.</h2>
-    <p data-oferta-texto>A demonstração tem tudo o que o app faz, com um mês de exemplo já preenchido: gastos, fixos, cartão com compra parcelada, vencimentos e limites.</p>
+    <p data-oferta-texto>A demonstração tem tudo o que o app faz, com um mês de exemplo já preenchido: gastos, fixos, cartão com compra parcelada, vencimentos, limites e uma meta para o dinheiro guardado.</p>
   </div>
   <div class="cartao-oferta sobe">
     <span class="rot" data-oferta-rot>Demonstração</span>
     <div class="preco" data-oferta-preco>Grátis</div>
+    <p class="lanc" data-oferta-lanc hidden></p>
     <p data-oferta-detalhe>Sem cadastro e sem cartão. Abre direto no navegador do celular ou do computador.</p>
     <a class="btn pri" data-cta data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a>
+    <a class="lk-inst" data-venda data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener" hidden>Ver a demonstração grátis antes</a>
     <a class="lk-inst" href="#instalar">Instalar no celular</a>
     <small data-oferta-rodape>Os dados de exemplo ficam só no seu aparelho.</small>
   </div>
@@ -648,6 +665,10 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   <span class="rot">Perguntas frequentes</span>
   <h2 class="sobe" style="margin-top:10px">Antes de começar.</h2>
   <div class="faq">
+    <details data-venda hidden><summary>Quanto custa?</summary><p><b data-preco></b>. É um plano anual: você paga uma vez por ano, pela Hotmart, no cartão, Pix ou boleto. A demonstração é grátis e não pede cadastro.</p></details>
+    <details data-venda hidden><summary>Como recebo o acesso depois de comprar?</summary><p>O acesso é liberado para o e-mail usado na compra, em geral em menos de um minuto depois do pagamento aprovado. Abra o app, crie a sua conta com esse mesmo e-mail e pronto. No boleto, a liberação pode levar até 3 dias úteis.</p></details>
+    <details data-venda hidden><summary>E se eu me arrepender?</summary><p>Você tem 7 dias a partir da compra para pedir o dinheiro de volta, direto pela Hotmart, sem precisar explicar o motivo.</p></details>
+    <details data-venda hidden><summary>O que acontece se eu não renovar?</summary><p>O app deixa de aceitar lançamentos novos, mas os seus dados continuam guardados. Você ainda entra para baixar tudo em planilha, e eles voltam a aparecer se você renovar. A renovação pode ser cancelada quando você quiser.</p></details>
     <details><summary>Preciso instalar alguma coisa?</summary><p>Não é obrigatório: o Meus Gastos abre no navegador. Instalado, ele ganha ícone na tela inicial, abre em tela cheia e envia notificações. A instalação é feita em <a href="#instalar">Instalar</a>, nesta página: um toque no Android e três no iPhone.</p></details>
     <details><summary>Procurei na loja de aplicativos e não achei. Onde baixo?</summary><p>Ele não fica na Play Store nem na App Store. A instalação é feita por esta página, pelo próprio navegador do celular, e ocupa muito pouco espaço. Veja em <a href="#instalar">Instalar</a>.</p></details>
     <details><summary>Funciona no iPhone e no Android?</summary><p>Sim, nos dois, e também no computador. No iPhone, a notificação de contas funciona com o app instalado na tela de início.</p></details>
@@ -673,10 +694,12 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 // ================= OFERTA =================
 // Enquanto "link" estiver vazio, o site convida para a demonstração.
 // Quando o app estiver à venda, preencha os três campos e todos os botões passam a levar para a compra.
-//   preco:   o que aparece em destaque, por exemplo "R$ 29,90"
-//   detalhe: a frase logo abaixo, por exemplo "Pagamento único. Acesso por 1 ano."
-//   link:    o endereço da página de pagamento (Hotmart ou outra)
-const OFERTA = { preco: "", detalhe: "", link: "" };
+//   preco:      o que aparece em destaque
+//   detalhe:    a frase logo abaixo
+//   lancamento: opcional, o preço de lançamento. Só preencha se a oferta existir de verdade na página de pagamento,
+//               por exemplo "Lançamento: R$ 29,90 no primeiro ano, para as 100 primeiras pessoas."
+//   link:       o endereço da página de pagamento na Hotmart. É ele que liga a venda no site.
+const OFERTA = { preco: "R$ 49,90 por ano", detalhe: "Plano anual. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", link: "" };
 
 const q = (s) => document.querySelector(s), qa = (s) => [...document.querySelectorAll(s)];
 
@@ -700,14 +723,21 @@ if (OFERTA.link && OFERTA.preco) {
   q("[data-oferta-rot]").textContent = "Meus Gastos";
   q("[data-oferta-preco]").textContent = OFERTA.preco;
   q("[data-oferta-detalhe]").textContent = OFERTA.detalhe || "Acesso ao app no celular e no computador.";
-  q("[data-oferta-rodape]").textContent = "O pagamento é feito na página segura da plataforma de vendas.";
+  q("[data-oferta-rodape]").textContent = "Pagamento pela Hotmart, no cartão, Pix ou boleto. Você tem 7 dias para pedir o dinheiro de volta.";
+  if (OFERTA.lancamento) { const l = q("[data-oferta-lanc]"); l.textContent = OFERTA.lancamento; l.hidden = false; }
+  // Quem ainda quer ver antes de comprar continua com a demonstração a um toque, e as perguntas sobre a compra aparecem.
+  qa("[data-venda]").forEach((e) => (e.hidden = false));
+  qa("[data-preco]").forEach((e) => (e.textContent = OFERTA.preco));
 }
 
 // ================= exemplo que responde ao toque =================
 // Números do mês de exemplo: entradas de R$ 3.900, custo até agora, previsão de fechamento,
 // limite de gastos que a pessoa definiu e dias que faltam para o mês acabar (contando hoje).
 const BASE = { entradas: 3900, custo: 2939.4, previsao: 3623, limite: 3500, faltam: 28 };
-const sim = { custo: BASE.custo, previsao: BASE.previsao, itens: [] };
+// Meta de exemplo: R$ 3.000 na reserva, R$ 300 já guardados e o combinado de guardar R$ 300 por mês.
+const META = { alvo: 3000, tinha: 300, porMes: 300, passo: 150 };
+const MESES_SIM = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+const sim = { custo: BASE.custo, previsao: BASE.previsao, itens: [], guardado: 0 };
 const brl = (v, casas = 2) => "R$ " + v.toLocaleString("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas });
 const calmo = matchMedia("(prefers-reduced-motion: reduce)").matches;
 let mostrado = BASE.entradas - BASE.custo, quadro;
@@ -720,8 +750,8 @@ function contaAte(alvo) {
   el.classList.remove("pulsa"); void el.offsetWidth; el.classList.add("pulsa");
 }
 function pintaSim() {
-  const sobra = BASE.entradas - sim.custo, noFim = Math.round(BASE.entradas - sim.previsao), pct = (v) => Math.min(100, (v / BASE.entradas) * 100) + "%";
-  q("#simBarra").style.width = pct(sim.custo); q("#simMarca").style.left = pct(sim.previsao);
+  const sobra = BASE.entradas - sim.custo - sim.guardado, noFim = Math.round(BASE.entradas - sim.previsao - sim.guardado), pct = (v) => Math.min(100, (v / BASE.entradas) * 100) + "%";
+  q("#simBarra").style.width = pct(sim.custo + sim.guardado); q("#simMarca").style.left = pct(sim.previsao + sim.guardado);
   q("#simMed").classList.toggle("estourou", noFim < 0);
   q("#simRot").textContent = sobra >= 0 ? "Sobram em outubro" : "Faltam em outubro";
   q("#simCusto").classList.toggle("neg", sobra < 0);
@@ -738,21 +768,38 @@ function pintaSim() {
   q("#simLimBarra").style.width = Math.min(100, uso * 100) + "%";
   q("#simLimTxt").textContent = resta >= 0 ? `Ainda cabem ${brl(resta)} no limite de ${brl(BASE.limite, 0)} que você definiu.`
     : `Já são ${brl(-resta)} acima do limite de ${brl(BASE.limite, 0)}. No app, esse aviso chega também por e-mail.`;
+  // Meta: a mesma conta do app. O que falta, dividido pelo combinado do mês, diz em que mês ela fica pronta.
+  const tem = META.tinha + sim.guardado, falta = Math.max(0, META.alvo - tem), mp = Math.min(100, Math.floor((tem / META.alvo) * 100));
+  const depois = falta - Math.max(0, META.porMes - sim.guardado), n = depois <= 0 ? 0 : Math.ceil(depois / META.porMes), mesN = 9 + n;
+  const pronta = `${MESES_SIM[mesN % 12]} de ${2026 + Math.floor(mesN / 12)}`, cabe = noFim >= META.passo && falta > 0;
+  q("#simMeta").classList.toggle("feita", falta === 0);
+  q("#simMetaPill").textContent = falta === 0 ? "Completa" : mp + "%"; q("#simMetaPill").className = "pill " + (falta === 0 ? "ok" : "info");
+  q("#simMetaBarra").style.width = mp + "%"; q("#simMetaVal").textContent = brl(tem, 0);
+  q("#simMetaTxt").textContent = falta === 0 ? "Meta completa. É a recompensa pelo seu esforço."
+    : !cabe && !sim.guardado ? "Este mês está apertado. Tudo bem não guardar agora: a meta continua aqui."
+    : !cabe ? `Guardado neste mês: ${brl(sim.guardado, 0)}. Por agora, o mês não comporta mais.`
+    : sim.guardado ? `Guardado neste mês: ${brl(sim.guardado, 0)}. No combinado de ${brl(META.porMes, 0)} por mês, fica pronta em ${pronta}.`
+    : `Guardando ${brl(META.porMes, 0)} por mês, fica pronta em ${pronta}.`;
+  q("#simGuardar").disabled = !cabe; q("#simGuardar").hidden = falta === 0;
   q("#simLista").innerHTML = sim.itens.length
     ? sim.itens.slice(-3).reverse().map((i) => `<li><span>${i.d} · lançado agora</span><b>− ${brl(i.v)}</b></li>`).join("")
     : `<li class="vazio">Nenhum gasto lançado neste exemplo ainda.</li>`;
-  q("#simZera").hidden = !sim.itens.length && !q(".venc.paga");
+  q("#simZera").hidden = !sim.itens.length && !sim.guardado && !q(".venc.paga");
 }
+q("#simGuardar").addEventListener("click", () => {
+  sim.guardado += META.passo; sim.itens.push({ d: "Guardado para a meta", v: META.passo });
+  contaAte(BASE.entradas - sim.custo - sim.guardado); pintaSim();
+});
 qa("[data-add]").forEach((b) => b.addEventListener("click", () => {
   const v = Number(b.dataset.add); sim.custo += v; sim.previsao += v; sim.itens.push({ d: b.dataset.d, v });
-  contaAte(BASE.entradas - sim.custo); pintaSim();
+  contaAte(BASE.entradas - sim.custo - sim.guardado); pintaSim();
 }));
 qa("[data-pagar]").forEach((b) => b.addEventListener("click", () => {
   const c = b.closest("[data-venc]"), p = c.querySelector("[data-pill]");
   c.classList.add("paga"); p.dataset.antes = p.dataset.antes || p.textContent; p.textContent = "paga ✓"; p.className = "pill ok"; b.hidden = true; pintaSim();
 }));
 q("#simZera").addEventListener("click", () => {
-  sim.custo = BASE.custo; sim.previsao = BASE.previsao; sim.itens = [];
+  sim.custo = BASE.custo; sim.previsao = BASE.previsao; sim.itens = []; sim.guardado = 0;
   qa(".venc.paga").forEach((c) => { const p = c.querySelector("[data-pill]"); c.classList.remove("paga"); p.textContent = p.dataset.antes; p.className = "pill warn"; c.querySelector("[data-pagar]").hidden = false; });
   contaAte(BASE.entradas - sim.custo); pintaSim();
 });

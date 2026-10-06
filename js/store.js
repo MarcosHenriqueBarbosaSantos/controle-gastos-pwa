@@ -11,6 +11,7 @@
 //   addFatura(row) / updateFatura(id, patch) / deleteFatura(id)
 //   addCartao(row) / updateCartao(id, patch) / deleteCartao(id)
 //   salvaPush(row) / removePush(endpoint) / token()   → só na conta de verdade (avisos no celular)
+//   meuAcesso()                    → { cobranca, ativo, ate, status, origem }: se o app está sendo cobrado e se esta conta tem acesso
 
 const num = (r) => ({ ...r, valor: Number(r.valor) });
 
@@ -70,6 +71,8 @@ export function createSupabaseStore(client) {
     async salvaPush(row) { ok(await client.from("avisos_push").upsert(row, { onConflict: "user_id,endpoint" })); },
     async removePush(endpoint) { ok(await client.from("avisos_push").delete().eq("endpoint", endpoint)); },
     async token() { return (await client.auth.getSession()).data.session?.access_token || ""; },
+    // Acesso de quem comprou: a resposta vem do banco (supabase/acesso.sql).
+    async meuAcesso() { return ok(await client.rpc("meu_acesso")); },
   };
 }
 
@@ -84,6 +87,7 @@ export function createLocalStore(key, seedFn) {
   persist();
   return {
     kind: "local",
+    async meuAcesso() { return { cobranca: false, ativo: true, ate: null, status: null, origem: null }; },   // a demonstração é sempre livre
     async loadAll() { const { prefs, ...dados } = db; return structuredClone(dados); },
     async addLancamentos(rows) {
       const keys = new Set(db.lancamentos.map((r) => r.import_key).filter(Boolean));

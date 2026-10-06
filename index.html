@@ -31,6 +31,9 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
 </head>
 <body>
 
+<!-- Conta sem acesso: quem ainda não comprou, ou não renovou -->
+<main id="acesso" class="auth" hidden><div class="auth-card" id="acessoCard"></div></main>
+
 <!-- Tela de entrada -->
 <main id="auth" class="auth" hidden>
   <div class="auth-card">
@@ -49,6 +52,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
         <label class="f">E-mail<input class="in" id="aEmail" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" placeholder="voce@exemplo.com"></label>
         <label class="f">Senha<span class="senha"><input class="in" id="aSenha" type="password" autocomplete="current-password"><button type="button" class="olho" data-ver="aSenha" aria-label="Mostrar a senha" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></button></span></label>
         <p class="hint" id="aSenhaDica" hidden>Pelo menos 6 caracteres. É com ela que você entra no app.</p>
+        <p class="hint auth-pago" id="aPago" hidden></p>
         <button class="btn primary" type="submit" id="aEntrar">Entrar</button>
         <button class="link" type="button" id="aEsqueci">Esqueci minha senha</button>
       </form>

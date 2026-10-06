@@ -462,6 +462,11 @@ input.in.cod{font-family:var(--display);font-size:24px;font-weight:700;letter-sp
 input.in.cod::placeholder{color:var(--axis)}
 .auth-msg{margin:0;font-size:14px;color:var(--ink-2);line-height:1.4;border-radius:var(--r-sm)}
 .auth-msg:empty{display:none}
+.auth-pago{margin:0!important;padding:10px 12px;border-radius:var(--r-sm);background:var(--series-soft);color:var(--ink);font-size:13.5px;line-height:1.4}
+#acessoCard h2{font-family:var(--display);font-size:21px;font-weight:700;letter-spacing:-.02em;margin:0}
+#acessoCard .btn{padding:13px;font-size:15px;text-align:center;text-decoration:none;justify-content:center}
+#acessoCard .hint{margin:0;font-size:13px;line-height:1.45}
+.aj-assina{margin:0;font-size:13.5px;color:var(--ink-2)} .aj-assina b{color:var(--ink)}
 .auth-msg.err{color:var(--bad);background:var(--bad-soft);padding:10px 12px} .auth-msg.ok{color:var(--good);background:var(--good-soft);padding:10px 12px}
 .auth-demo{border-top:1px solid var(--grid);padding-top:14px;display:grid;gap:8px;justify-items:center}
 .auth-demo .btn{padding:12px;width:100%}

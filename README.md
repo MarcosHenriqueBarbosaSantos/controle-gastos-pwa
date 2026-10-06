@@ -33,6 +33,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Limites de gasto**: um limite para o mês e limites por categoria, em uma aba própria. O app mostra quanto do limite já foi usado, avisa na hora ao lançar e manda e-mail e notificação quando a pessoa chega a 80% do limite, passa dele ou passa em mais de 20%.
 - **Próximos vencimentos logo abaixo**: as contas dos próximos 30 dias, com as atrasadas em destaque, contagem de dias ("em 10 dias vence a fatura, R$ 299"), botão "Já paguei" e alerta quando o mês está ou vai fechar no vermelho.
 - **Avisos por e-mail e notificação no celular**: de manhã, só nos dias em que há conta atrasada ou vencendo em até 3 dias. A pessoa liga e desliga em Ajustes.
+- **Acesso de quem comprou**: com a cobrança ligada, a conta sem compra (ou sem renovação) vê uma tela com o botão de comprar, "já comprei: conferir de novo", a demonstração e a opção de baixar os próprios dados. A regra vale no banco, não só na tela.
 - **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
 - **Metas para o dinheiro guardado**: a pessoa diz quanto quer juntar em cada destino e, se quiser, até quando. O app mostra o progresso, em que mês ela chega lá e quanto dá para guardar com o que deve sobrar no mês. Um valor por mês vira um **combinado** que aparece em Próximos vencimentos com "Guardei" e "Pular": não é uma conta, não entra no custo e nunca fica atrasado. Ao guardar, o app comemora os marcos (25, 50, 75 e 100%); ao retirar, responde com apoio, sem cobrança. Por e-mail e notificação chegam os parabéns (no dia seguinte a guardar) e dois lembretes por mês, só quando deve sobrar dinheiro.
 - **Saldo acumulado**: o que sobrou ou faltou passa para o mês seguinte, se a pessoa quiser, partindo de um **saldo inicial** (quanto ela já tinha, ou devia, quando começou).
@@ -182,6 +183,20 @@ No Supabase, abra **Authentication → URL Configuration** e coloque o endereço
 4. No app, em **Ajustes → Avisos de contas**, ligue a notificação no aparelho e use **Enviar um aviso de teste agora**.
 
 A função confere a si mesma em `/functions/v1/avisos?autoteste=1` (regras e criptografia, sem tocar no banco). As chaves das notificações são criadas pelo servidor e ficam em uma tabela que só ele lê.
+
+### 4b. Venda do app: acesso só para quem comprou (opcional)
+
+O plano é anual e vendido pela Hotmart. A Hotmart avisa o servidor a cada compra, renovação, cancelamento ou reembolso, e o banco só aceita gravações de quem tem acesso em dia. Ler, baixar e apagar os próprios dados continua sempre liberado.
+
+1. No Supabase, rode [`supabase/acesso.sql`](supabase/acesso.sql): cria as tabelas de acesso e a trava no banco. **A cobrança começa desligada**: nada muda para ninguém.
+2. Publique a função [`supabase/functions/hotmart`](supabase/functions/hotmart) (`supabase functions deploy hotmart --no-verify-jwt`).
+3. Na Hotmart, em **Ferramentas → Webhook**, cadastre o endereço `https://SEU-PROJETO.supabase.co/functions/v1/hotmart`, versão 2.0.0, com os eventos de compra e de cancelamento de assinatura. Copie o **hottok** que a Hotmart mostra.
+4. No Supabase, em **Edge Functions → Secrets**, cadastre `HOTMART_HOTTOK` (o hottok) e, se quiser, `HOTMART_PRODUTO` (o número do produto).
+5. Envie um aviso de teste pela Hotmart e confira a tabela `acesso_eventos`.
+6. Preencha `LINK_COMPRA` em [`js/config.js`](js/config.js) e `OFERTA.link` em [`site/index.html`](site/index.html) com o endereço da página de pagamento.
+7. Para ligar a cobrança, rode os dois comandos que estão comentados no fim do `acesso.sql`: quem já tem conta ganha acesso de cortesia e a trava passa a valer.
+
+Regras do acesso: compra aprovada libera até a próxima cobrança mais 3 dias de folga (ou 1 ano, se a Hotmart não informar a data); cancelar a renovação mantém o acesso até o fim do período pago; reembolso ou contestação no cartão encerra o acesso. O registro dos avisos guarda só o evento, o e-mail e o código da compra.
 
 ### 5. E-mails da conta (confirmação e nova senha)
 
