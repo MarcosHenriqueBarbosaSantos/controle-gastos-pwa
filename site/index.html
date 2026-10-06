@@ -449,9 +449,9 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 <section id="recursos" style="padding-top:30px">
 <div class="col so-cel cab-rec">
   <span class="rot">O que ele faz</span>
-  <h2 style="margin-top:8px">Seis motivos para abrir o app todo dia.</h2>
+  <h2 style="margin-top:8px">Sete motivos para abrir o app todo dia.</h2>
   <div class="atalhos" id="atalhos" role="tablist" aria-label="Recursos">
-    <button type="button" class="on" data-ir="0">Resumo</button><button type="button" data-ir="1">Limites</button><button type="button" data-ir="2">Avisos</button><button type="button" data-ir="3">Cartão</button><button type="button" data-ir="4">Extrato</button><button type="button" data-ir="5">Lançar</button>
+    <button type="button" class="on" data-ir="0">Resumo</button><button type="button" data-ir="1">Limites</button><button type="button" data-ir="2">Metas</button><button type="button" data-ir="3">Avisos</button><button type="button" data-ir="4">Cartão</button><button type="button" data-ir="5">Extrato</button><button type="button" data-ir="6">Lançar</button>
   </div>
 </div>
 <div class="col vit">
@@ -479,6 +479,18 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
       <div class="so-fone"><div class="fone"><img src="img/tela-limites.png" alt="Aba Limites: limite de R$ 3.500 por mês, com 84% usado e o aviso de que está perto do limite" loading="lazy" width="585" height="1266"></div></div>
     </article>
     <article class="passo" data-tela="2">
+      <span class="rot">Metas</span>
+      <h2>Diga quanto quer juntar. O app mostra quando você chega lá.</h2>
+      <p>Crie uma meta para a reserva de emergência, a viagem ou o que for. O app acompanha o que você guarda e diz em que mês a meta fica pronta.</p>
+      <ul>
+        <li>Com o que deve sobrar no mês, ele sugere quanto dá para guardar.</li>
+        <li>Um valor por mês vira um combinado, com os botões "Guardei" e "Pular". Não é uma conta: pular o mês não tem problema.</li>
+        <li>Ao guardar, o app comemora cada etapa. Em mês apertado, não cobra nada.</li>
+        <li>A previsão usa só o que você guardou e os meses que faltam. O app não promete rendimento.</li>
+      </ul>
+      <div class="so-fone"><div class="fone"><img src="img/tela-metas.png" alt="Meta Reserva de emergência: R$ 300 de R$ 3.000 guardados, previsão de ficar pronta em junho de 2027 e sugestão de quanto guardar neste mês" loading="lazy" width="585" height="1266"></div></div>
+    </article>
+    <article class="passo" data-tela="3">
       <span class="rot">Avisos</span>
       <h2>O aviso chega antes do problema.</h2>
       <p>De manhã, o app avisa por e-mail e por notificação no celular. Só nos dias em que há algo para resolver.</p>
@@ -492,7 +504,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
         <div class="notif"><img src="img/icone.png" alt=""><div><small><span>Meus Gastos</span><span>08:00</span></small><b>1 conta atrasada e 2 para vencer</b><span>Terapia: R$ 90,00, atrasada há 2 dias</span><span>Fatura Cartão roxo: R$ 300,90, vence em 3 dias</span><span>Você já usou 84% do limite de outubro</span></div></div>
       </div></div>
     </article>
-    <article class="passo" data-tela="3">
+    <article class="passo" data-tela="4">
       <span class="rot">Cartão de crédito</span>
       <h2>A fatura deixa de ser surpresa.</h2>
       <p>Cadastre o cartão com o dia em que a fatura fecha e o dia em que vence. A partir daí, cada compra entra sozinha na fatura certa.</p>
@@ -503,7 +515,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
       </ul>
       <div class="so-fone"><div class="fone baixo"><img src="img/tela-fatura.png" alt="Tela da fatura do cartão, com as compras e a parcela 1 de 3 do tênis" loading="lazy" width="585" height="1266"></div></div>
     </article>
-    <article class="passo" data-tela="4">
+    <article class="passo" data-tela="5">
       <span class="rot">Extrato do cartão</span>
       <h2>Traga o extrato e não digite compra por compra.</h2>
       <p>Baixe o extrato do cartão no aplicativo do seu banco e abra no Meus Gastos. Ele lista as compras, sugere a categoria de cada uma e coloca tudo na fatura certa.</p>
@@ -515,7 +527,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
       </ul>
       <div class="so-fone"><div class="fone"><img src="img/tela-extrato.png" alt="Importar extrato do cartão: 8 compras encontradas, cada uma com a categoria sugerida" loading="lazy" width="585" height="1266"></div></div>
     </article>
-    <article class="passo" data-tela="5">
+    <article class="passo" data-tela="6">
       <span class="rot">Lançamento</span>
       <h2>Anotar um gasto leva dez segundos. Ou uma foto.</h2>
       <p>Toque no botão +, digite o valor e escolha a categoria. Se preferir, aponte a câmera para o comprovante ou para a conta: o app lê o valor, a data e a descrição, e você só confere.</p>
@@ -530,27 +542,28 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
   <div class="palco" aria-hidden="true">
     <div class="camada on" data-c="0"><div class="fone"><img src="img/tela-inicio.png" alt="" width="585" height="1266"></div></div>
     <div class="camada" data-c="1"><div class="fone"><img src="img/tela-limites.png" alt="" loading="lazy" width="585" height="1266"></div></div>
-    <div class="camada" data-c="2"><div class="avisos">
+    <div class="camada" data-c="2"><div class="fone"><img src="img/tela-metas.png" alt="" loading="lazy" width="585" height="1266"></div></div>
+    <div class="camada" data-c="3"><div class="avisos">
       <div class="notif"><img src="img/icone.png" alt=""><div><small><span>Meus Gastos</span><span>08:00</span></small><b>1 conta atrasada e 2 para vencer</b><span>Terapia: R$ 90,00, atrasada há 2 dias</span><span>Fatura Cartão roxo: R$ 300,90, vence em 3 dias</span><span>Você já usou 84% do limite de outubro</span></div></div>
       <div class="email"><div class="de">De: Meus Gastos · Para: você</div>
         <div class="lim"><b>Você já usou 84% do limite de outubro</b><span>Seu custo de outubro está em R$ 2.939,40, e o limite que você definiu é R$ 3.500,00. Ainda cabem R$ 560,60.</span></div>
         <h4>Você tem 3 contas para resolver, somando R$ 480,90</h4>
         <table><tr><td>Terapia<small class="bad">atrasada há 2 dias</small></td><td>R$ 90,00</td></tr><tr><td>Fatura Cartão roxo<small class="warn">vence em 3 dias</small></td><td>R$ 300,90</td></tr><tr><td>Terapia<small>vence em 3 dias</small></td><td>R$ 90,00</td></tr></table></div>
     </div></div>
-    <div class="camada" data-c="3"><div class="fone"><img src="img/tela-fatura.png" alt="" loading="lazy" width="585" height="1266"></div></div>
-    <div class="camada" data-c="4"><div class="fone"><img src="img/tela-extrato.png" alt="" loading="lazy" width="585" height="1266"></div></div>
-    <div class="camada" data-c="5"><div class="fone"><img src="img/tela-leitura.png" alt="" loading="lazy" width="585" height="1266"></div></div>
-    <div class="pontos"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+    <div class="camada" data-c="4"><div class="fone"><img src="img/tela-fatura.png" alt="" loading="lazy" width="585" height="1266"></div></div>
+    <div class="camada" data-c="5"><div class="fone"><img src="img/tela-extrato.png" alt="" loading="lazy" width="585" height="1266"></div></div>
+    <div class="camada" data-c="6"><div class="fone"><img src="img/tela-leitura.png" alt="" loading="lazy" width="585" height="1266"></div></div>
+    <div class="pontos"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
   </div>
 </div>
-<div class="col so-cel dica-rec"><span class="pontos-cel" id="pontosCel"><i class="on"></i><i></i><i></i><i></i><i></i><i></i></span><span>Arraste para o lado</span></div>
+<div class="col so-cel dica-rec"><span class="pontos-cel" id="pontosCel"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></span><span>Arraste para o lado</span></div>
 </section>
 
 <section><div class="col">
   <span class="rot">E também</span>
   <h2 class="sobe" style="margin-top:10px">O resto do que você precisa para acompanhar o mês.</h2>
   <div class="grade">
-    <div class="sobe"><h3>Dinheiro guardado à parte</h3><p>Reserva de emergência, investimentos e outros destinos ficam em um quadro separado do saldo.</p></div>
+    <div class="sobe"><h3>Dinheiro guardado à parte</h3><p>Reserva de emergência, investimentos e outros destinos ficam em um quadro separado do saldo, cada um com a sua meta.</p></div>
     <div class="sobe d1"><h3>Saldo que passa de mês</h3><p>O que sobrou ou faltou segue para o mês seguinte, partindo do valor que você já tinha.</p></div>
     <div class="sobe d2"><h3>Relatório de gastos</h3><p>Baixe uma planilha do Excel com os lançamentos, os fixos, as faturas e o resumo de cada mês do ano.</p></div>
     <div class="sobe"><h3>No celular e no computador</h3><p>Instala na tela inicial do Android e do iPhone, com tema escuro ou claro. No computador, vira um painel completo.</p></div>
@@ -644,7 +657,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
     <details><summary>Consigo tirar os meus dados do app?</summary><p>Sim. A qualquer momento você baixa um relatório de gastos em planilha do Excel, com os lançamentos, os gastos fixos, as faturas e o resumo de cada mês.</p></details>
     <details><summary>Esqueci a senha. E agora?</summary><p>Na tela de entrada, toque em Esqueci minha senha e digite o seu e-mail. Você recebe uma mensagem com um código e um botão para criar a senha nova. Use sempre a mensagem mais recente.</p></details>
     <details><summary>Como falo com o suporte?</summary><p>Escreva para <a href="mailto:meugastos@gmail.com">meugastos@gmail.com</a>. Dentro do app, o item Como usar, no menu, responde as dúvidas mais comuns.</p></details>
-    <details><summary>Como funcionam os avisos?</summary><p>De manhã, o app envia um e-mail e uma notificação no celular, mas só nos dias em que há conta atrasada ou vencendo em até 3 dias, ou quando você chega perto do limite de gastos que definiu ou passa dele. Cada aviso pode ser desligado quando você quiser.</p></details>
+    <details><summary>Como funcionam os avisos?</summary><p>De manhã, o app envia um e-mail e uma notificação no celular, mas só nos dias em que há conta atrasada ou vencendo em até 3 dias, ou quando você chega perto do limite de gastos que definiu ou passa dele. Quem tem uma meta recebe também os parabéns no dia seguinte a guardar e, no máximo duas vezes por mês, um lembrete de guardar, só quando deve sobrar dinheiro. Cada aviso pode ser desligado quando você quiser.</p></details>
   </div>
 </div></section>
 </main>
