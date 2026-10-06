@@ -3,7 +3,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PL
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
-  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes } from "./calc.js";
+  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimosMeses, comparaCategorias } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
@@ -48,6 +48,8 @@ const ICO = {
   alvo: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01",
   ajuda: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.8M12 17h.01",
   pessoa: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0",
+  lupa: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.7-3.7",
+  sobe: "M12 19V6M6.5 11.5 12 6l5.5 5.5", desce: "M12 5v13M6.5 12.5 12 18l5.5-5.5",
   olho: "M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
 };
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICO[n]}"/></svg>`;
@@ -427,11 +429,21 @@ function render() {
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Limites de gasto" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
-  renderForm(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderTabs(c);
+  renderForm(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c);
+}
+
+/** Palpite de categoria para uma descrição: primeiro o que a pessoa já escolheu antes, depois as palavras conhecidas, depois a dica (se houver). */
+function palpiteCat(desc, tipo, dica = "") {
+  const aprendida = S.data ? categoriaAprendida(S.data.lancamentos, desc, tipo) : "", fixo = guessCat(desc, tipo);
+  return aprendida || (fixo !== "Outros" ? fixo : dica || fixo);
 }
 
 function renderForm() {
   document.querySelectorAll("#tipoSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.t === S.tipo));
+  // Gastos que a pessoa mais repete: um toque preenche o formulário.
+  const rap = S.tipo === "Despesa" && S.loaded ? maisUsados(S.data.lancamentos, hoje()) : [], fr2 = $("fRapidos"), k2 = JSON.stringify(rap);
+  if (fr2.dataset.k !== k2) { fr2.dataset.k = k2; S.rapidos = rap; fr2.innerHTML = rap.length ? `<span class="rap-t">Você costuma lançar</span>` + rap.map((r, i) => `<button type="button" data-rap="${i}">${esc(r.descricao)}<b>${brl(r.valor)}</b></button>`).join("") : ""; }
+  fr2.hidden = !rap.length;
   const sel = $("fCat");
   const lista = cats(S.tipo), chave = S.tipo + "|" + lista.join("|");
   if (sel.dataset.k !== chave) { sel.innerHTML = opts(lista); sel.dataset.k = chave; }
@@ -918,14 +930,18 @@ function renderCat(c) {
   // Uma linha por categoria: nome, valor e uma barra na cor da categoria. Tocar abre a lista dos gastos.
   // Com limite definido, a barra mostra quanto do limite já foi usado e fica vermelha quando passa.
   const lim = new Map(usoDosLimites(c, S.prefs.limites).map((u) => [u.cat, u]));
+  // Dia a dia de cada categoria contra o mês anterior (até o mesmo dia, no mês atual). Só aparece quando a diferença é relevante.
+  const cmp = S.loaded ? comparaCategorias(S.data, c, S.mes) : null, m3 = cmp ? MES3[Number(cmp.mes.slice(5)) - 1].toLowerCase() : "";
+  const delta = (k) => { const d = cmp?.por[k]; return d ? `<span class="cmp">${ico(d.dif > 0 ? "sobe" : "desce")}${brl0(Math.abs(d.dif))} ${d.dif > 0 ? "a mais" : "a menos"} que em ${m3}</span>` : ""; };
   const linhas = [...cats, ...[...lim.values()].filter((u) => !cats.some(([k]) => k === u.cat)).map((u) => [u.cat, 0])];
   const max = cats[0][1], box = document.createElement("div"); box.className = "cats";
   box.innerHTML = linhas.map(([k, v], i) => {
     const u = lim.get(k);
     return `<button type="button" class="cat-row${u?.passou ? " over" : ""}" data-i="${i}" style="--c:${corCat(k)}" aria-label="${esc(k)}: ${brl0(v)}${u ? ` de ${brl0(u.limite)} de limite` : ""}. Ver os gastos">
     <span class="nm"><i></i>${esc(k)}${u?.passou ? ` <span class="tag bad">passou ${brl0(u.passou)}</span>` : ""}</span><span class="vl">${brl0(v)}<em>${u ? `de ${brl0(u.limite)}` : `${Math.round((v / tot) * 100)}%`}</em></span>
-    <span class="bar${u ? " lim" : ""}"><i style="width:${Math.max(v ? 2 : 0, u ? Math.min(100, u.pct) : (v / max) * 100).toFixed(1)}%"></i></span></button>`; }).join("");
+    <span class="bar${u ? " lim" : ""}"><i style="width:${Math.max(v ? 2 : 0, u ? Math.min(100, u.pct) : (v / max) * 100).toFixed(1)}%"></i></span>${delta(k)}</button>`; }).join("");
   host.appendChild(box);
+  if (cmp && linhas.some(([k]) => cmp.por[k])) { const p = document.createElement("p"); p.className = "hint cmp-nota"; p.textContent = `A comparação é dos gastos do dia a dia com ${nomeMes(cmp.mes)}${cmp.ate ? `, até o dia ${cmp.ate}` : ""}.`; host.appendChild(p); }
   box.querySelectorAll(".cat-row").forEach((b) => (b.onclick = () => detalheCategoria(linhas[Number(b.dataset.i)][0])));
   cartaoDoMes(c, host);
 }
@@ -935,6 +951,38 @@ function cartaoDoMes(c, host) {
   const d = document.createElement("div"); d.className = "nocartao";
   d.innerHTML = `<h3>No cartão neste mês</h3><p class="hint">Ainda não entrou no custo. Vai ser cobrado na fatura.</p><ul class="dest">${l.map(([k, v]) => `<li><span>${esc(k)}</span><b>${brl0(v)}</b></li>`).join("")}</ul>`;
   host.appendChild(d);
+}
+
+/* ---------- últimos meses: entradas e custo lado a lado, e a sobra embaixo ---------- */
+function renderEvo() {
+  const painel = $("evoPanel"), host = $("chEvo");
+  const meses = S.loaded ? ultimosMeses(S.data, S.mes, hoje()) : [];
+  painel.hidden = meses.length < 2;   // um mês só não é evolução
+  if (meses.length < 2) { host.innerHTML = ""; return; }
+  const max = Math.max(...meses.flatMap((x) => [x.rec, x.custo]), 1), alt = (v) => (v > 0 ? Math.max(2, (v / max) * 100).toFixed(1) : 0);
+  const curto = (v) => (Math.abs(v) >= 10000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : Math.round(v).toLocaleString("pt-BR"));
+  host.innerHTML = `<div class="evo" style="--n:${meses.length}">${meses.map((x, i) => {
+    const nome = `${nomeMes(x.m)} de ${x.m.slice(0, 4)}`, sobra = x.sobra >= 0 ? `sobraram ${brl0(x.sobra)}` : `faltaram ${brl0(-x.sobra)}`;
+    return `<button type="button" class="evo-m${x.m === S.mes ? " aqui" : ""}" data-m="${x.m}" data-i="${i}" aria-label="${nome}: entraram ${brl0(x.rec)}, custo de ${brl0(x.custo)}, ${sobra}${x.fase === "atual" ? " até agora" : x.fase === "futuro" ? " (previsto)" : ""}. Abrir o mês">
+      <span class="evo-b"><i class="ent" style="height:${alt(x.rec)}%"></i><i class="cus" style="height:${alt(x.custo)}%"></i></span>
+      <span class="evo-n">${MES3[Number(x.m.slice(5)) - 1]}${x.fase === "atual" ? "*" : ""}</span>
+      <span class="evo-s${x.sobra < 0 ? " neg" : ""}">${x.sobra < 0 ? "− " : "+ "}${curto(Math.abs(x.sobra))}</span></button>`; }).join("")}</div>
+    <div class="tip" hidden></div>${meses.some((x) => x.fase === "atual") ? `<p class="hint evo-nota">* Mês em andamento: os números ainda vão mudar.</p>` : ""}`;
+  const tip = host.querySelector(".tip");
+  const mostra = (b) => {
+    const x = meses[Number(b.dataset.i)];
+    tip.innerHTML = `<b>${nomeMes(x.m)} de ${x.m.slice(0, 4)}${x.fase === "atual" ? " (até agora)" : ""}</b><div class="r"><span>Entradas</span><span>${brl0(x.rec)}</span></div><div class="r"><span>Custo</span><span>${brl0(x.custo)}</span></div><div class="r"><span>${x.sobra >= 0 ? "Sobrou" : "Faltou"}</span><span>${brl0(Math.abs(x.sobra))}</span></div>`;
+    tip.hidden = false;
+    // Ao lado do mês, para não cobrir as barras dele.
+    const larg = host.clientWidth; let left = b.offsetLeft + b.offsetWidth + 6;
+    if (left + tip.offsetWidth > larg) left = b.offsetLeft - tip.offsetWidth - 6;
+    tip.style.left = Math.max(0, left) + "px"; tip.style.top = "8px";
+  };
+  host.querySelectorAll(".evo-m").forEach((b) => {
+    b.addEventListener("pointerenter", () => mostra(b)); b.addEventListener("focus", () => mostra(b));
+    b.addEventListener("pointerleave", () => (tip.hidden = true)); b.addEventListener("blur", () => (tip.hidden = true));
+    b.onclick = () => { if (b.dataset.m !== S.mes) { S.mes = b.dataset.m; render(); scrollTo(0, 0); } };
+  });
 }
 
 /* ================= abas ================= */
@@ -952,29 +1000,56 @@ function armDelete(b, fn) {
   });
 }
 
+/** Uma linha da lista de lançamentos. `comAno` mostra o ano junto da data (resultado de busca, que mistura meses). */
+function linhaLanc(x, toque, comAno = false) {
+  return `<tr data-id="${esc(x.id)}"${toque}><td class="d">${comAno ? ddmm(x.data) + "/" + x.data.slice(2, 4) : ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}<span class="sub">${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
+      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(pagoCom(x)) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : "Guardou"}</td>
+      <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "← " : "→ ") : "− "}${brl(x.valor)}</td>
+      <td class="acts"><button class="act" type="button" data-ed="${esc(x.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">${ico("lixo")}</span></button></td></tr>`;
+}
 function paneL(c) {
+  const host = $("pane-l");
+  // A busca fica fora da parte que é redesenhada, para o teclado não fechar enquanto a pessoa digita.
+  if (!$("lBusca")) {
+    host.innerHTML = `<div class="busca"><label class="so-leitor" for="lBusca">Buscar lançamento</label>${ico("lupa")}<input class="in" id="lBusca" type="search" placeholder="Buscar em todos os meses" autocomplete="off" enterkeyhint="search" maxlength="60"><button type="button" class="busca-x" id="lBuscaX" aria-label="Limpar a busca" hidden>${ico("x")}</button></div><div id="lLista"></div>`;
+    $("lBusca").value = S.busca || "";
+    $("lBusca").addEventListener("input", (e) => { S.busca = e.target.value; listaL(calcMes(S.data, S.mes, hoje())); });
+    $("lBuscaX").onclick = () => { S.busca = ""; $("lBusca").value = ""; listaL(calcMes(S.data, S.mes, hoje())); $("lBusca").focus(); };
+  }
+  listaL(c);
+}
+function listaL(c) {
+  const host = $("lLista"), q = (S.busca || "").trim(), toque = noCelular() ? ` tabindex="0" role="button"` : "";
+  $("lBuscaX").hidden = !q;
+  const cab = `<thead><tr><th>Dia</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="hide-sm">Pagamento</th><th class="num">Valor</th><th></th></tr></thead>`;
+  if (q.length >= 2) {
+    // Busca: todos os meses, do mais recente para o mais antigo, separados por mês.
+    const r = buscaLancamentos(S.data.lancamentos, q);
+    if (!r.total) host.innerHTML = `<div class="welcome"><p><b>Nada encontrado para "${esc(q)}".</b> A busca olha a descrição, a categoria, a forma de pagamento e o valor, em todos os meses.</p></div>`;
+    else {
+      const mes = (x, i) => i && mKey(r.itens[i - 1].data) === mKey(x.data) ? "" : `<tr class="dia"><td colspan="6"><span>${nomeMes(mKey(x.data))} de ${x.data.slice(0, 4)}</span></td></tr>`;
+      host.innerHTML = `<p class="hint busca-res" role="status">${r.total === 1 ? "1 lançamento encontrado" : `${r.total} lançamentos encontrados`}${r.soma ? `, somando <b>${brl(r.soma)}</b> em gastos` : ""}.${r.total > r.itens.length ? ` Mostrando os ${r.itens.length} mais recentes.` : ""}</p>
+        <div class="tbl"><table class="lanc">${cab}<tbody>${r.itens.map((x, i) => mes(x, i) + linhaLanc(x, toque, true)).join("")}</tbody></table></div>`;
+    }
+  } else {
   // Entradas fixas aparecem na lista como lançamentos automáticos do mês.
   const auto = c.fr.map((f) => { const d = Number(f.data.slice(8, 10));
     return { auto: true, id: f.id, data: f.data, descricao: f.descricao, categoria: f.categoria, tipo: "Receita", valor: f.valor,
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
   const it = [...c.it, ...auto].sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
   if (!it.length) {
-    $("pane-l").innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)}.</b> Anote cada gasto no formulário lá em cima assim que ele acontecer. O custo do mês e a projeção se atualizam na hora.</p><p>Usa cartão? Na aba <b>Cartões</b> dá para importar o extrato do banco e lançar todas as compras de uma vez.</p></div>`;
+    host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)}.</b> Anote cada gasto no formulário lá em cima assim que ele acontecer. O custo do mês e a projeção se atualizam na hora.</p><p>Usa cartão? Na aba <b>Cartões</b> dá para importar o extrato do banco e lançar todas as compras de uma vez.</p></div>`;
     return;
   }
   // No celular a lista é separada por dia, com o total gasto em cada um.
   const gastoDoDia = (d) => round2(it.filter((x) => !x.auto && x.tipo === "Despesa" && x.data === d).reduce((t, x) => t + x.valor, 0));
   const dia = (x, i) => i && it[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
-  // No celular a linha inteira é o botão: tocar abre o lançamento para editar ou excluir.
-  const toque = noCelular() ? ` tabindex="0" role="button"` : "";
-  $("pane-l").innerHTML = `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque em um lançamento para editar ou excluir.</p><div class="tbl"><table class="lanc"><thead><tr><th>Dia</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="hide-sm">Pagamento</th><th class="num">Valor</th><th></th></tr></thead><tbody>${
+  host.innerHTML = `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque em um lançamento para editar ou excluir.</p><div class="tbl"><table class="lanc">${cab}<tbody>${
     it.map((x, i) => dia(x, i) + (x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="1"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub">Entrada fixa</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-ir="r">Alterar</button></td></tr>`
-    : `<tr data-id="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}<span class="sub">${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
-      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(pagoCom(x)) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : "Guardou"}</td>
-      <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "← " : "→ ") : "− "}${brl(x.valor)}</td>
-      <td class="acts"><button class="act" type="button" data-ed="${esc(x.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">${ico("lixo")}</span></button></td></tr>`)).join("")}</tbody></table></div>`;
+    : linhaLanc(x, toque))).join("")}</tbody></table></div>`;
+  }
   $("pane-l").querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { S.view = "listas"; S.tab = b.dataset.ir; render(); }));
   $("pane-l").querySelectorAll("[data-ed]").forEach((b) => (b.onclick = () => editarLancamento(b.dataset.ed)));
   $("pane-l").querySelectorAll("tr[data-id],tr[data-fixa]").forEach((tr) => {
@@ -1191,7 +1266,22 @@ async function quitarVencidas(ids) {
 }
 
 /* ================= lançamento rápido ================= */
-$("tipoSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tipo = b.dataset.t; renderForm(); });
+$("tipoSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tipo = b.dataset.t; S.catManual = false; renderForm(); });
+// Um toque em um gasto que se repete preenche valor, descrição, categoria e forma de pagamento. A pessoa confere e lança.
+$("fRapidos").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-rap]"), r = b && S.rapidos?.[Number(b.dataset.rap)]; if (!r) return;
+  $("fValor").value = r.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); $("fDesc").value = r.descricao;
+  if (cats("Despesa").includes(r.categoria)) $("fCat").value = r.categoria;
+  if (FORMAS.includes(r.forma)) $("fForma").value = r.forma;
+  S.catManual = true; renderForm(); $("fOk").focus();
+});
+// A categoria acompanha a descrição enquanto a pessoa não escolher uma à mão: o app usa o que ela já escolheu antes para aquele nome.
+$("fCat").addEventListener("change", () => { S.catManual = true; });
+$("fDesc").addEventListener("input", () => {
+  if (S.catManual || S.tipo === "Reserva") return;
+  const c = palpiteCat($("fDesc").value, S.tipo);
+  if (c !== "Outros" && cats(S.tipo).includes(c)) $("fCat").value = c;
+});
 $("fFixo").addEventListener("change", renderForm);
 $("fData").addEventListener("change", renderForm);
 $("fForma").addEventListener("change", renderForm);
@@ -1252,6 +1342,9 @@ const AJUDA = [
   ["Como registro o dinheiro que guardei?", `Em Lançar, escolha <b>Guardar</b> e diga onde o dinheiro ficou (reserva, investimento). Ele sai do que sobra no mês e passa a somar no quadro <b>Dinheiro guardado</b>. Para tirar, use o mesmo caminho e escolha Retirar.`],
   ["Como funciona a meta do dinheiro guardado?", `Toque no quadro <b>Dinheiro guardado</b> e crie uma meta para o lugar onde você guarda: quanto quer juntar e, se quiser, até quando. O app mostra quanto falta, em que mês você chega lá e quanto dá para guardar com o que deve sobrar no mês. Se você combinar um valor por mês, ele aparece em Próximos vencimentos para marcar <b>Guardei</b> ou <b>Pular</b>: não é uma conta e pular não tem problema. A previsão usa só o valor guardado e os meses: o app não calcula rendimento.`],
   ["Como funciona o limite de gastos?", `Na aba <b>Limites</b> você diz quanto quer gastar no máximo por mês e, se quiser, por categoria. O app mostra quanto já foi usado e avisa ao chegar a 80%, ao passar do limite e se passar em mais de 20%.`],
+  ["Como acho um gasto antigo?", `Na aba <b>Lançamentos</b>, use a <b>busca</b>: ela procura em todos os meses pela descrição, pela categoria, pela forma de pagamento ou pelo valor.`],
+  ["Tem jeito mais rápido de lançar o que se repete?", `Tem. Em Lançar, os gastos que você mais repete aparecem em <b>Você costuma lançar</b>: um toque preenche tudo e você só confirma. E, ao abrir qualquer lançamento, <b>Lançar de novo hoje</b> cria uma cópia com a data de hoje. A categoria também se ajusta sozinha: o app usa a que você escolheu da última vez para aquele nome.`],
+  ["Como vejo se estou melhorando?", `No início, o quadro <b>Últimos meses</b> mostra o que entrou, o custo e quanto sobrou em cada mês. Em <b>Por categoria</b>, o app diz quando uma categoria está mais alta ou mais baixa do que no mês anterior.`],
   ["Errei um lançamento. Como corrijo?", `Na aba <b>Lançamentos</b>, toque no lançamento para mudar o valor, a data, a categoria ou para excluir.`],
   ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Ler foto ou PDF</b> para o app ler um comprovante, boleto, conta ou holerite. No mesmo lugar, <b>Ler QR code</b> abre a câmera para ler o código do Pix ou do cupom de mercado; também dá para colar o Pix copia e cola. No cupom de mercado, o app busca o valor, a loja e os itens no site da Fazenda (testado com notas de São Paulo; em outros estados pode pedir o valor). Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
   ["Como recebo avisos e instalo no celular?", `Em <b>Ajustes</b> você liga os avisos por e-mail e a notificação no aparelho. Para instalar, use <b>Instalar app</b> no menu; no iPhone, abra pelo Safari, toque em Compartilhar e em Adicionar à Tela de Início.`],
@@ -1306,7 +1399,7 @@ $("formLanc").addEventListener("submit", async (e) => {
   const nivelDepois = nivelDoTeto();
   if (nivelDepois > nivelAntes) { const u = usoDoTeto(calcMes(S.data, mKey(hoje()), hoje()), S.prefs.teto), t = textoDoTeto(u); flash.style.color = "var(--warn)"; flash.textContent += ` ${t.titulo} do mês: ${u.pct}% usado. ${t.frase}`; }
   if (ehMeta) flash.textContent += recadoDaMeta(metaAntes, andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()), row.forma === RETIRADA);
-  $("fValor").value = ""; $("fDesc").value = ""; $("fParc").value = "1";
+  $("fValor").value = ""; $("fDesc").value = ""; $("fParc").value = "1"; S.catManual = false;
   aposLancar(flash.textContent);
   if (combinar) {
     // "Repetir todo mês" em Guardar: o valor vira o combinado da meta desse lugar. Sem meta ainda, o app pede o valor final.
@@ -1362,7 +1455,17 @@ function editarLancamento(id) {
     <label class="f" id="eParcWrap" hidden>Parcelas<select class="in" id="eParc">${optsParcelas(x.valor, x.parcelas || 1)}</select></label>
     <label class="f">Data<input class="in" type="date" id="eData" required value="${esc(x.data)}"></label>
     <p class="auth-msg err wide" id="edMsg"></p>
-    <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" data-close>Cancelar</button><button class="btn perigo" type="button" id="eExcluir">${ico("lixo")}Excluir</button></div></form>`);
+    <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" id="eDeNovo">Lançar de novo hoje</button><button class="btn" type="button" data-close>Cancelar</button><button class="btn perigo" type="button" id="eExcluir">${ico("lixo")}Excluir</button></div></form>`);
+  // Mesmo lançamento, com a data de hoje: para o gasto que se repete.
+  $("eDeNovo").onclick = async () => {
+    const { id: _id, created_at: _c, user_id: _u, ...copia } = x;
+    const row = { ...copia, data: hoje(), import_key: null };
+    $("eDeNovo").disabled = true;
+    let novos; const ok = await grava(async () => { novos = await S.store.addLancamentos([row]); });
+    if (!ok) { $("eDeNovo").disabled = false; return; }
+    S.data.lancamentos.push(...novos); S.mes = mKey(hoje()); $("dlg").close(); render();
+    toast(`Lançado de novo hoje: ${x.descricao || x.categoria}, ${brl(x.valor)}.`);
+  };
   armDelete($("eExcluir"), async () => {
     if (await grava(() => S.store.deleteLancamento(id))) { S.data.lancamentos = S.data.lancamentos.filter((z) => z.id !== id); $("dlg").close(); render(); }
   });
@@ -1961,8 +2064,8 @@ function conferirLeitura(r, texto, previa) {
       <label class="f" data-g="gasto entrada">Valor (R$)<input class="in money" id="lValor" inputmode="decimal" placeholder="0,00" value="${esc(dinheiro(r.valor))}"></label>
       <label class="f" data-g="gasto entrada"><span id="lDataLbl">Data</span><input class="in" type="date" id="lData" value="${esc(r.data || hoje())}"></label>
       <label class="f wide" data-g="gasto entrada">Descrição<input class="in" id="lDesc" maxlength="80" value="${esc(r.descricao)}" placeholder="Ex.: mercado, farmácia"></label>
-      <label class="f" data-g="gasto">Categoria<select class="in" id="lCat">${opts(catL, escolhe(catL, (r.categoria && guessCat(r.descricao, "Despesa") === "Outros" ? r.categoria : "") || guessCat(r.descricao, "Despesa")))}</select></label>
-      <label class="f wide" data-g="entrada">Categoria<select class="in" id="leCat">${opts(catE, escolhe(catE, guessCat(r.descricao, "Receita")))}</select></label>
+      <label class="f" data-g="gasto">Categoria<select class="in" id="lCat">${opts(catL, escolhe(catL, palpiteCat(r.descricao, "Despesa", r.categoria)))}</select></label>
+      <label class="f wide" data-g="entrada">Categoria<select class="in" id="leCat">${opts(catE, escolhe(catE, palpiteCat(r.descricao, "Receita")))}</select></label>
       <label class="f" data-g="gasto">Forma de pagamento<select class="in" id="lForma">${opts(FORMAS, r.forma || "Pix")}</select></label>
       <label class="f" data-g="gasto" id="lCartaoWrap" hidden>Cartão<select class="in" id="lCartao">${optsCartao(sugerido?.id)}</select></label>
       <label class="f" data-g="gasto" id="lParcWrap" hidden>Parcelas<select class="in" id="lParc">${optsParcelas(r.valor || 0, 1)}</select></label>

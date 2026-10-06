@@ -666,3 +666,95 @@ export function avisosDeHoje(st, hoje, urgencia = 3) {
   }
   return { contas, atrasadas: contas.filter((x) => x.dias < 0).length, totalContas: round2(contas.reduce((t, x) => t + x.valor, 0)), saldo };
 }
+
+/* ===================== Atalhos do dia a dia: busca, mais usados, categoria aprendida, meses lado a lado ===================== */
+const semAcento = (s) => String(s ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
+const semParcela = (d) => String(d ?? "").replace(/\s*\(\d+\/\d+\)$/, "");   // "Tênis (2/3)" → "Tênis"
+
+/**
+ * Busca em todos os lançamentos, de qualquer mês. Cada palavra digitada precisa aparecer na descrição, na categoria ou na forma de pagamento;
+ * um número ("32,50", "32") procura pelo valor. Acentos e maiúsculas não importam. Mais recentes primeiro.
+ * @returns {{itens:object[], total:number, soma:number}} `total` conta todos os achados; `itens` traz até `limite`; `soma` é o total dos gastos achados.
+ */
+export function buscaLancamentos(lancs, q, limite = 200) {
+  const termos = semAcento(q).split(/\s+/).filter(Boolean);
+  if (!termos.length) return { itens: [], total: 0, soma: 0 };
+  const achados = lancs.filter((x) => {
+    const texto = semAcento([x.descricao, x.categoria, x.forma, x.tipo === "Receita" ? "entrada" : x.tipo === "Reserva" ? "guardado" : "gasto"].join(" "));
+    const valor = Number(x.valor).toFixed(2).replace(".", ","), inteiro = valor.split(",")[0];
+    // Número: "32" acha 32,50 (mas não 320,00); "32,5" e "32,50" acham 32,50.
+    const numero = (t) => { const n = t.replace(".", ","); return n.includes(",") ? valor.startsWith(n) : inteiro === n; };
+    return termos.every((t) => texto.includes(t) || (/^\d+([.,]\d{1,2})?$/.test(t) && numero(t)));
+  }).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  const soma = round2(achados.reduce((t, x) => t + (x.tipo === "Despesa" ? Number(x.valor) : 0), 0));
+  return { itens: achados.slice(0, limite), total: achados.length, soma };
+}
+
+/**
+ * Os gastos que a pessoa mais repete, para lançar com um toque: mesma descrição pelo menos 2 vezes nos últimos 120 dias.
+ * O valor sugerido é o que mais apareceu (no empate, o mais recente). Compras parceladas e importadas do extrato ficam de fora.
+ * @returns {{descricao:string, categoria:string, forma:string, valor:number, vezes:number}[]}
+ */
+export function maisUsados(lancs, hoje, n = 4) {
+  const desde = toISO(new Date(new Date(hoje + "T12:00:00").getTime() - 120 * 86400000)), grupos = new Map();
+  lancs.filter((x) => x.tipo === "Despesa" && x.descricao && x.data >= desde && x.data <= hoje && !x.import_key && !(Number(x.parcelas) > 1))
+    .sort((a, b) => a.data.localeCompare(b.data))
+    .forEach((x) => { const k = semAcento(x.descricao); const g = grupos.get(k) || { itens: [] }; g.itens.push(x); grupos.set(k, g); });
+  return [...grupos.values()].filter((g) => g.itens.length >= 2).map((g) => {
+    const ult = g.itens.at(-1), conta = new Map();
+    g.itens.forEach((x, i) => { const v = round2(Number(x.valor)), c = conta.get(v) || { n: 0, i: 0 }; conta.set(v, { n: c.n + 1, i }); });
+    const valor = [...conta.entries()].sort((a, b) => b[1].n - a[1].n || b[1].i - a[1].i)[0][0];
+    return { descricao: ult.descricao, categoria: ult.categoria, forma: ult.forma || "Pix", valor, vezes: g.itens.length, ultima: ult.data };
+  }).sort((a, b) => b.vezes - a.vezes || b.ultima.localeCompare(a.ultima)).slice(0, n).map(({ ultima, ...r }) => r);
+}
+
+/**
+ * A categoria que a pessoa costuma dar a essa descrição. Vale a escolha mais recente: se ela corrigiu, o app aprende.
+ * Primeiro procura a descrição igual; depois, uma que comece com as mesmas duas palavras ("Uber viagem" ~ "Uber centro" não; "Mercado Zaffari" ~ "Mercado Zaffari Centro" sim).
+ * @returns {string} "" quando não há histórico.
+ */
+export function categoriaAprendida(lancs, descricao, tipo = "Despesa") {
+  const alvo = semAcento(semParcela(descricao));
+  if (alvo.length < 3) return "";
+  const doTipo = lancs.filter((x) => x.tipo === tipo && x.descricao && x.categoria).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  const igual = doTipo.find((x) => semAcento(semParcela(x.descricao)) === alvo);
+  if (igual) return igual.categoria;
+  const duas = alvo.split(/\s+/).slice(0, 2).join(" ");
+  if (duas.includes(" ") && duas.length >= 6) { const p = doTipo.find((x) => (semAcento(semParcela(x.descricao)) + " ").startsWith(duas + " ")); if (p) return p.categoria; }
+  return "";
+}
+
+/**
+ * Os últimos `n` meses até `m`, lado a lado: o que entrou, o custo e o que sobrou em cada um. Só entram meses a partir do primeiro com dados.
+ * @returns {{m:string, rec:number, custo:number, sobra:number, fase:string}[]} do mais antigo para o mais recente
+ */
+export function ultimosMeses(st, m, hoje, n = 6) {
+  const primeiro = primeiroMes(st), out = [];
+  if (!primeiro) return out;
+  for (let k = n - 1; k >= 0; k--) {
+    const mm = addM(m, -k);
+    if (mm < primeiro) continue;
+    const c = calcMes(st, mm, hoje);
+    out.push({ m: mm, rec: c.rec, custo: c.custo, sobra: c.saldo, fase: c.fase });
+  }
+  return out;
+}
+
+/**
+ * Gasto do dia a dia por categoria, comparado com o mês anterior. No mês atual, compara até o mesmo dia; em mês passado, o mês inteiro.
+ * Só entra categoria com diferença que vale a pena mostrar: pelo menos R$ 10 e 10% do que era.
+ * @returns {{mes:string, ate:number|null, por:Record<string,{antes:number, agora:number, dif:number}>}|null}
+ */
+export function comparaCategorias(st, c, m) {
+  if (c.fase === "futuro") return null;
+  const ant = addM(m, -1), dia = c.fase === "atual" ? Math.min(c.dias, dim(ant)) : null, ate = dia ? `${ant}-${pad(dia)}` : `${ant}-31`;
+  const soma = (l) => { const o = {}; l.forEach((x) => { o[x.categoria] = (o[x.categoria] || 0) + Number(x.valor); }); return o; };
+  const antes = soma(st.lancamentos.filter((x) => x.tipo === "Despesa" && !noCartao(x) && mKey(x.data) === ant && x.data <= ate));
+  if (!Object.keys(antes).length) return null;
+  const agora = soma(c.it.filter((x) => x.tipo === "Despesa" && !noCartao(x))), por = {};
+  for (const k of new Set([...Object.keys(antes), ...Object.keys(agora)])) {
+    const a = round2(antes[k] || 0), b = round2(agora[k] || 0), dif = round2(b - a);
+    if (a > 0 && Math.abs(dif) >= 10 && Math.abs(dif) >= a * 0.1) por[k] = { antes: a, agora: b, dif };
+  }
+  return { mes: ant, ate: dia, por };
+}

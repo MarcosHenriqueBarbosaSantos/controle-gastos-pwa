@@ -4,7 +4,7 @@
   /* Tema escuro: é o padrão do app. */
   --bg:#0a0f16; --surface:#131b26; --surface-2:#1a2433; --sunk:#0d141d; --ink:#f2f6fb; --ink-2:#b9c5d4; --muted:#8493a6;
   --grid:rgba(255,255,255,.07); --axis:rgba(255,255,255,.2); --border:rgba(255,255,255,.09); --brand:#8fc0ff;
-  --series:#4f97ec; --series-soft:rgba(79,151,236,.16);
+  --series:#4f97ec; --series-soft:rgba(79,151,236,.16); --entradas:#27a35c;
   --good:#3ecf74; --good-soft:rgba(62,207,116,.15); --bad:#f37373; --bad-soft:rgba(243,115,115,.14); --warn:#f2b94b; --warn-soft:rgba(242,185,75,.15);
   --hero:linear-gradient(135deg,#1c56d8 0%,#3742cf 55%,#6a2ed6 100%); --hero-ink:#fff;
   --btn:linear-gradient(180deg,#5ba3f3,#3d84e0); --glass:rgba(10,15,22,.82); --glow:rgba(79,151,236,.17);
@@ -19,7 +19,7 @@
 :root[data-tema="claro"]{
   --bg:#f2f5f9; --surface:#ffffff; --surface-2:#f6f8fb; --sunk:#edf1f6; --ink:#0d1520; --ink-2:#435164; --muted:#687789;
   --grid:rgba(13,21,32,.08); --axis:rgba(13,21,32,.28); --border:rgba(13,21,32,.1); --brand:#1d4ed8;
-  --series:#2563eb; --series-soft:rgba(37,99,235,.1);
+  --series:#2563eb; --series-soft:rgba(37,99,235,.1); --entradas:#0f7a3d;
   --good:#0f7a3d; --good-soft:rgba(15,122,61,.1); --bad:#c62f2f; --bad-soft:rgba(198,47,47,.08); --warn:#8a5a00; --warn-soft:rgba(242,185,75,.2);
   --btn:linear-gradient(180deg,#3b78ee,#2459cf); --glass:rgba(242,245,249,.86); --glow:rgba(37,99,235,.1);
   --shadow:0 12px 30px rgba(13,21,32,.12); --shadow-sm:0 1px 4px rgba(13,21,32,.08);
@@ -297,6 +297,39 @@ button.teto{cursor:pointer} button.teto:hover{border-color:var(--series)}
 .cat-row .vl em{font-style:normal;font-weight:500;color:var(--muted);font-size:12px;margin-left:8px;display:inline-block;min-width:3ch;text-align:right}
 .cat-row .bar{grid-column:1/-1;height:7px;border-radius:999px;background:var(--sunk);overflow:hidden}
 .cat-row .bar i{display:block;height:100%;border-radius:999px;background:var(--c);transition:width .5s cubic-bezier(.2,.8,.2,1)}
+.cat-row .cmp{grid-column:1/-1;display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink-2);margin-top:-2px}
+.cat-row .cmp .ic{width:13px;height:13px;flex:none}
+.cmp-nota{margin:8px 0 0;font-size:12px}
+/* últimos meses: duas barras por mês (entradas e custo) e a sobra escrita embaixo */
+.legend i.q{width:10px;height:10px;border:0;border-radius:3px;background:var(--series)} .legend i.q.ent{background:var(--entradas)}
+.evo{display:grid;grid-template-columns:repeat(var(--n),minmax(0,104px));justify-content:space-around;gap:4px;align-items:end;padding-top:10px}
+.evo-m{display:grid;gap:4px;justify-items:center;border:0;background:none;padding:6px 2px 8px;border-radius:12px;color:var(--ink);min-width:0}
+.evo-m:hover,.evo-m:focus-visible{background:var(--surface-2)}
+.evo-m.aqui{background:var(--surface-2);box-shadow:inset 0 0 0 1px var(--border)}
+.evo-b{display:flex;align-items:flex-end;justify-content:center;gap:2px;height:120px;width:100%;border-bottom:1px solid var(--axis)}
+.evo-b i{display:block;width:min(18px,34%);border-radius:4px 4px 0 0;background:var(--series);transition:height .5s cubic-bezier(.2,.8,.2,1)}
+.evo-b i.ent{background:var(--entradas)}
+.evo-n{font-size:12px;color:var(--ink-2)}
+.evo-s{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.evo-s.neg{color:var(--bad)}
+.evo-nota{margin:6px 0 0;font-size:12px}
+@media (prefers-reduced-motion:reduce){.evo-b i{transition:none}}
+/* busca nos lançamentos */
+.busca{position:relative;display:flex;align-items:center;margin:0 0 12px}
+.busca>.ic{position:absolute;left:12px;width:18px;height:18px;color:var(--muted);pointer-events:none}
+.busca .in{padding-left:38px;padding-right:42px;width:100%}
+.busca .in::-webkit-search-cancel-button{display:none}
+.busca-x{position:absolute;right:4px;width:38px;height:38px;border:0;background:none;border-radius:10px;color:var(--muted);display:grid;place-items:center}
+.busca-x[hidden]{display:none} .busca-x .ic{width:16px;height:16px}
+.busca-res{margin:-4px 0 10px;font-size:13px} .busca-res b{color:var(--ink)}
+.so-leitor{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+/* gastos que a pessoa mais repete, no formulário de lançar */
+.rapidos{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px}
+.rapidos[hidden]{display:none}
+.rap-t{font-size:12px;color:var(--muted);width:100%}
+.rapidos button{display:inline-flex;align-items:baseline;gap:6px;border:1px solid var(--border);background:var(--sunk);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:500;max-width:100%}
+.rapidos button b{font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink-2);font-size:12.5px}
+.rapidos button:hover{border-color:var(--series)}
 .cat-row .bar.lim{height:9px;box-shadow:inset 0 0 0 1px var(--border)}   /* com limite: a barra inteira é o limite */
 .cat-row.over .bar i{background:var(--bad)} .cat-row .tag.bad{color:var(--bad);background:var(--bad-soft);border-color:transparent;margin-left:2px}
 .lim-aviso{display:block;margin-top:6px;font-size:13px}

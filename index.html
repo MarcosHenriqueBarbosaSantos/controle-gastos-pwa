@@ -147,6 +147,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
         <button type="button" data-t="Reserva" aria-pressed="false">Guardar</button>
       </div>
     </div>
+    <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
     <form id="formLanc" class="fields" autocomplete="off">
       <label class="f">Valor (R$)<input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
       <label class="f desc">Descrição<input class="in" id="fDesc" placeholder="Ex.: mercado, uber, farmácia" maxlength="80"></label>
@@ -183,6 +184,13 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
       <div class="chart" id="chCat"></div>
     </section>
   </div>
+
+  <section class="panel v-inicio" id="evoPanel" hidden>
+    <h2>Últimos meses</h2>
+    <p class="hint">O que entrou e o custo de cada mês e, embaixo, quanto sobrou. Toque em um mês para abrir.</p>
+    <div class="legend evo-lg"><span><i class="q ent"></i>Entradas</span><span><i class="q cus"></i>Custo</span></div>
+    <div class="chart" id="chEvo"></div>
+  </section>
 
   <section class="panel v-listas" id="listas">
     <h2 class="so-mobile" id="listaTitulo"></h2>
