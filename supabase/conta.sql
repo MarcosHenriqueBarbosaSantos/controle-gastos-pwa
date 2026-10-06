@@ -2,6 +2,8 @@
 -- Meus Gastos — excluir a própria conta, de dentro do app
 -- Rode este arquivo uma vez no Supabase: SQL Editor → New query → cole tudo → Run.
 -- Pode rodar de novo sem problema.
+-- ATENÇÃO: se a conta de casal já estiver ligada (supabase/casal.sql), rode casal.sql de novo depois deste arquivo:
+-- a versão de lá encerra a conta de casal antes de apagar a conta.
 --
 -- Como funciona:
 --   1. No app, a pessoa digita a senha em Ajustes → Excluir minha conta.

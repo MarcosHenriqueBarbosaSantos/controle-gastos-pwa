@@ -2,6 +2,8 @@
 -- Meus Gastos — acesso de quem comprou (plano anual vendido pela Hotmart)
 -- Rode este arquivo uma vez no Supabase: SQL Editor → New query → cole tudo → Run.
 -- Pode rodar de novo sem problema: nada é apagado e nada é duplicado.
+-- ATENÇÃO: se a conta de casal já estiver ligada (supabase/casal.sql), rode casal.sql de novo depois deste arquivo:
+-- ele é que ensina o acesso a valer para as duas pessoas.
 --
 -- Como funciona:
 --   1. A Hotmart avisa o servidor (função "hotmart") a cada compra, renovação, cancelamento ou reembolso.

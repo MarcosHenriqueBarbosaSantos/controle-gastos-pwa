@@ -67,7 +67,7 @@ test("pendências do aviso: atrasadas e até 3 dias; atraso antigo deixa de ser 
 
 /** Banco e serviços de mentira, para testar a rotina sem internet. */
 function ambiente(tabelas, usuarios) {
-  const enviados = [], t = { avisos_chaves: [], avisos_push: [], avisos_enviados: [], preferencias: [], lancamentos: [], fixos: [], fixos_pagos: [], faturas: [], cartoes: [], ...tabelas };
+  const enviados = [], t = { avisos_chaves: [], avisos_push: [], avisos_enviados: [], preferencias: [], lancamentos: [], fixos: [], fixos_pagos: [], faturas: [], cartoes: [], casais: [], ...tabelas };
   const from = (nome) => { let op = "select", payload, filtros = [], um = false, faixa = null;
     const run = () => { const casa = (r) => filtros.every(([k, v]) => r[k] === v);
       if (op === "select") { let l = t[nome].filter(casa); if (faixa) l = l.slice(faixa[0], faixa[1] + 1); return { data: um ? l[0] ?? null : l, error: null }; }
@@ -388,4 +388,25 @@ test("ver como fica: o app pede o resumo da semana ou o lembrete na hora", async
   amb.avanca(61000);
   assert.deepEqual(await (await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: "noite" }))).json(), { tipo: "lembrete", email: "", push: { aparelhos: 1, entregues: 1 } });
   assert.equal(amb.t.avisos_enviados.length, 0);   // o teste não conta como envio do dia
+});
+
+/* ---------- conta de casal: os avisos olham as contas dos dois ---------- */
+test("conta de casal: cada um é avisado sobre as contas, o limite e a semana dos dois juntos", async () => {
+  const amb = ambiente({
+    // u1 e u2 dividem as contas: o aluguel é de u1, o gasto grande é de u2 e o limite combinado é 1.000. u3 está sozinho.
+    casais: [{ dono: "u1", parceiro: "u2", status: "ativo", dados: { teto: 1000 } }, { dono: "u3", parceiro: null, status: "pendente", dados: {} }],
+    fixos: [fixo("a", "Aluguel", 5, 100)],
+    lancamentos: [gastoEm("g1", "u2", "2026-10-02", 850), gastoEm("g2", "u1", "2026-10-03", 20, "Lazer"), gastoEm("g3", "u3", "2026-10-02", 10)],
+    preferencias: [{ user_id: "u1", dados: { teto: 5000 } }, { user_id: "u2", dados: { avisos: { email: true } } }, { user_id: "u3", dados: { teto: 1000 } }],
+  }, ["u1", "u2", "u3"].map((id) => ({ id, email: id + "@exemplo.com", token: "tok-" + id })));
+  const emails = () => amb.enviados.filter((e) => e.url.includes("resend")).map((e) => JSON.parse(e.init.body));
+  const r = await (await amb.handler(pedido("POST", { "x-avisos-segredo": "segredo-certo" }))).json();
+  assert.equal(r.avisados, 2);   // u1 e u2; u3 não tem conta para vencer e está em 1% do limite dele
+  const [e1, e2] = emails();
+  assert.deepEqual([e1.to[0], e2.to[0]], ["u1@exemplo.com", "u2@exemplo.com"]);
+  for (const e of [e1, e2]) { assert.ok(e.html.includes("Aluguel"), "a conta de um aparece para os dois"); assert.ok(e.html.includes("97% do limite"), "o limite combinado conta os gastos dos dois"); }
+  assert.ok(!e1.html.includes("5.000"));   // vale o limite da conta de casal, não o que u1 tinha antes
+  // resumo da semana, pedido por u2: soma o que os dois lançaram
+  const s = await (await amb.handler(pedido("POST", { authorization: "Bearer tok-u2" }, { teste: "semana" }))).json();
+  assert.equal(s.tipo, "semana"); assert.equal(limpa(emails().at(-1).subject), "Meus Gastos: sua semana, R$ 870,00 em 2 gastos");
 });

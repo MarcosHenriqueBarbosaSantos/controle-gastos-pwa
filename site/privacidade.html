@@ -50,6 +50,7 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <ul>
     <li><b>Dados da conta:</b> o seu e-mail e a sua senha. A senha é guardada de forma embaralhada (hash): ninguém consegue lê-la, nem nós.</li>
     <li><b>O que você registra:</b> gastos, entradas, dinheiro guardado, contas fixas, cartões (só o nome que você der e os dias de fechamento e vencimento), faturas, categorias, limites e ajustes.</li>
+    <li><b>Conta de casal:</b> se você convidar alguém para dividir as contas, o app guarda o e-mail convidado e a situação do convite. Enquanto a conta de casal durar, guarda também o que é dos dois: categorias, limites, metas, saldo inicial e o nome que cada um escolheu mostrar.</li>
     <li><b>Avisos:</b> se você ligar a notificação, o app guarda o endereço de notificação do seu aparelho (fornecido pelo navegador) e o registro de que um aviso foi enviado, para não repetir.</li>
     <li><b>Compra e assinatura:</b> quando o app é comprado, a Hotmart avisa o Meus Gastos. Guardamos o e-mail usado na compra, o código da compra e até quando o acesso vale. Não recebemos nem guardamos dados do cartão ou do pagamento.</li>
     <li><b>Registros técnicos:</b> como em todo serviço na internet, os servidores registram o endereço IP e o horário dos acessos, por segurança.</li>
@@ -74,6 +75,10 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   </ul>
   <p>Os dados não são vendidos, não são usados para anúncios e não são compartilhados para fins de marketing. A base legal é a execução do serviço que você pediu ao criar a conta: os avisos e o resumo da semana fazem parte dele e podem ser desligados a qualquer momento, um por um, em Ajustes. A notificação no aparelho e o lembrete do fim do dia dependem do seu consentimento, dado quando você os liga, e também podem ser desligados quando quiser.</p>
 
+  <h2>Quem mais vê os seus dados: a conta de casal</h2>
+  <p>Ninguém vê os seus registros, a não ser que você decida dividir as contas com outra pessoa. Se você convidar alguém e essa pessoa aceitar, ou se você aceitar um convite, <b>os dois passam a ver e a poder alterar tudo o que o outro registrou</b>: lançamentos, contas fixas, cartões e faturas, inclusive os antigos. Cada um vê também o e-mail do outro. As preferências pessoais (avisos, tema e a senha) continuam separadas.</p>
+  <p>O convite não é enviado por e-mail: ele aparece dentro do app para quem entrar com o e-mail convidado, e essa pessoa vê o e-mail de quem convidou. Qualquer um dos dois encerra a conta de casal quando quiser; a partir daí cada um volta a ver só o que lançou (o que foi lançado no cartão de um fica com o dono do cartão). Os avisos e o resumo da semana de quem está em conta de casal consideram os registros dos dois.</p>
+
   <h2>Onde os dados ficam e quem ajuda a operar</h2>
   <ul>
     <li><b>Supabase</b> (banco de dados e login): os dados da conta e os seus registros ficam em servidores na região de São Paulo, no Brasil.</li>
@@ -93,7 +98,7 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <p data-medicao hidden>Se você recusar, nada disso é carregado e o site funciona igual. Para mudar a escolha, use <b>Preferências de cookies</b>, no rodapé do site. A página de pagamento, na Hotmart, tem as próprias regras de cookies e pode informar a compra a essas mesmas ferramentas. <b>O aplicativo, onde ficam os seus gastos, não carrega nenhuma delas.</b></p>
 
   <h2>Segurança</h2>
-  <p>A conexão com o app é criptografada (HTTPS). Cada conta só consegue ler e alterar os próprios dados, e essa regra é aplicada no banco de dados, não só na tela do app. Nenhum sistema é totalmente imune a falhas; se acontecer um incidente que afete os seus dados, você será avisado pelo e-mail da conta.</p>
+  <p>A conexão com o app é criptografada (HTTPS). Cada conta só consegue ler e alterar os próprios dados (e, em conta de casal, os da pessoa com quem você escolheu dividir as contas), e essa regra é aplicada no banco de dados, não só na tela do app. Nenhum sistema é totalmente imune a falhas; se acontecer um incidente que afete os seus dados, você será avisado pelo e-mail da conta.</p>
 
   <h2>Por quanto tempo</h2>
   <p>Os dados ficam guardados enquanto a sua conta existir. Quando você exclui a conta, ela e os registros são apagados; cópias de segurança dos servidores podem levar até 30 dias para serem eliminadas.</p>
@@ -104,7 +109,8 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <ul>
     <li><b>Ver e corrigir</b> os seus dados, dentro do próprio app.</li>
     <li><b>Levar os seus dados:</b> em Baixar relatório, o app gera uma planilha com tudo o que você registrou.</li>
-    <li><b>Desligar os avisos, o resumo da semana e o lembrete</b>, em Ajustes e na aba Limites.</li>
+    <li><b>Desligar os avisos, o resumo da semana e o lembrete</b>, em Ajustes e em Limites.</li>
+    <li><b>Encerrar a conta de casal</b>, em Conta de casal (no celular, em Mais; no computador, em Ajustes).</li>
     <li><b>Trocar a senha</b>, em Ajustes, na parte Sua conta.</li>
     <li><b>Apagar a conta e todos os dados:</b> em Ajustes, na parte Sua conta, toque em Excluir minha conta e confirme com a sua senha. A exclusão é feita na hora. Se não conseguir entrar, escreva para <a data-suporte href="mailto:meugastos@gmail.com">meugastos@gmail.com</a> a partir do e-mail da conta, e o pedido é atendido em até 15 dias.</li>
   </ul>

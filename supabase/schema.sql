@@ -112,28 +112,20 @@ alter table public.faturas     enable row level security;
 alter table public.preferencias enable row level security;
 alter table public.cartoes     enable row level security;
 
-drop policy if exists "dono" on public.lancamentos;
-create policy "dono" on public.lancamentos for all
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
-
-drop policy if exists "dono" on public.fixos;
-create policy "dono" on public.fixos for all
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
-
-drop policy if exists "dono" on public.fixos_pagos;
-create policy "dono" on public.fixos_pagos for all
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
+-- A regra "dono" destas tabelas só é criada se ainda não existir: a conta de casal (supabase/casal.sql)
+-- troca essa regra por outra, que inclui a pessoa com quem as contas são divididas, e rodar este arquivo de novo não pode desfazer isso.
+do $$
+declare t text;
+begin
+  foreach t in array array['lancamentos', 'fixos', 'fixos_pagos', 'faturas', 'cartoes'] loop
+    if not exists (select 1 from pg_policies where schemaname = 'public' and tablename = t and policyname = 'dono') then
+      execute format('create policy "dono" on public.%I for all using (user_id = auth.uid()) with check (user_id = auth.uid())', t);
+    end if;
+  end loop;
+end $$;
 
 drop policy if exists "dono" on public.preferencias;
 create policy "dono" on public.preferencias for all
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
-
-drop policy if exists "dono" on public.cartoes;
-create policy "dono" on public.cartoes for all
-  using (user_id = auth.uid()) with check (user_id = auth.uid());
-
-drop policy if exists "dono" on public.faturas;
-create policy "dono" on public.faturas for all
   using (user_id = auth.uid()) with check (user_id = auth.uid());
 
 -- ---------------------------------------------------------------------

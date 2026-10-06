@@ -7,7 +7,7 @@ const NOMES = ["pad", "mKey", "addM", "dim", "round2", "fixosDoMes", "diaDaSeman
   "mesDaFatura", "valorDasParcelas", "faturasDoMes", "faturasAte", "diasEntre", "proximosVencimentos", "pendenciasParaAviso",
   "RETIRADA", "calcMes", "projetaDiaADia", "usoDoTeto",
   "sinalRes", "guardadoPorMes", "andamentoDaMeta", "metasEmAndamento", "sugestaoDaMeta", "lembreteDaMeta", "parabensDaMeta",
-  "toISO", "sequenciaDeDias", "maisDias", "resumoDaSemana", "lembreteDoDia"];
+  "toISO", "sequenciaDeDias", "maisDias", "resumoDaSemana", "lembreteDoDia", "COMUM_DO_CASAL", "comumDoCasal"];
 
 export function geraRegras(calc) {
   // Cada declaração de primeiro nível começa na coluna 0 e vai até a próxima.

@@ -163,6 +163,8 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
       <div class="fixo-linha" id="fFixoWrap">
         <label class="check"><input type="checkbox" id="fFixo"> <span id="fFixoLbl">Repete sempre (gasto fixo)</span></label>
         <select class="in" id="fRepete" aria-label="Com que frequência repete" hidden><option value="mensal">Todo mês</option><option value="semanal">Toda semana</option></select>
+        <select class="in" id="fAte" aria-label="Até quando repete" hidden></select>
+        <p class="hint prazo-dica" id="fPrazoDica" hidden></p>
       </div>
     </form>
     <div class="flash" id="flash" aria-live="polite"></div>

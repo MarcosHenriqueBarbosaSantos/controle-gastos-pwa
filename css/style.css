@@ -557,6 +557,14 @@ input.in.cod::placeholder{color:var(--axis)}
 .org-lista{display:grid;gap:4px;margin:8px 0 4px} .check.org{align-items:flex-start;padding:9px 2px;border-top:1px solid var(--border)} .check.org:first-child{border-top:0}
 .check.org .tx{display:grid;gap:1px} .check.org .tx b{font-size:14.5px} .check.org .tx span{font-size:12.5px;color:var(--muted)} .check.org input{margin-top:2px}
 .plano-metas{display:grid;gap:10px;margin-bottom:10px}
+/* contas com data para acabar */
+.tag.prazo{background:var(--series-soft);color:var(--series);border-color:transparent} .tag.fim{background:var(--good-soft);color:var(--good);border-color:transparent}
+.prazo-dica{flex-basis:100%;margin:0;font-size:13px;color:var(--ink-2)} .prazo-dica[hidden]{display:none}
+.addrow .prazo{grid-column:span 2}
+.prazos{background:var(--sunk);border:1px solid var(--border);border-radius:var(--r-sm);padding:12px 14px;margin:0 0 14px;display:grid;gap:8px}
+.prazos-t{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;font-size:13.5px;color:var(--ink-2)} .prazos-t b{color:var(--ink)}
+.prazos ul{list-style:none;margin:0;padding:0;display:grid} .prazos li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:8px 0;border-top:1px solid var(--border)}
+.prazos .tx{display:grid;gap:1px;min-width:0} .prazos .tx b{font-size:14.5px;overflow-wrap:anywhere} .prazos .tx span{font-size:12.5px;color:var(--muted)} .prazos .v{font-variant-numeric:tabular-nums;white-space:nowrap}
 /* conta de casal */
 .tag.quem{background:var(--series-soft);color:var(--series);border-color:transparent}
 .quem-filtro{margin:0 0 12px} .quem-filtro[hidden]{display:none} .quem-filtro button{max-width:14ch;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

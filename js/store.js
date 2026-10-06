@@ -14,6 +14,8 @@
 //   comFila(conta, { chave })      → a mesma conta, funcionando sem internet (fila de lançamentos e cópia dos dados)
 //   meuAcesso()                    → { cobranca, ativo, ate, status, origem }: se o app está sendo cobrado e se esta conta tem acesso
 //   excluirConta()                 → só na conta de verdade: apaga a conta e tudo o que está nela (supabase/conta.sql)
+//   casalMeu() / casalConvidar(email) / casalResponder(aceita) / casalSair() / casalSalvar(dados)
+//                                  → conta de casal (supabase/casal.sql); na demonstração, casalMeu() devolve { situacao: "demo" }
 
 const num = (r) => ({ ...r, valor: Number(r.valor) });
 
@@ -75,6 +77,20 @@ export function createSupabaseStore(client) {
     async token() { return (await client.auth.getSession()).data.session?.access_token || ""; },
     // Acesso de quem comprou: a resposta vem do banco (supabase/acesso.sql).
     async meuAcesso() { return ok(await client.rpc("meu_acesso")); },
+    // Conta de casal (supabase/casal.sql): duas pessoas, cada uma com o seu login, nas mesmas contas.
+    // A última resposta fica guardada neste aparelho, para o app abrir sem internet sabendo com quem as contas são divididas.
+    async casalMeu() {
+      const chave = (await prefsKey()).replace("cg-prefs-", "cg-casal-");
+      const { data, error } = await client.rpc("casal_meu");
+      if (!error) { const c = data || { situacao: "nenhum" }; try { localStorage.setItem(chave, JSON.stringify(c)); } catch { /* nada */ } return c; }
+      if (/PGRST202|42883/.test(String(error.code)) || /schema cache|does not exist/i.test(String(error.message))) return { situacao: "indisponivel" };   // o banco ainda não tem essa parte
+      if (semRede(error)) { try { const c = JSON.parse(localStorage.getItem(chave)); if (c?.situacao) return c; } catch { /* sem cópia */ } }
+      throw error;
+    },
+    async casalConvidar(email) { return ok(await client.rpc("casal_convidar", { e: email })); },
+    async casalResponder(aceita) { return ok(await client.rpc("casal_responder", { aceita })); },
+    async casalSair() { return ok(await client.rpc("casal_sair")); },
+    async casalSalvar(dados) { ok(await client.rpc("casal_salvar", { d: dados })); },
     // Apaga a conta de quem está logado e, com ela, todos os registros. O banco só aceita logo depois de um login (supabase/conta.sql).
     async excluirConta() {
       const chave = await prefsKey();
@@ -183,6 +199,7 @@ export function createLocalStore(key, seedFn) {
   return {
     kind: "local",
     async meuAcesso() { return { cobranca: false, ativo: true, ate: null, status: null, origem: null }; },   // a demonstração é sempre livre
+    async casalMeu() { return { situacao: "demo" }; },   // na demonstração não há outra pessoa para convidar
     async loadAll() { const { prefs, ...dados } = db; return structuredClone(dados); },
     async addLancamentos(rows) {
       const keys = new Set(db.lancamentos.map((r) => r.import_key).filter(Boolean));

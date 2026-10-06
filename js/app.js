@@ -4,7 +4,7 @@ import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, par
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimosMeses, comparaCategorias , calendarioDoMes,
-  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes } from "./calc.js";
+  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
@@ -88,6 +88,28 @@ function cats(tipo) {
 }
 const noCelular = () => matchMedia("(max-width:700px)").matches;
 const salvaPrefs = () => grava(async () => { await S.store.savePrefs(S.prefs); await salvaCasal(); });
+/* Contas com data para acabar (acerto, acordo, parcelamento): o fixo ganha um último mês. */
+const vezesTxt = (n) => `${n} ${n === 1 ? "vez" : "vezes"}`;
+/**
+ * Opções do seletor "vai até": sem data para acabar e, em seguida, cada mês a partir do começo.
+ * Com `contar`, cada mês diz quantas vezes dá até ali (é assim que a pessoa escolhe também pelo número de parcelas).
+ */
+function opcoesDePrazo(base, atual = "", contar = true, de = mKey(base.desde)) {
+  const meses = Array.from({ length: 120 }, (_, i) => addM(de, i)); if (atual && !meses.includes(atual)) { meses.push(atual); meses.sort(); }
+  let n = contar ? vezesNoPrazo(base, addM(de, -1)) : 0;
+  return `<option value="">Sem data para acabar</option>` + meses.map((m) => {
+    if (contar) n += ocorrencias([{ ...base, ate: null }], m, base.tipo || "Despesa").length;
+    return `<option value="${m}"${m === atual ? " selected" : ""}>Até ${mesAno(m)}${contar ? ` (${vezesTxt(n)})` : ""}</option>`;
+  }).join("");
+}
+/** "até mar/27": marca curta do fim do prazo. */
+const ateCurto = (iso) => `até ${MES3[Number(iso.slice(5, 7)) - 1].toLowerCase()}/${iso.slice(2, 4)}`;
+/** Ao marcar como paga a última vez de uma conta com prazo, o app avisa que acabou. */
+function fimDoPrazo(id, chave) {
+  const f = S.data.fixos.find((z) => z.id === id); if (!f?.ate || mKey(f.ate) !== mKey(chave)) return "";
+  const r = restanteDoPrazo(S.data, f, f.desde);   // desde o começo: só terminou se não ficou nenhuma para trás
+  return r && r.vezes === 0 ? `${f.descricao}: essa foi a última. Terminou!` : "";
+}
 const MOVS = ["Guardar", "Retirar"];
 const formaDe = (tipo, v) => (tipo === "Despesa" ? v : tipo === "Reserva" && v === "Retirar" ? RETIRADA : "");
 const opts = (lista, atual) => lista.map((c) => `<option${c === atual ? " selected" : ""}>${esc(c)}</option>`).join("");
@@ -543,13 +565,24 @@ function renderForm() {
   // Opção de já cadastrar como fixo (repete todo mês). Não vale para dinheiro guardado.
   const fixo = S.tipo !== "Reserva" && $("fFixo").checked, guardando = S.tipo === "Reserva" && fs.value !== "Retirar";
   $("fFixoWrap").hidden = S.tipo === "Reserva" && !guardando;
-  $("fFixoLbl").textContent = S.tipo === "Reserva" ? "Repetir todo mês (vira um combinado da meta: dá para pular quando precisar)" : S.tipo === "Receita" ? "Repete sempre (entrada fixa, como o salário)" : "Repete sempre (gasto fixo, como aluguel ou Uber de toda sexta)";
+  $("fFixoLbl").textContent = S.tipo === "Reserva" ? "Repetir todo mês (vira um combinado da meta: dá para pular quando precisar)" : S.tipo === "Receita" ? "Repete (entrada fixa, como o salário, ou um valor a receber por um prazo)" : "Repete (conta fixa, como o aluguel, ou acerto e parcelamento com data para acabar)";
   // Quando é fixo, a pessoa escolhe se repete todo mês ou toda semana; o dia vem da data escolhida.
   const fr = $("fRepete"), dt = fd.value || hoje();
   fr.hidden = !fixo;
   fr.options[0].textContent = `Todo mês, no dia ${dt.slice(8, 10)}`;
   fr.options[1].textContent = `Toda semana, ${DIAS_SEMANA[diaDaSemana(dt)] === "sábado" || DIAS_SEMANA[diaDaSemana(dt)] === "domingo" ? "no" : "na"} ${DIAS_SEMANA[diaDaSemana(dt)]}`;
-  $("fOk").textContent = fixo ? (S.tipo === "Receita" ? "Cadastrar entrada fixa" : "Cadastrar gasto fixo")
+  // Até quando repete: sem data para acabar (conta fixa) ou até um mês (acerto, acordo, parcelamento).
+  const fa = $("fAte"), dica = $("fPrazoDica"), semF = fr.value === "semanal";
+  fa.hidden = !fixo;
+  if (fixo) {
+    const base = { tipo: S.tipo, desde: semF ? dt : mKey(dt) + "-01", dia: semF ? 1 : Number(dt.slice(8, 10)), ...(semF ? { repete: "semanal", dia_semana: diaDaSemana(dt) } : {}) }, kb = JSON.stringify(base);
+    if (fa.dataset.k !== kb) { fa.innerHTML = opcoesDePrazo(base, fa.value); fa.dataset.k = kb; }
+    const n = fa.value ? vezesNoPrazo(base, fa.value) : 0, vF = parseMoney($("fValor").value);
+    const quanto = n === 1 ? `Uma vez só${vF > 0 ? `, de ${brl(vF)}` : ""}` : `${vezesTxt(n)}${vF > 0 ? ` de ${brl(vF)}: ${brl(round2(n * vF))} no total` : ""}`;
+    dica.textContent = fa.value ? `${quanto}. Começa em ${ddmm(dt)} e acaba em ${mesAno(fa.value)}.` : "";
+  }
+  dica.hidden = !(fixo && fa.value);
+  $("fOk").textContent = fixo ? (fa.value ? (S.tipo === "Receita" ? "Cadastrar entrada com prazo" : "Cadastrar conta com prazo") : S.tipo === "Receita" ? "Cadastrar entrada fixa" : "Cadastrar gasto fixo")
     : S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : guardando && $("fFixo").checked ? "Guardar e repetir todo mês" : "Lançar";
   // Compra no cartão: a pessoa escolhe o cartão e, se não for um gasto fixo, em quantas vezes.
   const cc = S.tipo === "Despesa" && fs.value === CARTAO, tem = cartoesAtivos().length > 0;
@@ -961,7 +994,7 @@ async function pagarConta(x) {
   if (x.tipo === "fatura") {
     if (x.auto) await gravaFaturaAuto({ id: x.id, cartao_id: x.cartao_id, cartao: x.cartao, vencimento: x.data, valor: x.valor }, { status: "Paga" });
     else if (await grava(() => S.store.updateFatura(x.id, { status: "Paga" }))) { const f = S.data.faturas.find((z) => z.id === x.id); if (f) f.status = "Paga"; }
-  } else if (await grava(() => S.store.setPago(x.id, x.chave, true))) S.data.pagos.push({ fixo_id: x.id, mes: x.chave });
+  } else if (await grava(() => S.store.setPago(x.id, x.chave, true))) { S.data.pagos.push({ fixo_id: x.id, mes: x.chave }); const fim = fimDoPrazo(x.id, x.chave); if (fim) toastOuFlash(fim); }
   render();
 }
 /**
@@ -1199,13 +1232,17 @@ function paneF(c, tipo) {
     const status = ent ? `<span class="chk ${chegou ? "on" : ""}">${chegou ? "✓ Recebida" : "Dia " + pad(d)}</span>`
       : f.forma === CARTAO ? `<span class="chk" title="É pago junto com a fatura do cartão">Na fatura</span>`
       : `<button type="button" class="chk ${p ? "on" : f.data < hoje() ? "late" : "off"}" data-pago="${esc(f.id)}" data-chave="${esc(f.chave)}" data-v="${p ? 0 : 1}">${p ? "✓ Pago" : f.data < hoje() ? "○ Atrasado" : "○ A pagar"}</button>`;
-    return `<tr><td class="d">${quando}</td><td class="desc">${ava(f.categoria, ent ? "Receita" : "Despesa")}<span class="tx">${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
+    // Conta com prazo: mostra até quando vai; na última vez, avisa.
+    const ultima = f.ate && mKey(f.ate) === S.mes && !fx.some((o) => o.id === f.id && o.data > f.data);
+    const prazo = f.ate ? ` <span class="tag ${ultima ? "fim" : "prazo"}">${ultima ? "última vez" : ateCurto(f.ate)}</span>` : "";
+    return `<tr><td class="d">${quando}</td><td class="desc">${ava(f.categoria, ent ? "Receita" : "Despesa")}<span class="tx">${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}${prazo}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
       <td class="st">${status}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(f.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
   }).join("");
   host.innerHTML = `<p class="hint" style="margin-top:0">${ent
       ? "Cadastre uma vez o que você recebe sempre, como o salário. A entrada é lançada sozinha, todo mês ou toda semana, no dia que você escolher."
-      : "Cadastre uma vez o que se repete: todo mês, como o aluguel, ou toda semana, como o Uber de sexta ou a terapia. Entra no custo sozinho; é só marcar quando pagar."}</p>
+      : "Cadastre uma vez o que se repete: todo mês, como o aluguel, ou toda semana, como o Uber de sexta ou a terapia. Entra no custo sozinho; é só marcar quando pagar. Acerto, acordo ou parcelamento: escolha até que mês vai."}</p>
+   ${quadroDosPrazos(tipo)}
    ${fx.length ? `<div class="tbl"><table class="cards"><thead><tr><th>${ent ? "Recebe" : "Vence"}</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="num">Valor</th><th>${MES3[Number(S.mes.slice(5)) - 1]}</th><th></th></tr></thead><tbody>${rows}</tbody>
      <tfoot><tr><td class="d"></td><td style="font-weight:600">Total</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(ent ? c.frT : c.fxT)}</td><td colspan="2" class="vazio"></td></tr></tfoot></table></div>`
      : `<div class="empty">${ent ? "Nenhuma entrada fixa neste mês. Adicione seu salário, aposentadoria, aluguel que recebe…" : "Nenhum gasto fixo neste mês. Adicione aluguel, condomínio, internet, faculdade, parcelas…"}</div>`}
@@ -1216,11 +1253,16 @@ function paneF(c, tipo) {
      <label class="f" id="xDiaWrap">${ent ? "Dia que recebe" : "Dia venc."}<input class="in" id="xDia" type="number" min="1" max="31" value="${ent ? 5 : 10}" required></label>
      <label class="f" id="xSemWrap" hidden>Dia da semana<select class="in" id="xSem">${DIAS_SEMANA.map((d, i) => `<option value="${i}"${i === 5 ? " selected" : ""}>${d}</option>`).join("")}</select></label>
      <label class="f">Valor${ent ? "" : " por vez"} (R$)<input class="in money" id="xVal" inputmode="decimal" placeholder="0,00" required></label>
+     <label class="f prazo">Vai até<select class="in" id="xAte"></select></label>
      ${ent ? "" : `<label class="f">Pagamento<select class="in" id="xForma">${opts(FORMAS)}</select></label>
      <label class="f" id="xCartaoWrap" hidden>Cartão<select class="in" id="xCartao">${optsCartao()}</select></label>`}
      <button class="btn primary" type="submit">${ent ? "Adicionar entrada fixa" : "Adicionar fixo"}</button>
    </form>`;
-  $("xRep").onchange = () => { const sem = $("xRep").value === "semanal"; $("xDiaWrap").hidden = sem; $("xSemWrap").hidden = !sem; };
+  // O começo é o mês que está na tela (semanal no mês atual começa hoje); o seletor diz quantas vezes dá até cada mês.
+  const comecoX = () => { const sem = $("xRep").value === "semanal"; return { tipo, desde: sem && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", dia: sem ? 1 : Math.min(31, Math.max(1, Number($("xDia").value) || 1)), ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : {}) }; };
+  const prazoX = () => { $("xAte").innerHTML = opcoesDePrazo(comecoX(), $("xAte").value); };
+  prazoX(); $("xSem").onchange = prazoX;
+  $("xRep").onchange = () => { const sem = $("xRep").value === "semanal"; $("xDiaWrap").hidden = sem; $("xSemWrap").hidden = !sem; prazoX(); };
   if (!ent) $("xForma").onchange = () => { $("xCartaoWrap").hidden = $("xForma").value !== CARTAO || !cartoesAtivos().length; };
   host.querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
   host.querySelectorAll("[data-pago]").forEach((b) => b.addEventListener("click", async () => {
@@ -1229,6 +1271,7 @@ function paneF(c, tipo) {
     if (await grava(() => S.store.setPago(id, mes, pago))) {
       S.data.pagos = S.data.pagos.filter((p) => !(p.fixo_id === id && p.mes === mes));
       if (pago) S.data.pagos.push({ fixo_id: id, mes });
+      const fim = pago ? fimDoPrazo(id, mes) : ""; if (fim) toastOuFlash(fim);
     }
     render();
   }));
@@ -1246,16 +1289,25 @@ function paneF(c, tipo) {
     const sem = $("xRep").value === "semanal";
     // Semanal começa a contar de hoje (ou do dia 1, se a pessoa está olhando outro mês).
     const row = { tipo, descricao: $("xDesc").value.trim(), categoria: $("xCat").value, dia: sem ? 1 : Math.min(31, Math.max(1, Number($("xDia").value) || 1)),
-      valor: round2(v), forma: ent ? "" : $("xForma").value, desde: sem && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", ate: null,
+      valor: round2(v), forma: ent ? "" : $("xForma").value, desde: sem && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", ate: $("xAte").value ? $("xAte").value + "-01" : null,
       ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : {}),
       ...(!ent && $("xForma").value === CARTAO && cartoesAtivos().length ? { cartao_id: $("xCartao").value } : {}) };
     let novo; if (await grava(async () => { novo = await S.store.addFixo(row); })) {
       S.data.fixos.push(novo); render();
       // Confirma na tela e volta para o topo da lista, onde o item novo aparece.
-      const msg = `${ent ? "Entrada fixa adicionada" : "Gasto fixo adicionado"}: ${row.descricao} · ${brl(row.valor)}.`;
+      const nV = row.ate ? vezesNoPrazo(row, mKey(row.ate)) : 0;
+      const msg = `${row.ate ? (ent ? "Entrada com prazo adicionada" : "Conta com prazo adicionada") : ent ? "Entrada fixa adicionada" : "Gasto fixo adicionado"}: ${row.descricao} · ${brl(row.valor)}${row.ate ? `, até ${mesAno(mKey(row.ate))} (${vezesTxt(nV)}, ${brl(round2(nV * row.valor))} no total)` : ""}.`;
       if (noCelular()) { toast(msg); $("listas").scrollIntoView({ block: "start" }); } else { $("flash").style.color = "var(--good)"; $("flash").textContent = msg; }
     }
   });
+}
+
+/** Quadro "com data para acabar": o que ainda falta de cada acerto, acordo ou parcelamento, e o total. */
+function quadroDosPrazos(tipo) {
+  const ent = tipo === "Receita", p = S.loaded ? prazosEmAndamento(S.data, hoje(), tipo) : { itens: [], total: 0 };
+  if (!p.itens.length) return "";
+  return `<div class="prazos"><div class="prazos-t"><b>${ent ? "A receber por prazo" : "Acertos e parcelamentos"}</b><span>${ent ? "Ainda entram" : "Ainda faltam"} <b>${brl(p.total)}</b></span></div>
+    <ul>${p.itens.map((x) => `<li><span class="tx"><b>${esc(x.f.descricao)}</b><span>${x.vezes ? `${x.vezes === 1 ? "falta 1 vez" : `faltam ${x.vezes} vezes`} de ${brl(x.f.valor)}` : ent ? "tudo recebido" : "tudo pago"} · acaba em ${mesAno(x.ate)}</span></span><b class="v">${brl(x.total)}</b></li>`).join("")}</ul></div>`;
 }
 
 function paneC(c) {
@@ -1411,7 +1463,9 @@ $("fDesc").addEventListener("input", () => {
 $("fFixo").addEventListener("change", renderForm);
 $("fData").addEventListener("change", renderForm);
 $("fForma").addEventListener("change", renderForm);
-$("fValor").addEventListener("input", () => { if (!$("fCartaoLinha").hidden) renderForm(); });   // atualiza o valor de cada parcela
+$("fValor").addEventListener("input", () => { if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });   // atualiza o valor de cada parcela e o total do prazo
+$("fRepete").addEventListener("change", renderForm);
+$("fAte").addEventListener("change", renderForm);
 $("fIrCartoes").onclick = () => { fecharLancar(); S.view = "listas"; S.tab = "c"; render(); $("kNome")?.focus(); };
 
 /* ================= celular: navegação, lançamento em tela cheia e menu ================= */
@@ -1687,6 +1741,7 @@ const AJUDA = [
   ["E “No ritmo atual”?", `É a previsão de como o mês termina se você continuar gastando no mesmo ritmo dos dias que já passaram. Serve de aviso antecipado: dá tempo de segurar os gastos.`],
   ["Qual a diferença entre gasto fixo e lançamento?", `<b>Fixo</b> é o que se repete: aluguel, internet, salário. Você cadastra uma vez e ele entra sozinho em todo mês (ou em toda semana). <b>Lançamento</b> é um gasto que aconteceu uma vez, como o mercado de hoje.`],
   ["Tem um calendário das contas?", `Tem. No início, em <b>Próximos vencimentos</b>, toque em <b>Ver no calendário</b>. Cada dia mostra o que vence e o que entra; tocando no dia você vê as contas e pode marcar <b>Já paguei</b>.`],
+  ["Como lanço um acerto, acordo ou parcelamento que tem data para acabar?", `Em <b>Lançar</b>, preencha o valor de cada vez, marque <b>Repete</b> e escolha até que mês vai (a lista mostra quantas vezes dá). Começa na data que você escolher e para sozinho no mês final. Em <b>Contas fixas</b> aparece quanto ainda falta de cada um e o total. Serve também para um valor que alguém vai te pagar por um prazo: use <b>Entrada</b>.`],
   ["Como marco uma conta como paga?", `No início, em <b>Próximos vencimentos</b>, toque em <b>Já paguei</b>. Também dá para marcar em <b>Contas fixas</b> e, para a fatura, em <b>Cartões</b>. No celular, os dois ficam em <b>Mais</b>.`],
   ["Como registro o dinheiro que guardei?", `Em Lançar, escolha <b>Guardar</b> e diga onde o dinheiro ficou (reserva, investimento). Ele sai do que sobra no mês e passa a somar no quadro <b>Dinheiro guardado</b>. Para tirar, use o mesmo caminho e escolha Retirar.`],
   ["Como funciona a meta do dinheiro guardado?", `Toque no quadro <b>Dinheiro guardado</b> e crie uma meta para o lugar onde você guarda: quanto quer juntar e, se quiser, até quando. O app mostra quanto falta, em que mês você chega lá e quanto dá para guardar com o que deve sobrar no mês. Se você combinar um valor por mês, ele aparece em Próximos vencimentos para marcar <b>Guardei</b> ou <b>Pular</b>: não é uma conta e pular não tem problema. A previsão usa só o valor guardado e os meses: o app não calcula rendimento.`],
@@ -1722,7 +1777,7 @@ $("formLanc").addEventListener("submit", async (e) => {
     // Vira um fixo: conta em todo mês a partir do mês da data, no mesmo dia.
     const dia = Number(data.slice(8, 10)), ent = S.tipo === "Receita", sem = $("fRepete").value === "semanal", wd = diaDaSemana(data);
     const fx = { tipo: S.tipo, descricao: $("fDesc").value.trim() || $("fCat").value, categoria: $("fCat").value, dia: sem ? 1 : dia, valor: round2(v),
-      forma: ent ? "" : $("fForma").value, desde: sem ? data : mKey(data) + "-01", ate: null, ...(sem ? { repete: "semanal", dia_semana: wd } : {}),
+      forma: ent ? "" : $("fForma").value, desde: sem ? data : mKey(data) + "-01", ate: $("fAte").value ? $("fAte").value + "-01" : null, ...(sem ? { repete: "semanal", dia_semana: wd } : {}),
       ...(cartaoDoForm().cartao_id ? { cartao_id: cartaoDoForm().cartao_id } : {}) };
     $("fOk").disabled = true;
     let novo; const ok = await grava(async () => { novo = await S.store.addFixo(fx); });
@@ -1730,8 +1785,9 @@ $("formLanc").addEventListener("submit", async (e) => {
     if (!ok) return;
     S.data.fixos.push(novo);
     flash.style.color = "var(--good)";
-    flash.textContent = `${ent ? "Entrada fixa cadastrada" : "Gasto fixo cadastrado"}: ${fx.descricao} · ${brl(fx.valor)}, ${sem ? "toda semana, " + DIAS_SEMANA[wd] : "todo dia " + pad(dia)}. Para alterar, use a aba ${ent ? "Entradas fixas" : "Gastos fixos"}.`;
-    $("fValor").value = ""; $("fDesc").value = ""; $("fFixo").checked = false; $("fRepete").value = "mensal";
+    const nVezes = fx.ate ? vezesNoPrazo(fx, mKey(fx.ate)) : 0;
+    flash.textContent = `${fx.ate ? (ent ? "Entrada com prazo cadastrada" : "Conta com prazo cadastrada") : ent ? "Entrada fixa cadastrada" : "Gasto fixo cadastrado"}: ${fx.descricao} · ${brl(fx.valor)}, ${sem ? "toda semana, " + DIAS_SEMANA[wd] : "todo dia " + pad(dia)}${fx.ate ? `, até ${mesAno(mKey(fx.ate))} (${vezesTxt(nVezes)}, ${brl(round2(nVezes * fx.valor))} no total)` : ""}. Para alterar, abra ${ent ? "Entradas fixas" : "Contas fixas"}.`;
+    $("fValor").value = ""; $("fDesc").value = ""; $("fFixo").checked = false; $("fRepete").value = "mensal"; $("fAte").value = "";
     aposLancar(flash.textContent);
     return render();
   }
@@ -1932,6 +1988,7 @@ function editarFixo(id) {
     <label class="f">Categoria<select class="in" id="eCat">${opts(l.includes(f.categoria) ? l : [f.categoria, ...l], f.categoria)}</select></label>
     ${ent ? "" : `<label class="f">Pagamento<select class="in" id="eForma">${opts(FORMAS, f.forma)}</select></label>
     <label class="f" id="eCartaoWrap" hidden>Cartão<select class="in" id="eCartao">${optsCartao(f.cartao_id, cartaoPorId(f.cartao_id) ? "" : "Sem cartão escolhido")}</select></label>`}
+    <label class="f wide">Vai até<select class="in" id="eAte">${opcoesDePrazo(f, f.ate ? mKey(f.ate) : "", false, S.mes)}</select></label>
     ${temPassado ? `<label class="f wide">A mudança vale<select class="in" id="eDesde">
         <option value="mes">De ${mesTxt} em diante</option>
         <option value="tudo">Em todos os meses, inclusive os anteriores</option></select></label>
@@ -1947,8 +2004,11 @@ function editarFixo(id) {
     const patch = { descricao: $("eDesc").value.trim(), categoria: $("eCat").value, valor: round2(v), forma: ent ? "" : $("eForma").value,
       ...(sem ? { dia_semana: Number($("eSem").value) } : { dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)) }),
       ...(ent || !S.data.cartoes.length ? {} : { cartao_id: noCartao() ? $("eCartao").value || null : null }) };
-    if (!temPassado || $("eDesde").value === "tudo") {
-      if (await grava(() => S.store.updateFixo(id, patch))) { Object.assign(f, patch); $("dlg").close(); render(); }
+    // O fim do prazo é do fixo inteiro: se só ele mudou, não precisa criar uma versão nova.
+    const ate = $("eAte").value ? $("eAte").value + "-01" : null, antes = f.ate || null, soOPrazo = Object.keys(patch).every((k) => String(patch[k] ?? "") === String(f[k] ?? ""));
+    patch.ate = ate;
+    if (!temPassado || $("eDesde").value === "tudo" || soOPrazo) {
+      if (await grava(() => S.store.updateFixo(id, soOPrazo ? { ate } : patch))) { Object.assign(f, soOPrazo ? { ate } : patch); $("dlg").close(); render(); if (soOPrazo && ate !== antes) toastOuFlash(ate ? `${f.descricao}: vai até ${mesAno(mKey(ate))}.` : `${f.descricao}: sem data para acabar.`); }
       return;
     }
     // Vale só daqui para a frente: encerra o fixo antigo no mês anterior e cria um novo a partir deste mês.

@@ -8,9 +8,10 @@
 //                                 a notificação de lembrete para quem pediu e não anotou nada no dia
 //   POST + login do usuário     → { teste: true }: manda um aviso de teste só para quem pediu
 //                                 { teste: "semana" } ou { teste: "noite" }: manda agora o resumo da semana ou o lembrete, para ver como fica
+// Conta de casal: quem divide as contas com outra pessoa é avisado sobre as contas, o limite e as metas dos dois juntos.
 // As dependências chegam por parâmetro para o mesmo código rodar nos testes (Node) e no Supabase (Deno).
 import { pendenciasParaAviso, calcMes, usoDoTeto, mKey, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias, diasEntre,
-  lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, diaDaSemana, resumoDaSemana, lembreteDoDia } from "./regras.js";
+  lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, diaDaSemana, resumoDaSemana, lembreteDoDia, comumDoCasal } from "./regras.js";
 import { enviaPush, gerarChaves, cifra, b64u, deB64u, cabecalhoVapid } from "./webpush.js";
 import { montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, avisoDaSemana, avisoDaNoite } from "./mensagem.js";
 
@@ -111,11 +112,26 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
       if (data.length < 1000) return out;
     }
   }
-  async function estado(db, uid) {
-    const [lancamentos, fixos, pagos, faturas, cartoes] = await Promise.all([linhas(db, "lancamentos", uid), linhas(db, "fixos", uid),
-      linhas(db, "fixos_pagos", uid, "fixo_id, mes"), linhas(db, "faturas", uid), linhas(db, "cartoes", uid)]);
+  /** Com quem a pessoa divide as contas (supabase/casal.sql) e o que é dos dois. Sem conta de casal, ou com o banco sem essa parte: null. */
+  async function casalDe(db, uid) {
+    for (const papel of ["dono", "parceiro"]) {
+      const { data, error } = await db.from("casais").select("dono, parceiro, dados").eq("status", "ativo").eq(papel, uid).maybeSingle();
+      if (error) return null;
+      if (data?.parceiro) return { outro: data.dono === uid ? data.parceiro : data.dono, dados: data.dados || {} };
+    }
+    return null;
+  }
+  /** Os dados da pessoa; em conta de casal, os dos dois juntos, como ela vê no app. */
+  async function estado(db, uid, casal = null) {
+    const de = async (id) => Promise.all([linhas(db, "lancamentos", id), linhas(db, "fixos", id), linhas(db, "fixos_pagos", id, "fixo_id, mes"), linhas(db, "faturas", id), linhas(db, "cartoes", id)]);
+    const partes = await Promise.all((casal ? [uid, casal.outro] : [uid]).map(de)), junta = (i) => partes.flatMap((p) => p[i]);
     const num = (r) => ({ ...r, valor: Number(r.valor) });
-    return { lancamentos: lancamentos.map(num), fixos: fixos.map(num), pagos, faturas: faturas.map(num), cartoes };
+    return { lancamentos: junta(0).map(num), fixos: junta(1).map(num), pagos: junta(2), faturas: junta(3).map(num), cartoes: junta(4) };
+  }
+  /** As preferências da pessoa; em conta de casal, o limite, as metas e o resto que é dos dois vêm da conta de casal. */
+  async function prefsDe(db, uid, casal = null) {
+    const { data: pref } = await db.from("preferencias").select("dados").eq("user_id", uid).maybeSingle();
+    return casal ? { ...(pref?.dados || {}), ...comumDoCasal(casal.dados) } : pref?.dados || {};
   }
 
   /**
@@ -182,12 +198,12 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
   }
 
   async function avisaUsuario(db, user, k, { teste = false } = {}) {
-    const dia = hoje(), st = await estado(db, user.id), p = pendenciasParaAviso(st, dia);
-    const { data: pref } = await db.from("preferencias").select("dados").eq("user_id", user.id).maybeSingle();
-    const lim = await limiteParaAvisar(db, user.id, st, pref?.dados, dia), rec = await metaParaAvisar(db, user.id, st, pref?.dados, dia);
+    const dia = hoje(), casal = await casalDe(db, user.id), st = await estado(db, user.id, casal), p = pendenciasParaAviso(st, dia);
+    const dados = await prefsDe(db, user.id, casal);
+    const lim = await limiteParaAvisar(db, user.id, st, dados, dia), rec = await metaParaAvisar(db, user.id, st, dados, dia);
     if (!p.itens.length && !lim && !rec && !teste) return null;
     const aviso = p.itens.length || lim || rec ? montaAviso(p, urlApp(), lim && avisoDoLimite(lim, dia), rec && avisoDaMeta(rec, dia)) : avisoDeTeste(urlApp());
-    const querEmail = pref?.dados?.avisos?.email !== false;
+    const querEmail = dados.avisos?.email !== false;
     const email = user.email && querEmail ? await mandaEmail(user.email, aviso) : "desligado";
     const push = await mandaPush(db, user.id, aviso, k);
     return { pendencias: p.itens.length, limite: lim ? lim.nivel : 0, meta: rec ? (rec.tipo === "parabens" ? "parabens" : rec.quando) : "", email, push };
@@ -218,12 +234,11 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
    * `so` força um dos dois, para o botão "ver como fica" do app.
    */
   async function noiteDoUsuario(db, user, k, dia, so = "") {
-    const { data: pref } = await db.from("preferencias").select("dados").eq("user_id", user.id).maybeSingle();
-    const dados = pref?.dados || {}, semGasto = Array.isArray(dados.semGasto) ? dados.semGasto : [];
+    const casal = await casalDe(db, user.id), dados = await prefsDe(db, user.id, casal), semGasto = Array.isArray(dados.semGasto) ? dados.semGasto : [];
     const querSemana = so === "semana" || (!so && diaDaSemana(dia) === 0 && dados.avisos?.semana !== false);
     const querNoite = so === "noite" || (!so && dados.avisos?.noite === true);
     if (!querSemana && !querNoite) return null;
-    const st = await estado(db, user.id);
+    const st = await estado(db, user.id, casal);
     if (querSemana && (so || [...st.lancamentos.map((x) => x.data), ...semGasto].some((d) => d <= dia && diasEntre(d, dia) < 14))) {
       const u = Number(dados.teto) > 0 ? usoDoTeto(calcMes(st, mKey(dia), dia), dados.teto) : null;
       const aviso = avisoDaSemana(resumoDaSemana(st, dia, semGasto), urlApp(), u);

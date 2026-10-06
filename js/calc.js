@@ -875,3 +875,44 @@ export function divisaoDoMes(lancs, m, eu) {
   }
   return r;
 }
+
+/* ===================== Contas com data para acabar: acerto, acordo, parcelamento ===================== */
+/**
+ * Quantas vezes um fixo acontece do começo dele até o mês `ate` ("AAAA-MM"), contando os dois.
+ * Mensal: uma por mês. Semanal: uma por semana, a partir da data de início.
+ */
+export function vezesNoPrazo(f, ate) {
+  let n = 0;
+  for (let m = mKey(f.desde), g = 0; m <= ate && g < 240; m = addM(m, 1), g++) n += ocorrencias([{ ...f, ate: ate + "-01" }], m, f.tipo || "Despesa").length;
+  return n;
+}
+
+/**
+ * O que ainda falta de um fixo com data para acabar, do mês de `hoje` em diante.
+ * Conta fixa paga fora do cartão: falta o que não foi marcado como pago (inclusive o que já venceu neste mês).
+ * Entrada fixa e fixo no cartão: falta o que ainda vai acontecer, de hoje em diante.
+ * @returns {{vezes:number, total:number, ate:string, ultima:string}|null}  null para fixo sem prazo ou com o prazo já encerrado
+ */
+export function restanteDoPrazo(st, f, hoje) {
+  if (!f.ate || mKey(f.ate) < mKey(hoje)) return null;
+  const ate = mKey(f.ate), tipo = f.tipo || "Despesa", marcavel = tipo === "Despesa" && !noCartao(f);
+  const pagos = new Set(st.pagos.filter((p) => p.fixo_id === f.id).map((p) => p.mes));
+  let vezes = 0, ultima = "";
+  for (let m = mKey(hoje), g = 0; m <= ate && g < 240; m = addM(m, 1), g++) {
+    for (const o of ocorrencias([f], m, tipo)) {
+      ultima = o.data;
+      if (marcavel ? !pagos.has(o.chave) : o.data >= hoje) vezes++;
+    }
+  }
+  return { vezes, total: round2(vezes * Number(f.valor)), ate, ultima };
+}
+
+/**
+ * Os fixos com data para acabar que ainda estão correndo, do que acaba primeiro para o que acaba por último.
+ * @returns {{itens:{f:object, vezes:number, total:number, ate:string, ultima:string}[], total:number}}
+ */
+export function prazosEmAndamento(st, hoje, tipo = "Despesa") {
+  const itens = st.fixos.filter((f) => (f.tipo || "Despesa") === tipo).map((f) => { const r = restanteDoPrazo(st, f, hoje); return r && mKey(f.desde) <= r.ate ? { f, ...r } : null; })
+    .filter(Boolean).sort((a, b) => a.ate.localeCompare(b.ate) || a.f.descricao.localeCompare(b.f.descricao));
+  return { itens, total: round2(itens.reduce((t, x) => t + x.total, 0)) };
+}
