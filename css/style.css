@@ -467,6 +467,10 @@ input.in.cod::placeholder{color:var(--axis)}
 #acessoCard .btn{padding:13px;font-size:15px;text-align:center;text-decoration:none;justify-content:center}
 #acessoCard .hint{margin:0;font-size:13px;line-height:1.45}
 .aj-assina{margin:0;font-size:13.5px;color:var(--ink-2)} .aj-assina b{color:var(--ink)}
+.aj-conta{display:flex;flex-wrap:wrap;align-items:center;gap:10px 18px}
+.aj-excluir{color:var(--bad)}
+.ec-txt{margin:0 0 12px;font-size:14px;line-height:1.5;color:var(--ink-2)} .ec-txt b{color:var(--ink)}
+.ec-alerta{background:var(--warn-soft,rgba(250,178,25,.16));border-left:3px solid var(--warn,#f0b43a);border-radius:var(--r-sm);padding:10px 12px}
 .auth-msg.err{color:var(--bad);background:var(--bad-soft);padding:10px 12px} .auth-msg.ok{color:var(--good);background:var(--good-soft);padding:10px 12px}
 .auth-demo{border-top:1px solid var(--grid);padding-top:14px;display:grid;gap:8px;justify-items:center}
 .auth-demo .btn{padding:12px;width:100%}

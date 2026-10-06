@@ -12,6 +12,7 @@
 //   addCartao(row) / updateCartao(id, patch) / deleteCartao(id)
 //   salvaPush(row) / removePush(endpoint) / token()   → só na conta de verdade (avisos no celular)
 //   meuAcesso()                    → { cobranca, ativo, ate, status, origem }: se o app está sendo cobrado e se esta conta tem acesso
+//   excluirConta()                 → só na conta de verdade: apaga a conta e tudo o que está nela (supabase/conta.sql)
 
 const num = (r) => ({ ...r, valor: Number(r.valor) });
 
@@ -73,6 +74,12 @@ export function createSupabaseStore(client) {
     async token() { return (await client.auth.getSession()).data.session?.access_token || ""; },
     // Acesso de quem comprou: a resposta vem do banco (supabase/acesso.sql).
     async meuAcesso() { return ok(await client.rpc("meu_acesso")); },
+    // Apaga a conta de quem está logado e, com ela, todos os registros. O banco só aceita logo depois de um login (supabase/conta.sql).
+    async excluirConta() {
+      const chave = await prefsKey();
+      ok(await client.rpc("excluir_minha_conta"));
+      try { localStorage.removeItem(chave); localStorage.removeItem("cg-email"); } catch { /* nada */ }
+    },
   };
 }
 

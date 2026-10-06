@@ -53,6 +53,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
         <label class="f">Senha<span class="senha"><input class="in" id="aSenha" type="password" autocomplete="current-password"><button type="button" class="olho" data-ver="aSenha" aria-label="Mostrar a senha" aria-pressed="false"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/></svg></button></span></label>
         <p class="hint" id="aSenhaDica" hidden>Pelo menos 6 caracteres. É com ela que você entra no app.</p>
         <p class="hint auth-pago" id="aPago" hidden></p>
+        <p class="hint" id="aTermos" hidden>Ao criar a conta, você concorda com os <a href="site/termos.html" target="_blank" rel="noopener">Termos de uso</a> e com a <a href="site/privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.</p>
         <button class="btn primary" type="submit" id="aEntrar">Entrar</button>
         <button class="link" type="button" id="aEsqueci">Esqueci minha senha</button>
       </form>
@@ -96,6 +97,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
     <div class="auth-demo" id="authRodape">
       <button class="btn ghost" type="button" id="aDemo">Ver demonstração sem criar conta</button>
       <a class="link auth-site" href="site/">Conhecer o app e instalar no celular</a>
+      <a class="link auth-site" href="site/termos.html">Termos de uso</a>
       <a class="link auth-site" href="site/privacidade.html">Política de privacidade</a>
     </div>
   </div>

@@ -151,8 +151,8 @@ function showAuth(modo = "") {
   let lembrado = ""; try { lembrado = localStorage.getItem("cg-email") || ""; } catch { /* nada */ }
   if (lembrado && !$("aEmail").value) $("aEmail").value = lembrado;
   // Quem já entrou neste aparelho vê "Entrar"; quem nunca entrou vê "Criar conta".
-  const aviso = S.avisoDeEntrada || ""; S.avisoDeEntrada = "";
-  authModo(modo || (lembrado || aviso ? "entrar" : "criar"), aviso, aviso ? "err" : "");
+  const aviso = S.avisoDeEntrada || "", tipo = S.avisoTipo || "err"; S.avisoDeEntrada = ""; S.avisoTipo = "";
+  authModo(modo || (lembrado || aviso ? "entrar" : "criar"), aviso, aviso ? tipo : "");
 }
 function authMsg(t, kind = "") { const m = $("authMsg"); m.textContent = t; m.className = "auth-msg " + kind; }
 function authModo(m, msg = "", kind = "") {
@@ -163,7 +163,7 @@ function authModo(m, msg = "", kind = "") {
   document.querySelectorAll("#authSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.modo === m));
   $("aEntrar").textContent = m === "criar" ? "Criar minha conta" : "Entrar";
   $("aSenha").autocomplete = m === "criar" ? "new-password" : "current-password";
-  $("aSenhaDica").hidden = m !== "criar"; $("aEsqueci").hidden = m !== "entrar";
+  $("aSenhaDica").hidden = m !== "criar"; $("aEsqueci").hidden = m !== "entrar"; $("aTermos").hidden = m !== "criar";
   // Com o app à venda, quem cria conta fica sabendo do preço e de que o e-mail tem de ser o da compra.
   $("aPago").hidden = m !== "criar" || !LINK_COMPRA;
   if (LINK_COMPRA) $("aPago").innerHTML = `O Meus Gastos custa <b>${esc(PRECO_PLANO)}</b>. Use aqui o mesmo e-mail da compra. <a href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">Ainda não comprei</a>`;
@@ -361,7 +361,8 @@ function telaDeAcesso(msg = "", kind = "") {
     <p class="hint">O acesso vale para o e-mail usado na compra e costuma ser liberado em menos de um minuto depois do pagamento aprovado. Boleto pode levar até 3 dias úteis. Comprou com outro e-mail? Saia e entre com ele, ou fale com o suporte.</p>
     <div class="auth-demo">${temDados ? `<button class="btn" type="button" id="acBaixar">Baixar meus dados em planilha</button>` : ""}
       <button class="btn" type="button" id="acDemo">Ver a demonstração</button>
-      <button class="link" type="button" id="acSair">Sair desta conta</button></div>
+      <button class="link" type="button" id="acSair">Sair desta conta</button>
+      <button class="link" type="button" id="acExcluir">Excluir minha conta</button></div>
     ${suporteHtml()}`;
   $("acConferir").onclick = async () => {
     $("acConferir").disabled = true;
@@ -373,6 +374,7 @@ function telaDeAcesso(msg = "", kind = "") {
   if ($("acBaixar")) $("acBaixar").onclick = () => $("btnExport").click();
   $("acDemo").onclick = startDemo;
   $("acSair").onclick = () => $("btnSair").click();
+  $("acExcluir").onclick = () => excluirConta();
 }
 /** Perto do fim do período: avisa quem cancelou a renovação (15 dias antes) e quem está com a renovação atrasada (3 dias). */
 function avisoDeRenovacao() {
@@ -1251,6 +1253,7 @@ const AJUDA = [
   ["Errei um lançamento. Como corrijo?", `Na aba <b>Lançamentos</b>, toque no lançamento para mudar o valor, a data, a categoria ou para excluir.`],
   ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Ler foto ou PDF</b> para o app ler um comprovante, boleto, conta ou holerite. Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
   ["Como recebo avisos e instalo no celular?", `Em <b>Ajustes</b> você liga os avisos por e-mail e a notificação no aparelho. Para instalar, use <b>Instalar app</b> no menu; no iPhone, abra pelo Safari, toque em Compartilhar e em Adicionar à Tela de Início.`],
+  ["Como troco a senha ou excluo a minha conta?", `Em <b>Ajustes</b>, na parte <b>Sua conta</b>. Para trocar a senha, você digita a atual e a nova. Excluir a conta apaga para sempre todos os seus registros e pede a senha para confirmar; antes, baixe o relatório se quiser guardar uma cópia. Excluir a conta não cancela a assinatura: o cancelamento é feito na Hotmart.`],
   ["Meus dados ficam seguros? Consigo levar embora?", `Cada conta só enxerga os próprios dados, e essa regra é aplicada no banco de dados. Fotos e PDFs são lidos no seu aparelho e não são enviados. Em <b>Baixar relatório</b> você leva tudo em planilha. Os detalhes estão na <a href="site/privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.`],
 ];
 function ajuda() {
@@ -1639,9 +1642,15 @@ function ajustes() {
       <p class="hint" style="margin:0" id="ajPushMsg">${pushDisponivel() ? "" : "Neste aparelho a notificação só funciona com o app instalado. No iPhone: Compartilhar → Adicionar à Tela de Início, e abra o app por lá."}</p>
       <button class="btn" type="button" id="ajTeste" style="justify-self:start">Enviar um aviso de teste agora</button>
     </div>` : ""}
-    <div class="aj-sec"><button class="link" type="button" id="ajBV">Refazer os primeiros passos</button>${suporteHtml()}</div>
+    ${S.store.kind === "supabase" ? `<div class="aj-sec"><h4>Sua conta</h4>
+      <p class="aj-assina">Você entrou como <b>${esc($("whoName").textContent)}</b>.</p>
+      <div class="aj-conta"><button class="btn" type="button" id="ajSenha">Trocar a senha</button><button class="link aj-excluir" type="button" id="ajExcluir">Excluir minha conta</button></div>
+    </div>` : ""}
+    <div class="aj-sec"><button class="link" type="button" id="ajBV">Refazer os primeiros passos</button>${suporteHtml()}
+      <p class="hint" style="margin:0">Leia os <a href="site/termos.html" target="_blank" rel="noopener">Termos de uso</a> e a <a href="site/privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.</p></div>
     <div class="actions"><button class="btn primary" data-close>Pronto</button></div>`);
   const body = $("dlgBody");
+  if ($("ajSenha")) { $("ajSenha").onclick = () => trocarSenha(ajustes); $("ajExcluir").onclick = () => excluirConta(ajustes); }
   body.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = async () => {
     const t = b.dataset.tipo, l = cats(t);
     if (l.length <= 1) return;
@@ -1674,6 +1683,71 @@ function ajustes() {
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", claro ? "#f2f5f9" : "#0a0f16");
   };
   if ($("ajEmail")) ligaAjustesDeAvisos();
+}
+
+/* ---------- a conta: trocar a senha e excluir ---------- */
+const campoSenha = (id, rotulo, auto) => `<label class="f">${rotulo}<span class="senha"><input class="in" id="${id}" type="password" autocomplete="${auto}"><button type="button" class="olho" data-ver="${id}" aria-label="Mostrar a senha" aria-pressed="false">${ico("olho")}</button></span></label>`;
+/** Confere a senha da conta com um novo login. Devolve "" quando está certa, ou a mensagem para mostrar. */
+async function confereSenha(senha) {
+  const { error } = await S.client.auth.signInWithPassword({ email: $("whoName").textContent, password: senha });
+  if (!error) return "";
+  return /invalid login/i.test(error.message) ? "A senha atual não confere. Se você esqueceu, saia do app e toque em Esqueci minha senha." : traduzErro(error);
+}
+function trocarSenha(voltar) {
+  openDlg(`<h3>Trocar a senha</h3><form id="tsForm" style="display:grid;gap:12px" novalidate>
+    ${campoSenha("tsAtual", "Senha atual", "current-password")}${campoSenha("tsNova", "Senha nova", "new-password")}
+    <p class="hint" style="margin:0">A senha nova precisa ter pelo menos 6 caracteres.</p>
+    <p class="auth-msg err" id="tsMsg" role="alert"></p>
+    <div class="actions"><button class="btn primary" type="submit" id="tsSalvar">Salvar senha nova</button><button class="btn" type="button" id="tsVoltar">${voltar ? "Voltar" : "Cancelar"}</button></div></form>`);
+  $("tsVoltar").onclick = () => (voltar ? voltar() : $("dlg").close());
+  $("tsForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const atual = $("tsAtual").value, nova = $("tsNova").value, erro = (t, campo) => { $("tsMsg").textContent = t; if (campo) $(campo).focus(); };
+    if (!atual) return erro("Digite a senha que você usa hoje.", "tsAtual");
+    if (nova.length < 6) return erro("A senha nova precisa ter pelo menos 6 caracteres.", "tsNova");
+    if (nova === atual) return erro("A senha nova precisa ser diferente da atual.", "tsNova");
+    $("tsSalvar").disabled = true; $("tsSalvar").textContent = "Salvando…"; erro("");
+    const falha = (await confereSenha(atual)) || traduzErroOuVazio((await S.client.auth.updateUser({ password: nova })).error);
+    if (falha) { $("tsSalvar").disabled = false; $("tsSalvar").textContent = "Salvar senha nova"; return erro(falha); }
+    $("dlg").close(); toast("Senha trocada. Use a senha nova na próxima vez que entrar.");
+  });
+  $("tsAtual").focus();
+}
+const traduzErroOuVazio = (e) => (e ? traduzErro(e) : "");
+/** Excluir a conta: pede a senha, apaga tudo no banco e volta para a tela de entrada. Não tem volta, e a tela diz isso. */
+function excluirConta(voltar) {
+  const a = S.acesso || {}, email = $("whoName").textContent, assinando = a.origem === "hotmart" && a.status === "ativo" && Boolean(a.ate);
+  const temDados = S.data.lancamentos.length || S.data.fixos.length || S.data.faturas.length;
+  openDlg(`<h3>Excluir minha conta</h3>
+    <p class="ec-txt">Isso apaga <b>para sempre</b> a conta <b>${esc(email)}</b> e tudo o que está nela: lançamentos, gastos fixos, cartões e faturas, metas, limites, categorias e avisos. Não dá para desfazer.</p>
+    ${assinando ? `<p class="ec-txt ec-alerta"><b>Excluir a conta não cancela a assinatura.</b> Para não ser cobrado na renovação, cancele também na Hotmart: entre na sua conta de comprador, em Minhas compras, com o e-mail usado na compra. Se não conseguir, fale com o suporte.</p>` : ""}
+    ${temDados ? `<button class="btn" type="button" id="ecBaixar" style="justify-self:start">${ico("baixar")}Baixar meus dados em planilha antes</button>` : ""}
+    <form id="ecForm" style="display:grid;gap:12px;margin-top:14px" novalidate>
+      ${campoSenha("ecSenha", "Para confirmar, digite a sua senha", "current-password")}
+      <p class="auth-msg err" id="ecMsg" role="alert"></p>
+      <div class="actions"><button class="btn perigo arm" type="submit" id="ecExcluir" style="margin-left:0">Excluir a conta para sempre</button><button class="btn" type="button" id="ecVoltar">${voltar ? "Voltar" : "Cancelar"}</button></div></form>`);
+  $("ecVoltar").onclick = () => (voltar ? voltar() : $("dlg").close());
+  if ($("ecBaixar")) $("ecBaixar").onclick = () => $("btnExport").click();
+  $("ecForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const senha = $("ecSenha").value, erro = (t) => { $("ecMsg").textContent = t; $("ecExcluir").disabled = false; $("ecExcluir").textContent = "Excluir a conta para sempre"; };
+    if (!senha) { $("ecSenha").focus(); return erro("Digite a sua senha para confirmar."); }
+    $("ecExcluir").disabled = true; $("ecExcluir").textContent = "Excluindo…"; $("ecMsg").textContent = "";
+    const falha = await confereSenha(senha);
+    if (falha) return erro(falha);
+    await Promise.race([desligarPush().catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);   // este aparelho deixa de receber notificação
+    try { await S.store.excluirConta(); }
+    catch (err) {
+      const m = String(err?.message || err) + String(err?.code || "");
+      return erro(/confirmar_senha|sem_sessao/.test(m) ? "Por segurança, digite a sua senha de novo e confirme."
+        : /could not find the function|PGRST202|42883/i.test(m) ? `A exclusão pelo app ainda não está ligada. Escreva para ${SUPORTE_CONTATO || "o suporte"} a partir do e-mail da conta que nós apagamos para você.`
+        : /fetch|network/i.test(m) ? "Sem conexão com a internet. A conta não foi excluída. Tente de novo." : "Não foi possível excluir agora. A conta continua como estava. Tente de novo em alguns minutos.");
+    }
+    S.avisoDeEntrada = "A sua conta e os seus dados foram excluídos."; S.avisoTipo = "ok";
+    $("dlg").close();
+    await S.client.auth.signOut({ scope: "local" }).catch(() => {});   // a sessão já não existe no servidor: só limpa este aparelho
+    setTimeout(() => { if ($("auth").hidden) showAuth("entrar"); }, 200);   // se o aviso de saída não chegar, vai para a entrada assim mesmo
+  });
 }
 /* ================= leitor por foto ou PDF: comprovante, fatura ou holerite ================= */
 // A foto ou o PDF é lido no próprio aparelho (js/leitor.js). O app nunca salva direto: mostra o que entendeu para a pessoa conferir.

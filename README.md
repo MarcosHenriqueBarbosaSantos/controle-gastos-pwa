@@ -41,6 +41,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Gráficos**: custo acumulado no mês comparado às entradas, e custo por categoria.
 - **Detalhe com um toque**: tocar em um quadro (custo, entradas, saldo, guardado, fixos, faturas) ou em uma categoria do gráfico abre a lista do que compõe aquele valor.
 - **Relatório de gastos**: baixa uma planilha do Excel com os lançamentos, os fixos, as faturas e o resumo de cada mês do ano.
+- **A conta nas mãos da pessoa**: em Ajustes, ela troca a senha (confirmando a atual) e exclui a própria conta com todos os registros, confirmando com a senha. A exclusão é feita por uma função no banco que só aceita quem acabou de entrar ([`supabase/conta.sql`](supabase/conta.sql)).
 - **Login por e-mail** com Supabase Auth e isolamento de dados por usuário, via Row Level Security no PostgreSQL.
 - **Entrada sem tropeço**: tela separada em Entrar e Criar conta, e-mail lembrado no aparelho, senha com botão de mostrar. Em Esqueci minha senha, a pessoa recebe um código (e um botão) por e-mail e cria a senha nova ali mesmo; o botão de reenviar conta um minuto, para não invalidar o e-mail anterior. A demonstração tem o botão Criar minha conta e não fica gravada: quem abre o app instalado cai em Entrar / Criar conta.
 - **Como usar**: no menu, respostas curtas para as dúvidas mais comuns (o que é o custo do mês, por que a compra no cartão não aparece neste mês, e outras).
@@ -160,7 +161,7 @@ O esquema completo, com as políticas de segurança e a visão `resumo_mensal` p
 ### 1. Banco de dados (Supabase)
 
 1. Crie uma conta em [supabase.com](https://supabase.com) e clique em **New project**.
-2. Abra **SQL Editor → New query**, cole o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e clique em **Run**.
+2. Abra **SQL Editor → New query**, cole o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e clique em **Run**. Faça o mesmo com [`supabase/conta.sql`](supabase/conta.sql), que liga o "Excluir minha conta" do app.
 3. Em **Project Settings → API**, copie a **Project URL** e a chave **anon public** e cole em [`js/config.js`](js/config.js).
 
    > A chave `anon` é pública por design. Quem protege os dados são as políticas de RLS do passo 2.
@@ -238,10 +239,11 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 │   ├── leitor.js           leitor por foto ou PDF: lê o arquivo e interpreta o texto (testado)
 │   └── config.js           URL e chave do Supabase
 ├── site/                   página de apresentação e de instalação do app (preço e link de compra em OFERTA, no fim do index.html)
-│                           privacidade.html: política de privacidade · video/: vídeo do app em uso
+│                           termos.html: termos de uso · privacidade.html: política de privacidade · video/: vídeo do app em uso
 ├── 404.html                endereço que não existe volta para o app (protege os links de e-mail)
 ├── supabase/schema.sql     tabelas, RLS e visão de resumo
 ├── supabase/avisos.sql     tabelas e agendamento dos avisos
+├── supabase/conta.sql      função que exclui a conta de quem pediu, com todos os registros
 ├── supabase/functions/     servidor de avisos (e-mail e notificação)
 ├── supabase/emails/        modelos dos e-mails de confirmar cadastro e de nova senha
 ├── modelo/                 exemplo de extrato de cartão para testar a importação

@@ -669,7 +669,8 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
     <details data-venda hidden><summary>Quanto custa?</summary><p><b data-preco></b>. É um plano anual: você paga uma vez por ano, pela Hotmart, no cartão, Pix ou boleto. A demonstração é grátis e não pede cadastro.</p></details>
     <details data-venda hidden><summary>Como recebo o acesso depois de comprar?</summary><p>O acesso é liberado para o e-mail usado na compra, em geral em menos de um minuto depois do pagamento aprovado. Abra o app, crie a sua conta com esse mesmo e-mail e pronto. No boleto, a liberação pode levar até 3 dias úteis.</p></details>
     <details data-venda hidden><summary>E se eu me arrepender?</summary><p>Você tem 7 dias a partir da compra para pedir o dinheiro de volta, direto pela Hotmart, sem precisar explicar o motivo.</p></details>
-    <details data-venda hidden><summary>O que acontece se eu não renovar?</summary><p>O app deixa de aceitar lançamentos novos, mas os seus dados continuam guardados. Você ainda entra para baixar tudo em planilha, e eles voltam a aparecer se você renovar. A renovação pode ser cancelada quando você quiser.</p></details>
+    <details data-venda hidden><summary>O que acontece se eu não renovar?</summary><p>O app deixa de aceitar lançamentos novos, mas os seus dados continuam guardados. Você ainda entra para baixar tudo em planilha, e eles voltam a aparecer se você renovar. A renovação pode ser cancelada quando você quiser. As regras completas estão nos <a href="termos.html">Termos de uso</a>.</p></details>
+    <details><summary>Como excluo a minha conta?</summary><p>Dentro do app, em Ajustes, na parte Sua conta. Você confirma com a senha e a conta é apagada na hora, com todos os registros. Antes, dá para baixar tudo em planilha.</p></details>
     <details><summary>Preciso instalar alguma coisa?</summary><p>Não é obrigatório: o Meus Gastos abre no navegador. Instalado, ele ganha ícone na tela inicial, abre em tela cheia e envia notificações. A instalação é feita em <a href="#instalar">Instalar</a>, nesta página: um toque no Android e três no iPhone.</p></details>
     <details><summary>Procurei na loja de aplicativos e não achei. Onde baixo?</summary><p>Ele não fica na Play Store nem na App Store. A instalação é feita por esta página, pelo próprio navegador do celular, e ocupa muito pouco espaço. Veja em <a href="#instalar">Instalar</a>.</p></details>
     <details><summary>Funciona no iPhone e no Android?</summary><p>Sim, nos dois, e também no computador. No iPhone, a notificação de contas funciona com o app instalado na tela de início.</p></details>
@@ -686,7 +687,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 
 <footer><div class="col">
   <span>Meus Gastos · feito por Marcos Henrique Barbosa Santos</span>
-  <span><a data-app="" href="https://meugastos.com.br/" target="_blank" rel="noopener">Abrir o app</a> · <a href="#instalar">Instalar</a> · <a href="privacidade.html">Política de privacidade</a> · <a href="mailto:meugastos@gmail.com">Suporte: meugastos@gmail.com</a> · <a href="https://github.com/MarcosHenriqueBarbosaSantos/controle-gastos-pwa" target="_blank" rel="noopener">Código no GitHub</a></span>
+  <span><a data-app="" href="https://meugastos.com.br/" target="_blank" rel="noopener">Abrir o app</a> · <a href="#instalar">Instalar</a> · <a href="termos.html">Termos de uso</a> · <a href="privacidade.html">Política de privacidade</a> · <a href="mailto:meugastos@gmail.com">Suporte: meugastos@gmail.com</a> · <a href="https://github.com/MarcosHenriqueBarbosaSantos/controle-gastos-pwa" target="_blank" rel="noopener">Código no GitHub</a></span>
 </div></footer>
 
 <div class="fixo" id="fixo"><a class="btn pri" data-cta data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a></div>
@@ -724,7 +725,7 @@ if (OFERTA.link && OFERTA.preco) {
   q("[data-oferta-rot]").textContent = "Meus Gastos";
   q("[data-oferta-preco]").textContent = OFERTA.preco;
   q("[data-oferta-detalhe]").textContent = OFERTA.detalhe || "Acesso ao app no celular e no computador.";
-  q("[data-oferta-rodape]").textContent = "Pagamento pela Hotmart, no cartão, Pix ou boleto. Você tem 7 dias para pedir o dinheiro de volta.";
+  q("[data-oferta-rodape]").innerHTML = 'Pagamento pela Hotmart, no cartão, Pix ou boleto. Você tem 7 dias para pedir o dinheiro de volta. Ao comprar, você concorda com os <a href="termos.html">Termos de uso</a>.';
   if (OFERTA.lancamento) { const l = q("[data-oferta-lanc]"); l.textContent = OFERTA.lancamento; l.hidden = false; }
   // Quem ainda quer ver antes de comprar continua com a demonstração a um toque, e as perguntas sobre a compra aparecem.
   qa("[data-venda]").forEach((e) => (e.hidden = false));
