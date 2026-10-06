@@ -65,7 +65,8 @@ p{margin:0;max-width:60ch}
 .topo nav a.lk{text-decoration:none;color:var(--band-mute);padding:7px 12px;border-radius:999px;transition:background .2s,color .2s}
 .topo nav a.lk:hover{color:var(--band-ink)}
 .topo nav a.lk.aqui{background:rgba(241,246,252,.12);color:var(--band-ink)}
-.topo nav .btn{padding:9px 16px;font-size:.9rem;margin-left:8px;box-shadow:none}
+.topo nav .btn{padding:9px 16px;font-size:.9rem;margin-left:8px;box-shadow:none;white-space:nowrap}
+.marca{white-space:nowrap}
 .topo nav a.entrar{text-decoration:none;color:var(--band-ink);font-weight:600;padding:7px 12px;border-radius:999px;transition:background .2s}
 .topo nav a.entrar:hover{background:rgba(241,246,252,.12)}
 
@@ -699,7 +700,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 //   lancamento: opcional, o preço de lançamento. Só preencha se a oferta existir de verdade na página de pagamento,
 //               por exemplo "Lançamento: R$ 29,90 no primeiro ano, para as 100 primeiras pessoas."
 //   link:       o endereço da página de pagamento na Hotmart. É ele que liga a venda no site.
-const OFERTA = { preco: "R$ 49,90 por ano", detalhe: "Plano anual. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", link: "" };
+const OFERTA = { preco: "R$ 49,90 por ano", detalhe: "Plano anual. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", link: "https://pay.hotmart.com/G107911431C" };
 
 const q = (s) => document.querySelector(s), qa = (s) => [...document.querySelectorAll(s)];
 
@@ -716,7 +717,7 @@ if (NO_APP) {
 qa("[data-app]").forEach((a) => { a.href = APP + a.dataset.app; if (NO_APP) { a.removeAttribute("target"); a.removeAttribute("rel"); } });
 
 if (OFERTA.link && OFERTA.preco) {
-  qa("[data-cta]").forEach((a) => { a.href = OFERTA.link; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Quero o Meus Gastos"; });
+  qa("[data-cta]").forEach((a) => { a.href = OFERTA.link; a.target = "_blank"; a.rel = "noopener"; a.textContent = a.closest(".topo") ? "Comprar" : "Quero o Meus Gastos"; });
   q("[data-nota]").textContent = "Compra pela página de pagamento da plataforma de vendas.";
   q("[data-oferta-titulo]").textContent = "Comece a enxergar o seu mês hoje.";
   q("[data-oferta-texto]").textContent = "Você cria sua conta, cadastra o que é fixo e passa a acompanhar o mês com previsão e avisos.";

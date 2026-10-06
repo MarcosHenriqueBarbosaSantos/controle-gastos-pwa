@@ -14,5 +14,5 @@ export const SUPORTE_CONTATO = "meugastos@gmail.com";
 // Venda do app (plano anual). LINK_COMPRA é o endereço da página de pagamento na Hotmart.
 // Enquanto estiver vazio, o app não mostra botão de compra. Quem decide se a cobrança vale é o banco
 // (supabase/acesso.sql): com ela desligada, o app funciona para todos como sempre.
-export const LINK_COMPRA = "";
+export const LINK_COMPRA = "https://pay.hotmart.com/G107911431C";
 export const PRECO_PLANO = "R$ 49,90 por ano";
