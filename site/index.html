@@ -264,6 +264,14 @@ button.btn{cursor:pointer}
 .faq details p{color:var(--ink-2);padding-bottom:16px}
 footer{border-top:1px solid var(--line);padding-block:28px 40px;color:var(--muted);font-size:.9rem}
 footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-between}
+/* aviso de cookies de medição: só aparece quando há pixel configurado em medicao.js */
+.cookies{position:fixed;left:12px;right:12px;bottom:calc(12px + env(safe-area-inset-bottom,0px));z-index:70;max-width:560px;margin-inline:auto;background:var(--surface);border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:16px 18px;display:grid;gap:12px}
+.cookies p{margin:0;max-width:none;font-size:.92rem;color:var(--ink-2)}
+.cookies p b{color:var(--ink)}
+.cookies div{display:flex;gap:10px;flex-wrap:wrap}
+.cookies button{flex:1 1 130px;border-radius:10px;padding:11px 14px;font-weight:600;border:1px solid var(--line);background:var(--bg);color:var(--ink)}
+.cookies button:hover{border-color:var(--accent)}
+footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-decoration:underline;font:inherit}
 /* botão sempre à mão no celular */
 .fixo{position:fixed;left:0;right:0;bottom:0;z-index:55;display:none;background:color-mix(in srgb,var(--surface) 94%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-top:1px solid var(--line);padding:10px 16px calc(10px + env(safe-area-inset-bottom,0px));transform:translateY(110%);transition:transform .3s}
 .fixo.on{transform:none}
@@ -692,6 +700,7 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 
 <div class="fixo" id="fixo"><a class="btn pri" data-cta data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Experimentar a demonstração</a></div>
 
+<script src="medicao.js"></script>
 <script>
 // ================= OFERTA =================
 // Enquanto "link" estiver vazio, o site convida para a demonstração.
@@ -701,7 +710,14 @@ footer .col{display:flex;flex-wrap:wrap;gap:10px 24px;justify-content:space-betw
 //   lancamento: opcional, o preço de lançamento. Só preencha se a oferta existir de verdade na página de pagamento,
 //               por exemplo "Lançamento: R$ 29,90 no primeiro ano, para as 100 primeiras pessoas."
 //   link:       o endereço da página de pagamento na Hotmart. É ele que liga a venda no site.
-const OFERTA = { preco: "R$ 49,90 por ano", detalhe: "Plano anual. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", link: "https://pay.hotmart.com/G107911431C" };
+const OFERTA = { preco: "R$ 49,90 por ano", detalhe: "Plano anual. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", lancamentoAte: "", linkLancamento: "", link: "https://pay.hotmart.com/G107911431C" };
+// ================= preço de lançamento com data para acabar =================
+// lancamentoAte: último dia da oferta, no formato "2026-10-31". Depois dele, o aviso some e o link volta ao normal sozinho.
+// linkLancamento: o link de pagamento que já abre com o cupom aplicado (a Hotmart mostra esse link na tela do cupom).
+const hojeISO = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
+const EM_LANCAMENTO = Boolean(OFERTA.lancamento) && (!OFERTA.lancamentoAte || hojeISO <= OFERTA.lancamentoAte);
+if (!EM_LANCAMENTO) OFERTA.lancamento = "";
+const LINK_PAGAMENTO = (EM_LANCAMENTO && OFERTA.linkLancamento) || OFERTA.link;
 
 const q = (s) => document.querySelector(s), qa = (s) => [...document.querySelectorAll(s)];
 
@@ -718,7 +734,7 @@ if (NO_APP) {
 qa("[data-app]").forEach((a) => { a.href = APP + a.dataset.app; if (NO_APP) { a.removeAttribute("target"); a.removeAttribute("rel"); } });
 
 if (OFERTA.link && OFERTA.preco) {
-  qa("[data-cta]").forEach((a) => { a.href = OFERTA.link; a.target = "_blank"; a.rel = "noopener"; a.textContent = a.closest(".topo") ? "Comprar" : "Quero o Meus Gastos"; });
+  qa("[data-cta]").forEach((a) => { a.href = LINK_PAGAMENTO; a.target = "_blank"; a.rel = "noopener"; a.textContent = a.closest(".topo") ? "Comprar" : "Quero o Meus Gastos"; });
   q("[data-nota]").textContent = "Compra pela página de pagamento da plataforma de vendas.";
   q("[data-oferta-titulo]").textContent = "Comece a enxergar o seu mês hoje.";
   q("[data-oferta-texto]").textContent = "Você cria sua conta, cadastra o que é fixo e passa a acompanhar o mês com previsão e avisos.";
@@ -731,6 +747,51 @@ if (OFERTA.link && OFERTA.preco) {
   qa("[data-venda]").forEach((e) => (e.hidden = false));
   qa("[data-preco]").forEach((e) => (e.textContent = OFERTA.preco));
 }
+
+// ================= medição de anúncios (só neste site, e só com o "Aceitar") =================
+// Os códigos ficam em medicao.js. Sem código, nada disto roda. O aplicativo não carrega estas ferramentas.
+(() => {
+  const M = window.MEDICAO || {}, meta = /^\d{6,20}$/.test(M.meta || "") ? M.meta : "", google = /^(G|AW|GT)-[A-Z0-9-]{4,}$/i.test(M.google || "") ? M.google : "";
+  // Rótulos de campanha (utm, src, sck) seguem para a página de pagamento: é assim que a Hotmart mostra de onde a venda veio.
+  // Os identificadores de clique (fbclid, gclid) só seguem se a pessoa aceitar a medição.
+  const chegou = new URLSearchParams(location.search);
+  const levar = (nomes) => qa("[data-cta]").forEach((a) => { try { const u = new URL(a.href); if (!/hotmart\.com$/.test(u.hostname)) return; nomes.forEach((n) => { if (chegou.get(n) && !u.searchParams.has(n)) u.searchParams.set(n, chegou.get(n).slice(0, 200)); }); a.href = u.href; } catch { /* link fora do padrão: fica como está */ } });
+  levar(["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "src", "sck"]);
+  if (!meta && !google) return;
+  const K = "mg-medicao"; let escolha = ""; try { escolha = localStorage.getItem(K) || ""; } catch { /* sem armazenamento: pergunta de novo a cada visita */ }
+  let ligado = false;
+  const liga = () => {
+    if (ligado) return; ligado = true;
+    if (meta) {
+      const f = (window.fbq = function () { f.callMethod ? f.callMethod.apply(f, arguments) : f.queue.push(arguments); });
+      window._fbq = f; f.push = f; f.loaded = true; f.version = "2.0"; f.queue = [];
+      const s = document.createElement("script"); s.async = true; s.src = "https://connect.facebook.net/en_US/fbevents.js"; document.head.appendChild(s);
+      window.fbq("init", meta); window.fbq("track", "PageView");
+    }
+    if (google) {
+      window.dataLayer = window.dataLayer || []; window.gtag = function () { window.dataLayer.push(arguments); };
+      const s = document.createElement("script"); s.async = true; s.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(google); document.head.appendChild(s);
+      window.gtag("js", new Date()); window.gtag("config", google);
+    }
+    levar(["fbclid", "gclid"]);
+  };
+  // Clique em qualquer botão de compra: conta como início de compra.
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-cta]"); if (!a || !ligado || !/hotmart\.com/.test(a.href)) return;
+    if (window.fbq) window.fbq("track", "InitiateCheckout"); if (window.gtag) window.gtag("event", "begin_checkout");
+  });
+  const pergunta = () => {
+    if (q("#cookies")) return;
+    const d = document.createElement("div"); d.className = "cookies"; d.id = "cookies"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Cookies de medição");
+    d.innerHTML = '<p><b>Podemos medir os anúncios deste site?</b> Com o seu aceite, usamos cookies para saber qual anúncio trouxe você até aqui. O aplicativo não usa esses cookies. Detalhes na <a href="privacidade.html">Política de privacidade</a>.</p><div><button type="button" data-c="sim">Aceitar</button><button type="button" data-c="nao">Recusar</button></div>';
+    d.addEventListener("click", (e) => { const b = e.target.closest("[data-c]"); if (!b) return; try { localStorage.setItem(K, b.dataset.c); } catch { /* vale só nesta visita */ } d.remove(); if (b.dataset.c === "sim") liga(); });
+    document.body.appendChild(d);
+  };
+  if (escolha === "sim") liga(); else if (escolha !== "nao") pergunta();
+  // No rodapé, a pessoa muda a escolha quando quiser. Recusar depois de ter aceitado vale a partir da próxima página.
+  const rod = q("footer .col span:last-child");
+  if (rod) { const b = document.createElement("button"); b.type = "button"; b.className = "lk-cookies"; b.textContent = "Preferências de cookies"; b.onclick = pergunta; rod.append(" · ", b); }
+})();
 
 // ================= exemplo que responde ao toque =================
 // Números do mês de exemplo: entradas de R$ 3.900, custo até agora, previsão de fechamento,

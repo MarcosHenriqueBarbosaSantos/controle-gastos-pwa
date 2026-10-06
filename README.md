@@ -240,6 +240,7 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 │   └── config.js           URL e chave do Supabase
 ├── site/                   página de apresentação e de instalação do app (preço e link de compra em OFERTA, no fim do index.html)
 │                           termos.html: termos de uso · privacidade.html: política de privacidade · video/: vídeo do app em uso
+│                           medicao.js: código do Pixel da Meta e da tag do Google (vazio = site sem medição e sem aviso de cookies)
 ├── 404.html                endereço que não existe volta para o app (protege os links de e-mail)
 ├── supabase/schema.sql     tabelas, RLS e visão de resumo
 ├── supabase/avisos.sql     tabelas e agendamento dos avisos

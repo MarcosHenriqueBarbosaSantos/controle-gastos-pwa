@@ -82,7 +82,11 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <p>Esses fornecedores tratam os dados apenas para prestar o serviço deles ao Meus Gastos.</p>
 
   <h2>O que fica no seu aparelho</h2>
-  <p>O app guarda no navegador a sua sessão (para você não precisar entrar toda vez), o e-mail usado para entrar, as suas preferências e, na demonstração, os dados de exemplo. O Meus Gastos não usa cookies de publicidade nem ferramentas que acompanham a sua navegação.</p>
+  <p>O app guarda no navegador a sua sessão (para você não precisar entrar toda vez), o e-mail usado para entrar, as suas preferências e, na demonstração, os dados de exemplo. <span data-sem-medicao>O Meus Gastos não usa cookies de publicidade nem ferramentas que acompanham a sua navegação.</span><span data-medicao hidden>O aplicativo não usa cookies de publicidade nem ferramentas que acompanham a sua navegação.</span></p>
+
+  <h2 data-medicao hidden>Medição de anúncios no site</h2>
+  <p data-medicao hidden>O site de apresentação (a página que explica e vende o app) pergunta se pode usar cookies de medição. <b>Só se você aceitar</b>, ele carrega <span data-med-quem>ferramentas de medição de anúncios</span>, que registram a visita e o toque no botão de compra, para sabermos qual anúncio funcionou. Essas ferramentas podem guardar cookies no seu navegador e tratam os dados conforme as políticas das empresas que as oferecem, inclusive fora do Brasil.</p>
+  <p data-medicao hidden>Se você recusar, nada disso é carregado e o site funciona igual. Para mudar a escolha, use <b>Preferências de cookies</b>, no rodapé do site. A página de pagamento, na Hotmart, tem as próprias regras de cookies e pode informar a compra a essas mesmas ferramentas. <b>O aplicativo, onde ficam os seus gastos, não carrega nenhuma delas.</b></p>
 
   <h2>Segurança</h2>
   <p>A conexão com o app é criptografada (HTTPS). Cada conta só consegue ler e alterar os próprios dados, e essa regra é aplicada no banco de dados, não só na tela do app. Nenhum sistema é totalmente imune a falhas; se acontecer um incidente que afete os seus dados, você será avisado pelo e-mail da conta.</p>
@@ -108,6 +112,18 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <h2>Mudanças nesta política</h2>
   <p>Se esta política mudar de forma relevante, a nova versão será publicada nesta página, com a data de atualização, e quem tem conta será avisado pelo app ou por e-mail.</p>
 </main>
+<script src="medicao.js"></script>
+<script>
+// O trecho sobre medição de anúncios só aparece quando há uma ferramenta configurada em medicao.js.
+(() => {
+  const M = window.MEDICAO || {}, meta = /^\d{6,20}$/.test(M.meta || ""), google = /^(G|AW|GT)-[A-Z0-9-]{4,}$/i.test(M.google || "");
+  if (!meta && !google) return;
+  document.querySelectorAll("[data-medicao]").forEach((e) => (e.hidden = false));
+  document.querySelectorAll("[data-sem-medicao]").forEach((e) => (e.hidden = true));
+  const quem = document.querySelector("[data-med-quem]");
+  if (quem) quem.textContent = meta && google ? "o Pixel da Meta (Facebook e Instagram) e a tag do Google" : meta ? "o Pixel da Meta (Facebook e Instagram)" : "a tag do Google";
+})();
+</script>
 <footer><div>Meus Gastos · <a href="./">Voltar ao site</a> · <a href="termos.html">Termos de uso</a></div></footer>
 </body>
 </html>
