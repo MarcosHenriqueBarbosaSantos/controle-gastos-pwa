@@ -59,6 +59,8 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <ul>
     <li>Senha de banco, número de cartão, código de segurança ou acesso à sua conta bancária. O app não se conecta a banco nenhum.</li>
     <li>Fotos e PDFs lidos pelo leitor. A leitura é feita no seu aparelho; só ficam guardados os campos que você confirma (valor, data, descrição e categoria).</li>
+    <li>Imagens da câmera. Ao ler um QR code, a câmera é usada só naquele momento e no seu aparelho; nenhuma imagem é guardada ou enviada.</li>
+    <li>A nota fiscal consultada. Ao ler o QR code de um cupom de mercado, o app envia ao nosso servidor o endereço que está no código; o servidor abre a página pública da nota no site da Fazenda e devolve o valor, a loja, a data e os itens para você conferir. O servidor não guarda nem registra a nota, e só fica salvo o lançamento que você confirmar.</li>
     <li>O arquivo de extrato do cartão. Ele é aberto no seu aparelho; só as compras que você escolhe lançar são guardadas.</li>
     <li>Localização, contatos ou qualquer outro dado do seu aparelho.</li>
   </ul>
@@ -76,6 +78,7 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
     <li><b>Supabase</b> (banco de dados e login): os dados da conta e os seus registros ficam em servidores na região de São Paulo, no Brasil.</li>
     <li><b>Resend</b> (envio de e-mails): recebe o seu e-mail e o conteúdo da mensagem enviada, como o nome e o valor das contas a vencer. O processamento pode ocorrer fora do Brasil.</li>
     <li><b>Hotmart</b> (venda e pagamento): quem compra o app faz o pagamento na Hotmart, que trata os dados da compra conforme a política dela e nos informa apenas o que é preciso para liberar o acesso.</li>
+    <li><b>Secretarias da Fazenda dos estados</b> (consulta de nota fiscal): quando você lê o QR code de um cupom, o nosso servidor consulta a página pública daquela nota. A Fazenda recebe esse pedido do nosso servidor, e não do seu aparelho.</li>
     <li><b>Serviço de notificações do navegador</b> (Google, Apple ou Mozilla, conforme o aparelho): entrega a notificação, que viaja criptografada.</li>
     <li><b>GitHub Pages, Google Fonts e jsDelivr</b>: servem os arquivos do site e do app (páginas, fontes e bibliotecas). Como em qualquer site, esses serviços veem o endereço IP de quem acessa.</li>
   </ul>

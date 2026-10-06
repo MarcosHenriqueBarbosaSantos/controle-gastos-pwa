@@ -24,6 +24,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Entradas fixas**, como o salário: cadastradas uma vez, são lançadas sozinhas em todo mês, no dia escolhido.
 - **Cartão de crédito com fatura automática**: a pessoa cadastra o cartão com o dia de fechamento e o de vencimento, e o app monta cada fatura sozinho a partir das compras, incluindo as **parceladas** e os fixos cobrados no cartão. O que é comprado no cartão só pesa no mês em que a fatura vence. Dá para abrir a fatura, ver o que tem dentro, corrigir o valor se o banco cobrou diferente e marcar como paga. Faturas também podem ser lançadas à mão.
 - **Importar o extrato do cartão**: o arquivo que o banco exporta (CSV, OFX ou Excel) vira uma lista de compras para conferir, com categoria sugerida, e todas são lançadas de uma vez no cartão. A fatura é montada pela soma delas. Parcelas, pagamento da fatura e estornos são reconhecidos, e importar de novo um arquivo mais recente só traz as compras que faltam. No OFX (o formato que o Nubank exporta), o app também aproveita o nome do banco, o período da fatura e o vencimento para escolher a fatura certa e, se ainda não houver cartão, cadastrá-lo com os dias que vêm no arquivo. Um arquivo de exemplo está em [`modelo/extrato-cartao-exemplo.csv`](modelo/extrato-cartao-exemplo.csv).
+- **Leitor de QR code**: pela câmera, por uma imagem ou colando o "copia e cola", o app lê o Pix (valor e quem recebe, conferidos pelo CRC do código), o cupom fiscal (NFC-e e SAT) e o código de barras do boleto, e abre a mesma tela de conferência. O QR code do cupom de mercado é só um endereço da Fazenda: com a pessoa logada, a função [`supabase/functions/nota`](supabase/functions/nota) abre esse endereço e devolve valor, loja, data, forma de pagamento e itens. Ela só aceita endereço https de Fazenda estadual com chave de nota válida, não guarda nada e tem limite por pessoa. Testada com notas de São Paulo (o modelo "consulta resumida", usado também por outros estados).
 - **Leitor por foto ou PDF**: a pessoa fotografa ou escolhe o arquivo de um comprovante (Pix, boleto, cupom, maquininha), da fatura do cartão ou do holerite, e o app preenche valor, data e descrição. Da fatura, lê só o total e o vencimento; do holerite, o valor líquido, que entra como entrada. PDF com senha é aberto depois de a pessoa digitar a senha. A leitura é feita no próprio aparelho, sem enviar o arquivo para servidor, e nada é salvo antes de a pessoa conferir.
 - **Foto de papel**: antes de ler, o app iguala a luz (tira a sombra), apaga o que está em volta do documento, recorta no papel e endireita o texto. Se a primeira leitura não acha um valor firme e uma data, olha a foto de até três jeitos. Em boleto, guia e conta de consumo, o valor também sai da linha digitável ou do código de barras, conferido pelos dígitos verificadores; em recibo, do valor por extenso. Quando não tem certeza, diz isso e mostra os valores encontrados para tocar.
 - **Primeiros passos**: conta nova começa com três perguntas (quanto recebe, contas de todo mês, cartão) e termina já mostrando quanto sobra. O que ficar para depois aparece na lista "Comece por aqui", no início, até ser resolvido ou dispensado.
@@ -59,6 +60,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 | Segurança | Row Level Security | Cada usuário só lê e escreve as próprias linhas, garantido pelo banco |
 | Excel | SheetJS | Leitura e escrita de `.xlsx` no navegador |
 | Leitor por foto ou PDF | Tesseract.js (foto) e pdf.js (PDF), carregados só quando o leitor é usado | Leem o texto no aparelho, de graça e sem enviar o arquivo para fora |
+| Leitor de QR code | Leitor do próprio aparelho (BarcodeDetector) ou jsQR, carregado só quando é usado | Lê o código no aparelho; o endereço de dentro do código nunca é aberto pelo app |
 | App instalável | Web App Manifest + Service Worker | Ícone na tela inicial e abertura em tela cheia |
 | Avisos | Supabase Edge Function + agendamento no banco (pg_cron) | E-mail (Resend ou Brevo) e Web Push, sem biblioteca externa |
 | Testes | `node:test` | Regras de cálculo, importação, extrato do cartão, leitor e servidor de avisos testados sem dependências |
@@ -179,7 +181,7 @@ No Supabase, abra **Authentication → URL Configuration** e coloque o endereço
 ### 4. Avisos por e-mail e notificação (opcional)
 
 1. No Supabase, rode [`supabase/avisos.sql`](supabase/avisos.sql): cria as tabelas dos avisos e o agendamento diário (8h de Brasília).
-2. Publique a função [`supabase/functions/avisos`](supabase/functions/avisos) (`supabase functions deploy avisos --no-verify-jwt`).
+2. Publique a função [`supabase/functions/avisos`](supabase/functions/avisos) (`supabase functions deploy avisos --no-verify-jwt`). Para a leitura do cupom de mercado, publique também [`supabase/functions/nota`](supabase/functions/nota) (`supabase functions deploy nota --no-verify-jwt`): ela confere o login por conta própria.
 3. Para o e-mail, crie uma conta no [Resend](https://resend.com), verifique o seu domínio, gere uma chave de API e cadastre, em **Edge Functions → Secrets**, `RESEND_API_KEY` (a chave) e `AVISOS_REMETENTE` (por exemplo `avisos@seudominio.com.br`). O servidor também aceita o Brevo, com `BREVO_API_KEY`. Sem nenhuma chave, só as notificações funcionam.
 4. No app, em **Ajustes → Avisos de contas**, ligue a notificação no aparelho e use **Enviar um aviso de teste agora**.
 
@@ -237,6 +239,7 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 │   ├── excel.js            relatório de gastos em .xlsx
 │   ├── extrato.js          extrato do cartão em CSV, OFX ou Excel → lista de compras (testado)
 │   ├── leitor.js           leitor por foto ou PDF: lê o arquivo e interpreta o texto (testado)
+│   ├── qr.js               QR code e código de barras: Pix, nota fiscal e boleto e a leitura da nota consultada (testado)
 │   └── config.js           URL e chave do Supabase
 ├── site/                   página de apresentação e de instalação do app (preço e link de compra em OFERTA, no fim do index.html)
 │                           termos.html: termos de uso · privacidade.html: política de privacidade · video/: vídeo do app em uso

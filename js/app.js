@@ -7,6 +7,7 @@ import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, par
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
+import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
 
 const $ = (id) => document.getElementById(id);
@@ -26,6 +27,7 @@ const ICO = {
   imagem: "M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM3.5 17l5-5 4 4 3-3 5 5M15.5 9.5h.01",
   ajustes: "M4 7h9M17 7h3M4 17h3M11 17h9M13 5v4M7 15v4",
   subir: "M12 16V4M7 9l5-5 5 5M4 20h16",
+  qr: "M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h2.5v2.5H14zM17.5 17.5H20V20h-2.5zM14 20v-1M20 14v1",
   baixar: "M12 4v12M7 11l5 5 5-5M4 20h16",
   instalar: "M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM12 8v7M9 12l3 3 3-3",
   sair: "M10 4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5M15 8l4 4-4 4M19 12H9",
@@ -1251,7 +1253,7 @@ const AJUDA = [
   ["Como funciona a meta do dinheiro guardado?", `Toque no quadro <b>Dinheiro guardado</b> e crie uma meta para o lugar onde você guarda: quanto quer juntar e, se quiser, até quando. O app mostra quanto falta, em que mês você chega lá e quanto dá para guardar com o que deve sobrar no mês. Se você combinar um valor por mês, ele aparece em Próximos vencimentos para marcar <b>Guardei</b> ou <b>Pular</b>: não é uma conta e pular não tem problema. A previsão usa só o valor guardado e os meses: o app não calcula rendimento.`],
   ["Como funciona o limite de gastos?", `Na aba <b>Limites</b> você diz quanto quer gastar no máximo por mês e, se quiser, por categoria. O app mostra quanto já foi usado e avisa ao chegar a 80%, ao passar do limite e se passar em mais de 20%.`],
   ["Errei um lançamento. Como corrijo?", `Na aba <b>Lançamentos</b>, toque no lançamento para mudar o valor, a data, a categoria ou para excluir.`],
-  ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Ler foto ou PDF</b> para o app ler um comprovante, boleto, conta ou holerite. Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
+  ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Ler foto ou PDF</b> para o app ler um comprovante, boleto, conta ou holerite. No mesmo lugar, <b>Ler QR code</b> abre a câmera para ler o código do Pix ou do cupom de mercado; também dá para colar o Pix copia e cola. No cupom de mercado, o app busca o valor, a loja e os itens no site da Fazenda (testado com notas de São Paulo; em outros estados pode pedir o valor). Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
   ["Como recebo avisos e instalo no celular?", `Em <b>Ajustes</b> você liga os avisos por e-mail e a notificação no aparelho. Para instalar, use <b>Instalar app</b> no menu; no iPhone, abra pelo Safari, toque em Compartilhar e em Adicionar à Tela de Início.`],
   ["Como troco a senha ou excluo a minha conta?", `Em <b>Ajustes</b>, na parte <b>Sua conta</b>. Para trocar a senha, você digita a atual e a nova. Excluir a conta apaga para sempre todos os seus registros e pede a senha para confirmar; antes, baixe o relatório se quiser guardar uma cópia. Excluir a conta não cancela a assinatura: o cancelamento é feito na Hotmart.`],
   ["Meus dados ficam seguros? Consigo levar embora?", `Cada conta só enxerga os próprios dados, e essa regra é aplicada no banco de dados. Fotos e PDFs são lidos no seu aparelho e não são enviados. Em <b>Baixar relatório</b> você leva tudo em planilha. Os detalhes estão na <a href="site/privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.`],
@@ -1757,10 +1759,115 @@ function abrirLeitor(preferido = "") {
   openDlg(`<h3>${preferido === "fatura" ? "Ler fatura" : "Ler foto ou PDF"}</h3>
     <p class="hint" style="margin:0 0 10px;font-size:13px">${preferido === "fatura" ? "Fotografe a fatura do cartão ou escolha o PDF que o banco mandou." : "Fotografe ou escolha o arquivo de um comprovante de pagamento, da fatura do cartão ou do holerite."} O app lê o valor e a data e deixa tudo preenchido para você conferir.</p>
     <ul class="dicas"><li>PDF e print de tela leem melhor do que foto de papel.</li><li>Na foto de papel: chegue perto, enquadre só o documento e segure o celular reto por cima dele, com boa luz.</li><li>Em boleto e conta, deixe o código de barras e a fileira de números aparecendo: o valor também está escrito ali.</li><li>Da fatura o app pega só o total e o vencimento; do holerite, o valor líquido.</li><li>A leitura é feita no seu aparelho. O arquivo não é enviado para nenhum servidor.</li></ul>
-    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="lerFoto">${ico("camera")}Tirar foto</button><button class="btn" type="button" id="lerEscolher">${ico("imagem")}Escolher imagem ou PDF</button><button class="btn" type="button" id="lerExtrato">${ico("subir")}Importar extrato do cartão</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
+    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="lerFoto">${ico("camera")}Tirar foto</button><button class="btn" type="button" id="lerEscolher">${ico("imagem")}Escolher imagem ou PDF</button><button class="btn" type="button" id="lerQr">${ico("qr")}Ler QR code do Pix ou da nota</button><button class="btn" type="button" id="lerExtrato">${ico("subir")}Importar extrato do cartão</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
   $("lerFoto").onclick = () => $("lerCamera").click();
   $("lerEscolher").onclick = () => $("lerGaleria").click();
+  $("lerQr").onclick = abrirQr;
   $("lerExtrato").onclick = abrirExtrato;
+}
+
+/* ---------- QR code: Pix, nota fiscal e boleto, pela câmera, por uma imagem ou colando o código ---------- */
+let camera = null;   // a câmera aberta pelo leitor de QR code; é desligada sempre que o quadro fecha ou muda
+function desligaCamera() { camera?.getTracks().forEach((t) => t.stop()); camera = null; }
+$("dlg").addEventListener("close", desligaCamera);
+/** O código foi entendido: mostra a conferência. `previa` é a imagem de onde ele saiu, quando há. */
+function usaCodigo(texto, previa = "") {
+  const r = interpretaQr(texto, hoje());
+  if (!r) return false;
+  desligaCamera(); S.lerComo = "";
+  // Nota de mercado: o código só tem o endereço da Fazenda. Com a pessoa logada, o servidor do app busca o valor lá.
+  if (r.origem === "nota" && r.valor === null && r.link && NOTA_URL && S.store?.kind === "supabase") consultaNota(r, String(texto), previa);
+  else conferirLeitura(r, String(texto), previa);
+  return true;
+}
+const NOTA_URL = SUPABASE_URL ? SUPABASE_URL.replace(/\/$/, "") + "/functions/v1/nota" : "";
+/** Pede ao servidor a nota que está no endereço do QR code e abre a conferência já com valor, loja, data e itens. Se não der, segue como antes. */
+async function consultaNota(r, texto, previa, seFalhar = null) {
+  const vez = ++leitura;
+  openDlg(`<h3>Consultando a nota…</h3><p class="hint" style="margin:0;font-size:13px">Buscando o valor, a loja e os itens no site da Fazenda. Leva alguns segundos.</p>
+    <div class="barra vai"><i></i></div><div class="actions"><button class="btn" type="button" id="notaPular">Digitar o valor eu mesmo</button></div>`);
+  $("notaPular").onclick = () => { leitura++; conferirLeitura(r, texto, previa); };
+  $("dlg").addEventListener("close", () => { if (vez === leitura) leitura++; }, { once: true });   // fechou no meio: o resultado é descartado
+  let nota = null, motivo = "";
+  const corta = new AbortController(), relogio = setTimeout(() => corta.abort(), 15000);
+  try {
+    const resp = await fetch(NOTA_URL, { method: "POST", signal: corta.signal, headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + (await S.store.token()) }, body: JSON.stringify({ url: r.link }) });
+    const j = await resp.json().catch(() => null);
+    if (j?.ok && j.nota?.valor > 0) nota = j.nota; else motivo = j?.motivo || "erro";
+  } catch { motivo = "sem-resposta"; } finally { clearTimeout(relogio); }
+  if (vez !== leitura) return;
+  if (nota) return conferirLeitura(leituraDaNota(nota, r, hoje()), itensEmTexto(nota) || texto, previa);
+  if (seFalhar) return seFalhar();   // veio de uma foto: o leitor de texto ainda pode achar o total impresso
+  const porque = motivo === "limite" ? "Foram muitas consultas seguidas. Espere alguns minutos e tente de novo"
+    : motivo === "nao-entendi" || motivo === "endereco" ? "Consultei a Fazenda, mas ainda não sei ler a nota desse estado"
+    : "O site da Fazenda não respondeu agora";
+  conferirLeitura({ ...r, aviso: `${porque}. Digite o valor, ou volte e fotografe o cupom inteiro para o app ler o total.` }, texto, previa);
+}
+const QR_NAO_SERVE = "Esse código não é de Pix, de nota fiscal nem de boleto. Aponte para o QR code do pagamento ou do cupom.";
+function abrirQr() {
+  const vez = ++leitura;
+  openDlg(`<h3>Ler QR code</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">Aponte a câmera para o QR code do Pix ou do cupom fiscal. O app mostra o que leu para você conferir antes de lançar. ${S.store?.kind === "supabase" ? "O código é lido no aparelho; na nota de mercado, o app busca o valor no site da Fazenda." : "Na demonstração, a nota de mercado vem sem o valor: com a sua conta, o app busca o valor no site da Fazenda."}</p>
+    <div class="qr-cam" id="qrCam"><video id="qrVideo" playsinline muted></video><i aria-hidden="true"></i></div>
+    <p class="auth-msg" id="qrMsg" role="status">Abrindo a câmera…</p>
+    <div class="menu-lista" style="display:grid;gap:8px">
+      <button class="btn" type="button" id="qrImagem">${ico("imagem")}Escolher uma imagem do QR code</button>
+      <details class="qr-colar"><summary>Colar o código do Pix (copia e cola)</summary>
+        <textarea class="in" id="qrTexto" rows="3" spellcheck="false" autocapitalize="none" placeholder="Cole aqui o código que começa com 000201…" aria-label="Código do Pix copia e cola"></textarea>
+        <button class="btn" type="button" id="qrUsar">Usar este código</button></details>
+      <button class="btn ghost" type="button" data-close>Cancelar</button></div>
+    <input type="file" id="qrArquivo" accept="image/*" hidden>`);
+  const msg = (t, kind = "") => { if ($("qrMsg")) { $("qrMsg").textContent = t; $("qrMsg").className = "auth-msg " + kind; } };
+  $("qrImagem").onclick = () => $("qrArquivo").click();
+  $("qrArquivo").onchange = async (e) => {
+    const f = e.target.files[0]; e.target.value = ""; if (!f) return;
+    msg("Procurando o código na imagem…");
+    try {
+      const achados = await codigosDaImagem(f, await criaLeitorDeCodigos());
+      if (vez !== leitura) return;
+      if (!achados.length) return msg("Não achei um QR code nessa imagem. Tente um print mais nítido, com o código inteiro aparecendo.", "err");
+      if (!achados.some((t) => usaCodigo(t, URL.createObjectURL(f)))) msg(QR_NAO_SERVE, "err");
+    } catch (err) { console.error(err); if (vez === leitura) msg(/leitor-indisponivel/.test(String(err?.message)) ? "O leitor de QR code não carregou. Confira a internet e tente de novo." : "Não consegui abrir essa imagem. Tente outra.", "err"); }
+  };
+  $("qrUsar").onclick = () => {
+    const t = $("qrTexto").value.trim();
+    if (!t) { $("qrTexto").focus(); return msg("Cole o código do Pix no campo acima.", "err"); }
+    if (!usaCodigo(t)) msg("Esse texto não é um código de Pix. Copie de novo o \"copia e cola\" inteiro, do começo ao fim.", "err");
+  };
+  ligaCameraDoQr(vez, msg);
+}
+async function ligaCameraDoQr(vez, msg) {
+  const semCamera = (t) => { if (vez !== leitura || !$("qrCam")) return; $("qrCam").hidden = true; msg(t); };
+  if (!navigator.mediaDevices?.getUserMedia) return semCamera("Este navegador não abre a câmera por aqui. Escolha uma imagem do QR code ou cole o código do Pix.");
+  let leitor;
+  try {
+    camera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+    if (vez !== leitura || !$("qrVideo")) return desligaCamera();   // a pessoa fechou enquanto a câmera abria
+    $("qrVideo").srcObject = camera; await $("qrVideo").play().catch(() => {});
+    leitor = await criaLeitorDeCodigos();
+  } catch (e) {
+    desligaCamera();
+    return semCamera(/leitor-indisponivel/.test(String(e?.message)) ? "O leitor de QR code não carregou. Confira a internet e tente de novo."
+      : e?.name === "NotAllowedError" ? "A câmera está bloqueada para o app. Libere a câmera nas permissões do navegador, ou escolha uma imagem do QR code."
+      : "Não consegui abrir a câmera. Escolha uma imagem do QR code ou cole o código do Pix.");
+  }
+  if (vez !== leitura || !$("qrVideo")) return desligaCamera();
+  msg(leitor.barras ? "Procurando o código… Também leio o código de barras do boleto." : "Procurando o código…");
+  let recusado = "";
+  const olha = async () => {
+    if (vez !== leitura || !camera || !$("qrVideo")) return;
+    try {
+      const v = $("qrVideo");
+      if (v.readyState >= 2) for (const t of await leitor.le(v)) {
+        if (t === recusado) continue;
+        const tela = document.createElement("canvas"); tela.width = v.videoWidth; tela.height = v.videoHeight; tela.getContext("2d").drawImage(v, 0, 0);
+        if (usaCodigo(t, tela.toDataURL("image/jpeg", 0.7))) { navigator.vibrate?.(60); return; }
+        recusado = t; msg(QR_NAO_SERVE, "err");
+      }
+    } catch (e) { console.warn("Leitura do quadro falhou:", e?.message); }
+    setTimeout(olha, 220);
+  };
+  olha();
 }
 /** Explica o que é o extrato e abre a escolha do arquivo. */
 function abrirExtrato() {
@@ -1784,7 +1891,7 @@ function pedirSenhaDoPdf(arquivo, errada) {
   $("pdfSenhaForm").addEventListener("submit", (e) => { e.preventDefault(); const s = $("pdfSenha").value; if (s) processaLeitura(arquivo, s); });
 }
 
-async function processaLeitura(arquivo, senha = "") {
+async function processaLeitura(arquivo, senha = "", semCodigo = false) {
   const vez = ++leitura, pdf = ehPdf(arquivo), preparando = "Preparando o leitor. Na primeira vez demora um pouco mais, porque ele é baixado.";
   openDlg(`<h3>${pdf ? "Lendo o PDF…" : "Lendo a imagem…"}</h3><p class="hint" id="lerEtapa" style="margin:0;font-size:13px">${preparando}</p>
     <div class="barra"><i id="lerBarra"></i></div><div class="actions"><button class="btn" type="button" id="lerCancela">Cancelar</button></div>`);
@@ -1803,6 +1910,15 @@ async function processaLeitura(arquivo, senha = "") {
       // PDF que é só uma foto digitalizada não tem texto dentro: lê a primeira página como imagem.
       if (texto.replace(/\s/g, "").length < 40) ({ texto, leitura: lido } = await lerImagem(r.tela, anda("Esse PDF é uma imagem. Lendo o texto…"), hoje()));
     } else {
+      // Print ou foto com um QR code que já traz o valor (Pix, cupom SAT, nota emitida sem internet): o que está no código é exato,
+      // então vale mais do que o texto lido da imagem. Nota sem valor no código segue para a leitura do texto, que acha o total impresso.
+      const noCodigo = S.lerComo === "fatura" || semCodigo ? [] : await criaLeitorDeCodigos().then((l) => codigosDaImagem(arquivo, l)).catch(() => []);
+      if (vez !== leitura) return;
+      const exato = noCodigo.find((t) => { const r = interpretaQr(t, hoje()); return r && (r.origem === "pix" || r.valor !== null); });
+      if (exato) return void usaCodigo(exato, URL.createObjectURL(arquivo));
+      // Foto do cupom de mercado: com a pessoa logada, a nota é consultada na Fazenda; se a consulta falhar, o texto da foto é lido como antes.
+      const daNota = NOTA_URL && S.store?.kind === "supabase" ? noCodigo.map((t) => [t, interpretaQr(t, hoje())]).find(([, r]) => r?.origem === "nota" && r.link) : null;
+      if (daNota) { S.lerComo = ""; return void consultaNota(daNota[1], daNota[0], URL.createObjectURL(arquivo), () => processaLeitura(arquivo, senha, true)); }
       ({ texto, leitura: lido } = await lerImagem(arquivo, anda("Lendo o texto da imagem…"), hoje())); previa = URL.createObjectURL(arquivo);
     }
     if (vez !== leitura) return;
@@ -1832,8 +1948,9 @@ function conferirLeitura(r, texto, previa) {
   // Na fatura, só escolhe o cartão sozinho quando o nome lido bate com um cartão cadastrado. Senão a pessoa escolhe, para não trocar o valor da fatura errada.
   const sugerido = achado || ativos[0];
   openDlg(`<h3>Conferir leitura</h3>
-    <div class="ler-topo"><img src="${previa}" alt="Arquivo lido">
-      <div><p class="hint" style="font-size:13px">${r.valor ? (r.tipo === "holerite" ? "Parece um holerite: peguei o valor líquido. Confira os campos antes de salvar."
+    <div class="ler-topo${previa ? "" : " sem-foto"}">${previa ? `<img src="${previa}" alt="Arquivo lido">` : ""}
+      <div><p class="hint" style="font-size:13px">${r.aviso ? esc(r.aviso) + (r.link ? ` <a href="${esc(r.link)}" target="_blank" rel="noopener noreferrer">Abrir a nota no site da Fazenda</a>` : "")
+        : r.valor ? (r.tipo === "holerite" ? "Parece um holerite: peguei o valor líquido. Confira os campos antes de salvar."
         : r.firme === false ? `Achei ${brl(r.valor)}, mas sem certeza de que é o valor certo. Confira${r.valores.length ? " ou toque em outro valor abaixo" : ""}.`
         : "Confira os campos antes de salvar. O leitor pode trocar algum número.")
         : r.valores.length ? "Não tive certeza de qual é o valor. Toque em um dos que encontrei, ou digite."
@@ -1844,7 +1961,7 @@ function conferirLeitura(r, texto, previa) {
       <label class="f" data-g="gasto entrada">Valor (R$)<input class="in money" id="lValor" inputmode="decimal" placeholder="0,00" value="${esc(dinheiro(r.valor))}"></label>
       <label class="f" data-g="gasto entrada"><span id="lDataLbl">Data</span><input class="in" type="date" id="lData" value="${esc(r.data || hoje())}"></label>
       <label class="f wide" data-g="gasto entrada">Descrição<input class="in" id="lDesc" maxlength="80" value="${esc(r.descricao)}" placeholder="Ex.: mercado, farmácia"></label>
-      <label class="f" data-g="gasto">Categoria<select class="in" id="lCat">${opts(catL, escolhe(catL, guessCat(r.descricao, "Despesa")))}</select></label>
+      <label class="f" data-g="gasto">Categoria<select class="in" id="lCat">${opts(catL, escolhe(catL, (r.categoria && guessCat(r.descricao, "Despesa") === "Outros" ? r.categoria : "") || guessCat(r.descricao, "Despesa")))}</select></label>
       <label class="f wide" data-g="entrada">Categoria<select class="in" id="leCat">${opts(catE, escolhe(catE, guessCat(r.descricao, "Receita")))}</select></label>
       <label class="f" data-g="gasto">Forma de pagamento<select class="in" id="lForma">${opts(FORMAS, r.forma || "Pix")}</select></label>
       <label class="f" data-g="gasto" id="lCartaoWrap" hidden>Cartão<select class="in" id="lCartao">${optsCartao(sugerido?.id)}</select></label>
@@ -1859,8 +1976,8 @@ function conferirLeitura(r, texto, previa) {
       <p class="auth-msg err wide" id="lerMsg"></p>
       <div class="actions wide"><button class="btn primary" type="submit" id="lerSalvar">Salvar</button><button class="btn" type="button" id="lerOutra">Ler outro</button><button class="btn" type="button" data-close>Cancelar</button></div>
     </form>
-    <details class="lido"><summary>Ver o texto que foi lido</summary><pre>${esc(texto.trim() || "(nenhum texto encontrado)")}</pre></details>`);
-  if (previa.startsWith("blob:")) $("dlg").addEventListener("close", () => URL.revokeObjectURL(previa), { once: true });
+    <details class="lido"><summary>${r.consultada ? "Ver os itens da nota" : r.origem ? "Ver o que estava no código" : "Ver o texto que foi lido"}</summary><pre>${esc(texto.trim() || "(nenhum texto encontrado)")}</pre></details>`);
+  if (previa?.startsWith("blob:")) $("dlg").addEventListener("close", () => URL.revokeObjectURL(previa), { once: true });
   let tipo = tipoIni, avisado = "";
   const sync = () => {
     document.querySelectorAll("#lTipoSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lt === tipo));
