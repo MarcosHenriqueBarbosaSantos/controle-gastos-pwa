@@ -34,6 +34,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Próximos vencimentos logo abaixo**: as contas dos próximos 30 dias, com as atrasadas em destaque, contagem de dias ("em 10 dias vence a fatura, R$ 299"), botão "Já paguei" e alerta quando o mês está ou vai fechar no vermelho.
 - **Avisos por e-mail e notificação no celular**: de manhã, só nos dias em que há conta atrasada ou vencendo em até 3 dias. A pessoa liga e desliga em Ajustes.
 - **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
+- **Metas para o dinheiro guardado**: a pessoa diz quanto quer juntar em cada destino e, se quiser, até quando. O app mostra o progresso, em que mês ela chega lá e quanto dá para guardar com o que deve sobrar no mês. Um valor por mês vira um **combinado** que aparece em Próximos vencimentos com "Guardei" e "Pular": não é uma conta, não entra no custo e nunca fica atrasado. Ao guardar, o app comemora os marcos (25, 50, 75 e 100%); ao retirar, responde com apoio, sem cobrança. Por e-mail e notificação chegam os parabéns (no dia seguinte a guardar) e dois lembretes por mês, só quando deve sobrar dinheiro.
 - **Saldo acumulado**: o que sobrou ou faltou passa para o mês seguinte, se a pessoa quiser, partindo de um **saldo inicial** (quanto ela já tinha, ou devia, quando começou).
 - **Categorias personalizáveis** por usuário, na tela de Ajustes.
 - **Gráficos**: custo acumulado no mês comparado às entradas, e custo por categoria.
@@ -90,6 +91,8 @@ A tela não sabe onde os dados estão guardados: ela usa a interface de `store.j
 - **Entradas** = entradas lançadas + entradas fixas do mês.
 - **Saldo do mês** = entradas − custo − dinheiro guardado no mês (guardou menos retirou).
 - **Dinheiro guardado** = soma de tudo que foi guardado menos o que foi retirado, por destino.
+- **Meta**: progresso = guardado no destino ÷ valor da meta. **Ritmo** = média do que foi guardado por mês nos últimos 3 meses fechados (contando do primeiro mês em que a pessoa guardou ali). **Previsão** = mês em que a meta fica pronta repetindo o combinado ou, sem combinado, o ritmo. Com data, **valor por mês** = o que faltava no começo do mês ÷ meses até a data. A conta usa só valor e tempo: o app não estima rendimento.
+- **Sugestão do mês**: a parte do mês (combinado, valor por mês ou ritmo) limitada ao que deve sobrar (entradas − custo previsto − já guardado). Com menos de R$ 10 de sobra prevista, o mês conta como apertado e o app não sugere nem lembra nada.
 - **Previsão** (mês atual): com histórico, mistura o ritmo do mês com a média dos últimos 3 meses, dando mais peso ao histórico no começo do mês. Sem histórico, mantém a média diária sem repetir compras pontuais grandes, e não projeta nada nos primeiros dias ou com poucos lançamentos.
 - **Próximos vencimentos**: faturas em aberto e fixos não pagos do mês atual e do próximo, até 30 dias à frente, mais os atrasados. Fixos cobrados no cartão não aparecem soltos: são pagos junto com a fatura.
 

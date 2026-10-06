@@ -40,7 +40,7 @@ import * as regras from "../supabase/functions/avisos/regras.js";
 
 test("autoteste do servidor passa, e as regras do servidor dão o mesmo resultado que as do app", async () => {
   const { assinatura, ...auto } = await autoteste();
-  assert.deepEqual(auto, { ok: true, conferidos: 9, falhas: [] }); assert.match(assinatura, /^\d+-[a-z0-9]+$/);
+  assert.deepEqual(auto, { ok: true, conferidos: 12, falhas: [] }); assert.match(assinatura, /^\d+-[a-z0-9]+$/);
   const st = { lancamentos: [], pagos: [], cartoes: [], fixos: [{ id: "a", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 5, valor: 1000, forma: "Boleto", desde: "2026-08-01", ate: null }],
     faturas: [{ id: "n", cartao: "Loja", vencimento: "2026-10-03", valor: 120, status: "Aberta" }] };
   assert.deepEqual(regras.pendenciasParaAviso(st, "2026-10-03"), pendenciasParaAviso(st, "2026-10-03"));
@@ -123,7 +123,7 @@ test("chave pública para o app e aviso de teste só para quem está logado", as
   assert.equal((await (await amb.handler(pedido("GET"))).json()).chavePublica, chavePublica);       // sempre a mesma
   assert.equal((await amb.handler(pedido("POST", { authorization: "Bearer falso" }, { teste: true }))).status, 401);
   const r = await (await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: true }))).json();
-  assert.deepEqual(r, { pendencias: 0, limite: 0, email: "enviado", push: { aparelhos: 1, entregues: 1 } });
+  assert.deepEqual(r, { pendencias: 0, limite: 0, meta: "", email: "enviado", push: { aparelhos: 1, entregues: 1 } });
   assert.equal(JSON.parse(amb.enviados.find((e) => e.url.includes("resend")).init.body).subject, "Meus Gastos: aviso de teste");
   assert.equal((await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: true }))).status, 429);   // um por minuto
   amb.avanca(61000);
@@ -196,4 +196,69 @@ test("rotina diária: avisa do limite uma vez por nível no mês, e respeita que
   // mês novo: a contagem recomeça (novembro, com um gasto que já passa de 80%)
   amb.t.lancamentos.push(gasto("g7", "u1", "2026-11-01", 900));
   amb.avanca(86400000 * 25); r = await roda(); assert.equal(r.dia, "2026-11-02"); assert.equal(emails()[3].subject, "Meus Gastos: Você já usou 90% do limite de novembro");
+});
+
+/* ---------- recados da meta do dinheiro guardado ---------- */
+import { avisoDaMeta } from "../supabase/functions/avisos/mensagem.js";
+import { lembreteDaMeta, parabensDaMeta } from "../js/calc.js";
+
+const guarda = (id, uid, data, valor, forma = "") => ({ id, user_id: uid, data, descricao: "", tipo: "Reserva", categoria: "Reserva de emergência", forma, valor });
+const salario = (uid, dia = 5) => ({ id: "sal-" + uid, user_id: uid, tipo: "Receita", descricao: "Salário", categoria: "Salário", dia, valor: 3900, forma: "", desde: "2026-01-01", ate: null });
+const tresMeses = (uid) => [guarda("a" + uid, uid, "2026-07-28", 300), guarda("b" + uid, uid, "2026-08-28", 300), guarda("c" + uid, uid, "2026-09-28", 300)];
+
+test("texto dos recados da meta: lembrete sem cobrança e parabéns com o que falta", () => {
+  const st = { lancamentos: tresMeses("u1"), fixos: [salario("u1")], pagos: [], faturas: [], cartoes: [] }, metas = { "Reserva de emergência": { valor: 3000 } };
+  const e = avisoDaMeta({ tipo: "lembrete", ...lembreteDaMeta(st, metas, "2026-10-05") }, "2026-10-05");
+  assert.equal(limpa(e.titulo), "Meta Reserva de emergência: que tal separar R$ 300,00 hoje?");
+  assert.equal(limpa(e.frase), "Seu dinheiro do mês entrou. Guardando R$ 300,00 agora, a meta segue no ritmo. Já são R$ 900,00 de R$ 3.000,00 (30%). Se o mês apertar, tudo bem deixar para o próximo.");
+  const s = avisoDaMeta({ tipo: "lembrete", ...lembreteDaMeta(st, metas, "2026-10-29") }, "2026-10-29");
+  assert.equal(limpa(s.titulo), "Devem sobrar R$ 3.900,00 em outubro"); assert.match(limpa(s.frase), /^Guardando R\$ 300,00, a meta Reserva de emergência segue no ritmo\. .* Se preferir não guardar agora, tudo bem\.$/);
+  st.lancamentos.push(guarda("d", "u1", "2026-10-19", 600));
+  const p = avisoDaMeta({ tipo: "parabens", ...parabensDaMeta(st, metas, "2026-10-20") }, "2026-10-20");
+  assert.equal(p.titulo, "Você chegou a 50% da meta Reserva de emergência");
+  assert.equal(limpa(p.frase), "Com os R$ 600,00 que guardou ontem, já são R$ 1.500,00 de R$ 3.000,00 (50%). Faltam R$ 1.500,00. Cada valor guardado é uma recompensa pelo seu esforço: continue, você merece chegar lá.");
+  const fim = avisoDaMeta({ tipo: "parabens", destino: "Viagem", valor: 100, guardado: 2000, alvo: 2000, falta: 0, pct: 100, marco: 100, concluida: true }, "2026-10-20");
+  assert.equal(fim.titulo, "Meta Viagem completa!"); assert.match(limpa(fim.frase), /Você juntou R\$ 2\.000,00\. É a recompensa pelo seu esforço/);
+  // Sozinho, o recado vira o assunto do e-mail; junto com contas, entra como um quadro a mais.
+  const vazio = { itens: [], atrasadas: 0, hoje: 0, total: 0 }, so = montaAviso(vazio, "https://app/", null, p);
+  assert.equal(so.assunto, "Meus Gastos: Você chegou a 50% da meta Reserva de emergência"); assert.ok(so.html.includes("Abrir o app e ver a meta") && so.html.includes("recompensa") && so.texto.includes("desmarque os recados"));
+  const contas = pendenciasParaAviso({ lancamentos: [], pagos: [], cartoes: [], fixos: [fixo("a", "Aluguel", 5, 1000)], faturas: [] }, "2026-10-03");
+  const junto = montaAviso(contas, "https://app/", null, e);
+  assert.equal(junto.titulo, "1 conta vence nos próximos dias"); assert.ok(junto.corpo.endsWith("hoje?") && junto.html.includes("Aluguel") && junto.html.includes("que tal separar"));
+});
+
+test("rotina diária: lembretes da meta uma vez por mês cada, parabéns no dia seguinte, e nada para quem desligou ou está apertado", async () => {
+  const metas = { "Reserva de emergência": { valor: 3000 } };
+  const amb = ambiente({
+    lancamentos: [...tresMeses("u1"), ...tresMeses("u2"), ...tresMeses("u3")],
+    fixos: [salario("u1"), salario("u2"), salario("u3"), { ...fixo("al", "Aluguel", 28, 3895), user_id: "u3" }],
+    preferencias: [{ user_id: "u1", dados: { metas } }, { user_id: "u2", dados: { metas, avisos: { meta: false } } }, { user_id: "u3", dados: { metas } }, { user_id: "u4", dados: {} }],
+  }, ["u1", "u2", "u3", "u4"].map((id) => ({ id, email: id + "@exemplo.com" })));
+  const roda = async () => (await amb.handler(pedido("POST", { "x-avisos-segredo": "segredo-certo" }))).json();
+  const emails = () => amb.enviados.filter((e) => e.url.includes("resend")).map((e) => JSON.parse(e.init.body));
+  let r = await roda(); assert.equal(r.dia, "2026-10-03"); assert.equal(r.avisados, 0);   // dia comum: nada
+  amb.avanca(2 * 86400000); r = await roda();   // dia 5: o salário entra
+  assert.equal(r.dia, "2026-10-05"); assert.equal(r.avisados, 1);   // só u1: u2 desligou, u3 está apertado, u4 não tem meta
+  assert.deepEqual(emails().map((e) => [e.to[0], limpa(e.subject)]), [["u1@exemplo.com", "Meus Gastos: Meta Reserva de emergência: que tal separar R$ 300,00 hoje?"]]);
+  assert.match(amb.t.avisos_enviados[0].canais, /^meta: entrou; email: enviado/);
+  // u1 guarda 600 no dia 6: no dia 7 chegam os parabéns, com o marco de 50%
+  amb.t.lancamentos.push(guarda("n1", "u1", "2026-10-06", 600));
+  amb.avanca(86400000); r = await roda(); assert.equal(r.avisados, 0);   // dia 6: nada novo
+  amb.avanca(86400000); r = await roda(); assert.equal(r.avisados, 1); assert.equal(emails()[1].subject, "Meus Gastos: Você chegou a 50% da meta Reserva de emergência");
+  // guardar de novo na mesma semana, sem cruzar marco: não manda outro e-mail
+  amb.t.lancamentos.push(guarda("n2", "u1", "2026-10-08", 50));
+  amb.avanca(2 * 86400000); r = await roda(); assert.equal(r.dia, "2026-10-09"); assert.equal(r.avisados, 0);
+  // mais de uma semana depois, guardar volta a dar parabéns
+  amb.t.lancamentos.push(guarda("n3", "u1", "2026-10-15", 50));
+  amb.avanca(7 * 86400000); r = await roda(); assert.equal(r.dia, "2026-10-16"); assert.equal(r.avisados, 1); assert.equal(limpa(emails()[2].subject), "Meus Gastos: Você guardou R$ 50,00 para a meta Reserva de emergência");
+  // retirar não gera e-mail nenhum
+  amb.t.lancamentos.push(guarda("n4", "u1", "2026-10-20", 100, "Retirada"));
+  amb.avanca(5 * 86400000); r = await roda(); assert.equal(r.dia, "2026-10-21"); assert.equal(r.avisados, 0);
+  // fim do mês (dia 29): u1 já guardou a parte do mês, então não há lembrete de sobra. Só u3 é avisado, da conta atrasada, sem recado de meta (mês apertado).
+  amb.avanca(8 * 86400000); r = await roda(); assert.equal(r.dia, "2026-10-29"); assert.equal(r.avisados, 1);
+  assert.equal(emails()[3].to[0], "u3@exemplo.com"); assert.match(emails()[3].subject, /1 conta atrasada/); assert.ok(!/meta/i.test(emails()[3].subject + emails()[3].text));
+  // novembro: o lembrete do dia do salário volta para u1, uma vez
+  amb.avanca(7 * 86400000); r = await roda(); assert.equal(r.dia, "2026-11-05");
+  const novos = emails().slice(4).filter((e) => e.to[0] === "u1@exemplo.com");
+  assert.equal(novos.length, 1); assert.match(limpa(novos[0].subject), /que tal separar R\$ [\d.,]+ hoje\?$/);
 });

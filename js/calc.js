@@ -468,6 +468,147 @@ export function guardadoPorDestino(st, m) {
   return Object.entries(tot).map(([k, v]) => [k, round2(v)]).filter((x) => x[1] !== 0).sort((a, b) => b[1] - a[1]);
 }
 
+/* ===================== Metas do dinheiro guardado ===================== */
+/** Quanto entrou (menos o que saiu) em um destino, mês a mês: { "2026-09": 300, ... }. */
+function guardadoPorMes(st, destino) {
+  const out = {};
+  st.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === destino)
+    .forEach((x) => { const k = mKey(x.data); out[k] = round2((out[k] || 0) + sinalRes(x) * Number(x.valor)); });
+  return out;
+}
+
+/**
+ * Andamento de uma meta: quanto a pessoa quer juntar em um destino ("Reserva de emergência") e, se quiser, até quando.
+ * A conta é só valor e tempo: o que já tem, o que falta e em quantos meses. NÃO estima rendimento de investimento.
+ * - ritmo: média do que foi guardado por mês nos últimos meses fechados (até 3), contando do primeiro mês em que a pessoa
+ *   guardou ali. Sem mês fechado, vale o que foi guardado neste mês (mesesDeBase = 0).
+ * - previsao: mês em que a meta fica pronta se o ritmo continuar; null quando não há ritmo.
+ * - porMes: com data, quanto guardar por mês (deste mês até o da data) para chegar a tempo. Não muda ao longo do mês.
+ * - plano: o combinado da pessoa ("guardar R$ 300 todo mês, no dia 5"). É opcional e não é uma conta: ela pode pular o mês.
+ *   Quando existe, a previsão usa o valor do plano no lugar do ritmo.
+ * - ref / esteMes: a parte de um mês (o plano; sem plano, o porMes; sem data, o ritmo) e quanto dela ainda falta guardar neste mês.
+ * @param {{valor:number, ate?:string, plano?:{valor:number, dia?:number}, pulos?:string[]}} meta  ate é "AAAA-MM" ou vazio
+ */
+export function andamentoDaMeta(st, destino, meta, hoje) {
+  const alvo = round2(Number(meta?.valor) || 0);
+  if (!(alvo > 0)) return null;
+  const cur = mKey(hoje), mapa = guardadoPorMes(st, destino), meses = Object.keys(mapa).sort();
+  const guardado = round2(meses.filter((k) => k <= cur).reduce((t, k) => t + mapa[k], 0));
+  const falta = round2(Math.max(0, alvo - guardado)), concluida = falta === 0;
+  const pct = Math.max(0, Math.min(100, Math.floor((guardado / alvo) * 100)));
+  const marco = [100, 75, 50, 25].find((x) => pct >= x) || 0, noMes = mapa[cur] || 0;
+  const janela = [1, 2, 3].map((k) => addM(cur, -k)).filter((m) => meses.length && m >= meses[0]);
+  const ritmo = round2(Math.max(0, janela.length ? janela.reduce((t, m) => t + (mapa[m] || 0), 0) / janela.length : noMes));
+  const plano = round2(Math.max(0, Number(meta?.plano?.valor) || 0)), diaDoPlano = Math.min(31, Math.max(1, Math.round(Number(meta?.plano?.dia)) || 1));
+  const pulou = plano > 0 && (meta?.pulos || []).includes(cur), passo = plano > 0 ? plano : ritmo;
+  let previsao = null;
+  if (!concluida && passo > 0) {
+    const depois = round2(falta - (pulou ? 0 : Math.max(0, passo - Math.max(0, noMes))));   // o que ainda falta se este mês repetir o passo
+    const n = depois <= 0 ? 0 : Math.ceil(depois / passo);
+    previsao = n <= 600 ? addM(cur, n) : null;
+  }
+  const ate = /^\d{4}-\d{2}$/.test(meta?.ate || "") ? meta.ate : "";
+  let porMes = null, prazoPassou = false, noPrazo = null;
+  if (ate && !concluida) {
+    if (ate < cur) prazoPassou = true;
+    else {
+      const faltavaNoComeco = Math.max(0, alvo - (guardado - noMes));
+      porMes = Math.ceil((faltavaNoComeco / (mesesEntre(cur, ate) + 1)) * 100) / 100;
+      noPrazo = previsao !== null && previsao <= ate;
+    }
+  }
+  const ref = concluida ? null : plano > 0 ? plano : porMes ?? (ritmo > 0 ? ritmo : null);
+  const esteMes = ref === null ? null : round2(Math.min(falta, Math.max(0, ref - Math.max(0, noMes))));
+  return { destino, alvo, guardado, falta, pct, marco, concluida, noMes, ritmo, mesesDeBase: janela.length, plano, diaDoPlano, pulou, previsao, ate, porMes, prazoPassou, noPrazo, ref, esteMes };
+}
+
+/** Todas as metas com valor, com o andamento de cada uma: primeiro as que ainda faltam (as com data mais próxima na frente). */
+export function metasEmAndamento(st, metas, hoje) {
+  return Object.entries(metas || {}).map(([destino, m]) => andamentoDaMeta(st, destino, m, hoje)).filter(Boolean)
+    .sort((a, b) => Number(a.concluida) - Number(b.concluida) || (a.ate || "9999-99").localeCompare(b.ate || "9999-99") || b.pct - a.pct || a.destino.localeCompare(b.destino));
+}
+
+/**
+ * O que dá para fazer pela meta neste mês, olhando para o que deve sobrar.
+ * A sobra usada é a prevista para o fim do mês (entradas − custo previsto − o que já foi guardado): a conta mais cautelosa.
+ * tipo: "feita"    a meta está completa
+ *       "feito"    a parte deste mês já foi guardada
+ *       "pulou"    a pessoa escolheu pular o combinado deste mês
+ *       "apertado" não deve sobrar dinheiro neste mês (o app não cobra: só informa)
+ *       "guardar"  valor sugerido; completo = cobre a parte do mês
+ *       "livre"    deve sobrar, mas ainda não há ritmo nem data para sugerir um valor
+ * @param {ReturnType<typeof andamentoDaMeta>} a
+ * @param {ReturnType<typeof calcMes>} c  números do mês atual
+ */
+export function sugestaoDaMeta(a, c) {
+  if (!a || c.fase !== "atual") return null;
+  if (a.concluida) return { tipo: "feita" };
+  if (a.ref !== null && a.esteMes <= 0) return { tipo: "feito", guardado: a.noMes };
+  if (a.pulou) return { tipo: "pulou" };
+  const sobra = Math.floor(round2(c.rec - c.proj - c.res));
+  if (sobra < 10) return { tipo: "apertado" };
+  if (a.ref === null) return { tipo: "livre", sobra };
+  const completo = sobra >= a.esteMes;
+  return { tipo: "guardar", valor: completo ? a.esteMes : sobra, sobra, completo };
+}
+
+/**
+ * Lembrete da meta para o aviso diário. São poucos de propósito, só em dois momentos:
+ * - "entrou": hoje cai uma entrada fixa (ou ontem foi lançada uma entrada) e a parte deste mês ainda não foi guardada;
+ * - "sobra":  faltam 2 dias para o mês acabar e deve sobrar dinheiro.
+ * Mês apertado não gera lembrete, e meta sem ritmo nem data também não (não há valor para sugerir).
+ * Quem chama cuida de mandar cada tipo só uma vez por mês.
+ */
+export function lembreteDaMeta(st, metas, hoje) {
+  const c = calcMes(st, mKey(hoje), hoje), dia = Number(hoje.slice(8, 10));
+  const d = new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)) - 1, dia - 1)), ontem = d.toISOString().slice(0, 10);
+  const entrou = c.fr.some((o) => o.data === hoje) || st.lancamentos.some((x) => x.tipo === "Receita" && x.data === ontem);
+  const quando = entrou ? "entrou" : dia === c.n - 2 ? "sobra" : null;
+  if (!quando) return null;
+  for (const a of metasEmAndamento(st, metas, hoje)) {
+    const s = sugestaoDaMeta(a, c);
+    if (s?.tipo === "guardar") return { quando, meta: a, valor: s.valor, sobra: s.sobra, completo: s.completo };
+  }
+  return null;
+}
+
+/**
+ * Combinados do mês: metas com plano ("guardar R$ 300 todo mês") cuja parte deste mês ainda não foi guardada nem pulada.
+ * Não são contas: não entram no custo nem no total a pagar, e nunca ficam "atrasados".
+ * @returns {{destino:string, valor:number, data:string, chegou:boolean}[]}  chegou: o dia combinado já é hoje ou já passou
+ */
+export function combinadosDoMes(st, metas, hoje) {
+  const cur = mKey(hoje);
+  return metasEmAndamento(st, metas, hoje).filter((a) => a.plano > 0 && !a.concluida && !a.pulou && a.esteMes > 0)
+    .map((a) => { const data = diaNoMes(cur, a.diaDoPlano); return { destino: a.destino, valor: a.esteMes, data, chegou: data <= hoje }; })
+    .sort((x, y) => x.data.localeCompare(y.data) || x.destino.localeCompare(y.destino));
+}
+
+/**
+ * Parabéns do aviso diário: ontem a pessoa guardou dinheiro em um destino que tem meta.
+ * Diz quanto entrou, como a meta ficou e se ela cruzou um marco (25, 50, 75 ou 100%) com esse dinheiro.
+ * Com mais de uma meta, vale a que cruzou um marco; senão, a que recebeu mais.
+ * @returns {null | {destino:string, valor:number, guardado:number, alvo:number, falta:number, pct:number, marco:number, concluida:boolean}}
+ */
+export function parabensDaMeta(st, metas, hoje) {
+  const d = new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)) - 1, Number(hoje.slice(8, 10)) - 1)), ontem = d.toISOString().slice(0, 10);
+  const marcoDe = (v, alvo) => [100, 75, 50, 25].find((x) => Math.floor((v / alvo) * 100) >= x) || 0;
+  const out = [];
+  for (const [destino, meta] of Object.entries(metas || {})) {
+    const alvo = round2(Number(meta?.valor) || 0);
+    if (!(alvo > 0)) continue;
+    const l = st.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === destino && x.data <= ontem);
+    const valor = round2(l.filter((x) => x.data === ontem && x.forma !== RETIRADA).reduce((t, x) => t + Number(x.valor), 0));
+    if (!(valor > 0)) continue;
+    const guardado = round2(l.reduce((t, x) => t + sinalRes(x) * Number(x.valor), 0));
+    const antes = round2(guardado - l.filter((x) => x.data === ontem).reduce((t, x) => t + sinalRes(x) * Number(x.valor), 0));
+    if (guardado <= antes) continue;   // no mesmo dia retirou tanto quanto guardou: não há o que comemorar
+    const depois = marcoDe(guardado, alvo), falta = round2(Math.max(0, alvo - guardado));
+    out.push({ destino, valor, guardado, alvo, falta, pct: Math.max(0, Math.min(100, Math.floor((guardado / alvo) * 100))), marco: depois > marcoDe(antes, alvo) ? depois : 0, concluida: falta === 0 });
+  }
+  return out.sort((a, b) => b.marco - a.marco || b.valor - a.valor || a.destino.localeCompare(b.destino))[0] || null;
+}
+
 /** Diferença em dias entre duas datas "AAAA-MM-DD" (b − a). */
 export function diasEntre(a, b) {
   const t = (iso) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));

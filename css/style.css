@@ -190,6 +190,25 @@ button.teto{cursor:pointer} button.teto:hover{border-color:var(--series)}
 .teto.warn{border-color:rgba(242,185,75,.45)} .teto.bad{border-color:rgba(243,115,115,.55);background:linear-gradient(0deg,var(--bad-soft),var(--bad-soft)),var(--surface)}
 .teto.bad .num em{color:var(--bad)} .teto.warn .num em{color:var(--warn)}
 .teto.parado{margin:14px 0 4px;background:var(--surface-2);box-shadow:none}
+/* metas do dinheiro guardado */
+#metas{display:grid;gap:10px}
+#metas .link{justify-self:start;font-size:13px}
+.pill.info{background:var(--series-soft);color:var(--brand)}
+.mbar i{background:var(--series)} .teto.meta.ok .mbar i{background:var(--good)}
+.teto.meta .n.dica{color:var(--ink-2)}
+.teto.vazio .acoes{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.teto.vazio .acoes .btn.sm{padding:8px 14px;font-size:13px}
+.meta-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;margin-top:14px;padding-top:14px;border-top:1px dashed var(--grid)}
+.meta-form .larga{grid-column:1/-1} .meta-form .hint{margin:0;font-size:12.5px}
+.meta-form .meta-prev:empty{display:none} .meta-form .meta-prev{color:var(--ink);font-size:13.5px;background:var(--series-soft);border-radius:10px;padding:9px 12px}
+.meta-acoes{display:flex;gap:8px;flex-wrap:wrap}
+.meta-h{margin:18px 0 6px;font-size:13px;font-weight:700}
+.hint.meta-aviso{margin:0 0 10px;font-size:13.5px;color:var(--good);font-weight:600}
+#metaGuardar{margin-top:10px}
+.meta-h~.actions{margin-top:14px}
+.metas-lista li{grid-template-columns:minmax(0,1fr) auto auto;align-items:center}
+.venc .dupla{display:flex;gap:6px}
+.venc .btn.sm.leve{background:transparent;border-color:var(--border);color:var(--ink-2)} .venc .btn.sm.leve:hover{background:var(--surface-2);color:var(--ink)}
 .teto-form{display:grid;grid-template-columns:minmax(0,260px) auto;gap:8px 10px;align-items:end;justify-content:start}
 .teto-form .hint{grid-column:1/-1;margin:0;font-size:12.5px;max-width:70ch}
 .lim-cats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 14px}
@@ -477,6 +496,9 @@ input.in.cod::placeholder{color:var(--axis)}
   .regua-leg{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px} .regua-leg button{padding:5px 4px;font-size:12.5px;gap:6px;white-space:nowrap}
   .hstat .l{align-items:flex-start;line-height:1.25} .hstat .l .ic{margin-top:1px}
   .teto.vazio{grid-template-columns:auto minmax(0,1fr)} .teto.vazio .btn{grid-column:1/-1}
+  .teto.vazio .acoes{grid-column:1/-1;justify-content:stretch} .teto.vazio .acoes .btn{flex:1}
+  .meta-form{grid-template-columns:minmax(0,1fr)} .meta-acoes .btn{flex:1}
+  .metas-lista li{grid-template-columns:minmax(0,1fr) auto} .metas-lista li .btn{grid-column:1/-1;justify-self:start}
   .teto-form{grid-template-columns:minmax(0,1fr)} .teto-form .btn{width:100%}
   .lim-cats{grid-template-columns:minmax(0,1fr)} .lim-cats .lc{background:var(--surface);grid-template-columns:auto minmax(0,1fr) 112px} .lim-cats>button{width:100%}
   .lim-cats input.in{font-size:16px;padding:9px}
@@ -570,6 +592,7 @@ input.in.cod::placeholder{color:var(--axis)}
   .venc .quando{grid-column:2;grid-row:2;justify-self:start}
   .venc .btn{grid-column:3;grid-row:2;justify-self:end}
   .venc .btn.sm{min-height:34px;padding:4px 14px}
+  .venc .dupla{grid-column:2/-1;grid-row:3;justify-self:end} .venc li.comb .quando{grid-column:2;grid-row:2}
   .venc li.alerta{grid-template-columns:minmax(0,1fr)} .venc li.alerta .quando{grid-column:1;grid-row:auto}
   /* barra de navegação */
   .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);

@@ -2,7 +2,8 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
-  faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura } from "./calc.js";
+  faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
+  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
@@ -72,7 +73,7 @@ const S = {
   store: null, client: null, loaded: false,
   prefs: prefsPadrao(),
 };
-function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, saldoInicial: 0, boasVindas: false, avisos: { email: true }, limites: {}, semGasto: [], teto: 0, guia: { fechado: false, semRenda: false, semCartao: false } }; }
+function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, saldoInicial: 0, boasVindas: false, avisos: { email: true }, limites: {}, semGasto: [], teto: 0, metas: {}, guia: { fechado: false, semRenda: false, semCartao: false } }; }
 /** Categorias disponíveis para um tipo: as da pessoa, ou as padrão. */
 function cats(tipo) {
   return S.prefs.categorias?.[tipo]?.length ? S.prefs.categorias[tipo] : CATS_PADRAO[tipo];
@@ -324,6 +325,7 @@ async function startApp(store, quem) {
     S.data = await store.loadAll(); S.data.cartoes ||= [];
     const p = await store.loadPrefs().catch(() => null);
     S.prefs = { ...prefsPadrao(), ...(p || {}) };
+    if (!p && store.kind === "local") S.prefs.metas = { "Reserva de emergência": { valor: 3000, ate: "", plano: { valor: 300, dia: 28 } } };   // exemplo da demonstração
     if (!S.prefs.categorias) S.prefs.categorias = categoriasIniciais(S.data);
     S.loaded = true; render();
     if (S.recuperando) pedirNovaSenha();
@@ -387,16 +389,16 @@ function renderForm() {
   $("fFormaWrap").style.visibility = S.tipo === "Receita" ? "hidden" : "visible";
   const fd = $("fData"); if (!fd.value || mKey(fd.value) !== S.mes) fd.value = mKey(hoje()) === S.mes ? hoje() : S.mes + "-01";
   // Opção de já cadastrar como fixo (repete todo mês). Não vale para dinheiro guardado.
-  const fixo = S.tipo !== "Reserva" && $("fFixo").checked;
-  $("fFixoWrap").hidden = S.tipo === "Reserva";
-  $("fFixoLbl").textContent = S.tipo === "Receita" ? "Repete sempre (entrada fixa, como o salário)" : "Repete sempre (gasto fixo, como aluguel ou Uber de toda sexta)";
+  const fixo = S.tipo !== "Reserva" && $("fFixo").checked, guardando = S.tipo === "Reserva" && fs.value !== "Retirar";
+  $("fFixoWrap").hidden = S.tipo === "Reserva" && !guardando;
+  $("fFixoLbl").textContent = S.tipo === "Reserva" ? "Repetir todo mês (vira um combinado da meta: dá para pular quando precisar)" : S.tipo === "Receita" ? "Repete sempre (entrada fixa, como o salário)" : "Repete sempre (gasto fixo, como aluguel ou Uber de toda sexta)";
   // Quando é fixo, a pessoa escolhe se repete todo mês ou toda semana; o dia vem da data escolhida.
   const fr = $("fRepete"), dt = fd.value || hoje();
   fr.hidden = !fixo;
   fr.options[0].textContent = `Todo mês, no dia ${dt.slice(8, 10)}`;
   fr.options[1].textContent = `Toda semana, ${DIAS_SEMANA[diaDaSemana(dt)] === "sábado" || DIAS_SEMANA[diaDaSemana(dt)] === "domingo" ? "no" : "na"} ${DIAS_SEMANA[diaDaSemana(dt)]}`;
   $("fOk").textContent = fixo ? (S.tipo === "Receita" ? "Cadastrar entrada fixa" : "Cadastrar gasto fixo")
-    : S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : "Lançar";
+    : S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : guardando && $("fFixo").checked ? "Guardar e repetir todo mês" : "Lançar";
   // Compra no cartão: a pessoa escolhe o cartão e, se não for um gasto fixo, em quantas vezes.
   const cc = S.tipo === "Despesa" && fs.value === CARTAO, tem = cartoesAtivos().length > 0;
   $("fCartaoLinha").hidden = !cc; $("fCartaoWrap").hidden = !tem; $("fParcWrap").hidden = !tem || fixo; $("fCartaoDica").hidden = tem;
@@ -442,7 +444,7 @@ function renderKpis(c) {
     </div>` : ""}
     <button type="button" class="entenda" id="entenda">${ico("luz")}Entenda essa conta</button></div>`;
   $("entenda").onclick = () => entendaAConta(c);
-  renderGuia(); renderDia(c); renderTeto(c);
+  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
   $("kpis").innerHTML = `
    <div class="kpi reserva" data-det="guardado" role="button" tabindex="0">${cab("cofre", "Dinheiro guardado")}<span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
@@ -515,6 +517,157 @@ function renderTeto(c) {
   $("tetoIr").onclick = irParaLimites;
 }
 
+/* ---------- metas do dinheiro guardado ---------- */
+const mesAno = (m) => `${nomeMes(m)} de ${m.slice(0, 4)}`;
+const brlc = (v) => (Number.isInteger(v) ? brl0(v) : brl(v));
+const metasDe = () => (S.prefs.metas ||= {});
+/** Quando a meta fica pronta, em palavras. Só valor e meses: o app não estima rendimento. */
+function textoDaMeta(a) {
+  if (a.concluida) return `Meta completa: você juntou ${brl(a.guardado)}.`;
+  if (a.prazoPassou) return `A data que você escolheu já passou e ainda faltam ${brl(a.falta)}. Se quiser, escolha uma data nova.`;
+  if (a.ate) {
+    const base = `Para chegar em ${mesAno(a.ate)}: ${brl(a.porMes)} por mês.`;
+    const com = a.plano > 0 ? `Com os ${brlc(a.plano)} do seu combinado` : a.ritmo > 0 ? `No seu ritmo (${brl0(a.ritmo)} por mês)` : "";
+    return base + (!com ? "" : a.noPrazo ? ` ${com} dá tempo.` : a.previsao ? ` ${com}, ela fica pronta em ${mesAno(a.previsao)}.` : "");
+  }
+  if (a.previsao) return (a.plano > 0 ? `Guardando os ${brlc(a.plano)} por mês do seu combinado` : a.mesesDeBase ? `Guardando ${brl0(a.ritmo)} por mês, como você vem fazendo` : `Guardando todo mês os ${brl0(a.ritmo)} que guardou neste`) + `, a meta fica pronta em ${mesAno(a.previsao)}.`;
+  return a.guardado > 0 ? `Faltam ${brl(a.falta)}. Escolha uma data ou um valor por mês e o app diz quando a meta fica pronta.` : `Faltam ${brl(a.falta)}. Quando você começar a guardar, o app mostra em que mês a meta fica pronta.`;
+}
+/** O que dá para fazer neste mês, sem cobrança: em mês apertado o app só diz que tudo bem. */
+function textoDaSugestao(s) {
+  if (!s || s.tipo === "feita") return "";
+  if (s.tipo === "feito") return `A parte deste mês já foi guardada (${brl(s.guardado)}).`;
+  if (s.tipo === "pulou") return `Você pulou ${nomeMes(mKey(hoje()))}. Tudo bem: em ${nomeMes(addM(mKey(hoje()), 1))} o combinado volta.`;
+  if (s.tipo === "apertado") return "Este mês está apertado. Tudo bem não guardar agora: a meta continua aqui.";
+  if (s.tipo === "livre") return `Devem sobrar ${brl0(s.sobra)} neste mês. O que você guardar disso já faz a meta andar.`;
+  return s.completo ? `Devem sobrar ${brl0(s.sobra)} neste mês. Guardando ${brl(s.valor)}, a meta segue no ritmo.` : `Devem sobrar ${brl0(s.sobra)} neste mês. Guardando ${brl0(s.valor)}, a meta já anda um pouco.`;
+}
+/** Recado logo depois de guardar ou retirar dinheiro de um lugar que tem meta. */
+function recadoDaMeta(antes, depois, retirou) {
+  if (!depois) return "";
+  const d = depois.destino;
+  if (retirou) return depois.concluida ? ` A meta ${d} continua completa.`
+    : ` Que pena que precisou retirar. Imprevistos acontecem, e o dinheiro guardado existe para isso. A meta ${d} continua aqui: faltam ${brl(depois.falta)}. Você merece chegar lá, e a gente ajuda.`;
+  if (depois.concluida) return antes?.concluida ? ` A meta ${d} continua completa.` : ` Meta ${d} completa: ${brl(depois.alvo)} guardados. É a recompensa pelo seu esforço. Parabéns!`;
+  if (depois.marco > (antes?.marco || 0)) return ` Você chegou a ${depois.marco}% da meta ${d}. ${depois.marco === 50 ? "Metade do caminho" : depois.marco === 75 ? "Falta pouco" : "Bom começo"}: faltam ${brl(depois.falta)}.`;
+  return ` Meta ${d}: ${depois.pct}%, faltam ${brl(depois.falta)}. Mais um passo.`;
+}
+const cartaoDaMeta = (a, dica, cls = "") => `<span class="topo"><span class="l">${ico("cofre")}Meta: ${esc(a.destino)}</span><span class="pill ${a.concluida ? "good" : "info"}">${a.concluida ? "Completa" : a.pct + "%"}</span></span>
+  <span class="num"><b>${brl(a.guardado)}</b> de ${brl(a.alvo)}</span><span class="tbar mbar${cls}"><i style="width:${Math.max(0, a.pct)}%"></i></span>
+  <span class="n">${textoDaMeta(a)}</span>${dica ? `<span class="n dica">${dica}</span>` : ""}`;
+
+/** Quadro do início: as metas em andamento (até duas) ou, para quem não tem, o convite para criar uma. */
+function renderMetas(c) {
+  const host = $("metas"), some = () => { host.hidden = true; host.innerHTML = ""; };
+  if (!S.loaded || c.fase !== "atual") return some();
+  // No início ficam as metas que ainda faltam; a completa aparece só no mês em que foi completada.
+  const todas = metasEmAndamento(S.data, S.prefs.metas, hoje()), l = todas.filter((a) => !a.concluida || a.noMes > 0);
+  if (!l.length) {
+    // O convite vem depois dos primeiros passos e do limite: uma coisa de cada vez.
+    if (todas.length || guiaVisivel() || S.prefs.metaConvite === false || !(Number(S.prefs.teto) > 0 || reservaAcumulada(S.data, S.mes) > 0)) return some();
+    host.hidden = false;
+    host.innerHTML = `<div class="teto vazio meta"><span class="ava res">${ico("cofre")}</span><div class="tx"><b>Está guardando para alguma coisa?</b><span>Crie uma meta e o app mostra quanto falta e quando você chega lá.</span></div>
+      <div class="acoes"><button class="btn sm primary" type="button" id="metaCriar">Criar meta</button><button class="btn sm" type="button" id="metaDepois">Agora não</button></div></div>`;
+    $("metaCriar").onclick = () => detalheMeta(guardadoPorDestino(S.data, S.mes)[0]?.[0] || cats("Reserva")[0], true);
+    $("metaDepois").onclick = () => { S.prefs.metaConvite = false; salvaPrefs(); render(); toast("Combinado. Para criar depois, toque em Dinheiro guardado."); };
+    return;
+  }
+  const MAX = 2, vis = l.slice(0, MAX);
+  host.hidden = false;
+  host.innerHTML = vis.map((a, i) => `<button type="button" class="teto meta${a.concluida ? " ok" : ""}" data-meta="${i}" aria-label="Meta ${esc(a.destino)}: ${a.pct}% guardado. Abrir">${cartaoDaMeta(a, textoDaSugestao(sugestaoDaMeta(a, c)))}</button>`).join("")
+    + (todas.length > vis.length ? `<button class="link" type="button" id="metasTodas">Ver as ${todas.length} metas</button>` : "");
+  host.querySelectorAll("[data-meta]").forEach((b) => (b.onclick = () => detalheMeta(vis[Number(b.dataset.meta)].destino)));
+  if ($("metasTodas")) $("metasTodas").onclick = () => detalheKpi("guardado");
+}
+
+/** Leva para o formulário de lançar já em Guardar, no destino da meta e com o valor sugerido. */
+function guardarParaMeta(destino, valor = 0) {
+  $("dlg").close(); S.tipo = "Reserva"; S.mes = mKey(hoje()); render();
+  if (cats("Reserva").includes(destino)) $("fCat").value = destino;
+  $("fForma").value = "Guardar"; $("fData").value = hoje(); $("fFixo").checked = false;
+  $("fValor").value = valor > 0 ? valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "";
+  renderForm();
+  if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
+}
+
+/** Quadro de uma meta: como ela está, o que dá para fazer neste mês e o formulário para criar, mudar ou tirar. */
+function detalheMeta(destino, escolher = false, aviso = "") {
+  const hj = hoje(), cur = mKey(hj), meta = metasDe()[destino], a = andamentoDaMeta(S.data, destino, meta, hj);
+  const s = a ? sugestaoDaMeta(a, calcMes(S.data, cur, hj)) : null, dica = textoDaSugestao(s);
+  const aqui = (guardadoPorDestino(S.data, cur).find(([k]) => k === destino) || [0, 0])[1];
+  const dinheiro = (v) => (v > 0 ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "");
+  const destinos = [...new Set([...cats("Reserva"), ...Object.keys(metasDe()), destino])];
+  const meses = Array.from({ length: 120 }, (_, i) => addM(cur, i)); if (meta?.ate && !meses.includes(meta.ate)) meses.unshift(meta.ate);
+  const salario = S.data.fixos.find((f) => f.tipo === "Receita" && f.repete !== "semanal" && !f.ate), diaPadrao = Number(meta?.plano?.dia) || Number(salario?.dia) || Number(hj.slice(8, 10));
+  const avisar = S.prefs.avisos?.meta !== false, demo = S.store?.kind === "local";
+  openDlg(`<h3>${a ? "Meta" : "Nova meta"}: ${esc(destino)}</h3>
+    ${aviso ? `<p class="hint meta-aviso">${aviso}</p>` : ""}
+    ${a ? `<div class="teto meta parado${a.concluida ? " ok" : ""}">${cartaoDaMeta(a, dica)}</div>
+      ${a.concluida ? "" : `<button class="btn primary" type="button" id="metaGuardar">${s?.tipo === "guardar" ? `Guardar ${brl(s.valor)} agora` : "Guardar agora"}</button>`}`
+      : `<p class="hint" style="margin:0 0 4px;font-size:13px">${aqui > 0 ? `Você já tem <b>${brl(aqui)}</b> guardados aqui. Diga aonde quer chegar.` : "Diga quanto quer juntar. O que você guardar aqui passa a contar para a meta."}</p>`}
+    <form id="metaForm" class="meta-form" autocomplete="off">
+      ${escolher && !a ? `<label class="f larga">Onde fica esse dinheiro<select class="in" id="metaDest">${opts(destinos, destino)}</select></label>` : ""}
+      <label class="f">Quanto você quer juntar (R$)<input class="in money" id="metaValor" inputmode="decimal" placeholder="Ex.: 6.000,00" value="${esc(dinheiro(Number(meta?.valor) || 0))}"></label>
+      <label class="f">Até quando (opcional)<select class="in" id="metaAte"><option value="">Sem data</option>${meses.map((m) => `<option value="${m}"${m === meta?.ate ? " selected" : ""}>${mesAno(m)}</option>`).join("")}</select></label>
+      <label class="f">Guardar todo mês (opcional, R$)<input class="in money" id="metaPlano" inputmode="decimal" placeholder="Ex.: 300,00" value="${esc(dinheiro(Number(meta?.plano?.valor) || 0))}"></label>
+      <label class="f">No dia<select class="in" id="metaDia">${Array.from({ length: 31 }, (_, i) => `<option${i + 1 === diaPadrao ? " selected" : ""}>${i + 1}</option>`).join("")}</select></label>
+      <p class="hint larga">O valor por mês vira um <b>combinado</b>: ele aparece todo mês em Próximos vencimentos para você marcar <b>Guardei</b>. Não é uma conta: dá para pular o mês quando precisar, sem problema.</p>
+      <p class="hint larga meta-prev" id="metaPrev" aria-live="polite"></p>
+      <p class="hint larga" id="metaErro" role="alert" hidden></p>
+      <div class="meta-acoes larga"><button class="btn primary" type="submit">${a ? "Salvar mudanças" : "Criar meta"}</button>${meta ? `<button class="btn" type="button" id="metaTirar">Tirar a meta</button>` : ""}</div>
+    </form>
+    <h4 class="meta-h">Recados da meta</h4>
+    <label class="check"><input type="checkbox" id="metaAvisar" ${avisar ? "checked" : ""}> Receber lembretes e parabéns das metas</label>
+    <p class="hint" style="margin:6px 0 0">${demo ? "Na demonstração os recados não são enviados." : "Lembrete: no dia em que o seu dinheiro entra e dois dias antes de o mês acabar, só quando deve sobrar. Em mês apertado o app não manda nada. Parabéns: no dia seguinte a você guardar. Chegam por e-mail e notificação, como os avisos de contas."}</p>
+    <p class="hint" style="margin:10px 0 0">A conta é simples: o que falta dividido pelos meses. O app não calcula rendimento de investimento.</p>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  const lido = () => {
+    const v = parseMoney($("metaValor").value), pv = parseMoney($("metaPlano").value);
+    return { ...(meta || {}), valor: v > 0 ? round2(v) : 0, ate: $("metaAte").value, plano: pv > 0 ? { valor: round2(pv), dia: Number($("metaDia").value) } : undefined };
+  };
+  // Enquanto a pessoa digita, o app já mostra a conta com os valores novos.
+  const previa = () => {
+    const m = lido(), p = andamentoDaMeta(S.data, destino, m, hj), host = $("metaPrev");
+    if (!p) { host.textContent = ""; return; }
+    const usar = !p.concluida && !m.plano && p.porMes > 0 ? p.porMes : 0;
+    host.innerHTML = esc(textoDaMeta(p)) + (usar ? ` <button class="link" type="button" id="metaUsar">Combinar ${brl(usar)} por mês</button>` : "");
+    if (usar) $("metaUsar").onclick = () => { $("metaPlano").value = dinheiro(usar); previa(); };
+  };
+  ["metaValor", "metaPlano"].forEach((id) => $(id).addEventListener("input", previa)); $("metaAte").onchange = previa; $("metaDia").onchange = previa;
+  if (!a) previa();
+  if ($("metaDest")) $("metaDest").onchange = (e) => detalheMeta(e.target.value, true);
+  if ($("metaGuardar")) $("metaGuardar").onclick = () => guardarParaMeta(destino, s?.tipo === "guardar" ? s.valor : 0);
+  $("metaForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const m = lido(), erro = $("metaErro");
+    if (!(m.valor > 0)) { erro.hidden = false; erro.style.color = "var(--bad)"; erro.textContent = "Digite quanto você quer juntar, por exemplo 6.000,00."; $("metaValor").focus(); return; }
+    if (!m.plano) { delete m.plano; delete m.pulos; }
+    metasDe()[destino] = m; await salvaPrefs(); render();
+    detalheMeta(destino, false, a ? "Meta atualizada." : "Meta criada. Ela já aparece no início do app.");
+  });
+  if ($("metaTirar")) $("metaTirar").onclick = async () => {
+    delete metasDe()[destino]; await salvaPrefs(); $("dlg").close(); render();
+    toastOuFlash(`${destino} ficou sem meta. O dinheiro guardado continua igual.`);
+  };
+  $("metaAvisar").onchange = async (e) => { S.prefs.avisos = { ...S.prefs.avisos, meta: e.target.checked }; await salvaPrefs(); };
+}
+
+/** Combinado da meta marcado como feito: vira um lançamento de dinheiro guardado com a data de hoje. */
+async function guardarCombinado(x) {
+  const hj = hoje(), antes = andamentoDaMeta(S.data, x.destino, S.prefs.metas?.[x.destino], hj);
+  const row = { data: hj, descricao: "Combinado da meta", tipo: "Reserva", categoria: x.destino, forma: "", valor: x.valor, import_key: null };
+  let novos; if (!(await grava(async () => { novos = await S.store.addLancamentos([row]); }))) return render();
+  S.data.lancamentos.push(...novos); render();
+  toastOuFlash(`Guardado: ${brl(x.valor)} em ${x.destino}.` + recadoDaMeta(antes, andamentoDaMeta(S.data, x.destino, S.prefs.metas?.[x.destino], hj), false));
+}
+/** Pular o combinado deste mês: nada é cobrado e no mês seguinte ele volta. */
+async function pularCombinado(x) {
+  const cur = mKey(hoje()), m = metasDe()[x.destino]; if (!m) return;
+  m.pulos = [...new Set([...(m.pulos || []), cur])].sort().slice(-12);
+  await salvaPrefs(); render();
+  toastOuFlash(`Tudo bem: ${nomeMes(cur)} fica sem o combinado de ${x.destino}. Em ${nomeMes(addM(cur, 1))} ele volta.`);
+}
+
 /** Aba Limites: o limite do mês, os avisos e os limites por categoria. */
 function paneM(c) {
   const host = $("pane-m"), u = usoDoTeto(c, S.prefs.teto), cur = mKey(hoje()), catL = cats("Despesa"), gasto = new Map(catMap(c));
@@ -584,11 +737,24 @@ function renderVenc() {
   const alerta = !sd ? "" : `<li class="alerta ${sd.nivel}"><span class="quando ${sd.nivel}">${sd.tipo === "vermelho" ? "no vermelho" : "atenção"}</span>
       <span class="oque"><b>${sd.tipo === "vermelho" ? `Este mês já está ${brl(sd.valor)} no vermelho` : `No ritmo atual, o mês fecha ${brl(sd.valor)} no vermelho`}</b>
       <span>${sd.tipo === "vermelho" ? "As saídas do mês passaram das entradas." : "Ainda dá tempo de segurar os gastos do dia a dia."}</span></span></li>`;
+  // Combinados das metas: aparecem junto, mas não são contas. Não entram no total e nunca ficam atrasados.
+  const comb = S.loaded ? combinadosDoMes(S.data, S.prefs.metas, hoje()) : [];
+  const combHtml = comb.map((x, i) => `<li class="comb" data-u="ok">
+      <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
+      <span class="oque"><b>Guardar para ${esc(x.destino)}</b><span>Combinado da meta · você escolhe</span></span>
+      <span class="quando ok">${x.chegou ? "quando der" : "dia " + x.data.slice(8, 10)}</span>
+      <span class="valor">${brl(x.valor)}</span>
+      <span class="dupla"><button class="btn sm" type="button" data-cg="${i}">Guardei</button><button class="btn sm leve" type="button" data-cp="${i}">Pular</button></span></li>`).join("");
+  const ligaComb = () => {
+    host.querySelectorAll("[data-cg]").forEach((b) => (b.onclick = () => { b.disabled = true; guardarCombinado(comb[Number(b.dataset.cg)]); }));
+    host.querySelectorAll("[data-cp]").forEach((b) => (b.onclick = () => { b.disabled = true; pularCombinado(comb[Number(b.dataset.cp)]); }));
+  };
   if (!l.length) {
     const temDados = S.data.lancamentos.length || S.data.fixos.length || S.data.faturas.length;
-    host.innerHTML = cab("Contagem calculada pela data de hoje.") + `<ul class="venc">${alerta}<li class="vazio">${!S.loaded ? "Carregando…"
+    host.innerHTML = cab("Contagem calculada pela data de hoje.") + `<ul class="venc">${alerta}${combHtml}<li class="vazio">${!S.loaded ? "Carregando…"
       : temDados ? "Nenhuma conta para os próximos 30 dias. Tudo em dia."
       : "Nenhuma conta para os próximos 30 dias. Cadastre seus gastos fixos e as faturas do cartão para ser avisado aqui."}</li></ul>`;
+    ligaComb();
     return;
   }
   const cls = (d) => (d < 0 ? "bad" : d <= 7 ? "warn" : "ok");
@@ -600,10 +766,11 @@ function renderVenc() {
       <span class="oque"><b>${esc(x.titulo)}</b><span>${x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Gasto fixo · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Gasto fixo"}</span></span>
       <span class="quando ${cls(x.dias)}">${quandoVence(x.dias)}</span>
       <span class="valor">${brl(x.valor)}</span>
-      <button class="btn sm" type="button" data-pg="${i}">Já paguei</button></li>`).join("")}
+      <button class="btn sm" type="button" data-pg="${i}">Já paguei</button></li>`).join("")}${combHtml}
       ${l.length > MAX ? `<li class="vazio"><button class="link" type="button" id="vencMais">${S.vencTodas ? "Mostrar só as próximas" : `Ver todas as ${l.length} contas`}</button></li>` : ""}</ul>`;
   host.querySelectorAll("[data-pg]").forEach((b) => (b.onclick = () => { b.disabled = true; pagarConta(vis[Number(b.dataset.pg)]); }));
   if ($("vencMais")) $("vencMais").onclick = () => { S.vencTodas = !S.vencTodas; renderVenc(); };
+  ligaComb();
 }
 /** Marca uma conta (fatura ou ocorrência de fixo) como paga e atualiza a tela. */
 async function pagarConta(x) {
@@ -979,7 +1146,7 @@ $("fIrCartoes").onclick = () => { fecharLancar(); S.view = "listas"; S.tab = "c"
 
 /* ================= celular: navegação, lançamento em tela cheia e menu ================= */
 let toastT;
-function toast(t) { const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), 3500); }
+function toast(t) { const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), Math.min(10000, Math.max(3500, t.length * 60))); }
 function abrirLancar() {
   document.body.classList.add("lancando"); $("flash").textContent = "";
   try { if (!history.state?.lanc) history.pushState({ lanc: true }, ""); } catch { /* sem histórico: o ✕ fecha */ }   // o botão Voltar do celular fecha a tela
@@ -1029,6 +1196,7 @@ const AJUDA = [
   ["Qual a diferença entre gasto fixo e lançamento?", `<b>Fixo</b> é o que se repete: aluguel, internet, salário. Você cadastra uma vez e ele entra sozinho em todo mês (ou em toda semana). <b>Lançamento</b> é um gasto que aconteceu uma vez, como o mercado de hoje.`],
   ["Como marco uma conta como paga?", `No início, em <b>Próximos vencimentos</b>, toque em <b>Já paguei</b>. Também dá para marcar na aba <b>Fixos</b> e, para a fatura, na aba <b>Cartões</b>.`],
   ["Como registro o dinheiro que guardei?", `Em Lançar, escolha <b>Guardar</b> e diga onde o dinheiro ficou (reserva, investimento). Ele sai do que sobra no mês e passa a somar no quadro <b>Dinheiro guardado</b>. Para tirar, use o mesmo caminho e escolha Retirar.`],
+  ["Como funciona a meta do dinheiro guardado?", `Toque no quadro <b>Dinheiro guardado</b> e crie uma meta para o lugar onde você guarda: quanto quer juntar e, se quiser, até quando. O app mostra quanto falta, em que mês você chega lá e quanto dá para guardar com o que deve sobrar no mês. Se você combinar um valor por mês, ele aparece em Próximos vencimentos para marcar <b>Guardei</b> ou <b>Pular</b>: não é uma conta e pular não tem problema. A previsão usa só o valor guardado e os meses: o app não calcula rendimento.`],
   ["Como funciona o limite de gastos?", `Na aba <b>Limites</b> você diz quanto quer gastar no máximo por mês e, se quiser, por categoria. O app mostra quanto já foi usado e avisa ao chegar a 80%, ao passar do limite e se passar em mais de 20%.`],
   ["Errei um lançamento. Como corrijo?", `Na aba <b>Lançamentos</b>, toque no lançamento para mudar o valor, a data, a categoria ou para excluir.`],
   ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Ler foto ou PDF</b> para o app ler um comprovante, boleto, conta ou holerite. Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
@@ -1067,7 +1235,8 @@ $("formLanc").addEventListener("submit", async (e) => {
   }
   const row = { data, descricao: $("fDesc").value.trim(), tipo: S.tipo, categoria: $("fCat").value,
     forma: formaDe(S.tipo, $("fForma").value), valor: round2(v), import_key: null, ...cartaoDoForm() };
-  const nivelAntes = nivelDoTeto();
+  const nivelAntes = nivelDoTeto(), ehMeta = S.tipo === "Reserva", metaAntes = ehMeta ? andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()) : null;
+  const combinar = ehMeta && row.forma !== RETIRADA && $("fFixo").checked;
   $("fOk").disabled = true;
   let novos;
   const ok = await grava(async () => { novos = await S.store.addLancamentos([row]); });
@@ -1081,8 +1250,17 @@ $("formLanc").addEventListener("submit", async (e) => {
   // Aviso na hora, quando este lançamento fez o mês chegar perto do limite ou passar dele.
   const nivelDepois = nivelDoTeto();
   if (nivelDepois > nivelAntes) { const u = usoDoTeto(calcMes(S.data, mKey(hoje()), hoje()), S.prefs.teto), t = textoDoTeto(u); flash.style.color = "var(--warn)"; flash.textContent += ` ${t.titulo} do mês: ${u.pct}% usado. ${t.frase}`; }
+  if (ehMeta) flash.textContent += recadoDaMeta(metaAntes, andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()), row.forma === RETIRADA);
   $("fValor").value = ""; $("fDesc").value = ""; $("fParc").value = "1";
   aposLancar(flash.textContent);
+  if (combinar) {
+    // "Repetir todo mês" em Guardar: o valor vira o combinado da meta desse lugar. Sem meta ainda, o app pede o valor final.
+    const m = (metasDe()[row.categoria] ||= { valor: 0, ate: "" });
+    m.plano = { valor: row.valor, dia: Number(data.slice(8, 10)) }; $("fFixo").checked = false; salvaPrefs();
+    const frase = `Combinado salvo: guardar ${brl(row.valor)} todo dia ${data.slice(8, 10)} em ${row.categoria}.`;
+    if (!(m.valor > 0)) { render(); return detalheMeta(row.categoria, false, `${esc(frase)} Para o app mostrar o progresso, diga quanto você quer juntar.`); }
+    toastOuFlash(`${flash.textContent} ${frase}`);
+  }
   render();
 });
 $("prev").onclick = () => { S.mes = addM(S.mes, -1); render(); };
@@ -1320,11 +1498,15 @@ function detalheKpi(tipo) {
         html: `<ul class="itens">${iniVale ? li("Saldo inicial", sgn(iniVale)) : ""}${li("Saldo dos meses anteriores", sgn(ant))}${li(`Saldo de ${mes}`, sgn(c.saldo))}${li("Saldo acumulado", sgn(acum), true)}</ul>` }] : [])]);
   }
   if (tipo === "guardado") {
-    const dest = guardadoPorDestino(S.data, S.mes), mov = c.it.filter((x) => x.tipo === "Reserva").sort(porData);
-    return abreDetalhe("Dinheiro guardado", `Total até ${mes}: <b>${brl(reservaAcumulada(S.data, S.mes))}</b>`, [
-      { titulo: "Onde está", itens: dest.map(([k, v]) => ({ d: "", t: k, v: brl(v) })), vazio: "Nada guardado até aqui." },
+    const dest = guardadoPorDestino(S.data, S.mes), mov = c.it.filter((x) => x.tipo === "Reserva").sort(porData), tem = new Map(dest);
+    const nomes = [...new Set([...dest.map(([k]) => k), ...cats("Reserva"), ...Object.keys(S.prefs.metas || {})])];
+    abreDetalhe("Dinheiro guardado", `Total até ${mes}: <b>${brl(reservaAcumulada(S.data, S.mes))}</b>`, [
+      { titulo: "Onde está e as metas", html: `<ul class="itens metas-lista">${nomes.map((k, i) => { const a = andamentoDaMeta(S.data, k, S.prefs.metas?.[k], hj);
+          return `<li><span>${esc(k)}<span class="mini">${a ? (a.concluida ? `Meta de ${brl0(a.alvo)} completa` : `${a.pct}% da meta de ${brl0(a.alvo)}`) : "Sem meta"}</span></span><b>${brl(tem.get(k) || 0)}</b><button class="btn sm" type="button" data-meta-d="${i}">${a ? "Ver meta" : "Criar meta"}</button></li>`; }).join("")}</ul>` },
       { titulo: `Movimentos de ${mes}`, total: sgn(c.res), itens: mov.map((x) => ({ d: ddmm(x.data), t: x.descricao || x.categoria, s: x.categoria,
           tag: x.forma === RETIRADA ? "retirou" : "guardou", v: (x.forma === RETIRADA ? "− " : "+ ") + brl(x.valor), cls: "res" })), vazio: "Nada guardado nem retirado neste mês." }], ["Ver nos lançamentos", "l"]);
+    $("dlgBody").querySelectorAll("[data-meta-d]").forEach((b) => (b.onclick = () => detalheMeta(nomes[Number(b.dataset.metaD)])));
+    return;
   }
   if (tipo === "fixos") {
     const st = (f) => f.forma === CARTAO ? ["na fatura", ""] : c.pagosSet.has(f.id + "|" + f.chave) ? ["pago", "ok"] : f.data < hj ? ["atrasado", "bad"] : ["a pagar", ""];

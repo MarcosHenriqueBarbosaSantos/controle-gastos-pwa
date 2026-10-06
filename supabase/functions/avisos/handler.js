@@ -2,12 +2,14 @@
 //   GET                         → { chavePublica }: chave que o app usa para ligar as notificações no aparelho
 //   GET ?autoteste=1            → confere, no próprio servidor, as regras e a criptografia com respostas conhecidas
 //   POST + x-avisos-segredo     → rotina diária (chamada pelo agendamento do banco): avisa quem tem conta para vencer
-//                                 ou chegou perto, passou ou passou muito do limite de gastos do mês
+//                                 ou chegou perto, passou ou passou muito do limite de gastos do mês, e manda os recados
+//                                 da meta do dinheiro guardado (lembrete de guardar e parabéns por ter guardado)
 //   POST + login do usuário     → { teste: true }: manda um aviso de teste só para quem pediu
 // As dependências chegam por parâmetro para o mesmo código rodar nos testes (Node) e no Supabase (Deno).
-import { pendenciasParaAviso, calcMes, usoDoTeto, mKey, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias } from "./regras.js";
+import { pendenciasParaAviso, calcMes, usoDoTeto, mKey, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias, diasEntre,
+  lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta } from "./regras.js";
 import { enviaPush, gerarChaves, cifra, b64u, deB64u, cabecalhoVapid } from "./webpush.js";
-import { montaAviso, avisoDeTeste, avisoDoLimite } from "./mensagem.js";
+import { montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta } from "./mensagem.js";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
@@ -47,7 +49,16 @@ export async function autoteste() {
   const u = usoDoTeto(calcMes(st, "2026-10", "2026-10-03"), 2000);
   confere("limite do mês", [u.gasto, u.pct, u.nivel, u.resta], [2079, 104, 100, -79]);
   confere("aviso do limite", avisoDoLimite(u, "2026-10-03").titulo, "Você passou do limite de outubro");
-  return { ok: falhas.length === 0, conferidos: 9, falhas, assinatura: assinatura() };
+  // Meta do dinheiro guardado: 900 guardados em três meses, salário no dia 5. No dia do salário, lembra de separar os 300 do ritmo.
+  const res = (data, valor) => ({ id: data, data, descricao: "", tipo: "Reserva", categoria: "Reserva", forma: "", valor });
+  const sm = { pagos: [], cartoes: [], faturas: [], lancamentos: [res("2026-07-28", 300), res("2026-08-28", 300), res("2026-09-28", 300), res("2026-10-04", 600)],
+    fixos: [{ id: "r", tipo: "Receita", descricao: "Salário", categoria: "Salário", dia: 5, valor: 3900, forma: "", desde: "2026-01-01", ate: null }] };
+  const par = parabensDaMeta(sm, { Reserva: { valor: 3000 } }, "2026-10-05");
+  confere("parabéns da meta", [par.valor, par.guardado, par.pct, par.marco], [600, 1500, 50, 50]);
+  confere("texto dos parabéns", avisoDaMeta({ tipo: "parabens", ...par }, "2026-10-05").titulo, "Você chegou a 50% da meta Reserva");
+  const lem = lembreteDaMeta({ ...sm, lancamentos: sm.lancamentos.slice(0, 3) }, { Reserva: { valor: 3000 } }, "2026-10-05");
+  confere("lembrete da meta", [lem.quando, lem.valor, lem.completo, lem.meta.previsao], ["entrou", 300, true, "2027-04"]);
+  return { ok: falhas.length === 0, conferidos: 12, falhas, assinatura: assinatura() };
 }
 
 /**
@@ -55,7 +66,8 @@ export async function autoteste() {
  * Depois de publicar, o número do servidor tem de ser igual ao calculado aqui no projeto (ver tests/avisos.test.mjs).
  */
 export function assinatura() {
-  const texto = [criaHandler, autoteste, montaAviso, avisoDeTeste, avisoDoLimite, pendenciasParaAviso, calcMes, usoDoTeto, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias,
+  const texto = [criaHandler, autoteste, montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, pendenciasParaAviso, calcMes, usoDoTeto, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias,
+    lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta,
     enviaPush, gerarChaves, cifra, cabecalhoVapid].map(String).join("\n");
   let h = 5381; for (let i = 0; i < texto.length; i++) h = ((h << 5) + h + texto.charCodeAt(i)) | 0;
   return `${texto.length}-${(h >>> 0).toString(36)}`;
@@ -139,16 +151,33 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
     return u.nivel > jaAvisado ? u : null;
   }
 
+  /**
+   * Recado da meta do dinheiro guardado. São poucos de propósito:
+   * - parabéns no dia seguinte a guardar: no máximo um por semana, a não ser que a pessoa tenha cruzado um marco (25, 50, 75 ou 100%);
+   * - lembrete quando o dinheiro entra e quando deve sobrar no fim do mês: cada um uma vez por mês, e nunca em mês apertado.
+   * O que já foi enviado fica anotado em avisos_enviados (campo canais, "meta: ...").
+   */
+  async function metaParaAvisar(db, uid, st, dados, dia) {
+    if (dados?.avisos?.meta === false || !dados?.metas || !Object.keys(dados.metas).length) return null;
+    const { data } = await db.from("avisos_enviados").select("dia, canais").eq("user_id", uid);
+    const ja = (data || []).map((r) => ({ dia: String(r.dia).slice(0, 10), tag: (String(r.canais || "").match(/meta: (\w+)/) || [])[1] })).filter((x) => x.tag);
+    const par = parabensDaMeta(st, dados.metas, dia);
+    if (par && (par.marco || !ja.some((x) => x.tag === "parabens" && diasEntre(x.dia, dia) < 7))) return { tipo: "parabens", ...par };
+    const lem = lembreteDaMeta(st, dados.metas, dia);
+    if (lem && !ja.some((x) => x.tag === lem.quando && x.dia.slice(0, 7) === mKey(dia))) return { tipo: "lembrete", ...lem };
+    return null;
+  }
+
   async function avisaUsuario(db, user, k, { teste = false } = {}) {
     const dia = hoje(), st = await estado(db, user.id), p = pendenciasParaAviso(st, dia);
     const { data: pref } = await db.from("preferencias").select("dados").eq("user_id", user.id).maybeSingle();
-    const lim = await limiteParaAvisar(db, user.id, st, pref?.dados, dia);
-    if (!p.itens.length && !lim && !teste) return null;
-    const aviso = p.itens.length || lim ? montaAviso(p, urlApp(), lim && avisoDoLimite(lim, dia)) : avisoDeTeste(urlApp());
+    const lim = await limiteParaAvisar(db, user.id, st, pref?.dados, dia), rec = await metaParaAvisar(db, user.id, st, pref?.dados, dia);
+    if (!p.itens.length && !lim && !rec && !teste) return null;
+    const aviso = p.itens.length || lim || rec ? montaAviso(p, urlApp(), lim && avisoDoLimite(lim, dia), rec && avisoDaMeta(rec, dia)) : avisoDeTeste(urlApp());
     const querEmail = pref?.dados?.avisos?.email !== false;
     const email = user.email && querEmail ? await mandaEmail(user.email, aviso) : "desligado";
     const push = await mandaPush(db, user.id, aviso, k);
-    return { pendencias: p.itens.length, limite: lim ? lim.nivel : 0, email, push };
+    return { pendencias: p.itens.length, limite: lim ? lim.nivel : 0, meta: rec ? (rec.tipo === "parabens" ? "parabens" : rec.quando) : "", email, push };
   }
 
   async function rotinaDiaria(db) {
@@ -166,7 +195,7 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
           if (!r) continue;
           res.avisados++; if (r.email === "enviado") res.emails++; res.notificacoes += r.push.entregues;
           if (/^erro/.test(r.email)) res.erros.push(`e-mail: ${r.email}`);
-          await db.from("avisos_enviados").insert({ user_id: user.id, dia, canais: `${r.limite ? `limite: ${r.limite}; ` : ""}email: ${r.email}; push: ${r.push.entregues}/${r.push.aparelhos}`.slice(0, 300) });
+          await db.from("avisos_enviados").insert({ user_id: user.id, dia, canais: `${r.limite ? `limite: ${r.limite}; ` : ""}${r.meta ? `meta: ${r.meta}; ` : ""}email: ${r.email}; push: ${r.push.entregues}/${r.push.aparelhos}`.slice(0, 300) });
         } catch (e) { res.erros.push(String(e?.message || e).slice(0, 200)); }
       }
       if (data.users.length < 200) break;

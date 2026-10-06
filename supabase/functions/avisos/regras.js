@@ -1,5 +1,6 @@
 // GERADO a partir de js/calc.js por gera-regras.mjs. Não edite: mude o calc.js e gere de novo.
 export const RETIRADA = "Retirada";
+const sinalRes = (x) => (x.forma === RETIRADA ? -1 : 1);
 export const pad = (n) => String(n).padStart(2, "0");
 export const mKey = (iso) => iso.slice(0, 7);
 export function addM(m, k) {
@@ -132,6 +133,89 @@ export function projetaDiaADia(st, m, gastos, dias, n) {
   const mediana = vals.length ? vals[Math.floor((vals.length - 1) / 2)] : 0;
   const rotina = vals.filter((v) => v <= 5 * mediana).reduce((t, v) => t + v, 0);
   return total + (rotina / dias) * (n - dias);
+}
+function guardadoPorMes(st, destino) {
+  const out = {};
+  st.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === destino)
+    .forEach((x) => { const k = mKey(x.data); out[k] = round2((out[k] || 0) + sinalRes(x) * Number(x.valor)); });
+  return out;
+}
+export function andamentoDaMeta(st, destino, meta, hoje) {
+  const alvo = round2(Number(meta?.valor) || 0);
+  if (!(alvo > 0)) return null;
+  const cur = mKey(hoje), mapa = guardadoPorMes(st, destino), meses = Object.keys(mapa).sort();
+  const guardado = round2(meses.filter((k) => k <= cur).reduce((t, k) => t + mapa[k], 0));
+  const falta = round2(Math.max(0, alvo - guardado)), concluida = falta === 0;
+  const pct = Math.max(0, Math.min(100, Math.floor((guardado / alvo) * 100)));
+  const marco = [100, 75, 50, 25].find((x) => pct >= x) || 0, noMes = mapa[cur] || 0;
+  const janela = [1, 2, 3].map((k) => addM(cur, -k)).filter((m) => meses.length && m >= meses[0]);
+  const ritmo = round2(Math.max(0, janela.length ? janela.reduce((t, m) => t + (mapa[m] || 0), 0) / janela.length : noMes));
+  const plano = round2(Math.max(0, Number(meta?.plano?.valor) || 0)), diaDoPlano = Math.min(31, Math.max(1, Math.round(Number(meta?.plano?.dia)) || 1));
+  const pulou = plano > 0 && (meta?.pulos || []).includes(cur), passo = plano > 0 ? plano : ritmo;
+  let previsao = null;
+  if (!concluida && passo > 0) {
+    const depois = round2(falta - (pulou ? 0 : Math.max(0, passo - Math.max(0, noMes))));
+    const n = depois <= 0 ? 0 : Math.ceil(depois / passo);
+    previsao = n <= 600 ? addM(cur, n) : null;
+  }
+  const ate = /^\d{4}-\d{2}$/.test(meta?.ate || "") ? meta.ate : "";
+  let porMes = null, prazoPassou = false, noPrazo = null;
+  if (ate && !concluida) {
+    if (ate < cur) prazoPassou = true;
+    else {
+      const faltavaNoComeco = Math.max(0, alvo - (guardado - noMes));
+      porMes = Math.ceil((faltavaNoComeco / (mesesEntre(cur, ate) + 1)) * 100) / 100;
+      noPrazo = previsao !== null && previsao <= ate;
+    }
+  }
+  const ref = concluida ? null : plano > 0 ? plano : porMes ?? (ritmo > 0 ? ritmo : null);
+  const esteMes = ref === null ? null : round2(Math.min(falta, Math.max(0, ref - Math.max(0, noMes))));
+  return { destino, alvo, guardado, falta, pct, marco, concluida, noMes, ritmo, mesesDeBase: janela.length, plano, diaDoPlano, pulou, previsao, ate, porMes, prazoPassou, noPrazo, ref, esteMes };
+}
+export function metasEmAndamento(st, metas, hoje) {
+  return Object.entries(metas || {}).map(([destino, m]) => andamentoDaMeta(st, destino, m, hoje)).filter(Boolean)
+    .sort((a, b) => Number(a.concluida) - Number(b.concluida) || (a.ate || "9999-99").localeCompare(b.ate || "9999-99") || b.pct - a.pct || a.destino.localeCompare(b.destino));
+}
+export function sugestaoDaMeta(a, c) {
+  if (!a || c.fase !== "atual") return null;
+  if (a.concluida) return { tipo: "feita" };
+  if (a.ref !== null && a.esteMes <= 0) return { tipo: "feito", guardado: a.noMes };
+  if (a.pulou) return { tipo: "pulou" };
+  const sobra = Math.floor(round2(c.rec - c.proj - c.res));
+  if (sobra < 10) return { tipo: "apertado" };
+  if (a.ref === null) return { tipo: "livre", sobra };
+  const completo = sobra >= a.esteMes;
+  return { tipo: "guardar", valor: completo ? a.esteMes : sobra, sobra, completo };
+}
+export function lembreteDaMeta(st, metas, hoje) {
+  const c = calcMes(st, mKey(hoje), hoje), dia = Number(hoje.slice(8, 10));
+  const d = new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)) - 1, dia - 1)), ontem = d.toISOString().slice(0, 10);
+  const entrou = c.fr.some((o) => o.data === hoje) || st.lancamentos.some((x) => x.tipo === "Receita" && x.data === ontem);
+  const quando = entrou ? "entrou" : dia === c.n - 2 ? "sobra" : null;
+  if (!quando) return null;
+  for (const a of metasEmAndamento(st, metas, hoje)) {
+    const s = sugestaoDaMeta(a, c);
+    if (s?.tipo === "guardar") return { quando, meta: a, valor: s.valor, sobra: s.sobra, completo: s.completo };
+  }
+  return null;
+}
+export function parabensDaMeta(st, metas, hoje) {
+  const d = new Date(Date.UTC(Number(hoje.slice(0, 4)), Number(hoje.slice(5, 7)) - 1, Number(hoje.slice(8, 10)) - 1)), ontem = d.toISOString().slice(0, 10);
+  const marcoDe = (v, alvo) => [100, 75, 50, 25].find((x) => Math.floor((v / alvo) * 100) >= x) || 0;
+  const out = [];
+  for (const [destino, meta] of Object.entries(metas || {})) {
+    const alvo = round2(Number(meta?.valor) || 0);
+    if (!(alvo > 0)) continue;
+    const l = st.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === destino && x.data <= ontem);
+    const valor = round2(l.filter((x) => x.data === ontem && x.forma !== RETIRADA).reduce((t, x) => t + Number(x.valor), 0));
+    if (!(valor > 0)) continue;
+    const guardado = round2(l.reduce((t, x) => t + sinalRes(x) * Number(x.valor), 0));
+    const antes = round2(guardado - l.filter((x) => x.data === ontem).reduce((t, x) => t + sinalRes(x) * Number(x.valor), 0));
+    if (guardado <= antes) continue;
+    const depois = marcoDe(guardado, alvo), falta = round2(Math.max(0, alvo - guardado));
+    out.push({ destino, valor, guardado, alvo, falta, pct: Math.max(0, Math.min(100, Math.floor((guardado / alvo) * 100))), marco: depois > marcoDe(antes, alvo) ? depois : 0, concluida: falta === 0 });
+  }
+  return out.sort((a, b) => b.marco - a.marco || b.valor - a.valor || a.destino.localeCompare(b.destino))[0] || null;
 }
 export function diasEntre(a, b) {
   const t = (iso) => Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)));
