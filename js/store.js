@@ -11,6 +11,7 @@
 //   addFatura(row) / updateFatura(id, patch) / deleteFatura(id)
 //   addCartao(row) / updateCartao(id, patch) / deleteCartao(id)
 //   salvaPush(row) / removePush(endpoint) / token()   → só na conta de verdade (avisos no celular)
+//   comFila(conta, { chave })      → a mesma conta, funcionando sem internet (fila de lançamentos e cópia dos dados)
 //   meuAcesso()                    → { cobranca, ativo, ate, status, origem }: se o app está sendo cobrado e se esta conta tem acesso
 //   excluirConta()                 → só na conta de verdade: apaga a conta e tudo o que está nela (supabase/conta.sql)
 
@@ -81,6 +82,93 @@ export function createSupabaseStore(client) {
       try { localStorage.removeItem(chave); localStorage.removeItem("cg-email"); } catch { /* nada */ }
     },
   };
+}
+
+/* ===================== sem internet: fila de lançamentos e cópia dos dados ===================== */
+
+/** O erro é de falta de conexão (e não uma recusa do banco)? */
+export const semRede = (e) => (typeof navigator !== "undefined" && navigator.onLine === false) || /failed to fetch|networkerror|network request failed|load failed|fetch failed|err_internet|err_network/i.test(String(e?.message || e));
+
+/**
+ * Envolve a conta de verdade para o app funcionar sem internet:
+ *  - guarda neste aparelho uma cópia dos dados da última vez que carregou, para o app abrir sem conexão;
+ *  - lançamento feito sem conexão entra em uma fila neste aparelho e aparece como "aguardando internet";
+ *  - enviaFila() manda a fila quando a conexão volta. Cada lançamento já nasce com o id final,
+ *    então mandar duas vezes o mesmo (resposta que se perdeu no caminho) não duplica nada.
+ * Alterar ou excluir o que já está no servidor continua precisando de conexão.
+ * @param {object} base  a conta de verdade (createSupabaseStore)
+ * @param {{chave:string, guarda?:Storage, uuid?:()=>string, agora?:()=>string}} op  `chave` separa os dados de cada pessoa neste aparelho
+ */
+export function comFila(base, { chave, guarda = localStorage, uuid = () => crypto.randomUUID(), agora = () => new Date().toISOString() }) {
+  const K_FILA = chave + "-fila", K_COPIA = chave + "-copia";
+  const le = (k, padrao) => { try { return JSON.parse(guarda.getItem(k)) ?? padrao; } catch { return padrao; } };
+  const escreve = (k, v) => { try { guarda.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
+  let fila = le(K_FILA, []);
+  if (!Array.isArray(fila)) fila = [];
+  const pend = (r) => ({ ...r, pendente: true });
+  const limpo = ({ pendente, ...r }) => r;
+  const comFilaDentro = (d) => { const ja = new Set(d.lancamentos.map((x) => x.id)); return { ...d, lancamentos: [...d.lancamentos, ...fila.filter((x) => !ja.has(x.id)).map(pend)] }; };
+  const store = {
+    ...base,
+    semRede: false,
+    /** Quantos lançamentos estão esperando a conexão. */
+    naFila: () => fila.length,
+    /** Guarda a cópia dos dados para abrir sem internet. Os lançamentos da fila não entram: eles já estão guardados à parte. */
+    guardaCopia(d) { if (d?.lancamentos) escreve(K_COPIA, { ...d, lancamentos: d.lancamentos.filter((x) => !x.pendente) }); },
+    /** Apaga a cópia deste aparelho (ao sair da conta). A fila fica: ela é enviada na próxima vez que a pessoa entrar. */
+    esqueceCopia() { try { guarda.removeItem(K_COPIA); } catch { /* nada */ } },
+    async loadAll() {
+      try { const d = await base.loadAll(); store.semRede = false; store.guardaCopia(d); return comFilaDentro(d); }
+      catch (e) {
+        const copia = semRede(e) ? le(K_COPIA, null) : null;
+        if (!copia?.lancamentos) throw e;
+        store.semRede = true;
+        return { ...comFilaDentro(copia), daCopia: true };
+      }
+    },
+    async addLancamentos(rows) {
+      try { const out = await base.addLancamentos(rows.map(limpo)); store.semRede = false; return out; }
+      catch (e) {
+        // Só o lançamento comum espera na fila. Compra importada do extrato precisa da conexão para não repetir o que já entrou.
+        if (!semRede(e) || rows.some((r) => r.import_key)) throw e;
+        const novos = rows.map((r) => ({ ...limpo(r), id: uuid(), created_at: agora() }));
+        if (!escreve(K_FILA, [...fila, ...novos])) throw e;   // aparelho sem espaço: melhor avisar do que fingir que guardou
+        fila.push(...novos); store.semRede = true;
+        return novos.map(pend);
+      }
+    },
+    async updateLancamento(id, patch) {
+      const i = fila.findIndex((x) => x.id === id);
+      if (i < 0) return base.updateLancamento(id, patch);
+      fila[i] = { ...fila[i], ...limpo(patch) }; escreve(K_FILA, fila);
+    },
+    async deleteLancamento(id) {
+      const i = fila.findIndex((x) => x.id === id);
+      if (i < 0) return base.deleteLancamento(id);
+      fila.splice(i, 1); escreve(K_FILA, fila);
+    },
+    /**
+     * Manda para o servidor o que está na fila, um por vez, na ordem em que foi lançado.
+     * @returns {Promise<{enviados:object[], faltam:number, erro:string}>} `erro` vem preenchido quando o servidor recusou (não é falta de conexão)
+     */
+    async enviaFila() {
+      const enviados = []; let erro = "";
+      for (const r of [...fila]) {
+        try {
+          const [novo] = await base.addLancamentos([r]);
+          enviados.push(novo || r);
+        } catch (e) {
+          // "Já existe": a tentativa anterior chegou ao servidor e só a resposta se perdeu. Está entregue.
+          if (String(e?.code) === "23505" || /duplicate key/i.test(String(e?.message))) enviados.push(r);
+          else { if (!semRede(e)) erro = String(e?.message || e); break; }
+        }
+        fila = fila.filter((x) => x.id !== r.id); escreve(K_FILA, fila);
+      }
+      if (enviados.length) store.semRede = false;
+      return { enviados, faltam: fila.length, erro };
+    },
+  };
+  return store;
 }
 
 /** Guarda tudo no localStorage deste aparelho. Usado no modo demonstração. */

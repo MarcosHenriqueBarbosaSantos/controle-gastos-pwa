@@ -90,3 +90,33 @@ test("comparação por categoria: mês passado compara o mês inteiro; sem base 
   assert.equal(comparaCategorias(s, calcMes(s, "2026-08", "2026-10-06"), "2026-08"), null, "julho não tem gastos");
   assert.equal(comparaCategorias(s, calcMes(s, "2026-11", "2026-10-06"), "2026-11"), null);
 });
+
+/* ---------- calendário de vencimentos ---------- */
+import { calendarioDoMes } from "../js/calc.js";
+test("calendário: contas e entradas de cada dia, com a situação de cada conta", () => {
+  const fixos = [
+    { id: "f1", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 10, valor: 1100, forma: "Boleto", desde: "2026-01-01", ate: null },
+    { id: "f2", tipo: "Despesa", descricao: "Internet", categoria: "Contas da casa", dia: 3, valor: 99.9, forma: "Débito", desde: "2026-01-01", ate: null },
+    { id: "f3", tipo: "Despesa", descricao: "Luz", categoria: "Contas da casa", dia: 6, valor: 150, forma: "Boleto", desde: "2026-01-01", ate: null },
+    { id: "f4", tipo: "Despesa", descricao: "Celular", categoria: "Contas da casa", dia: 12, valor: 55, forma: "Cartão de crédito", desde: "2026-01-01", ate: null },
+    { id: "f5", tipo: "Despesa", descricao: "Seguro", categoria: "Outros", dia: 31, valor: 80, forma: "Boleto", desde: "2026-01-01", ate: null },
+    { id: "s1", tipo: "Receita", descricao: "Salário", categoria: "Salário", dia: 5, valor: 3900, forma: "", desde: "2026-01-01", ate: null },
+  ];
+  const s = { lancamentos: [], fixos, pagos: [{ fixo_id: "f2", mes: "2026-10-01" }], cartoes: [],
+    faturas: [{ id: "c1", cartao: "Roxo", vencimento: "2026-10-08", valor: 300.9, status: "Aberta" }, { id: "c2", cartao: "Azul", vencimento: "2026-10-03", valor: 50, status: "Paga" }] };
+  const cal = calendarioDoMes(s, "2026-10", "2026-10-06");
+  assert.equal(cal.dias.length, 31); assert.equal(cal.vazios, 4, "1º de outubro de 2026 é uma quinta-feira");
+  const d = (n) => cal.dias[n - 1];
+  assert.deepEqual(d(3).contas.map((x) => [x.titulo, x.situacao]), [["Fatura Azul", "paga"], ["Internet", "paga"]]); assert.equal(d(3).aPagar, 0); assert.equal(d(3).situacao, "paga");
+  assert.deepEqual([d(6).contas[0].titulo, d(6).situacao, d(6).aPagar], ["Luz", "hoje", 150]);
+  assert.deepEqual([d(8).contas[0].titulo, d(8).situacao], ["Fatura Roxo", "a vencer"]);
+  assert.deepEqual(d(5).entradas, [{ titulo: "Salário", valor: 3900 }]); assert.equal(d(5).contas.length, 0); assert.equal(d(5).situacao, "");
+  assert.equal(d(12).contas.length, 0, "fixo no cartão não aparece: ele é pago junto com a fatura");
+  assert.equal(d(31).contas[0].titulo, "Seguro");
+  assert.deepEqual([cal.aPagar, cal.pago, cal.entra], [1630.9, 149.9, 3900]);
+  // um dia depois, a luz que não foi marcada vira atrasada
+  assert.equal(calendarioDoMes(s, "2026-10", "2026-10-07").dias[5].situacao, "atrasada");
+  // mês curto: o dia 31 cai no último dia
+  assert.equal(calendarioDoMes(s, "2026-11", "2026-10-06").dias[29].contas[0].titulo, "Seguro");
+  assert.equal(calendarioDoMes({ lancamentos: [], fixos: [], pagos: [], faturas: [], cartoes: [] }, "2026-10", "2026-10-06").aPagar, 0);
+});

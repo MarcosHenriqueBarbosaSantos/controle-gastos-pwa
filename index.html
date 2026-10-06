@@ -115,7 +115,6 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
         <button class="today" id="hoje" type="button">Mês atual</button>
       </div>
     </div>
-    <button class="iconbtn so-mobile" id="btnMenu" type="button" aria-label="Menu"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     <div class="actions">
       <button class="btn" id="btnInstall" type="button" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8a1 1 0 0 1 1 1v16a1 1 0 0 1-1 1H8a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1zM12 8v7M9 12l3 3 3-3"/></svg>Instalar app</button>
       <button class="btn" id="btnExport" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 4v12M7 11l5 5 5-5M4 20h16"/></svg>Baixar relatório</button>
@@ -127,6 +126,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
   </div>
 
   <div class="banner" id="banner" role="status" hidden></div>
+  <div class="banner fila" id="filaBar" role="status" hidden></div>
 
   <section class="v-inicio" id="guia" aria-label="Primeiros passos" hidden></section>
   <section class="v-inicio" id="resumo" aria-label="Resumo do mês"></section>
@@ -158,7 +158,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
       <div class="cartao-linha" id="fCartaoLinha" hidden>
         <label class="f" id="fCartaoWrap">Cartão<select class="in" id="fCartao"></select></label>
         <label class="f" id="fParcWrap">Parcelas<select class="in" id="fParc"><option value="1">À vista</option></select></label>
-        <p class="hint" id="fCartaoDica" hidden>Para a fatura ser montada sozinha, <button class="link" type="button" id="fIrCartoes">cadastre seu cartão</button> na aba Cartões.</p>
+        <p class="hint" id="fCartaoDica" hidden>Para a fatura ser montada sozinha, <button class="link" type="button" id="fIrCartoes">cadastre seu cartão</button> em Cartões.</p>
       </div>
       <div class="fixo-linha" id="fFixoWrap">
         <label class="check"><input type="checkbox" id="fFixo"> <span id="fFixoLbl">Repete sempre (gasto fixo)</span></label>
@@ -171,7 +171,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
   <section class="kpis v-inicio" id="kpis" aria-label="Guardado, fixos e faturas"></section>
   <p class="insight v-inicio" id="insight"></p>
 
-  <div class="two v-inicio">
+  <div class="two v-inicio" id="graficos">
     <section class="panel">
       <h2>Custo acumulado no mês</h2>
       <p class="hint">Gastos do dia a dia, fixos e faturas de cartão, no dia em que são cobrados.</p>
@@ -193,13 +193,14 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
   </section>
 
   <section class="panel v-listas" id="listas">
+    <button class="voltar so-mobile" id="listaVoltar" type="button" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Mais</button>
     <h2 class="so-mobile" id="listaTitulo"></h2>
     <div class="tabs" role="tablist">
       <button role="tab" id="tab-l" aria-selected="true" data-tab="l">Lançamentos</button>
       <button role="tab" id="tab-f" aria-selected="false" data-tab="f">Gastos fixos</button>
       <button role="tab" id="tab-r" aria-selected="false" data-tab="r">Entradas fixas</button>
       <button role="tab" id="tab-c" aria-selected="false" data-tab="c">Cartões</button>
-      <button role="tab" id="tab-m" aria-selected="false" data-tab="m">Limites</button>
+      <button role="tab" id="tab-m" aria-selected="false" data-tab="m">Limites e metas</button>
     </div>
     <div id="pane-l" role="tabpanel"></div>
     <div id="pane-f" role="tabpanel" hidden></div>
@@ -208,7 +209,11 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
     <div id="pane-m" role="tabpanel" hidden></div>
   </section>
 
-  <p class="foot v-inicio">Compras no cartão de crédito não entram no custo na hora: a cobrança entra no mês em que a fatura vence. Com o cartão cadastrado na aba Cartões, a fatura é montada sozinha, incluindo as parcelas. O dinheiro que você guarda (reserva, investimentos e outros) sai do saldo do mês e fica somado no quadro Dinheiro guardado.</p>
+  <!-- Celular: a tela "Mais" reúne o que não cabe na barra de baixo (contas fixas, cartões, conta de casal, ajustes, ajuda) -->
+  <section class="v-mais" id="mais" aria-label="Mais"></section>
+
+  <p class="organiza v-inicio"><button class="btn sm" id="btnOrganizar" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 5v4M7 15v4"/></svg>Organizar o início</button></p>
+  <p class="foot v-inicio">Compras no cartão de crédito não entram no custo na hora: a cobrança entra no mês em que a fatura vence. Com o cartão cadastrado em Cartões, a fatura é montada sozinha, incluindo as parcelas. O dinheiro que você guarda (reserva, investimentos e outros) sai do saldo do mês e fica somado no quadro Dinheiro guardado.</p>
 </div>
 
 <!-- Navegação do celular -->
@@ -216,8 +221,8 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
   <button type="button" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>Início</button>
   <button type="button" data-nav="l"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Lançamentos</button>
   <button type="button" data-nav="mais" class="mais" aria-label="Lançar"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span></button>
-  <button type="button" data-nav="f"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9a8 8 0 0 1 14-4l2 2M20 4v4h-4M20 15a8 8 0 0 1-14 4l-2-2M4 20v-4h4"/></svg>Fixos</button>
-  <button type="button" data-nav="c"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2zM3 10h18M7 15h3"/></svg>Cartões</button>
+  <button type="button" data-nav="m"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01"/></svg>Planejar</button>
+  <button type="button" data-nav="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg>Mais</button>
 </nav>
 <div class="toast" id="toast" role="status" hidden></div>
 

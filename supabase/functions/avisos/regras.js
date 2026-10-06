@@ -2,6 +2,7 @@
 export const RETIRADA = "Retirada";
 const sinalRes = (x) => (x.forma === RETIRADA ? -1 : 1);
 export const pad = (n) => String(n).padStart(2, "0");
+export const toISO = (d) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 export const mKey = (iso) => iso.slice(0, 7);
 export function addM(m, k) {
   let [y, mo] = m.split("-").map(Number);
@@ -111,6 +112,12 @@ export function calcMes(st, m, hoje) {
   const frAReceber = fase === "futuro" ? frT : fase === "atual" ? sum(fr.filter((o) => Number(o.data.slice(8, 10)) > dias)) : 0;
   return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
     fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj };
+}
+export function sequenciaDeDias(st, hoje, semGasto = []) {
+  const dias = new Set([...st.lancamentos.map((x) => x.data), ...semGasto]), feitoHoje = dias.has(hoje);
+  const d = new Date(hoje + "T12:00:00"); if (!feitoHoje) d.setDate(d.getDate() - 1);
+  let n = 0; while (n < 3650 && dias.has(toISO(d))) { n++; d.setDate(d.getDate() - 1); }
+  return { dias: n, feitoHoje };
 }
 export function usoDoTeto(c, teto) {
   const t = round2(Number(teto) || 0);
@@ -242,4 +249,30 @@ export function pendenciasParaAviso(st, hoje, { antes = 3, atrasoMax = 30 } = {}
   const itens = proximosVencimentos(st, hoje, antes).filter((x) => x.dias >= -atrasoMax);
   return { itens, atrasadas: itens.filter((x) => x.dias < 0).length, hoje: itens.filter((x) => x.dias === 0).length,
     total: round2(itens.reduce((t, x) => t + x.valor, 0)) };
+}
+const maisDias = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return toISO(d); };
+export function resumoDaSemana(st, hoje, semGasto = []) {
+  const de = maisDias(hoje, -6), soma = (l) => round2(l.reduce((t, x) => t + Number(x.valor), 0));
+  const gastos = (a, b) => st.lancamentos.filter((x) => x.tipo === "Despesa" && x.data >= a && x.data <= b);
+  const l = gastos(de, hoje), total = soma(l), antes = soma(gastos(maisDias(hoje, -13), maisDias(hoje, -7)));
+  const porCat = new Map(); l.forEach((x) => porCat.set(x.categoria || "Outros", (porCat.get(x.categoria || "Outros") || 0) + Number(x.valor)));
+  const cats = [...porCat].map(([cat, valor]) => ({ cat, valor: round2(valor) })).sort((a, b) => b.valor - a.valor || a.cat.localeCompare(b.cat));
+  const m = [...l].sort((a, b) => Number(b.valor) - Number(a.valor) || b.data.localeCompare(a.data))[0];
+  const comAlgo = new Set([...st.lancamentos.map((x) => x.data), ...semGasto]);
+  const dias = Array.from({ length: 7 }, (_, i) => { const iso = maisDias(de, i); return { iso, total: soma(l.filter((x) => x.data === iso)) }; });
+  const itens = proximosVencimentos(st, hoje, 7).filter((x) => x.dias >= -30);
+  const c = calcMes(st, mKey(hoje), hoje);
+  return { de, ate: hoje, total, n: l.length, antes, dif: antes > 0 ? round2(total - antes) : null, cats: cats.slice(0, 3), outras: soma(cats.slice(3)),
+    maior: m ? { descricao: m.descricao || m.categoria, categoria: m.categoria, valor: Number(m.valor), data: m.data } : null,
+    dias, anotados: dias.filter((d) => comAlgo.has(d.iso)).length,
+    proximas: { itens, total: soma(itens), atrasadas: itens.filter((x) => x.dias < 0).length },
+    mes: { custo: c.custo, rec: c.rec, previsto: round2(c.rec - c.proj - c.res) } };
+}
+export function lembreteDoDia(st, hoje, { semGasto = [], anotouHoje = false, desde = "" } = {}) {
+  if (anotouHoje || semGasto.includes(hoje) || st.lancamentos.some((x) => x.data === hoje)) return null;
+  const ultima = [...st.lancamentos.map((x) => x.data), ...semGasto, desde].filter((d) => d && d <= hoje).sort().pop();
+  if (!ultima) return null;
+  const parado = diasEntre(ultima, hoje);
+  if (parado > 7) return null;
+  return { seq: sequenciaDeDias(st, hoje, semGasto).dias, parado };
 }

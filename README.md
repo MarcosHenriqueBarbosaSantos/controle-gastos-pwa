@@ -26,6 +26,9 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Importar o extrato do cartão**: o arquivo que o banco exporta (CSV, OFX ou Excel) vira uma lista de compras para conferir, com categoria sugerida, e todas são lançadas de uma vez no cartão. A fatura é montada pela soma delas. Parcelas, pagamento da fatura e estornos são reconhecidos, e importar de novo um arquivo mais recente só traz as compras que faltam. No OFX (o formato que o Nubank exporta), o app também aproveita o nome do banco, o período da fatura e o vencimento para escolher a fatura certa e, se ainda não houver cartão, cadastrá-lo com os dias que vêm no arquivo. Um arquivo de exemplo está em [`modelo/extrato-cartao-exemplo.csv`](modelo/extrato-cartao-exemplo.csv).
 - **Atalhos do dia a dia**: busca nos lançamentos de todos os meses (descrição, categoria, forma de pagamento ou valor); "Você costuma lançar", com os gastos mais repetidos a um toque; "Lançar de novo hoje" em qualquer lançamento; e a categoria que acompanha a descrição, usando a última escolha da pessoa para aquele nome.
 - **Últimos meses e comparação**: entradas e custo de até seis meses lado a lado, com a sobra de cada um; e, por categoria, quanto o dia a dia está acima ou abaixo do mês anterior (até o mesmo dia, no mês em andamento).
+- **Sem internet**: o app abre com a cópia dos dados da última vez, e o lançamento feito sem conexão fica em uma fila no aparelho, aparece como "aguardando internet" e é enviado quando a conexão volta. Cada lançamento já nasce com o id final, então reenviar não duplica ([`js/store.js`](js/store.js), `comFila`).
+- **Compartilhar para o app e atalhos** (Android, com o app instalado): no app do banco, Compartilhar → Meus Gastos abre o app já lendo o comprovante (`share_target` no manifesto, recebido pelo `sw.js`). Segurar o ícone mostra os atalhos Lançar gasto e Ler QR code.
+- **Calendário de vencimentos**: o mês inteiro, com o que vence e o que entra em cada dia, a situação de cada conta (paga, a vencer, atrasada) e o "Já paguei" no próprio dia.
 - **Leitor de QR code**: pela câmera, por uma imagem ou colando o "copia e cola", o app lê o Pix (valor e quem recebe, conferidos pelo CRC do código), o cupom fiscal (NFC-e e SAT) e o código de barras do boleto, e abre a mesma tela de conferência. O QR code do cupom de mercado é só um endereço da Fazenda: com a pessoa logada, a função [`supabase/functions/nota`](supabase/functions/nota) abre esse endereço e devolve valor, loja, data, forma de pagamento e itens. Ela só aceita endereço https de Fazenda estadual com chave de nota válida, não guarda nada e tem limite por pessoa. Testada com notas de São Paulo (o modelo "consulta resumida", usado também por outros estados).
 - **Leitor por foto ou PDF**: a pessoa fotografa ou escolhe o arquivo de um comprovante (Pix, boleto, cupom, maquininha), da fatura do cartão ou do holerite, e o app preenche valor, data e descrição. Da fatura, lê só o total e o vencimento; do holerite, o valor líquido, que entra como entrada. PDF com senha é aberto depois de a pessoa digitar a senha. A leitura é feita no próprio aparelho, sem enviar o arquivo para servidor, e nada é salvo antes de a pessoa conferir.
 - **Foto de papel**: antes de ler, o app iguala a luz (tira a sombra), apaga o que está em volta do documento, recorta no papel e endireita o texto. Se a primeira leitura não acha um valor firme e uma data, olha a foto de até três jeitos. Em boleto, guia e conta de consumo, o valor também sai da linha digitável ou do código de barras, conferido pelos dígitos verificadores; em recibo, do valor por extenso. Quando não tem certeza, diz isso e mostra os valores encontrados para tocar.
@@ -36,6 +39,7 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Limites de gasto**: um limite para o mês e limites por categoria, em uma aba própria. O app mostra quanto do limite já foi usado, avisa na hora ao lançar e manda e-mail e notificação quando a pessoa chega a 80% do limite, passa dele ou passa em mais de 20%.
 - **Próximos vencimentos logo abaixo**: as contas dos próximos 30 dias, com as atrasadas em destaque, contagem de dias ("em 10 dias vence a fatura, R$ 299"), botão "Já paguei" e alerta quando o mês está ou vai fechar no vermelho.
 - **Avisos por e-mail e notificação no celular**: de manhã, só nos dias em que há conta atrasada ou vencendo em até 3 dias. A pessoa liga e desliga em Ajustes.
+- **Resumo da semana e lembrete do fim do dia**: no domingo à noite, um resumo por e-mail e notificação com o total da semana, a comparação com a anterior, as categorias que mais pesaram e as contas dos próximos 7 dias (só para quem anotou algo nas últimas duas semanas). O lembrete das 20h é uma notificação opcional, enviada só nos dias sem nenhuma anotação, que para sozinha depois de uma semana sem uso.
 - **Acesso de quem comprou**: com a cobrança ligada, a conta sem compra (ou sem renovação) vê uma tela com o botão de comprar, "já comprei: conferir de novo", a demonstração e a opção de baixar os próprios dados. A regra vale no banco, não só na tela.
 - **Dinheiro guardado** separado do saldo, por destino (reserva de emergência, investimentos e outros), com guardar e retirar.
 - **Metas para o dinheiro guardado**: a pessoa diz quanto quer juntar em cada destino e, se quiser, até quando. O app mostra o progresso, em que mês ela chega lá e quanto dá para guardar com o que deve sobrar no mês. Um valor por mês vira um **combinado** que aparece em Próximos vencimentos com "Guardei" e "Pular": não é uma conta, não entra no custo e nunca fica atrasado. Ao guardar, o app comemora os marcos (25, 50, 75 e 100%); ao retirar, responde com apoio, sem cobrança. Por e-mail e notificação chegam os parabéns (no dia seguinte a guardar) e dois lembretes por mês, só quando deve sobrar dinheiro.
@@ -44,6 +48,8 @@ Eu controlava meus gastos numa planilha do Excel que só mostrava o saldo depois
 - **Gráficos**: custo acumulado no mês comparado às entradas, e custo por categoria.
 - **Detalhe com um toque**: tocar em um quadro (custo, entradas, saldo, guardado, fixos, faturas) ou em uma categoria do gráfico abre a lista do que compõe aquele valor.
 - **Relatório de gastos**: baixa uma planilha do Excel com os lançamentos, os fixos, as faturas e o resumo de cada mês do ano.
+- **Conta de casal**: duas pessoas, cada uma com o seu login, nas mesmas contas. Uma convida a outra pelo e-mail e o convite aparece dentro do app. As linhas continuam sendo de quem lançou (é assim que o app mostra "quem lançou" e é o que cada um leva ao sair); categorias, limites, metas e saldo passam a ser um só. A regra de acesso fica no banco (RLS com a função `meu_par()`), uma compra vale para os dois e os avisos consideram os registros dos dois.
+- **Navegação de celular como a dos apps do gênero**: barra de baixo com Início, Lançamentos, o "+" no centro, Planejar (limites e metas) e Mais; a tela Mais reúne, em grupos, contas fixas, cartões, calendário, conta de casal, relatório, ajustes e ajuda. Em "Organizar o início" a pessoa escolhe quais quadros aparecem.
 - **A conta nas mãos da pessoa**: em Ajustes, ela troca a senha (confirmando a atual) e exclui a própria conta com todos os registros, confirmando com a senha. A exclusão é feita por uma função no banco que só aceita quem acabou de entrar ([`supabase/conta.sql`](supabase/conta.sql)).
 - **Login por e-mail** com Supabase Auth e isolamento de dados por usuário, via Row Level Security no PostgreSQL.
 - **Entrada sem tropeço**: tela separada em Entrar e Criar conta, e-mail lembrado no aparelho, senha com botão de mostrar. Em Esqueci minha senha, a pessoa recebe um código (e um botão) por e-mail e cria a senha nova ali mesmo; o botão de reenviar conta um minuto, para não invalidar o e-mail anterior. A demonstração tem o botão Criar minha conta e não fica gravada: quem abre o app instalado cai em Entrar / Criar conta.
@@ -182,10 +188,10 @@ No Supabase, abra **Authentication → URL Configuration** e coloque o endereço
 
 ### 4. Avisos por e-mail e notificação (opcional)
 
-1. No Supabase, rode [`supabase/avisos.sql`](supabase/avisos.sql): cria as tabelas dos avisos e o agendamento diário (8h de Brasília).
+1. No Supabase, rode [`supabase/avisos.sql`](supabase/avisos.sql): cria as tabelas dos avisos e os dois agendamentos: o das 8h de Brasília (contas a vencer, limite e metas) e o das 20h (resumo da semana, no domingo, e lembrete para quem pediu e não anotou nada no dia).
 2. Publique a função [`supabase/functions/avisos`](supabase/functions/avisos) (`supabase functions deploy avisos --no-verify-jwt`). Para a leitura do cupom de mercado, publique também [`supabase/functions/nota`](supabase/functions/nota) (`supabase functions deploy nota --no-verify-jwt`): ela confere o login por conta própria.
 3. Para o e-mail, crie uma conta no [Resend](https://resend.com), verifique o seu domínio, gere uma chave de API e cadastre, em **Edge Functions → Secrets**, `RESEND_API_KEY` (a chave) e `AVISOS_REMETENTE` (por exemplo `avisos@seudominio.com.br`). O servidor também aceita o Brevo, com `BREVO_API_KEY`. Sem nenhuma chave, só as notificações funcionam.
-4. No app, em **Ajustes → Avisos de contas**, ligue a notificação no aparelho e use **Enviar um aviso de teste agora**.
+4. No app, em **Ajustes → Avisos de contas**, ligue a notificação no aparelho e use **Enviar um aviso de teste agora**. Em **Ajustes → Resumo e lembrete**, **Enviar o resumo desta semana agora** mostra como o resumo chega.
 
 A função confere a si mesma em `/functions/v1/avisos?autoteste=1` (regras e criptografia, sem tocar no banco). As chaves das notificações são criadas pelo servidor e ficam em uma tabela que só ele lê.
 
@@ -202,6 +208,12 @@ O plano é anual e vendido pela Hotmart. A Hotmart avisa o servidor a cada compr
 7. Para ligar a cobrança, rode os dois comandos que estão comentados no fim do `acesso.sql`: quem já tem conta ganha acesso de cortesia e a trava passa a valer.
 
 Regras do acesso: compra aprovada libera até a próxima cobrança mais 3 dias de folga (ou 1 ano, se a Hotmart não informar a data); cancelar a renovação mantém o acesso até o fim do período pago; reembolso ou contestação no cartão encerra o acesso. O registro dos avisos guarda só o evento, o e-mail e o código da compra.
+
+### 4c. Conta de casal (opcional)
+
+Rode [`supabase/casal.sql`](supabase/casal.sql) depois de `schema.sql`, `acesso.sql` e `conta.sql`. Ele cria a tabela `casais`, troca a regra de acesso das tabelas de dados para incluir a pessoa com quem as contas são divididas, faz o acesso de quem comprou valer para os dois e ensina a exclusão de conta a encerrar a conta de casal antes. Se rodar `acesso.sql` ou `conta.sql` de novo depois, rode `casal.sql` em seguida. O servidor de avisos já considera a conta de casal; sem essa tabela, ele segue funcionando como antes.
+
+Os testes do banco ficam em [`tests/sql`](tests/sql) e rodam em um PostgreSQL local (veja o cabeçalho de `tests/sql/base.sql`).
 
 ### 5. E-mails da conta (confirmação e nova senha)
 
@@ -250,6 +262,7 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 ├── supabase/schema.sql     tabelas, RLS e visão de resumo
 ├── supabase/avisos.sql     tabelas e agendamento dos avisos
 ├── supabase/conta.sql      função que exclui a conta de quem pediu, com todos os registros
+├── supabase/casal.sql      conta de casal: convite, regra de acesso para os dois e encerramento
 ├── supabase/functions/     servidor de avisos (e-mail e notificação)
 ├── supabase/emails/        modelos dos e-mails de confirmar cadastro e de nova senha
 ├── modelo/                 exemplo de extrato de cartão para testar a importação

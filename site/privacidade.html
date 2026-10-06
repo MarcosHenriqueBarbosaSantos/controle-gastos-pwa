@@ -68,15 +68,16 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <h2>Para que os dados são usados</h2>
   <ul>
     <li>Para o app funcionar: mostrar os seus lançamentos, calcular quanto sobra, montar faturas e previsões.</li>
-    <li>Para enviar os avisos que você ligou (contas a vencer e limite de gastos), por e-mail e por notificação.</li>
+    <li>Para enviar, por e-mail e por notificação, os avisos de contas a vencer e de limite de gastos, os recados da meta e o resumo da semana (no domingo à noite, com quanto você gastou, onde pesou mais e as contas dos próximos dias).</li>
+    <li>Para enviar o lembrete do fim do dia, uma notificação que só existe se você ligar e só aparece nos dias em que nada foi anotado.</li>
     <li>Para mensagens da conta: confirmação de e-mail e criação de nova senha.</li>
   </ul>
-  <p>Os dados não são vendidos, não são usados para anúncios e não são compartilhados para fins de marketing. A base legal é a execução do serviço que você pediu ao criar a conta e, nos avisos, o seu consentimento, que pode ser retirado a qualquer momento desligando o aviso no app.</p>
+  <p>Os dados não são vendidos, não são usados para anúncios e não são compartilhados para fins de marketing. A base legal é a execução do serviço que você pediu ao criar a conta: os avisos e o resumo da semana fazem parte dele e podem ser desligados a qualquer momento, um por um, em Ajustes. A notificação no aparelho e o lembrete do fim do dia dependem do seu consentimento, dado quando você os liga, e também podem ser desligados quando quiser.</p>
 
   <h2>Onde os dados ficam e quem ajuda a operar</h2>
   <ul>
     <li><b>Supabase</b> (banco de dados e login): os dados da conta e os seus registros ficam em servidores na região de São Paulo, no Brasil.</li>
-    <li><b>Resend</b> (envio de e-mails): recebe o seu e-mail e o conteúdo da mensagem enviada, como o nome e o valor das contas a vencer. O processamento pode ocorrer fora do Brasil.</li>
+    <li><b>Resend</b> (envio de e-mails): recebe o seu e-mail e o conteúdo da mensagem enviada, como o nome e o valor das contas a vencer e, no resumo da semana, os totais gastos, as categorias e a descrição do maior gasto. O processamento pode ocorrer fora do Brasil.</li>
     <li><b>Hotmart</b> (venda e pagamento): quem compra o app faz o pagamento na Hotmart, que trata os dados da compra conforme a política dela e nos informa apenas o que é preciso para liberar o acesso.</li>
     <li><b>Secretarias da Fazenda dos estados</b> (consulta de nota fiscal): quando você lê o QR code de um cupom, o nosso servidor consulta a página pública daquela nota. A Fazenda recebe esse pedido do nosso servidor, e não do seu aparelho.</li>
     <li><b>Serviço de notificações do navegador</b> (Google, Apple ou Mozilla, conforme o aparelho): entrega a notificação, que viaja criptografada.</li>
@@ -85,7 +86,7 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <p>Esses fornecedores tratam os dados apenas para prestar o serviço deles ao Meus Gastos.</p>
 
   <h2>O que fica no seu aparelho</h2>
-  <p>O app guarda no navegador a sua sessão (para você não precisar entrar toda vez), o e-mail usado para entrar, as suas preferências e, na demonstração, os dados de exemplo. <span data-sem-medicao>O Meus Gastos não usa cookies de publicidade nem ferramentas que acompanham a sua navegação.</span><span data-medicao hidden>O aplicativo não usa cookies de publicidade nem ferramentas que acompanham a sua navegação.</span></p>
+  <p>O app guarda no navegador a sua sessão (para você não precisar entrar toda vez), o e-mail usado para entrar, as suas preferências e, na demonstração, os dados de exemplo. Para funcionar sem internet, ele também guarda no aparelho uma cópia dos seus registros e a fila dos lançamentos que ainda não foram enviados; a cópia é apagada quando você sai da conta. Um comprovante compartilhado de outro aplicativo fica guardado no aparelho só até ser lido. <span data-sem-medicao>O Meus Gastos não usa cookies de publicidade nem ferramentas que acompanham a sua navegação.</span><span data-medicao hidden>O aplicativo não usa cookies de publicidade nem ferramentas que acompanham a sua navegação.</span></p>
 
   <h2 data-medicao hidden>Medição de anúncios no site</h2>
   <p data-medicao hidden>O site de apresentação (a página que explica e vende o app) pergunta se pode usar cookies de medição. <b>Só se você aceitar</b>, ele carrega <span data-med-quem>ferramentas de medição de anúncios</span>, que registram a visita e o toque no botão de compra, para sabermos qual anúncio funcionou. Essas ferramentas podem guardar cookies no seu navegador e tratam os dados conforme as políticas das empresas que as oferecem, inclusive fora do Brasil.</p>
@@ -103,7 +104,7 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <ul>
     <li><b>Ver e corrigir</b> os seus dados, dentro do próprio app.</li>
     <li><b>Levar os seus dados:</b> em Baixar relatório, o app gera uma planilha com tudo o que você registrou.</li>
-    <li><b>Desligar os avisos</b>, em Ajustes e na aba Limites.</li>
+    <li><b>Desligar os avisos, o resumo da semana e o lembrete</b>, em Ajustes e na aba Limites.</li>
     <li><b>Trocar a senha</b>, em Ajustes, na parte Sua conta.</li>
     <li><b>Apagar a conta e todos os dados:</b> em Ajustes, na parte Sua conta, toque em Excluir minha conta e confirme com a sua senha. A exclusão é feita na hora. Se não conseguir entrar, escreva para <a data-suporte href="mailto:meugastos@gmail.com">meugastos@gmail.com</a> a partir do e-mail da conta, e o pedido é atendido em até 15 dias.</li>
   </ul>

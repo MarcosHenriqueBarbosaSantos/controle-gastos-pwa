@@ -40,7 +40,7 @@ import * as regras from "../supabase/functions/avisos/regras.js";
 
 test("autoteste do servidor passa, e as regras do servidor dão o mesmo resultado que as do app", async () => {
   const { assinatura, ...auto } = await autoteste();
-  assert.deepEqual(auto, { ok: true, conferidos: 12, falhas: [] }); assert.match(assinatura, /^\d+-[a-z0-9]+$/);
+  assert.deepEqual(auto, { ok: true, conferidos: 15, falhas: [] }); assert.match(assinatura, /^\d+-[a-z0-9]+$/);
   const st = { lancamentos: [], pagos: [], cartoes: [], fixos: [{ id: "a", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 5, valor: 1000, forma: "Boleto", desde: "2026-08-01", ate: null }],
     faturas: [{ id: "n", cartao: "Loja", vencimento: "2026-10-03", valor: 120, status: "Aberta" }] };
   assert.deepEqual(regras.pendenciasParaAviso(st, "2026-10-03"), pendenciasParaAviso(st, "2026-10-03"));
@@ -72,9 +72,10 @@ function ambiente(tabelas, usuarios) {
     const run = () => { const casa = (r) => filtros.every(([k, v]) => r[k] === v);
       if (op === "select") { let l = t[nome].filter(casa); if (faixa) l = l.slice(faixa[0], faixa[1] + 1); return { data: um ? l[0] ?? null : l, error: null }; }
       if (op === "insert" || op === "upsert") { for (const r of [].concat(payload)) if (!(op === "upsert" && t[nome].some((x) => x.id === r.id))) t[nome].push({ ...r }); return { data: null, error: null }; }
+      if (op === "update") { t[nome].filter(casa).forEach((r) => Object.assign(r, payload)); return { data: null, error: null }; }
       if (op === "delete") { t[nome] = t[nome].filter((r) => !casa(r)); return { data: null, error: null }; } };
     const o = { select: () => o, eq: (k, v) => { filtros.push([k, v]); return o; }, range: (a, b) => { faixa = [a, b]; return o; }, maybeSingle: () => { um = true; return o; },
-      insert: (p) => { op = "insert"; payload = p; return o; }, upsert: (p) => { op = "upsert"; payload = p; return o; }, delete: () => { op = "delete"; return o; },
+      insert: (p) => { op = "insert"; payload = p; return o; }, update: (p) => { op = "update"; payload = p; return o; }, upsert: (p) => { op = "upsert"; payload = p; return o; }, delete: () => { op = "delete"; return o; },
       then: (ok, err) => Promise.resolve(run()).then(ok, err) }; return o; };
   const db = { from, rpc: async (_n, { s }) => ({ data: s === "segredo-certo" }),
     auth: { admin: { listUsers: async () => ({ data: { users: usuarios }, error: null }) }, getUser: async (tk) => ({ data: { user: usuarios.find((u) => u.token === tk) || null } }) } };
@@ -261,4 +262,130 @@ test("rotina diária: lembretes da meta uma vez por mês cada, parabéns no dia 
   amb.avanca(7 * 86400000); r = await roda(); assert.equal(r.dia, "2026-11-05");
   const novos = emails().slice(4).filter((e) => e.to[0] === "u1@exemplo.com");
   assert.equal(novos.length, 1); assert.match(limpa(novos[0].subject), /que tal separar R\$ [\d.,]+ hoje\?$/);
+});
+
+/* ---------- resumo da semana e lembrete do fim do dia ---------- */
+import { resumoDaSemana, lembreteDoDia } from "../js/calc.js";
+import { avisoDaSemana, avisoDaNoite } from "../supabase/functions/avisos/mensagem.js";
+
+const gastoEm = (id, uid, data, valor, categoria = "Mercado", extra = {}) => ({ id, user_id: uid, data, descricao: "Gasto " + id, tipo: "Despesa", categoria, forma: "Pix", valor, ...extra });
+
+test("resumo da semana: total, comparação, categorias, maior gasto, dias anotados, contas da semana seguinte e o mês", () => {
+  const st = { pagos: [], cartoes: [], faturas: [{ id: "n", cartao: "Loja", vencimento: "2026-10-02", valor: 120, status: "Aberta" }],
+    fixos: [fixo("i", "Internet", 6, 100), fixo("f", "Faculdade", 20, 349), { ...fixo("s", "Salário", 5, 3000), tipo: "Receita" }],
+    lancamentos: [gastoEm("a", "u", "2026-09-22", 80), gastoEm("b", "u", "2026-09-27", 20, "Lazer"),            // semana anterior: 100
+      gastoEm("c", "u", "2026-09-28", 50), gastoEm("d", "u", "2026-10-01", 120.5), gastoEm("e", "u", "2026-10-03", 30, "Transporte"),
+      gastoEm("f", "u", "2026-10-03", 12, "Lazer"), gastoEm("g", "u", "2026-10-04", 9.5, "Farmácia"), gastoEm("h", "u", "2026-10-04", 900, "Casa", { forma: "Cartão de crédito", parcelas: 3 }),
+      { id: "r", data: "2026-10-02", descricao: "Extra", tipo: "Receita", categoria: "Outros", forma: "", valor: 500 }, gastoEm("z", "u", "2026-10-05", 77)] };   // entrada e dia seguinte ficam de fora
+  const r = resumoDaSemana(st, "2026-10-04", ["2026-09-30"]);
+  assert.deepEqual([r.de, r.ate, r.total, r.n, r.antes, r.dif], ["2026-09-28", "2026-10-04", 1122, 6, 100, 1022]);
+  assert.deepEqual(r.cats, [{ cat: "Casa", valor: 900 }, { cat: "Mercado", valor: 170.5 }, { cat: "Transporte", valor: 30 }]); assert.equal(r.outras, 21.5);
+  assert.deepEqual(r.maior, { descricao: "Gasto h", categoria: "Casa", valor: 900, data: "2026-10-04" });
+  assert.deepEqual(r.dias.map((d) => d.total), [50, 0, 0, 120.5, 0, 42, 909.5]);
+  assert.equal(r.anotados, 6);   // seg, qua (marcado sem gasto), qui, sex (a entrada), sáb e dom
+  assert.deepEqual(r.proximas.itens.map((x) => [x.titulo, x.dias]), [["Fatura Loja", -2], ["Internet", 2]]); assert.equal(r.proximas.total, 220); assert.equal(r.proximas.atrasadas, 1);
+  assert.equal(r.mes.rec, 3500); assert.equal(typeof r.mes.previsto, "number");
+  assert.deepEqual(regras.resumoDaSemana(st, "2026-10-04", ["2026-09-30"]), r);   // o servidor faz a mesma conta
+  // semana sem nada e sem semana anterior
+  const v = resumoDaSemana({ ...st, lancamentos: [] }, "2026-10-04");
+  assert.deepEqual([v.total, v.n, v.dif, v.cats, v.maior, v.anotados], [0, 0, null, [], null, 0]);
+});
+
+test("texto do resumo da semana: notificação, e-mail e versão sem gastos", () => {
+  const st = { pagos: [], cartoes: [], faturas: [], fixos: [fixo("i", "Internet", 6, 100), { ...fixo("s", "Salário", 5, 3000), tipo: "Receita" }],
+    lancamentos: [gastoEm("a", "u", "2026-09-22", 300), gastoEm("c", "u", "2026-09-28", 50), gastoEm("d", "u", "2026-10-01", 120.5, "Mercado", { descricao: "Compra <do> mês" }), gastoEm("e", "u", "2026-10-03", 30, "Transporte")] };
+  const r = resumoDaSemana(st, "2026-10-04"), a = avisoDaSemana(r, "https://app.exemplo/", { teto: 2000, pct: 15 });
+  assert.equal(limpa(a.titulo), "Sua semana: R$ 200,50 em 3 gastos"); assert.equal(limpa(a.assunto), "Meus Gastos: sua semana, R$ 200,50 em 3 gastos");
+  assert.equal(limpa(a.corpo), "R$ 99,50 a menos que na semana anterior.\nOnde mais pesou: Mercado (R$ 170,50).\nNos próximos 7 dias: 1 conta, somando R$ 100,00.");
+  assert.equal(a.url, "https://app.exemplo/"); assert.equal(a.tag, "meus-gastos-semana");
+  const h = limpa(a.html);
+  for (const trecho of ["de 28/09 a 04/10", "R$ 200,50", "Onde foi o dinheiro", "<b>Mercado</b>", "85%", "Compra &lt;do&gt; mês", "qui 01/10", "Você anotou em 3 de 7 dias.", "Internet", "15% do limite de R$ 2.000,00", "Ajustes &rarr; Resumo e lembrete"]) assert.ok(h.includes(trecho), trecho);
+  assert.ok(!h.includes("<do>"));
+  assert.equal((h.match(/border-radius:4px 4px 0 0/g) || []).length, 7);   // uma barra por dia
+  const t = limpa(a.texto);
+  assert.ok(t.includes("- Mercado: R$ 170,50") && t.includes("- 06/10  Internet: R$ 100,00") && t.includes("Abrir o app: https://app.exemplo/") && t.includes("Seu custo de outubro, com as contas e faturas do mês, está em"));
+  // semana sem gasto: sem barras nem categorias, com o convite para lançar
+  const v = avisoDaSemana(resumoDaSemana({ ...st, lancamentos: [], fixos: [] }, "2026-10-04"), "https://app.exemplo/");
+  assert.equal(v.titulo, "Sua semana: nenhum gasto anotado"); assert.ok(v.html.includes("Nenhum gasto anotado nesta semana") && !v.html.includes("Onde foi o dinheiro") && v.html.includes("Nenhuma conta vence"));
+  assert.equal(v.corpo, "Se você gastou e não anotou, dá para lançar agora com a data certa.");
+});
+
+test("lembrete do fim do dia: só quando não anotou nada, e para sozinho depois de uma semana parado", () => {
+  const st = { pagos: [], cartoes: [], faturas: [], fixos: [], lancamentos: [gastoEm("a", "u", "2026-10-01", 10), gastoEm("b", "u", "2026-10-02", 10), gastoEm("c", "u", "2026-10-03", 10)] };
+  assert.deepEqual(lembreteDoDia(st, "2026-10-04"), { seq: 3, parado: 1 });
+  assert.equal(lembreteDoDia(st, "2026-10-03"), null);                                   // já anotou hoje
+  assert.equal(lembreteDoDia(st, "2026-10-04", { semGasto: ["2026-10-04"] }), null);      // marcou "não gastei nada"
+  assert.equal(lembreteDoDia(st, "2026-10-04", { anotouHoje: true }), null);              // lançou hoje um gasto de outro dia
+  assert.deepEqual(lembreteDoDia(st, "2026-10-10"), { seq: 0, parado: 7 });
+  assert.equal(lembreteDoDia(st, "2026-10-11"), null);                                   // 8 dias sem anotar: para de insistir
+  assert.deepEqual(lembreteDoDia(st, "2026-10-11", { semGasto: ["2026-10-09"] }), { seq: 0, parado: 2 });
+  const vazio = { ...st, lancamentos: [] };
+  assert.equal(lembreteDoDia(vazio, "2026-10-04"), null);                                 // sem nenhuma referência, não lembra
+  assert.deepEqual(lembreteDoDia(vazio, "2026-10-04", { desde: "2026-10-02" }), { seq: 0, parado: 2 });   // conta nova: conta a partir da criação
+  assert.deepEqual(regras.lembreteDoDia(st, "2026-10-04"), lembreteDoDia(st, "2026-10-04"));
+  const n = avisoDaNoite({ seq: 3 }, "https://app.exemplo/");
+  assert.equal(n.titulo, "Anotou os gastos de hoje?"); assert.ok(n.corpo.startsWith("Você está há 3 dias seguidos anotando.")); assert.equal(n.url, "https://app.exemplo/?atalho=lancar"); assert.equal(n.tag, "meus-gastos-dia");
+  assert.ok(avisoDaNoite({ seq: 1 }, "https://app.exemplo/").corpo.startsWith("Leva menos de um minuto."));
+});
+
+test("rotina da noite: resumo no domingo para quem está usando; lembrete nos outros dias só para quem pediu", async () => {
+  const sub = (id, uid) => ({ id, user_id: uid, endpoint: "https://fcm.googleapis.com/fcm/send/" + uid, p256dh: P256DH, auth: AUTH });
+  const amb = ambiente({
+    // u1 usa o app e tem notificação; u2 usa e desligou o resumo; u3 parou há um mês; u4 pediu o lembrete; u5 pediu o lembrete e não tem aparelho; u6 usa e desligou o e-mail
+    lancamentos: [gastoEm("a", "u1", "2026-10-01", 120.5), gastoEm("b", "u1", "2026-10-03", 30, "Transporte"), gastoEm("c", "u2", "2026-10-02", 10), gastoEm("d", "u3", "2026-09-01", 10),
+      gastoEm("e", "u4", "2026-10-03", 10), gastoEm("f", "u5", "2026-10-03", 10), gastoEm("g", "u6", "2026-10-03", 10)],
+    fixos: [fixo("a", "Aluguel", 5, 1000)],
+    preferencias: [{ user_id: "u2", dados: { avisos: { semana: false } } }, { user_id: "u4", dados: { avisos: { noite: true, semana: false } } },
+      { user_id: "u5", dados: { avisos: { noite: true, semana: false } } }, { user_id: "u6", dados: { avisos: { email: false } } }],
+    avisos_push: [sub(1, "u1"), sub(4, "u4")],
+  }, ["u1", "u2", "u3", "u4", "u5", "u6"].map((id) => ({ id, email: id + "@exemplo.com", token: "tok-" + id, created_at: "2026-09-01T12:00:00Z" })));
+  const noite = async () => (await amb.handler(pedido("POST", { "x-avisos-segredo": "segredo-certo" }, { rotina: "noite" }))).json();
+  const manha = async () => (await amb.handler(pedido("POST", { "x-avisos-segredo": "segredo-certo" }))).json();
+  const emails = () => amb.enviados.filter((e) => e.url.includes("resend")).map((e) => JSON.parse(e.init.body)), pushes = () => amb.enviados.filter((e) => e.url.includes("fcm")).map((e) => e.url.split("/").pop());
+  assert.equal((await amb.handler(pedido("POST", { "x-avisos-segredo": "errado" }, { rotina: "noite" }))).status, 401);
+
+  // Sábado, 20h: não é dia de resumo. Só o lembrete, e u4 e u5 já anotaram hoje.
+  amb.avanca(12 * 3600000);
+  assert.deepEqual(await noite(), { dia: "2026-10-03", rotina: "noite", usuarios: 6, resumos: 0, lembretes: 0, emails: 0, notificacoes: 0, erros: [] });
+
+  // Domingo de manhã: a rotina de contas roda normalmente (u1 tem o aluguel vencendo dia 5).
+  amb.avanca(12 * 3600000);
+  assert.equal((await manha()).avisados, 1);
+  // Domingo, 20h: resumo para u1 (e-mail e notificação) e u6 (sem e-mail); u2 desligou, u3 está parado; u4 recebe o lembrete; u5 não tem aparelho.
+  amb.avanca(12 * 3600000); const antes = { e: emails().length, p: pushes().length };
+  assert.deepEqual(await noite(), { dia: "2026-10-04", rotina: "noite", usuarios: 6, resumos: 2, lembretes: 1, emails: 1, notificacoes: 2, erros: [] });
+  const novos = emails().slice(antes.e);
+  assert.deepEqual(novos.map((e) => [e.to[0], limpa(e.subject)]), [["u1@exemplo.com", "Meus Gastos: sua semana, R$ 150,50 em 2 gastos"]]);
+  assert.ok(novos[0].html.includes("Aluguel") && novos[0].text.includes("Resumo da semana, de 28/09 a 04/10"));
+  assert.deepEqual(pushes().slice(antes.p), ["u1", "u4"]);
+  const linha = (uid, dia) => amb.t.avisos_enviados.find((x) => x.user_id === uid && x.dia === dia)?.canais;
+  assert.equal(linha("u1", "2026-10-04"), "email: enviado; push: 1/1; noite: semana, e-mail enviado, aparelhos 1/1");   // manhã e noite na mesma linha
+  assert.equal(linha("u4", "2026-10-04"), "noite: lembrete, aparelhos 1/1"); assert.equal(linha("u6", "2026-10-04"), "noite: semana, aparelhos 0/0");
+  // rodar de novo na mesma noite não repete nada; e a rotina da manhã também não
+  const n = amb.enviados.length;
+  assert.deepEqual([(await noite()).resumos, (await manha()).avisados, amb.enviados.length], [0, 0, n]);
+
+  // Segunda, 20h: u4 lançou hoje um gasto com data de sábado, então não recebe; depois de um dia sem nada, recebe.
+  amb.avanca(24 * 3600000); amb.t.lancamentos.push(gastoEm("h", "u4", "2026-10-03", 5, "Mercado", { created_at: "2026-10-05T18:00:00Z" }));
+  assert.deepEqual([(await noite()).lembretes, (await noite()).resumos], [0, 0]);
+  amb.avanca(24 * 3600000);
+  const r = await noite(); assert.deepEqual([r.dia, r.lembretes, r.notificacoes], ["2026-10-06", 1, 1]);
+  // quem marcou "não gastei nada" hoje também não é lembrado
+  amb.avanca(24 * 3600000); amb.t.preferencias.find((p) => p.user_id === "u4").dados.semGasto = ["2026-10-07"];
+  assert.equal((await noite()).lembretes, 0);
+  // a noite não atrapalha a manhã: na quinta de manhã, a rotina de contas roda de novo
+  amb.avanca(12 * 3600000); assert.equal((await manha()).dia, "2026-10-08");
+});
+
+test("ver como fica: o app pede o resumo da semana ou o lembrete na hora", async () => {
+  const amb = ambiente({ lancamentos: [gastoEm("a", "u1", "2026-10-01", 40)], avisos_push: [{ id: 1, user_id: "u1", endpoint: "https://fcm.googleapis.com/fcm/send/vivo", p256dh: P256DH, auth: AUTH }] },
+    [{ id: "u1", email: "ana@exemplo.com", token: "tok-ana" }]);
+  assert.equal((await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: "outro" }))).status, 400);
+  const s = await (await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: "semana" }))).json();
+  assert.deepEqual(s, { tipo: "semana", email: "enviado", push: { aparelhos: 1, entregues: 1 } });
+  assert.equal(limpa(JSON.parse(amb.enviados.find((e) => e.url.includes("resend")).init.body).subject), "Meus Gastos: sua semana, R$ 40,00 em 1 gasto");
+  assert.equal((await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: "noite" }))).status, 429);   // o mesmo limite de um por minuto
+  amb.avanca(61000);
+  assert.deepEqual(await (await amb.handler(pedido("POST", { authorization: "Bearer tok-ana" }, { teste: "noite" }))).json(), { tipo: "lembrete", email: "", push: { aparelhos: 1, entregues: 1 } });
+  assert.equal(amb.t.avisos_enviados.length, 0);   // o teste não conta como envio do dia
 });

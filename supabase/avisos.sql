@@ -61,3 +61,15 @@ select cron.schedule('meus-gastos-avisos', '0 11 * * *', $cron$
     body := '{}'::jsonb,
     timeout_milliseconds := 60000);
 $cron$);
+
+-- Agendamento da noite: todo dia às 23h00 UTC (20h00 em Brasília).
+-- No domingo manda o resumo da semana; nos outros dias, o lembrete para quem pediu e não anotou nada.
+select cron.unschedule(jobid) from cron.job where jobname = 'meus-gastos-noite';
+select cron.schedule('meus-gastos-noite', '0 23 * * *', $cron$
+  select net.http_post(
+    url := 'https://ebaivarzdqekmhnyrwxo.supabase.co/functions/v1/avisos',
+    headers := jsonb_build_object('Content-Type', 'application/json',
+      'x-avisos-segredo', (select decrypted_secret from vault.decrypted_secrets where name = 'avisos_segredo')),
+    body := '{"rotina":"noite"}'::jsonb,
+    timeout_milliseconds := 60000);
+$cron$);

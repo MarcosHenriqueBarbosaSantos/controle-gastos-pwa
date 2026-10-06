@@ -3,8 +3,9 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PL
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
-  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimosMeses, comparaCategorias } from "./calc.js";
-import { createSupabaseStore, createLocalStore, demoSeed } from "./store.js";
+  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimosMeses, comparaCategorias , calendarioDoMes,
+  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes } from "./calc.js";
+import { createSupabaseStore, createLocalStore, demoSeed, comFila } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
@@ -49,6 +50,9 @@ const ICO = {
   ajuda: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.8M12 17h.01",
   pessoa: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0",
   lupa: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.7-3.7",
+  agenda: "M5 6h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1zM4 10h16M8 4v4M16 4v4",
+  esq: "M15 6l-6 6 6 6", dir: "M9 6l6 6-6 6",
+  casal: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.2a3.5 3.5 0 0 1 0 6.6M17.5 14.2A6.5 6.5 0 0 1 21.5 20",
   sobe: "M12 19V6M6.5 11.5 12 6l5.5 5.5", desce: "M12 5v13M6.5 12.5 12 18l5.5-5.5",
   olho: "M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
 };
@@ -83,7 +87,7 @@ function cats(tipo) {
   return S.prefs.categorias?.[tipo]?.length ? S.prefs.categorias[tipo] : CATS_PADRAO[tipo];
 }
 const noCelular = () => matchMedia("(max-width:700px)").matches;
-const salvaPrefs = () => grava(() => S.store.savePrefs(S.prefs));
+const salvaPrefs = () => grava(async () => { await S.store.savePrefs(S.prefs); await salvaCasal(); });
 const MOVS = ["Guardar", "Retirar"];
 const formaDe = (tipo, v) => (tipo === "Despesa" ? v : tipo === "Reserva" && v === "Retirar" ? RETIRADA : "");
 const opts = (lista, atual) => lista.map((c) => `<option${c === atual ? " selected" : ""}>${esc(c)}</option>`).join("");
@@ -122,6 +126,9 @@ async function boot() {
   // Endereço terminado em #demo (usado no site de apresentação) abre direto a demonstração.
   if (location.hash === "#demo") { try { sessionStorage.setItem("cg-modo", "demo"); } catch { /* nada */ } history.replaceState(null, "", location.pathname); }
   try { localStorage.removeItem("cg-modo"); } catch { /* nada */ }   // versões antigas guardavam a demonstração para sempre
+  // Chegou por um atalho do ícone (segurar o ícone do app) ou por "Compartilhar" de outro aplicativo: o app abre e já vai direto ao ponto.
+  const chegada = new URLSearchParams(location.search);
+  if (chegada.has("compartilhado") || chegada.has("atalho")) { S.compartilhado = chegada.has("compartilhado"); S.atalho = chegada.get("atalho") || ""; history.replaceState(null, "", location.pathname + location.hash); }
   S.avisoDeEntrada = erroDoLink();   // aparece na tela de entrada, se a pessoa cair nela
   if (!configured()) {
     S.semLogin = true;
@@ -131,8 +138,16 @@ async function boot() {
     S.client.auth.onAuthStateChange((ev, session) => setTimeout(() => {
       // Chegou pelo link de "esqueci minha senha": entra no app e já pede a senha nova.
       if (ev === "PASSWORD_RECOVERY") { S.recuperando = true; if (S.store?.kind === "supabase" && S.loaded) pedirNovaSenha(); }
-      if (session) { if (S.store?.kind !== "supabase") startApp(createSupabaseStore(S.client), session.user.email); }
-      else if (ev === "INITIAL_SESSION" || S.store?.kind === "supabase") semSessao();
+      if (session) {
+        try { localStorage.setItem("cg-ultimo", JSON.stringify({ id: session.user.id, email: session.user.email })); } catch { /* nada */ }
+        if (S.store?.kind !== "supabase") startApp(comFila(createSupabaseStore(S.client), { chave: "cg-" + session.user.id }), session.user.email);
+        else if (ev === "TOKEN_REFRESHED" || ev === "SIGNED_IN") sincroniza();   // o login voltou a valer (a conexão voltou): manda o que ficou na fila
+        return;
+      }
+      // Sem conexão, o login guardado pode não ser confirmado. Quem já usou o app neste aparelho entra assim mesmo, com a cópia dos dados.
+      let ultimo = null; try { ultimo = JSON.parse(localStorage.getItem("cg-ultimo")); } catch { /* nada */ }
+      if (ev === "INITIAL_SESSION" && navigator.onLine === false && ultimo?.id) return void startApp(comFila(createSupabaseStore(S.client), { chave: "cg-" + ultimo.id }), ultimo.email);
+      if (ev === "INITIAL_SESSION" || S.store?.kind === "supabase") semSessao();
     }, 0));
     return;
   }
@@ -285,7 +300,14 @@ $("authCodigo").addEventListener("submit", (e) => {
 $("aDemo").addEventListener("click", startDemo);
 $("btnSair").addEventListener("click", async () => {
   // Desligar a notificação deste aparelho não pode segurar a saída: se o navegador não responder em 1,5 s, sai assim mesmo.
-  if (S.store?.kind === "supabase") { await Promise.race([desligarPush().catch(() => {}), new Promise((r) => setTimeout(r, 1500))]); await S.client.auth.signOut(); }
+  if (S.store?.kind === "supabase") {
+    // Ao sair, a cópia dos dados deixa este aparelho. A fila de lançamentos fica guardada e é enviada no próximo login da mesma conta.
+    S.store.esqueceCopia?.(); try { localStorage.removeItem("cg-ultimo"); } catch { /* nada */ }
+    const st = S.store;
+    await Promise.race([desligarPush().catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);
+    await Promise.race([S.client.auth.signOut().catch(() => {}), new Promise((r) => setTimeout(r, 4000))]);
+    if (S.store === st) semSessao();   // sem conexão o aviso de saída pode não chegar: volta para a entrada assim mesmo
+  }
   else { try { sessionStorage.removeItem("cg-modo"); } catch { /* nada */ } showAuth(); }
 });
 
@@ -322,7 +344,7 @@ function startDemo() {
 }
 
 async function startApp(store, quem) {
-  S.store = store; S.loaded = false; S.acesso = null;
+  S.store = store; S.loaded = false; S.acesso = null; S.casal = null; S.quem = "";
   $("auth").hidden = true; $("acesso").hidden = true; $("app").hidden = false; $("bnav").hidden = false;
   $("whoName").textContent = quem;
   $("btnSair").textContent = store.kind === "supabase" ? "Sair" : "Sair da demonstração";
@@ -331,16 +353,24 @@ async function startApp(store, quem) {
   S.prefs = prefsPadrao();
   try {
     S.data = await store.loadAll(); S.data.cartoes ||= [];
+    const daCopia = Boolean(S.data.daCopia);
     const p = await store.loadPrefs().catch(() => null);
     S.prefs = { ...prefsPadrao(), ...(p || {}) };
     if (!p && store.kind === "local") S.prefs.metas = { "Reserva de emergência": { valor: 3000, ate: "", plano: { valor: 300, dia: 28 } } };   // exemplo da demonstração
+    // Conta de casal: com quem as contas são divididas e o que é dos dois (categorias, limites, metas, saldo).
+    S.casal = store.casalMeu ? await store.casalMeu().catch((e) => { console.warn("Conta de casal não conferida:", e?.message); return null; }) : null;
+    aplicaCasal(); S.carregadoEm = Date.now();
     if (!S.prefs.categorias) S.prefs.categorias = categoriasIniciais(S.data);
     // Acesso de quem comprou. Se a conferência falhar (sem internet, banco sem essa parte), o app abre normalmente.
     S.acesso = await store.meuAcesso().catch((e) => { console.warn("Acesso não conferido:", e?.message); return null; });
     S.loaded = true;
     if (S.acesso?.cobranca && !S.acesso.ativo) { telaDeAcesso(); if (S.recuperando) pedirNovaSenha(); return; }
     render(); avisoDeRenovacao();
+    if (daCopia) showBanner("Sem internet: estes são os dados da última vez que você abriu o app. O que você lançar agora fica guardado neste aparelho e é enviado quando a conexão voltar.");
+    else sincroniza();
     if (S.recuperando) pedirNovaSenha();
+    else if (S.compartilhado || S.atalho) aoChegar();
+    else if (S.casal?.situacao === "convidado") conviteDeCasal();
     else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) { S.prefs.boasVindas = true; salvaPrefs(); guiaPasso("renda", true); }
     else conviteAvisos();
   } catch (e) { console.error(e); showBanner("Não foi possível carregar seus dados. Confira a internet e recarregue a página."); }
@@ -360,6 +390,8 @@ function telaDeAcesso(msg = "", kind = "") {
   $("acessoCard").innerHTML = `<div class="auth-marca"><img src="icons/icon-192.png" alt="" width="48" height="48" class="auth-logo"><div><h1>Meus Gastos</h1><p class="auth-sub">Veja quanto sobra no seu mês.</p></div></div>
     <h2>${titulo}</h2><p class="auth-txt">${texto}</p>
     ${LINK_COMPRA ? `<a class="btn primary" id="acComprar" href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">${venceu ? "Renovar" : "Comprar"} por ${esc(PRECO_PLANO)}</a>` : `<p class="auth-txt">As vendas ainda não estão abertas.</p>`}
+    ${S.casal?.situacao === "convidado" ? `<div class="ac-casal"><b>${esc(S.casal.outro)} convidou você para dividir as contas.</b><span>Aceitando, você usa o app com a assinatura dessa pessoa, sem precisar comprar.</span>
+      <button class="btn primary" type="button" id="acCasal">Ver o convite</button></div>` : ""}
     <button class="btn" type="button" id="acConferir">Já comprei: conferir de novo</button>
     <p class="auth-msg ${kind}" id="acMsg" role="status">${esc(msg)}</p>
     <p class="hint">O acesso vale para o e-mail usado na compra e costuma ser liberado em menos de um minuto depois do pagamento aprovado. Boleto pode levar até 3 dias úteis. Comprou com outro e-mail? Saia e entre com ele, ou fale com o suporte.</p>
@@ -375,6 +407,7 @@ function telaDeAcesso(msg = "", kind = "") {
     if (novo) S.acesso = novo;
     telaDeAcesso(novo ? `Ainda não encontramos a compra de ${email}. Se você acabou de pagar, espere um minuto e toque de novo.` : "Não foi possível conferir agora. Confira a internet e tente de novo.", "err");
   };
+  if ($("acCasal")) $("acCasal").onclick = () => abrirCasal();
   if ($("acBaixar")) $("acBaixar").onclick = () => $("btnExport").click();
   $("acDemo").onclick = startDemo;
   $("acSair").onclick = () => $("btnSair").click();
@@ -383,7 +416,7 @@ function telaDeAcesso(msg = "", kind = "") {
 /** Perto do fim do período: avisa quem cancelou a renovação (15 dias antes) e quem está com a renovação atrasada (3 dias). */
 function avisoDeRenovacao() {
   const a = S.acesso;
-  if (!a?.cobranca || !a.ativo || !a.ate || S.store?.kind !== "supabase") return;
+  if (!a?.cobranca || !a.ativo || !a.ate || a.pelo_par || S.store?.kind !== "supabase") return;   // quem usa a assinatura da outra pessoa não é quem renova
   const d = Math.round((Date.UTC(+a.ate.slice(0, 4), +a.ate.slice(5, 7) - 1, +a.ate.slice(8, 10)) - Date.UTC(+hoje().slice(0, 4), +hoje().slice(5, 7) - 1, +hoje().slice(8, 10))) / 86400000);
   if (d > (a.status === "cancelado" ? 15 : 3)) return;
   showBanner(`O seu acesso vale até ${ddmmaaaa(a.ate)}${a.status === "cancelado" ? ", porque a renovação foi cancelada" : ". A renovação ainda não foi confirmada"}. Os seus dados não se perdem.`,
@@ -403,7 +436,7 @@ async function grava(fn) {
   catch (e) {
     console.error(e);
     if (/column|schema cache|relation/i.test(String(e?.message))) return showBanner("O banco de dados precisa ser atualizado para esta versão. Rode o arquivo supabase/schema.sql no Supabase."), false;
-    showBanner(/fetch|network/i.test(String(e?.message)) ? "Sem internet: o último lançamento não foi salvo. Tente de novo quando a conexão voltar."
+    showBanner(/fetch|network|load failed/i.test(String(e?.message)) || navigator.onLine === false ? "Sem internet: essa mudança precisa de conexão e não foi salva. Lançamentos novos você pode fazer: eles ficam guardados e são enviados depois."
       : "Não foi possível salvar. Recarregue a página e tente de novo.");
     return false;
   }
@@ -420,17 +453,70 @@ function rotuloDia(iso) {
 /* ================= render ================= */
 function render() {
   const [y, mo] = S.mes.split("-").map(Number);
-  $("mesTitulo").textContent = `${MESES[mo - 1]} ${y}`;
-  $("hoje").hidden = S.mes === mKey(hoje());
+  if (S.view === "mais" && !noCelular()) S.view = "inicio";   // a tela Mais só existe no celular; no computador tudo fica à vista
+  const naMais = S.view === "mais", sub = S.view === "listas" && SUBS.includes(S.tab);
+  $("mesTitulo").textContent = naMais ? "Mais" : `${MESES[mo - 1]} ${y}`;
+  $("hoje").hidden = naMais || S.mes === mKey(hoje());
   const c = calcMes(S.data, S.mes, hoje());
   // No celular aparece uma tela por vez; a barra de baixo mostra onde a pessoa está.
+  // Barra de baixo: Início · Lançamentos · + · Planejar (limites e metas) · Mais. Contas fixas, entradas e cartões abrem a partir de Mais.
   const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab;
-  const onde = S.view === "inicio" ? "inicio" : S.tab === "r" ? "f" : S.tab;
+  const onde = S.view === "inicio" ? "inicio" : naMais || sub ? "menu" : S.tab;
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
-  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Limites de gasto" : "";
+  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
-  renderForm(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c);
+  $("listaVoltar").hidden = !sub;
+  renderForm(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
+  avisoDaFila();
 }
+
+/* ---------- chegar por atalho do ícone ou por "Compartilhar" de outro aplicativo ---------- */
+async function aoChegar() {
+  const atalho = S.atalho, compartilhado = S.compartilhado; S.atalho = ""; S.compartilhado = false;
+  if (!compartilhado) { if (atalho === "lancar" || atalho === "qr") abrirLancar(); if (atalho === "qr") abrirQr(); return; }
+  // O arquivo ou o texto compartilhado foi guardado pelo app neste aparelho (sw.js) e é apagado assim que é lido.
+  let arquivo = null, texto = "";
+  try {
+    const c = await caches.open("meus-gastos-compartilhado"), ra = await c.match("./__compartilhado/arquivo"), rt = await c.match("./__compartilhado/texto");
+    if (ra) { const b = await ra.blob(); arquivo = new File([b], decodeURIComponent(ra.headers.get("X-Nome") || "arquivo"), { type: b.type }); }
+    if (rt) texto = (await rt.text()).trim();
+    await c.delete("./__compartilhado/arquivo"); await c.delete("./__compartilhado/texto");
+  } catch { /* sem o que ler: abre o formulário */ }
+  if (arquivo) { S.lerComo = ""; return !ehPdf(arquivo) && !/^image\//.test(arquivo.type) && ehExtrato(arquivo) ? importarExtrato(arquivo) : processaLeitura(arquivo); }
+  if (texto) { if (!usaCodigo(texto)) { S.lerComo = ""; conferirLeitura(interpretaTexto(texto, hoje()), texto, ""); } return; }
+  abrirLancar(); toast("Não consegui abrir o que foi compartilhado. Tente de novo, ou lance por aqui.");
+}
+
+/* ---------- sem internet: lançamentos que esperam a conexão ---------- */
+function avisoDaFila(msg = "") {
+  const b = $("filaBar"), n = S.store?.naFila?.() || 0;
+  b.hidden = !n && !msg; if (b.hidden) return;
+  b.innerHTML = `<span>${esc(msg || (n === 1 ? "1 lançamento aguardando internet. Ele está guardado neste aparelho." : `${n} lançamentos aguardando internet. Eles estão guardados neste aparelho.`))}</span>${n ? `<button class="link" type="button" id="filaEnviar">Enviar agora</button>` : ""}`;
+  if ($("filaEnviar")) $("filaEnviar").onclick = () => sincroniza(true);
+}
+let enviando = false;
+/** Manda a fila para o servidor. `pedido` = a pessoa tocou em "Enviar agora" (aí o app conta o que aconteceu, mesmo que não dê). */
+async function sincroniza(pedido = false) {
+  const st = S.store;
+  if (enviando || !st?.enviaFila || !st.naFila()) return;
+  enviando = true;
+  let r; try { r = await st.enviaFila(); } catch (e) { r = { enviados: [], faltam: st.naFila(), erro: String(e?.message || e) }; } finally { enviando = false; }
+  if (S.store !== st) return;
+  if (r.enviados.length) {
+    const novos = new Map(r.enviados.map((x) => [x.id, x]));
+    S.data.lancamentos = S.data.lancamentos.map((x) => (novos.has(x.id) ? { ...x, ...novos.get(x.id), valor: Number(novos.get(x.id).valor), pendente: undefined } : x));
+    st.guardaCopia(S.data); render();
+    toast(r.enviados.length === 1 ? "1 lançamento enviado. Está tudo salvo na sua conta." : `${r.enviados.length} lançamentos enviados. Está tudo salvo na sua conta.`);
+  }
+  if (r.erro) avisoDaFila("Não foi possível enviar os lançamentos guardados. Eles continuam neste aparelho. Se o problema continuar, fale com o suporte.");
+  else if (pedido && r.faltam) avisoDaFila(r.faltam === 1 ? "Ainda sem conexão. O lançamento continua guardado neste aparelho." : "Ainda sem conexão. Os lançamentos continuam guardados neste aparelho.");
+}
+addEventListener("online", () => sincroniza());
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible") sincroniza();
+  else if (S.loaded && S.store?.guardaCopia && S.data) S.store.guardaCopia(S.data);   // ao sair da tela, atualiza a cópia que abre sem internet
+});
+addEventListener("pagehide", () => { if (S.loaded && S.store?.guardaCopia && S.data) S.store.guardaCopia(S.data); });
 
 /** Palpite de categoria para uma descrição: primeiro o que a pessoa já escolheu antes, depois as palavras conhecidas, depois a dica (se houver). */
 function palpiteCat(desc, tipo, dica = "") {
@@ -518,7 +604,7 @@ function renderKpis(c) {
    <div class="kpi faturas" data-det="faturas" role="button" tabindex="0">${cab("cartao", "Faturas do mês")}<span class="v">${brl(c.fatT)}</span>${c.fatAberta ? `<span class="pill warn">${brl0(c.fatAberta)} a pagar</span>` : (c.fat.length ? `<span class="pill good">✓ Pagas</span>` : `<span class="n">Nenhuma fatura neste mês</span>`)}${noCartao ? `<span class="n">${brl0(noCartao)} em compras no cartão neste mês</span>` : ""}</div>`;
   let t = "";
   if (!S.loaded) t = "Carregando seus lançamentos…";
-  else if (!c.it.length && !c.fx.length && !c.fr.length) t = "Nenhum lançamento neste mês ainda. Lance o primeiro gasto, ou traga o extrato do cartão pela aba Cartões.";
+  else if (!c.it.length && !c.fx.length && !c.fr.length) t = "Nenhum lançamento neste mês ainda. Lance o primeiro gasto, ou traga o extrato do cartão em Cartões.";
   else if (c.fase === "atual") {
     const med = c.dias ? c.vari / c.dias : 0;
     t = `Em ${c.dias} ${c.dias === 1 ? "dia" : "dias"} você gastou <strong>${brl(c.vari)}</strong> no dia a dia, média de ${brl(med)} por dia. Somando os fixos${c.fatT ? " e as faturas" : ""}, <strong>o mês deve fechar com custo de ${brl0(c.proj)}</strong>${c.rec ? ` e saldo de ${sgn(round2(c.rec - c.proj - c.res))}` : ""}.${c.comprasCartao ? ` As compras no cartão (${brl0(c.comprasCartao)}) entram no mês em que a fatura vencer.` : ""}`;
@@ -741,6 +827,7 @@ function paneM(c) {
   const antes = [1, 2, 3].map((k) => calcMes(S.data, addM(cur, -k), hoje())).filter((x) => x.custo > 0), media = antes.length ? round2(antes.reduce((t, x) => t + x.custo, 0) / antes.length) : 0;
   const atual = calcMes(S.data, cur, hoje()), dinheiro = (v) => (v > 0 ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "");
   const avisar = S.prefs.avisos?.limite !== false, t = u ? textoDoTeto(u) : null, lim = S.prefs.limites || {};
+  const metasP = S.loaded ? metasEmAndamento(S.data, S.prefs.metas, hoje()) : [];
   host.innerHTML = `<p class="hint" style="margin-top:0;font-size:13px">Diga quanto você quer gastar no máximo por mês. O app mostra quanto do limite já foi usado e avisa quando você estiver perto ou passar dele.</p>
     <form id="tetoForm" class="teto-form" autocomplete="off">
       <label class="f">Limite de gastos por mês (R$)<input class="in money" id="tetoValor" inputmode="decimal" placeholder="Ex.: 3.500,00" value="${esc(dinheiro(Number(S.prefs.teto) || 0))}"></label>
@@ -749,16 +836,22 @@ function paneM(c) {
     </form>
     ${u ? `<div class="teto ${t.cls} parado"><span class="topo"><span class="l">${ico("alvo")}Uso do limite em ${nomeMes(S.mes)}</span><span class="pill ${t.cls === "ok" ? "good" : t.cls}">${t.titulo}</span></span>
       <span class="num"><b>${brl(u.gasto)}</b> de ${brl(u.teto)} <em>${u.pct}%</em></span>${barraDoTeto(u)}<span class="n">${t.frase}</span></div>` : ""}
-    <h3 class="sub-h">Avisos do limite</h3>
-    <label class="check"><input type="checkbox" id="tetoAvisar" ${avisar ? "checked" : ""}> Avisar por e-mail e notificação no celular</label>
-    <p class="hint" style="margin:6px 0 0">Você recebe um aviso de manhã quando chegar a <b>80%</b> do limite, outro quando <b>passar</b> e outro se passar em <b>mais de 20%</b>. Cada um chega uma vez no mês. Dentro do app, o quadro do início muda de cor na hora.
-      ${S.store?.kind === "local" ? "Na demonstração os avisos por e-mail e notificação não são enviados." : `Os canais (e-mail e notificação neste aparelho) são os mesmos dos avisos de contas. <button class="link" type="button" id="tetoCanais">Ver em Ajustes</button>`}</p>
+    <h3 class="sub-h">Metas do dinheiro guardado</h3>
+    ${metasP.length ? `<div class="plano-metas">${metasP.map((a, i) => `<button type="button" class="teto meta${a.concluida ? " ok" : ""}" data-pmeta="${i}" aria-label="Meta ${esc(a.destino)}: ${a.pct}% guardado. Abrir">${cartaoDaMeta(a, "")}</button>`).join("")}</div>`
+      : `<p class="hint" style="margin-top:0">Diga quanto quer juntar e o app mostra quanto falta e em que mês você chega lá.</p>`}
+    <button class="btn" type="button" id="planoMeta">${metasP.length ? "Ver o dinheiro guardado" : "Criar uma meta"}</button>
     <h3 class="sub-h">Limite por categoria</h3>
     <p class="hint" style="margin-top:0">Opcional. Deixe em branco as categorias que não precisam de limite.</p>
     <form id="limCats" class="lim-cats" autocomplete="off">
       ${catL.map((k, i) => `<label class="lc">${ava(k)}<span class="tx"><b>${esc(k)}</b><span>${brl(gasto.get(k) || 0)} em ${nomeMes(S.mes)}</span></span><input class="in money" data-cat="${i}" inputmode="decimal" placeholder="Sem limite" aria-label="Limite para ${esc(k)}" value="${esc(dinheiro(Number(lim[k]) || 0))}"></label>`).join("")}
       <button class="btn" type="submit">Salvar limites das categorias</button>
-    </form>`;
+    </form>
+    <h3 class="sub-h">Avisos do limite</h3>
+    <label class="check"><input type="checkbox" id="tetoAvisar" ${avisar ? "checked" : ""}> Avisar por e-mail e notificação no celular</label>
+    <p class="hint" style="margin:6px 0 0">Você recebe um aviso de manhã quando chegar a <b>80%</b> do limite, outro quando <b>passar</b> e outro se passar em <b>mais de 20%</b>. Cada um chega uma vez no mês. Dentro do app, o quadro do início muda de cor na hora.
+      ${S.store?.kind === "local" ? "Na demonstração os avisos por e-mail e notificação não são enviados." : `Os canais (e-mail e notificação neste aparelho) são os mesmos dos avisos de contas. <button class="link" type="button" id="tetoCanais">Ver em Ajustes</button>`}</p>`;
+  host.querySelectorAll("[data-pmeta]").forEach((b) => (b.onclick = () => detalheMeta(metasP[Number(b.dataset.pmeta)].destino)));
+  $("planoMeta").onclick = () => (metasP.length ? detalheKpi("guardado") : detalheMeta(guardadoPorDestino(S.data, S.mes)[0]?.[0] || cats("Reserva")[0], true));
   if ($("tetoUsar")) $("tetoUsar").onclick = () => { $("tetoValor").value = dinheiro(Math.ceil(media / 50) * 50); $("tetoValor").focus(); };
   if ($("tetoCanais")) $("tetoCanais").onclick = () => $("btnAjustes").click();
   $("tetoForm").addEventListener("submit", async (e) => {
@@ -797,7 +890,7 @@ function entendaAConta(c) {
 function renderVenc() {
   const host = $("venc"), l = S.loaded ? proximosVencimentos(S.data, hoje(), 30) : [];
   const total = round2(l.reduce((t, x) => t + x.valor, 0));
-  const cab = (dir) => `<div class="sec-head"><h2>Próximos vencimentos</h2><span>${dir}</span></div>`;
+  const cab = (dir) => `<div class="sec-head"><h2>Próximos vencimentos</h2><span>${dir}</span></div>${S.loaded ? `<button class="link venc-cal" type="button" id="vencCal">${ico("agenda")}Ver no calendário</button>` : ""}`;
   // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
   const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
   const alerta = !sd ? "" : `<li class="alerta ${sd.nivel}"><span class="quando ${sd.nivel}">${sd.tipo === "vermelho" ? "no vermelho" : "atenção"}</span>
@@ -838,6 +931,31 @@ function renderVenc() {
   if ($("vencMais")) $("vencMais").onclick = () => { S.vencTodas = !S.vencTodas; renderVenc(); };
   ligaComb();
 }
+/* ---------- calendário de vencimentos: o mês inteiro, com o que vence e o que entra em cada dia ---------- */
+$("venc").addEventListener("click", (e) => { if (e.target.closest("#vencCal")) calendario(mKey(hoje())); });
+const SIT = { atrasada: ["!", "atrasada"], hoje: ["●", "vence hoje"], "a vencer": ["●", "a vencer"], paga: ["✓", "paga"] };
+function calendario(m, escolhido = "") {
+  const cal = calendarioDoMes(S.data, m, hoje()), hj = hoje(), ano = m.slice(0, 4);
+  const sel = escolhido || (m === mKey(hj) ? hj : cal.dias.find((d) => d.contas.length || d.entradas.length)?.iso || `${m}-01`), dSel = cal.dias[Number(sel.slice(8, 10)) - 1];
+  const curto = (v) => (v >= 1000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k` : Math.round(v).toLocaleString("pt-BR"));
+  const rotulo = (d) => `${d.dia} de ${nomeMes(m)}${d.iso === hj ? ", hoje" : ""}: ${d.contas.length ? `${d.contas.length} ${d.contas.length === 1 ? "conta" : "contas"}${d.aPagar ? `, ${brl(d.aPagar)} a pagar` : ", tudo pago"}${d.situacao === "atrasada" ? ", com atraso" : ""}` : "nenhuma conta"}${d.entradas.length ? `; entra ${brl(d.entradas.reduce((t, x) => t + x.valor, 0))}` : ""}`;
+  const casa = (d) => `<button type="button" class="cal-d${d.situacao ? " s-" + d.situacao.replace(" ", "-") : ""}${d.iso === hj ? " hoje" : ""}${d.iso === sel ? " sel" : ""}" data-d="${d.iso}" aria-label="${esc(rotulo(d))}" aria-pressed="${d.iso === sel}">
+      <span class="n">${d.dia}</span>${d.contas.length ? `<span class="m"><i aria-hidden="true">${SIT[d.situacao][0]}</i>${d.aPagar ? curto(d.aPagar) : ""}</span>` : ""}${d.entradas.length ? `<span class="e" aria-hidden="true">+</span>` : ""}</button>`;
+  const linha = (x, i) => `<li class="s-${x.situacao.replace(" ", "-")}"><span class="q"><i aria-hidden="true">${SIT[x.situacao][0]}</i>${SIT[x.situacao][1]}</span><span class="t"><b>${esc(x.titulo)}</b><span>${x.tipo === "fatura" ? "Fatura de cartão" : "Gasto fixo"}</span></span><span class="v">${brl(x.valor)}</span>${x.situacao === "paga" ? "" : `<button class="btn sm" type="button" data-cpg="${i}">Já paguei</button>`}</li>`;
+  openDlg(`<h3>Calendário de vencimentos</h3>
+    <div class="cal-nav"><button class="iconbtn" type="button" id="calAnt" aria-label="Mês anterior">${ico("esq")}</button><b>${nomeMes(m)} de ${ano}</b><button class="iconbtn" type="button" id="calProx" aria-label="Próximo mês">${ico("dir")}</button></div>
+    <p class="hint cal-res">${cal.aPagar || cal.pago ? `A pagar no mês: <b>${brl(cal.aPagar)}</b>. Já pago: <b>${brl(cal.pago)}</b>.` : "Nenhuma conta neste mês. Cadastre os gastos fixos e o cartão para ver os vencimentos aqui."}${cal.entra ? ` Entradas fixas: <b>${brl(cal.entra)}</b>.` : ""}</p>
+    <div class="cal" role="group" aria-label="Dias de ${nomeMes(m)}">${["D", "S", "T", "Q", "Q", "S", "S"].map((x, i) => `<span class="cal-s" aria-hidden="true" title="${DIAS_SEMANA[i]}">${x}</span>`).join("")}${"<span></span>".repeat(cal.vazios)}${cal.dias.map(casa).join("")}</div>
+    <p class="cal-leg" aria-hidden="true"><span class="s-atrasada"><i>!</i>atrasada</span><span class="s-a-vencer"><i>●</i>a vencer</span><span class="s-paga"><i>✓</i>paga</span><span class="s-entra"><i>+</i>entrada</span></p>
+    <div class="cal-dia" id="calDia"><h4>${dSel.dia} de ${nomeMes(m)}${dSel.iso === hj ? " (hoje)" : ""}</h4>
+      ${dSel.contas.length || dSel.entradas.length ? `<ul class="cal-lista">${dSel.contas.map(linha).join("")}${dSel.entradas.map((x) => `<li class="s-entra"><span class="q"><i aria-hidden="true">+</i>entrada</span><span class="t"><b>${esc(x.titulo)}</b><span>Entrada fixa</span></span><span class="v">${brl(x.valor)}</span></li>`).join("")}</ul>` : `<p class="hint" style="margin:0">Nada vence e nada entra neste dia.</p>`}</div>
+    <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  $("calAnt").onclick = () => calendario(addM(m, -1)); $("calProx").onclick = () => calendario(addM(m, 1));
+  $("dlgBody").querySelectorAll(".cal-d").forEach((b) => (b.onclick = () => calendario(m, b.dataset.d)));
+  $("dlgBody").querySelectorAll("[data-cpg]").forEach((b) => (b.onclick = async () => { b.disabled = true; await pagarConta(dSel.contas[Number(b.dataset.cpg)]); if ($("calDia")) calendario(m, sel); }));
+  $("dlgBody").querySelector(".cal-d.sel")?.focus({ preventScroll: true });
+}
+
 /** Marca uma conta (fatura ou ocorrência de fixo) como paga e atualiza a tela. */
 async function pagarConta(x) {
   if (x.tipo === "fatura") {
@@ -1002,7 +1120,7 @@ function armDelete(b, fn) {
 
 /** Uma linha da lista de lançamentos. `comAno` mostra o ano junto da data (resultado de busca, que mistura meses). */
 function linhaLanc(x, toque, comAno = false) {
-  return `<tr data-id="${esc(x.id)}"${toque}><td class="d">${comAno ? ddmm(x.data) + "/" + x.data.slice(2, 4) : ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}<span class="sub">${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
+  return `<tr data-id="${esc(x.id)}"${toque}><td class="d">${comAno ? ddmm(x.data) + "/" + x.data.slice(2, 4) : ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}${x.pendente ? ` <span class="tag espera">aguardando internet</span>` : ""}${quemTag(x)}<span class="sub">${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(pagoCom(x)) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : "Guardou"}</td>
       <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "← " : "→ ") : "− "}${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-ed="${esc(x.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">${ico("lixo")}</span></button></td></tr>`;
@@ -1011,7 +1129,7 @@ function paneL(c) {
   const host = $("pane-l");
   // A busca fica fora da parte que é redesenhada, para o teclado não fechar enquanto a pessoa digita.
   if (!$("lBusca")) {
-    host.innerHTML = `<div class="busca"><label class="so-leitor" for="lBusca">Buscar lançamento</label>${ico("lupa")}<input class="in" id="lBusca" type="search" placeholder="Buscar em todos os meses" autocomplete="off" enterkeyhint="search" maxlength="60"><button type="button" class="busca-x" id="lBuscaX" aria-label="Limpar a busca" hidden>${ico("x")}</button></div><div id="lLista"></div>`;
+    host.innerHTML = `<div class="busca"><label class="so-leitor" for="lBusca">Buscar lançamento</label>${ico("lupa")}<input class="in" id="lBusca" type="search" placeholder="Buscar em todos os meses" autocomplete="off" enterkeyhint="search" maxlength="60"><button type="button" class="busca-x" id="lBuscaX" aria-label="Limpar a busca" hidden>${ico("x")}</button></div><div class="seg quem-filtro" id="lQuem" role="group" aria-label="De quem são os lançamentos" hidden></div><div id="lLista"></div>`;
     $("lBusca").value = S.busca || "";
     $("lBusca").addEventListener("input", (e) => { S.busca = e.target.value; listaL(calcMes(S.data, S.mes, hoje())); });
     $("lBuscaX").onclick = () => { S.busca = ""; $("lBusca").value = ""; listaL(calcMes(S.data, S.mes, hoje())); $("lBusca").focus(); };
@@ -1021,10 +1139,17 @@ function paneL(c) {
 function listaL(c) {
   const host = $("lLista"), q = (S.busca || "").trim(), toque = noCelular() ? ` tabindex="0" role="button"` : "";
   $("lBuscaX").hidden = !q;
+  // Conta de casal: dá para ver só os lançamentos de um dos dois.
+  const fq = $("lQuem"), deQuem = casalAtivo() ? S.quem || "" : "", doQuem = (x) => !deQuem || (!x.auto && (deQuem === "eu" ? x.user_id !== S.casal.outro_id : x.user_id === S.casal.outro_id));
+  fq.hidden = !casalAtivo();
+  if (casalAtivo()) {
+    fq.innerHTML = [["", "Todos"], ["eu", "Meus"], ["outro", nomeDoOutro()]].map(([v, r]) => `<button type="button" data-quem="${v}" aria-pressed="${deQuem === v}">${esc(r)}</button>`).join("");
+    fq.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.quem = b.dataset.quem; listaL(calcMes(S.data, S.mes, hoje())); }));
+  }
   const cab = `<thead><tr><th>Dia</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="hide-sm">Pagamento</th><th class="num">Valor</th><th></th></tr></thead>`;
   if (q.length >= 2) {
     // Busca: todos os meses, do mais recente para o mais antigo, separados por mês.
-    const r = buscaLancamentos(S.data.lancamentos, q);
+    const r = buscaLancamentos(S.data.lancamentos.filter(doQuem), q);
     if (!r.total) host.innerHTML = `<div class="welcome"><p><b>Nada encontrado para "${esc(q)}".</b> A busca olha a descrição, a categoria, a forma de pagamento e o valor, em todos os meses.</p></div>`;
     else {
       const mes = (x, i) => i && mKey(r.itens[i - 1].data) === mKey(x.data) ? "" : `<tr class="dia"><td colspan="6"><span>${nomeMes(mKey(x.data))} de ${x.data.slice(0, 4)}</span></td></tr>`;
@@ -1036,7 +1161,8 @@ function listaL(c) {
   const auto = c.fr.map((f) => { const d = Number(f.data.slice(8, 10));
     return { auto: true, id: f.id, data: f.data, descricao: f.descricao, categoria: f.categoria, tipo: "Receita", valor: f.valor,
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
-  const it = [...c.it, ...auto].sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  const it = [...c.it, ...auto].filter(doQuem).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  if (!it.length && deQuem) { host.innerHTML = `<div class="welcome"><p><b>${deQuem === "eu" ? "Você não lançou nada" : `${esc(nomeDoOutro())} não lançou nada`} em ${nomeMes(S.mes)}.</b></p></div>`; return; }
   if (!it.length) {
     host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)}.</b> Anote cada gasto no formulário lá em cima assim que ele acontecer. O custo do mês e a projeção se atualizam na hora.</p><p>Usa cartão? Na aba <b>Cartões</b> dá para importar o extrato do banco e lançar todas as compras de uma vez.</p></div>`;
     return;
@@ -1305,40 +1431,263 @@ function fecharLancar(viaVoltar = false) {
 /** Nível do limite do mês atual: 0, 80, 100 ou 120 (ver usoDoTeto). */
 const nivelDoTeto = () => usoDoTeto(calcMes(S.data, mKey(hoje()), hoje()), S.prefs.teto)?.nivel || 0;
 function aposLancar(texto) { if (noCelular()) { fecharLancar(); toast(texto); } else $("fValor").focus(); }
-addEventListener("popstate", () => fecharLancar(true));
+/** Telas que, no celular, abrem a partir de Mais: contas fixas, entradas fixas e cartões. */
+const SUBS = ["f", "r", "c"];
+// Botão Voltar do celular: fecha a tela de lançar; em uma tela aberta a partir de Mais, volta para Mais.
+addEventListener("popstate", (e) => {
+  if (document.body.classList.contains("lancando")) return fecharLancar(true);
+  if (!e.state?.sub && noCelular() && S.view === "listas" && SUBS.includes(S.tab)) { S.view = "mais"; render(); scrollTo(0, 0); }
+});
 $("lancFechar").onclick = () => fecharLancar();
 $("bnav").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   const n = b.dataset.nav;
   if (n === "mais") return abrirLancar();
   if (n === "inicio") S.view = "inicio";
-  else { S.view = "listas"; S.tab = n === "f" && S.tab === "r" ? "r" : n; }
+  else if (n === "menu") S.view = "mais";
+  else { S.view = "listas"; S.tab = n; }
   render(); scrollTo(0, 0);
 });
-$("btnMenu").onclick = () => {
-  const naDemo = S.store?.kind === "local" && !S.semLogin;
-  openDlg(`<h3>Menu</h3><p class="hint" style="margin:0 0 12px">${esc($("whoName").textContent)}</p><div class="menu-lista">
-    ${naDemo ? `<button class="btn primary" id="menuCriar">${ico("pessoa")}Criar minha conta</button>` : ""}
-    <button class="btn" data-go="btnLimites">${ico("alvo")}Limites de gasto</button>
-    <button class="btn" data-go="btnAjuda">${ico("ajuda")}Como usar</button>
-    <button class="btn" data-go="btnAjustes">${ico("ajustes")}Ajustes e categorias</button>
-    <button class="btn" data-go="btnExport">${ico("baixar")}Baixar relatório de gastos</button>
-    ${$("btnInstall").hidden ? "" : `<button class="btn" data-go="btnInstall">${ico("instalar")}Instalar app</button>`}
-    <button class="btn" data-go="btnSair">${ico("sair")}${esc($("btnSair").textContent)}</button>
-    <button class="btn ghost" data-close>Fechar</button></div>`);
-  $("dlgBody").querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { $("dlg").close(); $(b.dataset.go).click(); }));
-  if ($("menuCriar")) $("menuCriar").onclick = contaAPartirDaDemo;
+function abrirSub(tab) {
+  S.view = "listas"; S.tab = tab;
+  try { if (!history.state?.sub) history.pushState({ sub: true }, ""); } catch { /* sem histórico: o botão Mais da tela volta */ }
+  render(); scrollTo(0, 0);
+}
+$("listaVoltar").onclick = () => { if (history.state?.sub) history.back(); else { S.view = "mais"; render(); scrollTo(0, 0); } };
+
+/**
+ * Tela "Mais" do celular: o que não cabe na barra de baixo, em grupos. Cada linha diz em poucas palavras o que tem lá dentro.
+ * No computador ela não existe: os mesmos botões ficam no topo e nas abas.
+ */
+function renderMais(c) {
+  const host = $("mais");
+  if (S.view !== "mais" || !S.loaded) { host.innerHTML = ""; return; }
+  const naDemo = S.store?.kind === "local" && !S.semLogin, quem = $("whoName").textContent || "", n = (q, um, varios) => `${q} ${q === 1 ? um : varios}`;
+  const contas = c.fx.filter((o) => o.forma !== CARTAO), cartoes = (S.data.cartoes || []).filter((k) => k.ativo !== false);
+  const linha = (id, icone, titulo, sub = "", cls = "") => `<button class="mais-item" type="button" data-mais="${id}"><span class="ava ${cls}">${ico(icone)}</span><span class="tx"><b>${titulo}</b>${sub ? `<span>${sub}</span>` : ""}</span>${ico("chev")}</button>`;
+  const grupo = (titulo, linhas) => `<div class="mais-grupo"><h2>${titulo}</h2><div class="mais-lista">${linhas.filter(Boolean).join("")}</div></div>`;
+  host.innerHTML = `<div class="mais-quem"><span class="ava">${naDemo ? ico("pessoa") : esc(quem.trim().charAt(0).toUpperCase() || "?")}</span>
+      <div class="tx"><b>${esc(naDemo ? "Demonstração" : quem)}</b><span>${naDemo ? "Dados de exemplo, guardados só neste aparelho." : esc(textoDoAcesso())}</span></div></div>
+    ${grupo("Contas e cartões", [
+      linha("f", "fixo", "Contas fixas", contas.length ? `${n(contas.length, "conta", "contas")} em ${nomeMes(S.mes)}, ${brl(round2(contas.reduce((t, o) => t + Number(o.valor), 0)))}` : "Aluguel, internet e o que se repete"),
+      linha("r", "entra", "Entradas fixas", c.fr.length ? `${brl(c.frT)} em ${nomeMes(S.mes)}` : "Salário e o que entra todo mês", "in"),
+      linha("c", "cartao", "Cartões e faturas", cartoes.length ? `${n(cartoes.length, "cartão", "cartões")}${c.fatT ? `, ${brl(c.fatT)} em faturas neste mês` : ""}` : "Cadastre o cartão e a fatura se monta sozinha", "card"),
+      linha("cal", "agenda", "Calendário de vencimentos", "O que vence e o que entra em cada dia")])}
+    ${grupo("Dividir as contas", [linha("casal", "casal", "Conta de casal", esc(resumoDoCasal()), S.casal?.situacao === "convidado" ? "aviso" : "")])}
+    ${grupo("Ferramentas", [
+      linha("btnExport", "baixar", "Baixar relatório", "Planilha com tudo o que você registrou"),
+      $("btnInstall").hidden ? "" : linha("btnInstall", "instalar", "Instalar o app", "Abre como aplicativo, com ícone na tela")])}
+    ${grupo("Ajustes e ajuda", [
+      linha("btnAjustes", "ajustes", "Ajustes e categorias", naDemo ? "Categorias, tema e saldo" : "Categorias, avisos, tema e a sua conta"),
+      linha("btnAjuda", "ajuda", "Como usar", "Respostas para as dúvidas mais comuns"),
+      linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
+  host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
+    const k = b.dataset.mais;
+    if (SUBS.includes(k)) abrirSub(k); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else $(k).click();
+  }));
+}
+/* ================= conta de casal =================
+   Duas pessoas, cada uma com o seu login, nas mesmas contas (supabase/casal.sql). Cada linha continua sendo de quem lançou. */
+const casalAtivo = () => S.casal?.situacao === "ativo";
+const nomeDoOutro = () => S.casal?.dados?.nomes?.[S.casal.outro_id] || apelidoDoEmail(S.casal?.outro) || "a outra pessoa";
+const quemTag = (x) => (casalAtivo() && x.user_id && x.user_id === S.casal.outro_id ? ` <span class="tag quem">${esc(nomeDoOutro())}</span>` : "");
+/** Coloca nas preferências o que é dos dois: categorias, limites, metas e saldo. */
+function aplicaCasal() { if (casalAtivo()) S.prefs = { ...S.prefs, ...comumDoCasal(S.casal.dados) }; }
+const canonico = (o) => JSON.stringify(o, (_k, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) : v));
+/** Guarda na conta de casal o que é dos dois, só quando mudou. */
+async function salvaCasal() {
+  if (!casalAtivo() || !S.store.casalSalvar) return;
+  const novo = { ...comumDoCasal(S.prefs), nomes: S.casal.dados?.nomes || {} };
+  if (canonico(novo) === canonico(S.casal.dados || {})) return;
+  await S.store.casalSalvar(novo); S.casal.dados = novo;
+}
+function resumoDoCasal() {
+  const c = S.casal;
+  if (S.store?.kind !== "supabase") return "Divida as contas com outra pessoa";
+  if (c?.situacao === "ativo") return `Você e ${nomeDoOutro()} dividem as contas`;
+  if (c?.situacao === "convidei") return `Convite feito para ${c.outro}`;
+  if (c?.situacao === "convidado") return `${c.outro} convidou você`;
+  return "Divida as contas com outra pessoa";
+}
+function conviteDeCasal() {
+  showBanner(`${S.casal.outro} convidou você para dividir as contas no Meus Gastos.`, [["Ver o convite", () => { showBanner(""); abrirCasal(); }], ["Agora não", () => showBanner("")]]);
+}
+const erroDoCasal = (e) => {
+  const m = String(e?.message || e), quando = /^\d{4}-\d{2}-\d{2}$/.test(e?.hint || "") ? ddmmaaaa(e.hint) : "";
+  if (/email_invalido/.test(m)) return "Confira o e-mail: ele parece incompleto.";
+  if (/proprio_email/.test(m)) return "Esse é o seu e-mail. Digite o da outra pessoa.";
+  if (/ja_tem/.test(m)) return "Você já tem uma conta de casal ou um convite em aberto.";
+  if (/espera/.test(m)) return `Você encerrou uma conta de casal há poucos dias. Dá para formar outra${quando ? ` a partir de ${quando}` : " em alguns dias"}.`;
+  if (/recusado/.test(m)) return "Essa pessoa recusou o convite. Converse com ela antes de convidar de novo.";
+  if (/sem_convite/.test(m)) return "Esse convite não existe mais.";
+  if (/sem_casal/.test(m)) return "A conta de casal já foi encerrada.";
+  return /fetch|network|load failed/i.test(m) || navigator.onLine === false ? "Sem internet. Confira a conexão e tente de novo." : "Não foi possível concluir. Tente de novo em instantes.";
+};
+/** Tela da conta de casal: convidar, responder ao convite, ver com quem as contas são divididas e encerrar. */
+async function abrirCasal(aviso = "", erro = false) {
+  const fecha = `<button class="btn" type="button" data-close>Fechar</button>`;
+  if (S.store?.kind !== "supabase") return openDlg(`<h3>Conta de casal</h3><p class="casal-txt">Duas pessoas, cada uma com o seu e-mail e a sua senha, vendo e lançando nas mesmas contas. O app mostra quem lançou cada gasto.</p>
+    <p class="hint">Na demonstração não há outra pessoa para convidar. Crie a sua conta para usar.</p><div class="actions">${fecha}</div>`);
+  const c = S.casal || { situacao: "nenhum" }, msg = `<p class="auth-msg ${erro ? "err" : "ok"}" id="csMsg" role="status">${esc(aviso)}</p>`;
+  const diz = (t, ruim = true) => { $("csMsg").textContent = t; $("csMsg").className = "auth-msg " + (ruim ? "err" : "ok"); };
+  const espera = c.espera ? `<p class="aviso">Você encerrou uma conta de casal há poucos dias. Dá para formar outra a partir de ${ddmmaaaa(c.espera)}.</p>` : "";
+  if (c.situacao === "indisponivel") return openDlg(`<h3>Conta de casal</h3><p class="hint">A conta de casal ainda não foi ligada no banco de dados (arquivo supabase/casal.sql).</p><div class="actions">${fecha}</div>`);
+
+  if (c.situacao === "ativo") {
+    const d = divisaoDoMes(S.data.lancamentos, S.mes, S.casal.eu), nomes = c.dados?.nomes || {}, n = (q) => `${q} ${q === 1 ? "gasto" : "gastos"}`;
+    openDlg(`<h3>Conta de casal</h3>
+      <p class="casal-txt">Você divide as contas com <b>${esc(nomeDoOutro())}</b> (${esc(c.outro)})${c.desde ? ` desde ${ddmmaaaa(c.desde)}` : ""}. Os dois veem e lançam nas mesmas contas.</p>
+      <div class="casal-div"><span class="t">Quem lançou em ${nomeMes(S.mes)}</span>
+        <span><b>Você</b>${brl(d.eu.total)}<em>${n(d.eu.n)}</em></span><span><b>${esc(nomeDoOutro())}</b>${brl(d.outro.total)}<em>${n(d.outro.n)}</em></span></div>
+      <form id="csNomes" class="dlg-form" autocomplete="off">
+        <label class="f">Seu nome<input class="in" id="csMeu" maxlength="20" placeholder="${esc(apelidoDoEmail($("whoName").textContent))}" value="${esc(nomes[c.eu] || "")}"></label>
+        <label class="f">Nome de quem divide com você<input class="in" id="csDele" maxlength="20" placeholder="${esc(apelidoDoEmail(c.outro))}" value="${esc(nomes[c.outro_id] || "")}"></label>
+        <p class="hint wide" style="margin:0">É o nome que aparece ao lado dos lançamentos de cada um.</p>
+        <button class="btn" type="submit">Salvar nomes</button></form>
+      ${msg}
+      <div class="actions"><button class="link aj-excluir" type="button" id="csEncerrar" style="margin-right:auto">Encerrar a conta de casal</button>${fecha}</div>`);
+    $("csNomes").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const novos = { ...nomes }; for (const [id, campo] of [[c.eu, "csMeu"], [c.outro_id, "csDele"]]) { const v = $(campo).value.trim().slice(0, 20); if (v) novos[id] = v; else delete novos[id]; }
+      try { const dados = { ...comumDoCasal(S.prefs), nomes: novos }; await S.store.casalSalvar(dados); S.casal.dados = dados; render(); abrirCasal("Nomes salvos."); }
+      catch (err) { diz(erroDoCasal(err)); }
+    });
+    $("csEncerrar").onclick = () => {
+      const a = S.acesso || {};
+      openDlg(`<h3>Encerrar a conta de casal?</h3><ul class="casal-pontos">
+        <li>Cada um fica com os lançamentos, as contas fixas e os cartões que cadastrou.</li>
+        <li>O que foi lançado no cartão de um fica com o dono do cartão.</li>
+        <li>Categorias, limites e metas ficam copiados para os dois.</li>
+        ${a.pelo_par ? `<li><b>O seu acesso vem da assinatura de ${esc(c.outro)}.</b> Depois de encerrar, para continuar lançando você precisa de uma compra no seu e-mail.</li>` : a.cobranca ? `<li>${esc(nomeDoOutro())} deixa de usar a sua assinatura.</li>` : ""}
+        <li>Para formar outra conta de casal, é preciso esperar 7 dias.</li></ul>
+        <p class="auth-msg err" id="csMsg" role="alert"></p>
+        <div class="actions"><button class="btn perigo" type="button" id="csSim" style="margin-left:0">Encerrar</button><button class="btn" type="button" id="csNao">Voltar</button></div>`);
+      $("csNao").onclick = () => abrirCasal();
+      $("csSim").onclick = async () => {
+        $("csSim").disabled = true;
+        try { await S.store.casalSair(); $("dlg").close(); await startApp(S.store, $("whoName").textContent); toast("Conta de casal encerrada. Cada um ficou com o que lançou."); }
+        catch (err) { $("csSim").disabled = false; diz(erroDoCasal(err)); }
+      };
+    };
+    return;
+  }
+
+  if (c.situacao === "convidado") {
+    openDlg(`<h3>Convite para dividir as contas</h3>
+      <p class="casal-txt"><b>${esc(c.outro)}</b> convidou você para dividir as contas no Meus Gastos.</p>
+      <ul class="casal-pontos"><li>Os seus lançamentos, contas fixas e cartões e os dessa pessoa passam a aparecer juntos, para os dois.</li>
+        <li>Cada um pode lançar, corrigir e apagar qualquer item.</li>
+        <li>As categorias e as metas se juntam. O limite do mês e o saldo inicial passam a ser os de quem convidou.</li>
+        ${S.acesso?.cobranca ? "<li>Uma assinatura vale para os dois.</li>" : ""}</ul>
+      <p class="aviso" style="margin:0">Só aceite se você conhece essa pessoa: ela vai ver tudo o que você registrou.</p>${espera}${msg}
+      <div class="actions"><button class="btn primary" type="button" id="csAceitar" style="margin-left:0"${c.espera ? " disabled" : ""}>Aceitar</button><button class="btn" type="button" id="csRecusar">Recusar</button>${fecha}</div>`);
+    $("csAceitar").onclick = async () => {
+      $("csAceitar").disabled = true; $("csRecusar").disabled = true;
+      try {
+        const meus = comumDoCasal(S.prefs), novo = await S.store.casalResponder(true);
+        // Junta as categorias e as metas de quem aceitou com as de quem convidou.
+        await S.store.casalSalvar({ ...juntaPrefsDoCasal(novo.dados || {}, meus), nomes: novo.dados?.nomes || {} }).catch((e) => console.warn("Categorias não juntadas:", e?.message));
+        $("dlg").close(); await startApp(S.store, $("whoName").textContent);
+        if (casalAtivo()) toast(`Pronto: você e ${nomeDoOutro()} dividem as contas.`);
+      } catch (err) { $("csAceitar").disabled = false; $("csRecusar").disabled = false; diz(erroDoCasal(err)); }
+    };
+    $("csRecusar").onclick = async () => {
+      try { S.casal = await S.store.casalResponder(false); showBanner(""); if (!$("acesso").hidden) telaDeAcesso(); else render(); if (S.casal.situacao === "convidado") abrirCasal(); else { $("dlg").close(); toast("Convite recusado."); } }
+      catch (err) { diz(erroDoCasal(err)); }
+    };
+    return;
+  }
+
+  if (c.situacao === "convidei") {
+    const texto = `Te convidei para dividir as contas comigo no Meus Gastos. Entre (ou crie a sua conta) com o e-mail ${c.outro} em ${location.origin}${location.pathname} e aceite o convite.`;
+    openDlg(`<h3>Conta de casal</h3>
+      <p class="casal-txt">Convite feito para <b>${esc(c.outro)}</b>.</p>
+      <p class="casal-txt">Peça para essa pessoa abrir o Meus Gastos e entrar, ou criar a conta, <b>com esse e-mail</b>. O convite aparece para ela na hora. Ninguém recebe e-mail.</p>${msg}
+      <div class="actions"><button class="btn primary" type="button" id="csMandar" style="margin-left:0">Mandar o convite por mensagem</button><button class="btn" type="button" id="csCancelar">Cancelar convite</button>${fecha}</div>`);
+    $("csMandar").onclick = async () => {
+      try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); diz("Mensagem copiada. Cole no WhatsApp ou onde preferir.", false); } }
+      catch (err) { if (err?.name !== "AbortError") diz("Não consegui abrir o compartilhamento. Avise a pessoa por conta própria."); }
+    };
+    $("csCancelar").onclick = async () => {
+      try { S.casal = await S.store.casalSair(); render(); abrirCasal("Convite cancelado."); } catch (err) { diz(erroDoCasal(err)); }
+    };
+    return;
+  }
+
+  openDlg(`<h3>Conta de casal</h3>
+    <p class="casal-txt">Divida as contas com outra pessoa. Cada um entra com o seu e-mail e a sua senha, e os dois veem e lançam nas mesmas contas.</p>
+    <ul class="casal-pontos"><li>Lançamentos, contas fixas, cartões, limites e metas passam a ser dos dois.</li><li>O app mostra quem lançou cada gasto.</li>${S.acesso?.cobranca ? "<li>Uma assinatura vale para os dois.</li>" : ""}</ul>
+    ${espera || `<form id="csForm" style="display:grid;gap:10px" novalidate>
+      <label class="f">E-mail da outra pessoa<input class="in" type="email" id="csEmail" autocomplete="off" inputmode="email" maxlength="254" placeholder="nome@exemplo.com"></label>
+      <button class="btn primary" type="submit" id="csConvidar">Convidar</button></form>
+    <p class="hint" style="margin:8px 0 0">Ninguém recebe e-mail: o convite aparece no app quando a pessoa entrar, ou criar a conta, com esse e-mail.</p>`}${msg}
+    <div class="actions">${fecha}</div>`);
+  if ($("csForm")) $("csForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const email = $("csEmail").value.trim();
+    if (!email) return diz("Digite o e-mail da outra pessoa.");
+    $("csConvidar").disabled = true;
+    try { S.casal = await S.store.casalConvidar(email); render(); abrirCasal(); }
+    catch (err) { $("csConvidar").disabled = false; diz(erroDoCasal(err)); }
+  });
+}
+/** Com conta de casal (ou convite em aberto), ao voltar para o app busca o que a outra pessoa lançou nesse meio-tempo. */
+async function atualizaDoCasal() {
+  const antes = S.casal?.situacao;
+  if (!S.loaded || S.store?.kind !== "supabase" || !["ativo", "convidei"].includes(antes) || Date.now() - (S.carregadoEm || 0) < 45000) return;
+  if (document.querySelector("dialog[open]") || document.body.classList.contains("lancando") || !$("acesso").hidden || $("app").hidden) return;
+  S.carregadoEm = Date.now();
+  try {
+    const st = S.store, c = await st.casalMeu();
+    if (S.store !== st) return;
+    if (c.situacao !== antes) return void startApp(st, $("whoName").textContent);   // aceitaram o convite, ou a conta de casal acabou: recomeça com os dados certos
+    if (antes !== "ativo") return;
+    const d = await st.loadAll(); if (S.store !== st || d.daCopia) return;
+    d.cartoes ||= []; S.data = d; S.casal = c; aplicaCasal(); render();
+  } catch (e) { console.warn("Não atualizou:", e?.message); }
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") atualizaDoCasal(); });
+addEventListener("focus", atualizaDoCasal);
+
+/** Uma linha sobre a conta de quem está usando, para o topo da tela Mais. */
+function textoDoAcesso() {
+  const a = S.acesso;
+  if (a?.pelo_par) return `Pela assinatura de ${S.casal?.outro || "quem divide as contas com você"}`;
+  if (!a?.cobranca) return "Conta ativa";
+  if (!a.ate) return "Acesso de cortesia";
+  return a.status === "cancelado" ? `Acesso até ${ddmmaaaa(a.ate)}` : `Assinatura ativa até ${ddmmaaaa(a.ate)}`;
+}
+
+/* ---------- Organizar o início: a pessoa escolhe quais quadros aparecem ---------- */
+const QUADROS = [["dia", "Seu dia", "O que você gastou hoje e a sequência de dias anotando", ["dia"]], ["teto", "Limite do mês", "Quanto do limite já foi usado", ["teto"]],
+  ["metas", "Metas", "As metas do dinheiro guardado", ["metas"]], ["venc", "Próximos vencimentos", "Contas e faturas a pagar", ["venc"]],
+  ["kpis", "Guardado, fixos e faturas", "Os quadros com os totais do mês", ["kpis", "insight"]], ["graficos", "Gráficos do mês", "Custo acumulado e gastos por categoria", ["graficos"]],
+  ["evo", "Últimos meses", "Entradas, custo e sobra mês a mês", ["evoPanel"]]];
+function aplicaInicio() {
+  const fora = new Set(S.prefs.inicioFora || []);
+  QUADROS.forEach(([k, , , ids]) => ids.forEach((id) => $(id)?.classList.toggle("fora", fora.has(k))));
+}
+$("btnOrganizar").onclick = () => {
+  const fora = new Set(S.prefs.inicioFora || []);
+  openDlg(`<h3>Organizar o início</h3><p class="hint" style="margin:0 0 6px">Escolha o que aparece na tela inicial. O resumo do mês fica sempre no topo. O que você esconder continua funcionando e pode voltar quando quiser.</p>
+    <div class="org-lista">${QUADROS.map(([k, t, d]) => `<label class="check org"><input type="checkbox" data-quadro="${k}" ${fora.has(k) ? "" : "checked"}><span class="tx"><b>${t}</b><span>${d}</span></span></label>`).join("")}</div>
+    <div class="actions"><button class="btn primary" data-close>Pronto</button></div>`);
+  $("dlgBody").querySelectorAll("[data-quadro]").forEach((cx) => (cx.onchange = async () => {
+    const f = new Set(S.prefs.inicioFora || []); cx.checked ? f.delete(cx.dataset.quadro) : f.add(cx.dataset.quadro);
+    S.prefs.inicioFora = [...f]; aplicaInicio(); await salvaPrefs();
+  }));
 };
 
 /* ---------- Como usar: respostas curtas para as dúvidas mais comuns, sempre no menu ---------- */
 const AJUDA = [
   ["O que é o número grande do início?", `É quanto sobra no mês: tudo o que entra, menos tudo o que sai (contas fixas, gastos do dia a dia, faturas de cartão e o que você guardou). Toque no número, ou em <b>Entenda essa conta</b>, para ver de onde ele veio.`],
   ["O que é o custo do mês?", `É a soma do que sai no mês: contas fixas, gastos do dia a dia e as faturas de cartão que vencem nele. Dinheiro guardado fica separado e não entra no custo.`],
-  ["Por que a compra no cartão não aparece neste mês?", `Porque ela só pesa no mês em que a fatura vence, como no seu bolso. A compra fica na aba <b>Cartões</b>, dentro da fatura. Se foi parcelada, cada parcela cai na fatura do mês dela. O app sabe a fatura certa pelo dia em que ela fecha e pelo dia em que vence, que você informa ao cadastrar o cartão.`],
+  ["Por que a compra no cartão não aparece neste mês?", `Porque ela só pesa no mês em que a fatura vence, como no seu bolso. A compra fica em <b>Cartões</b>, dentro da fatura. Se foi parcelada, cada parcela cai na fatura do mês dela. O app sabe a fatura certa pelo dia em que ela fecha e pelo dia em que vence, que você informa ao cadastrar o cartão.`],
   ["O que é “Pode gastar por dia”?", `É o que sobra no mês dividido pelos dias que faltam, contando hoje. Cada gasto que você anota diminui esse valor na hora.`],
   ["E “No ritmo atual”?", `É a previsão de como o mês termina se você continuar gastando no mesmo ritmo dos dias que já passaram. Serve de aviso antecipado: dá tempo de segurar os gastos.`],
   ["Qual a diferença entre gasto fixo e lançamento?", `<b>Fixo</b> é o que se repete: aluguel, internet, salário. Você cadastra uma vez e ele entra sozinho em todo mês (ou em toda semana). <b>Lançamento</b> é um gasto que aconteceu uma vez, como o mercado de hoje.`],
-  ["Como marco uma conta como paga?", `No início, em <b>Próximos vencimentos</b>, toque em <b>Já paguei</b>. Também dá para marcar na aba <b>Fixos</b> e, para a fatura, na aba <b>Cartões</b>.`],
+  ["Tem um calendário das contas?", `Tem. No início, em <b>Próximos vencimentos</b>, toque em <b>Ver no calendário</b>. Cada dia mostra o que vence e o que entra; tocando no dia você vê as contas e pode marcar <b>Já paguei</b>.`],
+  ["Como marco uma conta como paga?", `No início, em <b>Próximos vencimentos</b>, toque em <b>Já paguei</b>. Também dá para marcar em <b>Contas fixas</b> e, para a fatura, em <b>Cartões</b>. No celular, os dois ficam em <b>Mais</b>.`],
   ["Como registro o dinheiro que guardei?", `Em Lançar, escolha <b>Guardar</b> e diga onde o dinheiro ficou (reserva, investimento). Ele sai do que sobra no mês e passa a somar no quadro <b>Dinheiro guardado</b>. Para tirar, use o mesmo caminho e escolha Retirar.`],
   ["Como funciona a meta do dinheiro guardado?", `Toque no quadro <b>Dinheiro guardado</b> e crie uma meta para o lugar onde você guarda: quanto quer juntar e, se quiser, até quando. O app mostra quanto falta, em que mês você chega lá e quanto dá para guardar com o que deve sobrar no mês. Se você combinar um valor por mês, ele aparece em Próximos vencimentos para marcar <b>Guardei</b> ou <b>Pular</b>: não é uma conta e pular não tem problema. A previsão usa só o valor guardado e os meses: o app não calcula rendimento.`],
   ["Como funciona o limite de gastos?", `Na aba <b>Limites</b> você diz quanto quer gastar no máximo por mês e, se quiser, por categoria. O app mostra quanto já foi usado e avisa ao chegar a 80%, ao passar do limite e se passar em mais de 20%.`],
@@ -1347,7 +1696,12 @@ const AJUDA = [
   ["Como vejo se estou melhorando?", `No início, o quadro <b>Últimos meses</b> mostra o que entrou, o custo e quanto sobrou em cada mês. Em <b>Por categoria</b>, o app diz quando uma categoria está mais alta ou mais baixa do que no mês anterior.`],
   ["Errei um lançamento. Como corrijo?", `Na aba <b>Lançamentos</b>, toque no lançamento para mudar o valor, a data, a categoria ou para excluir.`],
   ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Ler foto ou PDF</b> para o app ler um comprovante, boleto, conta ou holerite. No mesmo lugar, <b>Ler QR code</b> abre a câmera para ler o código do Pix ou do cupom de mercado; também dá para colar o Pix copia e cola. No cupom de mercado, o app busca o valor, a loja e os itens no site da Fazenda (testado com notas de São Paulo; em outros estados pode pedir o valor). Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
-  ["Como recebo avisos e instalo no celular?", `Em <b>Ajustes</b> você liga os avisos por e-mail e a notificação no aparelho. Para instalar, use <b>Instalar app</b> no menu; no iPhone, abra pelo Safari, toque em Compartilhar e em Adicionar à Tela de Início.`],
+  ["Dá para mandar o comprovante direto do aplicativo do banco?", `No Android, com o app instalado: no comprovante, toque em <b>Compartilhar</b> e escolha <b>Meus Gastos</b>. O app abre já lendo o comprovante. Segurando o ícone do app também aparecem os atalhos <b>Lançar gasto</b> e <b>Ler QR code</b>. No iPhone esse caminho não existe: use Lançar → Ler foto ou PDF.`],
+  ["E se eu estiver sem internet?", `Pode lançar normalmente. O gasto fica guardado no aparelho, aparece como <b>aguardando internet</b> e é enviado sozinho quando a conexão voltar. Alterar ou excluir o que já estava salvo precisa de conexão.`],
+  ["O que é o resumo da semana e o lembrete das 20h?", `No <b>domingo à noite</b> o app manda um resumo: quanto você gastou na semana, onde pesou mais e as contas dos próximos 7 dias. O <b>lembrete das 20h</b> é uma notificação que só aparece nos dias em que você não anotou nada. Os dois se ligam e desligam em <b>Ajustes</b>, na parte Resumo e lembrete.`],
+  ["Dá para usar a dois?", `Dá, com a <b>Conta de casal</b> (no celular, em <b>Mais</b>; no computador, em <b>Ajustes</b>). Você convida a outra pessoa pelo e-mail e ela aceita dentro do app, entrando com esse e-mail. Cada um continua com a sua senha. Os dois veem e lançam nas mesmas contas, e o app mostra quem lançou cada gasto. Qualquer um dos dois pode encerrar quando quiser: cada um fica com o que lançou.`],
+  ["Onde ficam as contas fixas, os cartões e os ajustes no celular?", `Na barra de baixo: <b>Início</b>, <b>Lançamentos</b>, o <b>+</b> para lançar, <b>Planejar</b> (limites e metas) e <b>Mais</b>. Em Mais ficam as contas fixas, as entradas fixas, os cartões, o calendário, a conta de casal, o relatório, os ajustes e esta ajuda. No fim do Início, <b>Organizar o início</b> escolhe quais quadros aparecem.`],
+  ["Como recebo avisos e instalo no celular?", `Em <b>Ajustes</b> você liga os avisos por e-mail e a notificação no aparelho. Para instalar, use <b>Instalar app</b> (no celular, em <b>Mais</b>); no iPhone, abra pelo Safari, toque em Compartilhar e em Adicionar à Tela de Início.`],
   ["Como troco a senha ou excluo a minha conta?", `Em <b>Ajustes</b>, na parte <b>Sua conta</b>. Para trocar a senha, você digita a atual e a nova. Excluir a conta apaga para sempre todos os seus registros e pede a senha para confirmar; antes, baixe o relatório se quiser guardar uma cópia. Excluir a conta não cancela a assinatura: o cancelamento é feito na Hotmart.`],
   ["Meus dados ficam seguros? Consigo levar embora?", `Cada conta só enxerga os próprios dados, e essa regra é aplicada no banco de dados. Fotos e PDFs são lidos no seu aparelho e não são enviados. Em <b>Baixar relatório</b> você leva tudo em planilha. Os detalhes estão na <a href="site/privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.`],
 ];
@@ -1458,7 +1812,7 @@ function editarLancamento(id) {
     <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" id="eDeNovo">Lançar de novo hoje</button><button class="btn" type="button" data-close>Cancelar</button><button class="btn perigo" type="button" id="eExcluir">${ico("lixo")}Excluir</button></div></form>`);
   // Mesmo lançamento, com a data de hoje: para o gasto que se repete.
   $("eDeNovo").onclick = async () => {
-    const { id: _id, created_at: _c, user_id: _u, ...copia } = x;
+    const { id: _id, created_at: _c, user_id: _u, pendente: _p, ...copia } = x;
     const row = { ...copia, data: hoje(), import_key: null };
     $("eDeNovo").disabled = true;
     let novos; const ok = await grava(async () => { novos = await S.store.addLancamentos([row]); });
@@ -1737,7 +2091,8 @@ function ajustes() {
         <p class="hint" style="margin:0" id="ajIniMsg">O saldo inicial entra no saldo acumulado. Deixe em branco para começar do zero.</p>
       </div>
     </div>
-    ${S.acesso?.cobranca ? `<div class="aj-sec"><h4>Assinatura</h4><p class="aj-assina">${!S.acesso.ate ? "Acesso de cortesia, sem data de fim."
+    ${S.acesso?.cobranca ? `<div class="aj-sec"><h4>Assinatura</h4><p class="aj-assina">${S.acesso.pelo_par ? `Você usa o app pela assinatura de <b>${esc(S.casal?.outro || "quem divide as contas com você")}</b>${S.acesso.ate ? `, que vale até <b>${ddmmaaaa(S.acesso.ate)}</b>` : ""}.`
+      : !S.acesso.ate ? "Acesso de cortesia, sem data de fim."
       : S.acesso.status === "cancelado" ? `A renovação foi cancelada. O acesso vale até <b>${ddmmaaaa(S.acesso.ate)}</b>.`
       : `Acesso ativo até <b>${ddmmaaaa(S.acesso.ate)}</b>. A renovação é anual e feita pela Hotmart, na forma de pagamento da compra. Para cancelar, use o e-mail de compra da Hotmart ou fale com o suporte.`}</p></div>` : ""}
     ${S.store.kind === "supabase" ? `<div class="aj-sec"><h4>Avisos de contas</h4>
@@ -1746,16 +2101,24 @@ function ajustes() {
       <label class="check"><input type="checkbox" id="ajPush" ${pushDisponivel() ? "" : "disabled"}> Receber notificação neste aparelho</label>
       <p class="hint" style="margin:0" id="ajPushMsg">${pushDisponivel() ? "" : "Neste aparelho a notificação só funciona com o app instalado. No iPhone: Compartilhar → Adicionar à Tela de Início, e abra o app por lá."}</p>
       <button class="btn" type="button" id="ajTeste" style="justify-self:start">Enviar um aviso de teste agora</button>
+    </div>
+    <div class="aj-sec"><h4>Resumo e lembrete</h4>
+      <label class="check"><input type="checkbox" id="ajSemana" ${S.prefs.avisos?.semana !== false ? "checked" : ""}> Resumo da semana, no domingo à noite</label>
+      <p class="hint" style="margin:0">Quanto você gastou na semana, onde pesou mais e as contas dos próximos 7 dias. Chega por e-mail e por notificação, pelos canais marcados acima.</p>
+      <label class="check"><input type="checkbox" id="ajNoite" ${S.prefs.avisos?.noite === true ? "checked" : ""}> Lembrete às 20h, nos dias em que eu não anotar nada</label>
+      <p class="hint" style="margin:0">Só por notificação, e só se você não tiver lançado nada nem marcado “Não gastei nada”. Se passar uma semana sem anotar, o lembrete para sozinho e volta quando você lançar de novo.</p>
+      <p class="hint" style="margin:0" id="ajResumoMsg" role="status"></p>
+      <button class="btn" type="button" id="ajVerSemana" style="justify-self:start">Enviar o resumo desta semana agora</button>
     </div>` : ""}
     ${S.store.kind === "supabase" ? `<div class="aj-sec"><h4>Sua conta</h4>
       <p class="aj-assina">Você entrou como <b>${esc($("whoName").textContent)}</b>.</p>
-      <div class="aj-conta"><button class="btn" type="button" id="ajSenha">Trocar a senha</button><button class="link aj-excluir" type="button" id="ajExcluir">Excluir minha conta</button></div>
+      <div class="aj-conta"><button class="btn" type="button" id="ajCasal">Conta de casal</button><button class="btn" type="button" id="ajSenha">Trocar a senha</button><button class="link aj-excluir" type="button" id="ajExcluir">Excluir minha conta</button></div>
     </div>` : ""}
     <div class="aj-sec"><button class="link" type="button" id="ajBV">Refazer os primeiros passos</button>${suporteHtml()}
       <p class="hint" style="margin:0">Leia os <a href="site/termos.html" target="_blank" rel="noopener">Termos de uso</a> e a <a href="site/privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.</p></div>
     <div class="actions"><button class="btn primary" data-close>Pronto</button></div>`);
   const body = $("dlgBody");
-  if ($("ajSenha")) { $("ajSenha").onclick = () => trocarSenha(ajustes); $("ajExcluir").onclick = () => excluirConta(ajustes); }
+  if ($("ajSenha")) { $("ajCasal").onclick = () => abrirCasal(); $("ajSenha").onclick = () => trocarSenha(ajustes); $("ajExcluir").onclick = () => excluirConta(ajustes); }
   body.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = async () => {
     const t = b.dataset.tipo, l = cats(t);
     if (l.length <= 1) return;
@@ -1825,6 +2188,7 @@ function excluirConta(voltar) {
   const temDados = S.data.lancamentos.length || S.data.fixos.length || S.data.faturas.length;
   openDlg(`<h3>Excluir minha conta</h3>
     <p class="ec-txt">Isso apaga <b>para sempre</b> a conta <b>${esc(email)}</b> e tudo o que está nela: lançamentos, gastos fixos, cartões e faturas, metas, limites, categorias e avisos. Não dá para desfazer.</p>
+    ${casalAtivo() ? `<p class="ec-txt ec-alerta"><b>A conta de casal com ${esc(S.casal.outro)} é encerrada.</b> Essa pessoa fica com o que ela lançou e com o que está nos cartões dela. O que você lançou é apagado.</p>` : ""}
     ${assinando ? `<p class="ec-txt ec-alerta"><b>Excluir a conta não cancela a assinatura.</b> Para não ser cobrado na renovação, cancele também na Hotmart: entre na sua conta de comprador, em Minhas compras, com o e-mail usado na compra. Se não conseguir, fale com o suporte.</p>` : ""}
     ${temDados ? `<button class="btn" type="button" id="ecBaixar" style="justify-self:start">${ico("baixar")}Baixar meus dados em planilha antes</button>` : ""}
     <form id="ecForm" style="display:grid;gap:12px;margin-top:14px" novalidate>
@@ -1841,7 +2205,7 @@ function excluirConta(voltar) {
     const falha = await confereSenha(senha);
     if (falha) return erro(falha);
     await Promise.race([desligarPush().catch(() => {}), new Promise((r) => setTimeout(r, 1500))]);   // este aparelho deixa de receber notificação
-    try { await S.store.excluirConta(); }
+    try { await S.store.excluirConta(); S.store.esqueceCopia?.(); try { localStorage.removeItem("cg-ultimo"); } catch { /* nada */ } }
     catch (err) {
       const m = String(err?.message || err) + String(err?.code || "");
       return erro(/confirmar_senha|sem_sessao/.test(m) ? "Por segurança, digite a sua senha de novo e confirme."
@@ -2183,7 +2547,7 @@ async function importarExtrato(arquivo) {
       e.preventDefault();
       const nome = $("ekNome").value.trim(), d = (id) => Math.min(31, Math.max(1, Math.round(Number($(id).value)) || 0));
       if (!nome || !Number($("ekFech").value) || !Number($("ekVenc").value)) { $("ekMsg").textContent = "Preencha o nome e os dois dias."; return; }
-      if (S.data.cartoes.some((k) => norm(k.nome) === norm(nome))) { $("ekMsg").textContent = `Já existe um cartão chamado ${nome}, mas ele está desativado. Reative na aba Cartões ou use outro nome.`; return; }
+      if (S.data.cartoes.some((k) => norm(k.nome) === norm(nome))) { $("ekMsg").textContent = `Já existe um cartão chamado ${nome}, mas ele está desativado. Reative em Cartões ou use outro nome.`; return; }
       let novo; if (!(await grava(async () => { novo = await S.store.addCartao({ nome, fechamento: d("ekFech"), vencimento: d("ekVenc") }); }))) return;
       S.data.cartoes.push(novo); render();
       conferirExtrato(ext, arquivo.name || "extrato");
@@ -2325,18 +2689,36 @@ function ligaAjustesDeAvisos() {
     } catch (err) { cx.checked = !cx.checked; msg(/relation|schema cache|avisos_push/i.test(String(err?.message)) ? "Os avisos ainda não foram ligados no banco de dados (arquivo supabase/avisos.sql)." : String(err?.message || err), true); }
     cx.disabled = false;
   };
-  $("ajTeste").onclick = async () => {
-    const b = $("ajTeste"); b.disabled = true; msg("Enviando o aviso de teste…");
+  /** Pede um envio na hora ao servidor (aviso de teste ou o resumo da semana) e conta o que saiu. */
+  const pedeEnvio = async (botao, teste, diz, esperando) => {
+    botao.disabled = true; diz(esperando);
     try {
-      const r = await fetch(AVISOS_URL, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + (await S.store.token()) }, body: JSON.stringify({ teste: true }) });
+      const r = await fetch(AVISOS_URL, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + (await S.store.token()) }, body: JSON.stringify({ teste }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.erro || "O servidor de avisos ainda não está no ar.");
+      if (!r.ok) throw new Error(j.erro === "Pedido não reconhecido." ? "O servidor de avisos ainda está na versão antiga. Tente de novo mais tarde." : j.erro || "O servidor de avisos ainda não está no ar.");
       const email = j.email === "enviado" ? "E-mail enviado (olhe também o spam)." : j.email === "desligado" ? "E-mail desligado." : j.email === "não configurado" ? "E-mail ainda não configurado no servidor." : "O e-mail não saiu: " + j.email;
       const push = j.push.aparelhos ? `Notificação enviada para ${j.push.entregues} de ${j.push.aparelhos} ${j.push.aparelhos === 1 ? "aparelho" : "aparelhos"}.` : "Nenhum aparelho com notificação ligada.";
-      msg(`${email} ${push}`, /não saiu/.test(email));
-    } catch (err) { msg(/fetch|network/i.test(String(err?.message)) ? "Não consegui falar com o servidor de avisos. Confira a internet." : String(err?.message || err), true); }
-    b.disabled = false;
+      diz(`${email} ${push}`, /não saiu/.test(email));
+    } catch (err) { diz(/fetch|network/i.test(String(err?.message)) ? "Não consegui falar com o servidor de avisos. Confira a internet." : String(err?.message || err), true); }
+    botao.disabled = false;
   };
+  $("ajTeste").onclick = () => pedeEnvio($("ajTeste"), true, msg, "Enviando o aviso de teste…");
+  // Resumo da semana (domingo à noite) e lembrete do fim do dia.
+  const msgR = (t, erro = false) => { $("ajResumoMsg").textContent = t; $("ajResumoMsg").style.color = erro ? "var(--bad)" : ""; };
+  $("ajSemana").onchange = async (e) => { S.prefs.avisos = { ...S.prefs.avisos, semana: e.target.checked }; await salvaPrefs(); msgR(e.target.checked ? "Resumo ligado. O próximo chega no domingo à noite." : "Resumo desligado."); };
+  $("ajNoite").onchange = async (e) => {
+    const cx = e.target; S.prefs.avisos = { ...S.prefs.avisos, noite: cx.checked }; await salvaPrefs();
+    if (!cx.checked) return msgR("Lembrete desligado.");
+    // O lembrete só chega por notificação: se este aparelho ainda não tem, liga agora.
+    const sub = await Promise.race([inscricaoPush().catch(() => null), new Promise((r) => setTimeout(() => r(null), 2500))]);
+    if (sub && Notification.permission === "granted") return msgR("Lembrete ligado. Às 20h, só nos dias sem nenhuma anotação.");
+    if (!pushDisponivel()) return msgR("Lembrete ligado, mas este aparelho ainda não recebe notificação: ela só funciona com o app instalado.", true);
+    cx.disabled = true;
+    try { await ligarPush(); $("ajPush").checked = true; msgR("Lembrete ligado, e a notificação deste aparelho também."); }
+    catch (err) { msgR("Lembrete ligado, mas a notificação deste aparelho não: " + String(err?.message || err), true); }
+    cx.disabled = false;
+  };
+  $("ajVerSemana").onclick = () => pedeEnvio($("ajVerSemana"), "semana", msgR, "Montando o resumo desta semana…");
 }
 /** Convite, uma vez por aparelho, para ligar as notificações (só para quem já tem contas cadastradas). */
 function conviteAvisos() {
@@ -2505,6 +2887,13 @@ $("btnAjustes").onclick = ajustes;
 let installEvt = null;
 addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; $("btnInstall").hidden = false; });
 $("btnInstall").onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $("btnInstall").hidden = true; };
-if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator && location.protocol !== "file:") {
+  navigator.serviceWorker.register("sw.js").catch(() => {});
+  // Tocou numa notificação com o app já aberto: o lembrete do fim do dia leva direto para o lançamento.
+  navigator.serviceWorker.addEventListener("message", (e) => {
+    if (e.data?.tipo !== "notificacao" || !/[?&]atalho=lancar\b/.test(String(e.data.url || ""))) return;
+    if (S.loaded && S.store && !$("app").hidden && !document.querySelector("dialog[open]")) { S.atalho = "lancar"; aoChegar(); }
+  });
+}
 
 addEventListener("load", boot);

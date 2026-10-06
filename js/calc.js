@@ -758,3 +758,120 @@ export function comparaCategorias(st, c, m) {
   }
   return { mes: ant, ate: dia, por };
 }
+
+/**
+ * Calendário do mês: o que vence e o que entra em cada dia.
+ * Contas = gastos fixos pagos fora do cartão e faturas que vencem no mês. Entradas = entradas fixas (salário e parecidas).
+ * `situacao` de cada conta: "paga", "atrasada" (já passou e não foi marcada), "hoje" ou "a vencer".
+ * @returns {{m:string, vazios:number, dias:{dia:number, iso:string, contas:object[], entradas:object[], aPagar:number, situacao:string}[], aPagar:number, pago:number, entra:number}}
+ *   `vazios` é quantas casas ficam em branco antes do dia 1 (o mês começa em domingo = 0). A `situacao` do dia é a mais urgente das contas dele.
+ */
+export function calendarioDoMes(st, m, hoje) {
+  const c = calcMes(st, m, hoje), n = dim(m), porDia = Array.from({ length: n }, (_, i) => ({ dia: i + 1, iso: `${m}-${pad(i + 1)}`, contas: [], entradas: [], aPagar: 0, situacao: "" }));
+  const sit = (data, paga) => (paga ? "paga" : data < hoje ? "atrasada" : data === hoje ? "hoje" : "a vencer");
+  const noDia = (data) => porDia[Math.min(n, Math.max(1, Number(data.slice(8, 10)))) - 1];
+  c.fx.filter((o) => !noCartao(o)).forEach((o) => noDia(o.data).contas.push({ tipo: "fixo", id: o.id, chave: o.chave, data: o.data, titulo: o.descricao, valor: Number(o.valor), situacao: sit(o.data, c.pagosSet.has(o.id + "|" + o.chave)) }));
+  c.fat.forEach((f) => noDia(f.vencimento).contas.push({ tipo: "fatura", id: f.id || null, auto: Boolean(f.auto), cartao_id: f.cartao_id || null, cartao: f.cartao, data: f.vencimento, titulo: `Fatura ${f.cartao}`, valor: Number(f.valor), situacao: sit(f.vencimento, f.status === "Paga") }));
+  c.fr.forEach((o) => noDia(o.data).entradas.push({ titulo: o.descricao, valor: Number(o.valor) }));
+  const ordem = ["atrasada", "hoje", "a vencer", "paga"];
+  let aPagar = 0, pago = 0, entra = 0;
+  porDia.forEach((d) => {
+    d.contas.sort((a, b) => ordem.indexOf(a.situacao) - ordem.indexOf(b.situacao) || a.titulo.localeCompare(b.titulo));
+    d.aPagar = round2(d.contas.filter((x) => x.situacao !== "paga").reduce((t, x) => t + x.valor, 0));
+    d.situacao = d.contas.length ? d.contas[0].situacao : "";
+    aPagar += d.aPagar; pago += d.contas.filter((x) => x.situacao === "paga").reduce((t, x) => t + x.valor, 0); entra += d.entradas.reduce((t, x) => t + x.valor, 0);
+  });
+  return { m, vazios: diaDaSemana(`${m}-01`), dias: porDia, aPagar: round2(aPagar), pago: round2(pago), entra: round2(entra) };
+}
+
+/* ===================== Resumo da semana e lembrete do fim do dia ===================== */
+const maisDias = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return toISO(d); };
+
+/**
+ * Resumo dos 7 dias que terminam em `hoje` (o servidor manda no domingo à noite: de segunda a domingo).
+ * Gastos = lançamentos de gasto pela data da compra, com o que foi no cartão (compra parcelada entra inteira, no dia da compra).
+ * @returns {{de:string, ate:string, total:number, n:number, antes:number, dif:number|null, cats:{cat:string, valor:number}[], outras:number,
+ *   maior:{descricao:string, categoria:string, valor:number, data:string}|null, dias:{iso:string, total:number}[], anotados:number,
+ *   proximas:{itens:object[], total:number, atrasadas:number}, mes:{custo:number, rec:number, previsto:number}}}
+ *   `dif` compara com os 7 dias anteriores (null quando eles não têm gasto); `anotados` conta os dias com algum lançamento ou marcados sem gasto;
+ *   `proximas` são as contas atrasadas (até 30 dias) e as que vencem nos 7 dias seguintes; `previsto` é quanto deve sobrar no mês, no ritmo atual.
+ */
+export function resumoDaSemana(st, hoje, semGasto = []) {
+  const de = maisDias(hoje, -6), soma = (l) => round2(l.reduce((t, x) => t + Number(x.valor), 0));
+  const gastos = (a, b) => st.lancamentos.filter((x) => x.tipo === "Despesa" && x.data >= a && x.data <= b);
+  const l = gastos(de, hoje), total = soma(l), antes = soma(gastos(maisDias(hoje, -13), maisDias(hoje, -7)));
+  const porCat = new Map(); l.forEach((x) => porCat.set(x.categoria || "Outros", (porCat.get(x.categoria || "Outros") || 0) + Number(x.valor)));
+  const cats = [...porCat].map(([cat, valor]) => ({ cat, valor: round2(valor) })).sort((a, b) => b.valor - a.valor || a.cat.localeCompare(b.cat));
+  const m = [...l].sort((a, b) => Number(b.valor) - Number(a.valor) || b.data.localeCompare(a.data))[0];
+  const comAlgo = new Set([...st.lancamentos.map((x) => x.data), ...semGasto]);
+  const dias = Array.from({ length: 7 }, (_, i) => { const iso = maisDias(de, i); return { iso, total: soma(l.filter((x) => x.data === iso)) }; });
+  const itens = proximosVencimentos(st, hoje, 7).filter((x) => x.dias >= -30);
+  const c = calcMes(st, mKey(hoje), hoje);
+  return { de, ate: hoje, total, n: l.length, antes, dif: antes > 0 ? round2(total - antes) : null, cats: cats.slice(0, 3), outras: soma(cats.slice(3)),
+    maior: m ? { descricao: m.descricao || m.categoria, categoria: m.categoria, valor: Number(m.valor), data: m.data } : null,
+    dias, anotados: dias.filter((d) => comAlgo.has(d.iso)).length,
+    proximas: { itens, total: soma(itens), atrasadas: itens.filter((x) => x.dias < 0).length },
+    mes: { custo: c.custo, rec: c.rec, previsto: round2(c.rec - c.proj - c.res) } };
+}
+
+/**
+ * Lembrete do fim do dia: vale quando a pessoa não anotou nada hoje (nem marcou "não gastei nada").
+ * Para não virar insistência, ele para sozinho depois de 7 dias sem nenhuma anotação e volta quando a pessoa anota de novo.
+ * @param {{semGasto?:string[], anotouHoje?:boolean, desde?:string}} o  `anotouHoje`: lançou algo hoje, mesmo com outra data; `desde`: dia em que a conta foi criada
+ * @returns {{seq:number, parado:number}|null}  `seq`: dias seguidos anotando até ontem; `parado`: dias desde a última anotação
+ */
+export function lembreteDoDia(st, hoje, { semGasto = [], anotouHoje = false, desde = "" } = {}) {
+  if (anotouHoje || semGasto.includes(hoje) || st.lancamentos.some((x) => x.data === hoje)) return null;
+  const ultima = [...st.lancamentos.map((x) => x.data), ...semGasto, desde].filter((d) => d && d <= hoje).sort().pop();
+  if (!ultima) return null;
+  const parado = diasEntre(ultima, hoje);
+  if (parado > 7) return null;
+  return { seq: sequenciaDeDias(st, hoje, semGasto).dias, parado };
+}
+
+/* ===================== Conta de casal ===================== */
+/** O que passa a ser um só para os dois quando as contas são divididas. O resto (avisos, tema, quadros do início) continua de cada um. */
+export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto"];
+
+/** Só as chaves que são dos dois. */
+export function comumDoCasal(prefs) {
+  const out = {};
+  for (const k of COMUM_DO_CASAL) if (prefs && prefs[k] !== undefined && prefs[k] !== null) out[k] = prefs[k];
+  return out;
+}
+
+/**
+ * Ao aceitar o convite: junta o que é de quem aceitou com o que já era de quem convidou.
+ * Valem o limite, os limites por categoria e o saldo inicial de quem convidou; categorias, metas e dias sem gasto se somam
+ * (na meta com o mesmo nome, fica a de quem convidou).
+ */
+export function juntaPrefsDoCasal(deQuemConvidou = {}, deQuemAceitou = {}) {
+  const a = comumDoCasal(deQuemConvidou), b = comumDoCasal(deQuemAceitou), out = { ...b, ...a };
+  if (a.categorias && b.categorias) {
+    out.categorias = {};
+    for (const t of new Set([...Object.keys(a.categorias), ...Object.keys(b.categorias)])) out.categorias[t] = [...new Set([...(a.categorias[t] || []), ...(b.categorias[t] || [])])];
+  }
+  if (a.metas || b.metas) out.metas = { ...(b.metas || {}), ...(a.metas || {}) };
+  if (a.semGasto || b.semGasto) out.semGasto = [...new Set([...(a.semGasto || []), ...(b.semGasto || [])])].sort().slice(-90);
+  return out;
+}
+
+/** Um nome curto a partir do e-mail, para mostrar quem lançou: "bia.souza92@exemplo.com" → "Bia". */
+export function apelidoDoEmail(email) {
+  const p = String(email || "").split("@")[0].split(/[._\-+0-9]+/).find(Boolean) || "";
+  return p ? p[0].toUpperCase() + p.slice(1).toLowerCase() : "";
+}
+
+/**
+ * Quanto cada um lançou de gastos no mês (pela pessoa que anotou, não por quem pagou).
+ * @returns {{eu:{total:number, n:number}, outro:{total:number, n:number}}}
+ */
+export function divisaoDoMes(lancs, m, eu) {
+  const r = { eu: { total: 0, n: 0 }, outro: { total: 0, n: 0 } };
+  for (const x of lancs) {
+    if (x.tipo !== "Despesa" || mKey(x.data) !== m) continue;
+    const k = !x.user_id || x.user_id === eu ? "eu" : "outro";
+    r[k].total = round2(r[k].total + Number(x.valor)); r[k].n++;
+  }
+  return r;
+}

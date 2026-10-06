@@ -92,3 +92,77 @@ export function avisoDeTeste(urlApp) {
   return { titulo: "Avisos ligados", corpo: frase, assunto: "Meus Gastos: aviso de teste", url: urlApp, texto: `${frase}\n\nAbrir o app: ${urlApp}`,
     html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#0b0b0b"><h2 style="margin:0 0 8px;font-size:20px;color:#1f3a5f">Meus Gastos</h2><p style="font-size:15px">${frase}</p><p style="font-size:13px;color:#52514e">Quando houver alguma, você recebe um e-mail como este, de manhã.</p></div>` };
 }
+
+/* ---------- resumo da semana (domingo à noite) e lembrete do fim do dia ---------- */
+const DIAS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+const diaSem = (iso) => DIAS[new Date(Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(5, 7)) - 1, Number(iso.slice(8, 10)))).getUTCDay()];
+const curto = (v) => (v >= 1000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })} mil` : Math.round(v).toLocaleString("pt-BR"));
+const comAtalho = (urlApp, atalho) => `${urlApp}${urlApp.includes("?") ? "&" : "?"}atalho=${atalho}`;
+
+/**
+ * Resumo da semana: quanto foi gasto, onde pesou mais, as contas dos próximos 7 dias e como está o mês.
+ * @param {ReturnType<import("./regras.js").resumoDaSemana>} r
+ * @param {string} urlApp
+ * @param {{teto:number, pct:number}|null} u  uso do limite do mês (usoDoTeto), quando a pessoa definiu um
+ * @returns {{titulo, corpo, assunto, html, texto, url, tag}}
+ */
+export function avisoDaSemana(r, urlApp, u = null) {
+  const gastos = (n) => `${n} ${n === 1 ? "gasto" : "gastos"}`, mes = MESES[Number(r.ate.slice(5, 7)) - 1];
+  const titulo = r.n ? `Sua semana: ${brl(r.total)} em ${gastos(r.n)}` : "Sua semana: nenhum gasto anotado";
+  const compara = !r.n || r.dif === null ? "" : Math.abs(r.dif) < 1 ? "O mesmo que na semana anterior." : r.dif < 0 ? `${brl(-r.dif)} a menos que na semana anterior.` : `${brl(r.dif)} a mais que na semana anterior.`;
+  const p = r.proximas, nP = p.itens.length;
+  const fraseProx = nP ? `Nos próximos 7 dias: ${contas(nP)}, somando ${brl(p.total)}${p.atrasadas ? ` (${p.atrasadas} ${p.atrasadas === 1 ? "já atrasada" : "já atrasadas"})` : ""}.` : "Nenhuma conta vence nos próximos 7 dias.";
+  const fraseMes = `Seu custo de ${mes}, com as contas e faturas do mês, está em ${brl(r.mes.custo)}${u ? `: ${u.pct}% do limite de ${brl(u.teto)}` : ""}.`
+    + (r.mes.rec > 0 ? (r.mes.previsto >= 0 ? ` No ritmo atual, devem sobrar ${brl(r.mes.previsto)}.` : ` No ritmo atual, devem faltar ${brl(-r.mes.previsto)}.`) : "");
+  const semNada = "Se você gastou e não anotou, dá para lançar agora com a data certa.";
+  const corpo = [compara, r.cats[0] ? `Onde mais pesou: ${r.cats[0].cat} (${brl(r.cats[0].valor)}).` : semNada, nP ? fraseProx : ""].filter(Boolean).join("\n");
+  const maior = r.maior && r.n > 1 ? `Maior gasto: ${r.maior.descricao}, ${brl(r.maior.valor)}, ${diaSem(r.maior.data)} ${ddmm(r.maior.data)}.` : "";
+  const anotados = r.n ? `Você anotou em ${r.anotados} de 7 dias.` : "";
+  const sair = "Para deixar de receber este resumo, abra o app e desmarque em Ajustes > Resumo e lembrete.";
+  // Dia a dia: uma barra por dia, da mesma cor, com o valor embaixo (o e-mail não tem como mostrar o valor ao passar o dedo).
+  const topo = Math.max(...r.dias.map((d) => d.total), 0.01), td = "padding:0 3px;text-align:center;vertical-align:bottom;width:14.28%";
+  const barras = r.n ? `<p style="margin:0 0 6px;font-size:14px;color:#52514e">Gasto por dia, em reais</p>
+  <table role="presentation" style="width:100%;border-collapse:collapse;margin:0 0 18px"><tr>${r.dias.map((d) => `
+    <td style="${td};height:72px"><div style="height:${d.total ? Math.max(4, Math.round((d.total / topo) * 64)) : 2}px;background:${d.total ? "#2a78d6" : "#d8d6ce"};border-radius:4px 4px 0 0;font-size:0;line-height:0">&nbsp;</div></td>`).join("")}</tr>
+    <tr>${r.dias.map((d) => `<td style="${td};border-top:1px solid #d8d6ce;padding-top:5px;font-size:12px;color:#52514e">${diaSem(d.iso)}<br><span style="color:#0b0b0b">${d.total ? curto(d.total) : "–"}</span></td>`).join("")}</tr></table>` : "";
+  const linhasCat = [...r.cats, ...(r.outras > 0 ? [{ cat: "Outras categorias", valor: r.outras }] : [])];
+  const celula = "padding:9px 6px;border-top:1px solid #e4e3dc";
+  const tabCat = linhasCat.length ? `<p style="margin:0 0 6px;font-size:14px;color:#52514e">Onde foi o dinheiro</p>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 18px">${linhasCat.map((c) => `
+    <tr><td style="${celula}"><b>${esc(c.cat)}</b></td><td style="${celula};text-align:right;white-space:nowrap;color:#52514e">${Math.round((c.valor / r.total) * 100)}%</td><td style="${celula};text-align:right;white-space:nowrap">${brl(c.valor)}</td></tr>`).join("")}
+  </table>` : "";
+  const mostra = p.itens.slice(0, 6);
+  const tabProx = nP ? `<p style="margin:0 0 6px;font-size:14px;color:#52514e">${esc(fraseProx)}</p>
+  <table style="width:100%;border-collapse:collapse;font-size:14px;margin:0 0 18px">${mostra.map((x) => `
+    <tr><td style="${celula};white-space:nowrap;color:#52514e">${ddmm(x.data)}</td><td style="${celula}"><b>${esc(x.titulo)}</b>${x.dias < 0 ? `<br><span style="font-size:13px;color:#c42f2f">${quando(x.dias)}</span>` : ""}</td><td style="${celula};text-align:right;white-space:nowrap">${brl(x.valor)}</td></tr>`).join("")}
+  </table>${nP > mostra.length ? `<p style="margin:-10px 0 18px;font-size:13px;color:#52514e">E mais ${nP - mostra.length}. Veja todas no app.</p>` : ""}` : `<p style="margin:0 0 18px;font-size:14px;color:#52514e">${fraseProx}</p>`;
+  const html = `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#0b0b0b">
+  <h2 style="margin:0 0 2px;font-size:20px;color:#1f3a5f">Meus Gastos</h2>
+  <p style="margin:0 0 16px;font-size:14px;color:#52514e">Resumo da semana, de ${ddmm(r.de)} a ${ddmm(r.ate)}</p>
+  ${r.n ? `<p style="margin:0;font-size:30px;font-weight:bold;line-height:1.1">${brl(r.total)}</p>
+  <p style="margin:4px 0 18px;font-size:15px">em ${gastos(r.n)} ${r.n === 1 ? "anotado" : "anotados"}.${compara ? " " + compara : ""}</p>`
+    : `<p style="margin:0 0 6px;font-size:20px;font-weight:bold">Nenhum gasto anotado nesta semana</p><p style="margin:0 0 18px;font-size:15px">${semNada}</p>`}
+  ${barras}${tabCat}${maior || anotados ? `<p style="margin:0 0 18px;font-size:14px">${esc([maior, anotados].filter(Boolean).join(" "))}</p>` : ""}
+  ${tabProx}
+  <p style="margin:0 0 4px;font-size:14px;padding:12px 14px;border-radius:8px;background:#eaf2fd;border-left:4px solid #1f6fd1">${esc(fraseMes)}</p>
+  <p style="margin:20px 0"><a href="${esc(urlApp)}" style="background:#2a78d6;color:#fff;text-decoration:none;padding:11px 18px;border-radius:8px;font-weight:bold;font-size:14px">Abrir o app</a></p>
+  <p style="font-size:12px;color:#77756f;margin:0">Este resumo chega no domingo à noite, só para quem anotou algo nas últimas duas semanas. ${sair.replace(">", "&rarr;")}</p></div>`;
+  const texto = [`Resumo da semana, de ${ddmm(r.de)} a ${ddmm(r.ate)}`, "",
+    r.n ? `${brl(r.total)} em ${gastos(r.n)}.${compara ? " " + compara : ""}` : `Nenhum gasto anotado nesta semana. ${semNada}`,
+    ...(linhasCat.length ? ["", "Onde foi o dinheiro:", ...linhasCat.map((c) => `- ${c.cat}: ${brl(c.valor)}`)] : []),
+    ...(maior || anotados ? ["", [maior, anotados].filter(Boolean).join(" ")] : []),
+    "", fraseProx, ...mostra.map((x) => `- ${ddmm(x.data)}  ${x.titulo}: ${brl(x.valor)}${x.dias < 0 ? `, ${quando(x.dias)}` : ""}`),
+    "", fraseMes, "", `Abrir o app: ${urlApp}`, "", sair].join("\n");
+  return { titulo, corpo, assunto: `Meus Gastos: ${titulo.replace("Sua semana: ", "sua semana, ")}`, html, texto, url: urlApp, tag: "meus-gastos-semana" };
+}
+
+/**
+ * Lembrete do fim do dia, só por notificação: aparece quando a pessoa não anotou nada hoje.
+ * @param {{seq:number}} l  resultado de lembreteDoDia
+ * @returns {{titulo, corpo, url, tag}}
+ */
+export function avisoDaNoite(l, urlApp) {
+  const corpo = l.seq >= 2 ? `Você está há ${l.seq} dias seguidos anotando. Lance o de hoje, ou abra o app e marque que não gastou nada.`
+    : "Leva menos de um minuto. Lance o de hoje, ou abra o app e marque que não gastou nada.";
+  return { titulo: "Anotou os gastos de hoje?", corpo, url: comAtalho(urlApp, "lancar"), tag: "meus-gastos-dia" };
+}

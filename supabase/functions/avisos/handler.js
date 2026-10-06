@@ -4,12 +4,15 @@
 //   POST + x-avisos-segredo     → rotina diária (chamada pelo agendamento do banco): avisa quem tem conta para vencer
 //                                 ou chegou perto, passou ou passou muito do limite de gastos do mês, e manda os recados
 //                                 da meta do dinheiro guardado (lembrete de guardar e parabéns por ter guardado)
+//   POST + x-avisos-segredo     → { rotina: "noite" } (agendamento das 20h): no domingo manda o resumo da semana; nos outros dias,
+//                                 a notificação de lembrete para quem pediu e não anotou nada no dia
 //   POST + login do usuário     → { teste: true }: manda um aviso de teste só para quem pediu
+//                                 { teste: "semana" } ou { teste: "noite" }: manda agora o resumo da semana ou o lembrete, para ver como fica
 // As dependências chegam por parâmetro para o mesmo código rodar nos testes (Node) e no Supabase (Deno).
 import { pendenciasParaAviso, calcMes, usoDoTeto, mKey, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias, diasEntre,
-  lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta } from "./regras.js";
+  lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, diaDaSemana, resumoDaSemana, lembreteDoDia } from "./regras.js";
 import { enviaPush, gerarChaves, cifra, b64u, deB64u, cabecalhoVapid } from "./webpush.js";
-import { montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta } from "./mensagem.js";
+import { montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, avisoDaSemana, avisoDaNoite } from "./mensagem.js";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
@@ -33,7 +36,7 @@ export async function autoteste() {
   confere("totais", [p.atrasadas, p.hoje, p.total], [1, 1, 1590]);
   const a = montaAviso(p, "https://app/");
   confere("título", a.titulo, "1 conta atrasada e 4 para vencer");
-  confere("valor em reais", a.assunto.replace(/ /g, " "), "Meus Gastos: 1 conta atrasada e 4 para vencer (R$ 1.590,00)");
+  confere("valor em reais", a.assunto.replace(/\s/g, " "), "Meus Gastos: 1 conta atrasada e 4 para vencer (R$ 1.590,00)");
   confere("data de Brasília", new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date("2026-10-04T02:30:00Z")), "2026-10-03");
   // Criptografia: exemplo oficial da RFC 8291 (apêndice A).
   const asPub = deB64u("BP4z9KsN6nGRTbVYI_c7VJSPQTBtkgcy27mlmlMoZIIgDll6e3vCYLocInmYWAmS6TlzAC8wEqKK6PBru3jl7A8");
@@ -58,7 +61,16 @@ export async function autoteste() {
   confere("texto dos parabéns", avisoDaMeta({ tipo: "parabens", ...par }, "2026-10-05").titulo, "Você chegou a 50% da meta Reserva");
   const lem = lembreteDaMeta({ ...sm, lancamentos: sm.lancamentos.slice(0, 3) }, { Reserva: { valor: 3000 } }, "2026-10-05");
   confere("lembrete da meta", [lem.quando, lem.valor, lem.completo, lem.meta.previsao], ["entrou", 300, true, "2027-04"]);
-  return { ok: falhas.length === 0, conferidos: 12, falhas, assinatura: assinatura() };
+  // Resumo da semana (segunda 28/09 a domingo 04/10) e lembrete do fim do dia.
+  const g = (data, valor, categoria, descricao = "Gasto") => ({ id: data + valor, data, descricao, tipo: "Despesa", categoria, forma: "Pix", valor });
+  const ss = { pagos: [], cartoes: [], faturas: [], fixos: [fx("i", "Internet", 6, 100)],
+    lancamentos: [g("2026-09-22", 80, "Mercado"), g("2026-09-28", 50, "Mercado"), g("2026-10-01", 120.5, "Mercado", "Compra do mês"), g("2026-10-03", 30, "Transporte")] };
+  const rs = resumoDaSemana(ss, "2026-10-04");
+  confere("resumo da semana", [rs.de, rs.total, rs.n, rs.dif, rs.cats.map((x) => [x.cat, x.valor]), rs.anotados, rs.proximas.itens.map((x) => x.titulo), rs.proximas.total],
+    ["2026-09-28", 200.5, 3, 120.5, [["Mercado", 170.5], ["Transporte", 30]], 3, ["Internet"], 100]);
+  confere("texto do resumo", avisoDaSemana(rs, "https://app/").titulo.replace(/\s/g, " "), "Sua semana: R$ 200,50 em 3 gastos");
+  confere("lembrete do dia", [lembreteDoDia(ss, "2026-10-04"), lembreteDoDia(ss, "2026-10-03"), lembreteDoDia(ss, "2026-10-12")], [{ seq: 1, parado: 1 }, null, null]);
+  return { ok: falhas.length === 0, conferidos: 15, falhas, assinatura: assinatura() };
 }
 
 /**
@@ -67,7 +79,7 @@ export async function autoteste() {
  */
 export function assinatura() {
   const texto = [criaHandler, autoteste, montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, pendenciasParaAviso, calcMes, usoDoTeto, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias,
-    lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta,
+    lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, resumoDaSemana, lembreteDoDia, avisoDaSemana, avisoDaNoite,
     enviaPush, gerarChaves, cifra, cabecalhoVapid].map(String).join("\n");
   let h = 5381; for (let i = 0; i < texto.length; i++) h = ((h << 5) + h + texto.charCodeAt(i)) | 0;
   return `${texto.length}-${(h >>> 0).toString(36)}`;
@@ -77,7 +89,8 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
   const admin = () => createClient(env("SUPABASE_URL"), env("SUPABASE_SERVICE_ROLE_KEY"), { auth: { persistSession: false, autoRefreshToken: false } });
   const urlApp = () => env("AVISOS_URL_APP") || APP_PADRAO;
   // "Hoje" no horário de Brasília, que é o dos vencimentos.
-  const hoje = () => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(agora());
+  const diaDe = (d) => new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(d);
+  const hoje = () => diaDe(agora());
 
   /** Chaves das notificações: criadas na primeira vez e guardadas numa tabela que só o servidor lê. */
   async function chaves(db) {
@@ -129,7 +142,7 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
     let ok = 0;
     for (const s of subs || []) {
       try {
-        const st = await enviaPush(s, { titulo: aviso.titulo, corpo: aviso.corpo, url: aviso.url }, k, `mailto:${env("AVISOS_REMETENTE") || "avisos@meusgastos.app"}`, fetchFn);
+        const st = await enviaPush(s, { titulo: aviso.titulo, corpo: aviso.corpo, url: aviso.url, tag: aviso.tag }, k, `mailto:${env("AVISOS_REMETENTE") || "avisos@meusgastos.app"}`, fetchFn);
         if (st >= 200 && st < 300) ok++;
         else if (st === 404 || st === 410) await db.from("avisos_push").delete().eq("id", s.id);
         else console.warn("push", st, s.endpoint.slice(0, 60));
@@ -180,26 +193,85 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
     return { pendencias: p.itens.length, limite: lim ? lim.nivel : 0, meta: rec ? (rec.tipo === "parabens" ? "parabens" : rec.quando) : "", email, push };
   }
 
-  async function rotinaDiaria(db) {
-    const k = await chaves(db), dia = hoje(), res = { dia, usuarios: 0, avisados: 0, emails: 0, notificacoes: 0, erros: [] };
+  /**
+   * Anota o que foi enviado no dia. A linha é uma por pessoa por dia: a rotina da manhã e a da noite escrevem na mesma,
+   * cada uma com a sua marca ("email: ..." de manhã, "noite: ..." à noite), e é por essa marca que nenhuma repete o envio.
+   */
+  async function anota(db, uid, dia, trecho, naFrente = false) {
+    const { data: ja } = await db.from("avisos_enviados").select("canais").eq("user_id", uid).eq("dia", dia).maybeSingle();
+    if (!ja) return db.from("avisos_enviados").insert({ user_id: uid, dia, canais: trecho.slice(0, 300) });
+    const canais = (naFrente ? `${trecho}; ${ja.canais || ""}` : `${ja.canais || ""}; ${trecho}`).slice(0, 400);
+    return db.from("avisos_enviados").update({ canais }).eq("user_id", uid).eq("dia", dia);
+  }
+  const todos = async (db, cada) => {
     for (let page = 1; page <= 500; page++) {
       const { data, error } = await db.auth.admin.listUsers({ page, perPage: 200 });
       if (error) throw new Error(error.message);
-      for (const user of data.users) {
-        res.usuarios++;
-        try {
-          // Um aviso por pessoa por dia, mesmo que a rotina rode duas vezes.
-          const { data: ja } = await db.from("avisos_enviados").select("dia").eq("user_id", user.id).eq("dia", dia).maybeSingle();
-          if (ja) continue;
-          const r = await avisaUsuario(db, user, k);
-          if (!r) continue;
-          res.avisados++; if (r.email === "enviado") res.emails++; res.notificacoes += r.push.entregues;
-          if (/^erro/.test(r.email)) res.erros.push(`e-mail: ${r.email}`);
-          await db.from("avisos_enviados").insert({ user_id: user.id, dia, canais: `${r.limite ? `limite: ${r.limite}; ` : ""}${r.meta ? `meta: ${r.meta}; ` : ""}email: ${r.email}; push: ${r.push.entregues}/${r.push.aparelhos}`.slice(0, 300) });
-        } catch (e) { res.erros.push(String(e?.message || e).slice(0, 200)); }
-      }
+      for (const user of data.users) await cada(user);
       if (data.users.length < 200) break;
     }
+  };
+
+  /**
+   * O que a pessoa recebe à noite. No domingo, o resumo da semana (e-mail e notificação), para quem anotou algo nas últimas duas semanas.
+   * Nos outros dias, ou para quem desligou o resumo: a notificação de lembrete, só para quem pediu e não anotou nada hoje.
+   * `so` força um dos dois, para o botão "ver como fica" do app.
+   */
+  async function noiteDoUsuario(db, user, k, dia, so = "") {
+    const { data: pref } = await db.from("preferencias").select("dados").eq("user_id", user.id).maybeSingle();
+    const dados = pref?.dados || {}, semGasto = Array.isArray(dados.semGasto) ? dados.semGasto : [];
+    const querSemana = so === "semana" || (!so && diaDaSemana(dia) === 0 && dados.avisos?.semana !== false);
+    const querNoite = so === "noite" || (!so && dados.avisos?.noite === true);
+    if (!querSemana && !querNoite) return null;
+    const st = await estado(db, user.id);
+    if (querSemana && (so || [...st.lancamentos.map((x) => x.data), ...semGasto].some((d) => d <= dia && diasEntre(d, dia) < 14))) {
+      const u = Number(dados.teto) > 0 ? usoDoTeto(calcMes(st, mKey(dia), dia), dados.teto) : null;
+      const aviso = avisoDaSemana(resumoDaSemana(st, dia, semGasto), urlApp(), u);
+      const email = user.email && dados.avisos?.email !== false ? await mandaEmail(user.email, aviso) : "desligado";
+      return { tipo: "semana", email, push: await mandaPush(db, user.id, aviso, k) };
+    }
+    if (!querNoite) return null;
+    const anotouHoje = st.lancamentos.some((x) => x.created_at && diaDe(new Date(x.created_at)) === dia);
+    const l = lembreteDoDia(st, dia, { semGasto, anotouHoje, desde: user.created_at ? diaDe(new Date(user.created_at)) : "" }) || (so ? { seq: 0, parado: 0 } : null);
+    if (!l) return null;
+    const push = await mandaPush(db, user.id, avisoDaNoite(l, urlApp()), k);
+    return push.aparelhos || so ? { tipo: "lembrete", email: "", push } : null;
+  }
+
+  async function rotinaDaNoite(db) {
+    const k = await chaves(db), dia = hoje(), res = { dia, rotina: "noite", usuarios: 0, resumos: 0, lembretes: 0, emails: 0, notificacoes: 0, erros: [] };
+    await todos(db, async (user) => {
+      res.usuarios++;
+      try {
+        const { data: ja } = await db.from("avisos_enviados").select("canais").eq("user_id", user.id).eq("dia", dia).maybeSingle();
+        if (/noite: /.test(ja?.canais || "")) return;   // uma vez por noite, mesmo que a rotina rode duas vezes
+        const r = await noiteDoUsuario(db, user, k, dia);
+        if (!r) return;
+        if (r.tipo === "semana") res.resumos++; else res.lembretes++;
+        if (r.email === "enviado") res.emails++; res.notificacoes += r.push.entregues;
+        if (/^erro/.test(r.email)) res.erros.push(`e-mail: ${r.email}`);
+        await anota(db, user.id, dia, `noite: ${r.tipo}${r.email === "enviado" ? ", e-mail enviado" : ""}, aparelhos ${r.push.entregues}/${r.push.aparelhos}`);
+      } catch (e) { res.erros.push(String(e?.message || e).slice(0, 200)); }
+    });
+    res.erros = res.erros.slice(0, 20);
+    return res;
+  }
+
+  async function rotinaDiaria(db) {
+    const k = await chaves(db), dia = hoje(), res = { dia, usuarios: 0, avisados: 0, emails: 0, notificacoes: 0, erros: [] };
+    await todos(db, async (user) => {
+      res.usuarios++;
+      try {
+        // Um aviso por pessoa por manhã, mesmo que a rotina rode duas vezes.
+        const { data: ja } = await db.from("avisos_enviados").select("canais").eq("user_id", user.id).eq("dia", dia).maybeSingle();
+        if (/(^|; )email: /.test(ja?.canais || "")) return;
+        const r = await avisaUsuario(db, user, k);
+        if (!r) return;
+        res.avisados++; if (r.email === "enviado") res.emails++; res.notificacoes += r.push.entregues;
+        if (/^erro/.test(r.email)) res.erros.push(`e-mail: ${r.email}`);
+        await anota(db, user.id, dia, `${r.limite ? `limite: ${r.limite}; ` : ""}${r.meta ? `meta: ${r.meta}; ` : ""}email: ${r.email}; push: ${r.push.entregues}/${r.push.aparelhos}`, true);
+      } catch (e) { res.erros.push(String(e?.message || e).slice(0, 200)); }
+    });
     res.erros = res.erros.slice(0, 20);
     return res;
   }
@@ -216,17 +288,19 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
       if (segredo) {
         const { data: confere } = await db.rpc("avisos_confere_segredo", { s: segredo });
         if (confere !== true) return json({ erro: "Segredo inválido." }, 401);
-        return json(await rotinaDiaria(db));
+        const pedido = await req.json().catch(() => ({}));
+        return json(pedido?.rotina === "noite" ? await rotinaDaNoite(db) : await rotinaDiaria(db));
       }
       const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
       const { data: quem } = token ? await db.auth.getUser(token) : { data: null };
       if (!quem?.user) return json({ erro: "Entre no app para pedir um aviso de teste." }, 401);
       const corpo = await req.json().catch(() => ({}));
-      if (!corpo.teste) return json({ erro: "Pedido não reconhecido." }, 400);
+      if (corpo.teste !== true && corpo.teste !== "semana" && corpo.teste !== "noite") return json({ erro: "Pedido não reconhecido." }, 400);
       // Um teste por minuto por pessoa, para ninguém gastar a cota de e-mails apertando o botão sem parar.
       const ultimo = ultimoTeste.get(quem.user.id) || 0, t = agora().getTime();
       if (t - ultimo < 60000) return json({ erro: "Espere um minuto para pedir outro teste." }, 429);
       ultimoTeste.set(quem.user.id, t);
+      if (corpo.teste !== true) return json(await noiteDoUsuario(db, quem.user, await chaves(db), hoje(), corpo.teste));
       return json(await avisaUsuario(db, quem.user, await chaves(db), { teste: true }));
     } catch (e) {
       console.error(e);
