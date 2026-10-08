@@ -150,7 +150,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
     <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
     <form id="formLanc" class="fields" autocomplete="off">
       <label class="f">Valor (R$)<input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
-      <label class="f desc">Descrição<input class="in" id="fDesc" placeholder="Ex.: mercado, uber, farmácia" maxlength="80"></label>
+      <label class="f desc">Descrição<input class="in" id="fDesc" placeholder="Ex.: mercado, uber, farmácia" maxlength="80" enterkeyhint="done" aria-describedby="fComoAntes" aria-controls="fSugere"><span class="sugere" id="fSugere" role="group" aria-label="Descrições que você já usou" hidden></span><span class="como-antes" id="fComoAntes" aria-live="polite" hidden></span></label>
       <label class="f"><span id="fCatLbl">Categoria</span><select class="in" id="fCat"></select></label>
       <label class="f" id="fFormaWrap"><span id="fFormaLbl">Forma de pagamento</span><select class="in" id="fForma"></select></label>
       <label class="f">Data<input class="in" type="date" id="fData" required></label>

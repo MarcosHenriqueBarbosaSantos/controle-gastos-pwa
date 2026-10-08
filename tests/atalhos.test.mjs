@@ -1,7 +1,7 @@
 // Testes dos atalhos do dia a dia: busca, mais usados, categoria aprendida, meses lado a lado e comparação por categoria.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buscaLancamentos, maisUsados, categoriaAprendida, ultimosMeses, comparaCategorias, calcMes } from "../js/calc.js";
+import { buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias, calcMes } from "../js/calc.js";
 
 let n = 0;
 const L = (data, descricao, valor, categoria = "Outros", forma = "Pix", tipo = "Despesa", extra = {}) => ({ id: "l" + ++n, data, descricao, valor, categoria, forma, tipo, import_key: null, created_at: data + "T12:00:00Z", ...extra });
@@ -64,6 +64,26 @@ test("categoria aprendida: vale a última escolha da pessoa para aquela descriç
   assert.equal(categoriaAprendida(l, "Mercado Extra"), "", "só a primeira palavra igual não basta");
   assert.equal(categoriaAprendida(l, "Freela", "Receita"), "Renda extra"); assert.equal(categoriaAprendida(l, "Freela"), "", "cada tipo tem o seu histórico");
   assert.equal(categoriaAprendida(l, "Padaria nova"), ""); assert.equal(categoriaAprendida(l, "ab"), ""); assert.equal(categoriaAprendida(l, ""), "");
+});
+
+test("último parecido: devolve o lançamento inteiro, para repetir categoria, forma e cartão", () => {
+  const l = [L("2026-09-01", "Mercado do mês", 500, "Mercado", "Pix"), L("2026-10-01", "mercado do mes", 520, "Mercado", "Cartão de crédito", "Despesa", { cartao_id: "k1" })];
+  const u = ultimoParecido(l, "Mercado do mês");
+  assert.equal(u.forma, "Cartão de crédito"); assert.equal(u.cartao_id, "k1"); assert.equal(u.categoria, "Mercado");
+  assert.equal(ultimoParecido(l, "Me"), null); assert.equal(ultimoParecido(l, "Padaria"), null);
+});
+
+test("descrições parecidas: completa pelo começo de qualquer palavra, com o que foi feito da última vez", () => {
+  const l = [L("2026-10-01", "Supermercado Dia", 90, "Mercado", "Débito"), L("2026-10-03", "Supermercado Dia", 95, "Mercado", "Cartão de crédito", "Despesa", { cartao_id: "k1" }),
+    L("2026-10-02", "Pão de Açúcar Super", 60, "Mercado", "Pix"), L("2026-10-04", "Suco", 8, "Alimentação", "Dinheiro"), L("2026-10-05", "Tênis (2/3)", 119.9, "Roupas"),
+    L("2026-10-05", "Supino aula", 50, "Saúde", "Pix", "Receita")];
+  const r = descricoesParecidas(l, "su", "Despesa", "2026-10-06");
+  assert.deepEqual(r.map((x) => x.descricao), ["Supermercado Dia", "Suco", "Pão de Açúcar Super"], "primeiro o que começa com o texto e mais se repete; cada tipo tem o seu");
+  assert.deepEqual(r[0], { descricao: "Supermercado Dia", categoria: "Mercado", forma: "Cartão de crédito", cartao_id: "k1", vezes: 2 });
+  assert.deepEqual(descricoesParecidas(l, "ten", "Despesa", "2026-10-06").map((x) => x.descricao), ["Tênis"], "sem acento e sem a marca da parcela");
+  assert.deepEqual(descricoesParecidas(l, "suco", "Despesa", "2026-10-06"), [], "o que já foi digitado inteiro não é sugerido");
+  assert.deepEqual(descricoesParecidas(l, "s", "Despesa", "2026-10-06"), [], "uma letra só ainda não sugere");
+  assert.equal(descricoesParecidas(l, "su", "Despesa", "2026-10-06", 1).length, 1);
 });
 
 test("últimos meses: entradas, custo e sobra de cada mês, só a partir do primeiro com dados", () => {

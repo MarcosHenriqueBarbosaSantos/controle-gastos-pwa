@@ -1,4 +1,5 @@
 {
+  "id": "./",
   "name": "Meus Gastos",
   "short_name": "Meus Gastos",
   "description": "Lance seus gastos no dia a dia e veja quanto o mês vai custar.",
@@ -74,5 +75,9 @@
         }
       ]
     }
-  }
+  },
+  "categories": [
+    "finance",
+    "productivity"
+  ]
 }

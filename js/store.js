@@ -103,6 +103,12 @@ export function createSupabaseStore(client) {
 /* ===================== sem internet: fila de lançamentos e cópia dos dados ===================== */
 
 /** O erro é de falta de conexão (e não uma recusa do banco)? */
+/** Espera a resposta por até `ms`; depois disso, conta como sem conexão (sinal fraco: a requisição fica pendurada). */
+export function comPrazo(p, ms) {
+  if (!(ms > 0)) return p;
+  let t; const prazo = new Promise((_, nao) => { t = setTimeout(() => nao(new Error("NetworkError: sem resposta do servidor")), ms); });
+  return Promise.race([p, prazo]).finally(() => clearTimeout(t));
+}
 export const semRede = (e) => (typeof navigator !== "undefined" && navigator.onLine === false) || /failed to fetch|networkerror|network request failed|load failed|fetch failed|err_internet|err_network/i.test(String(e?.message || e));
 
 /**
@@ -115,7 +121,7 @@ export const semRede = (e) => (typeof navigator !== "undefined" && navigator.onL
  * @param {object} base  a conta de verdade (createSupabaseStore)
  * @param {{chave:string, guarda?:Storage, uuid?:()=>string, agora?:()=>string}} op  `chave` separa os dados de cada pessoa neste aparelho
  */
-export function comFila(base, { chave, guarda = localStorage, uuid = () => crypto.randomUUID(), agora = () => new Date().toISOString() }) {
+export function comFila(base, { chave, guarda = localStorage, uuid = () => crypto.randomUUID(), agora = () => new Date().toISOString(), espera = 6000 }) {
   const K_FILA = chave + "-fila", K_COPIA = chave + "-copia";
   const le = (k, padrao) => { try { return JSON.parse(guarda.getItem(k)) ?? padrao; } catch { return padrao; } };
   const escreve = (k, v) => { try { guarda.setItem(k, JSON.stringify(v)); return true; } catch { return false; } };
@@ -143,11 +149,15 @@ export function comFila(base, { chave, guarda = localStorage, uuid = () => crypt
       }
     },
     async addLancamentos(rows) {
-      try { const out = await base.addLancamentos(rows.map(limpo)); store.semRede = false; return out; }
+      // Compra importada do extrato precisa da conexão (para não repetir o que já entrou) e não tem prazo.
+      // O lançamento comum já sai daqui com o id definitivo: se a resposta demorar mais que `espera`, ele vai para a fila,
+      // e se o envio que demorou acabar chegando, o reenvio da fila dá "já existe" e conta como entregue. Nunca duplica.
+      const importado = rows.some((r) => r.import_key);
+      const prontos = importado ? rows.map(limpo) : rows.map((r) => ({ ...limpo(r), id: r.id || uuid() }));
+      try { const out = await (importado ? base.addLancamentos(prontos) : comPrazo(base.addLancamentos(prontos), espera)); store.semRede = false; return out; }
       catch (e) {
-        // Só o lançamento comum espera na fila. Compra importada do extrato precisa da conexão para não repetir o que já entrou.
-        if (!semRede(e) || rows.some((r) => r.import_key)) throw e;
-        const novos = rows.map((r) => ({ ...limpo(r), id: uuid(), created_at: agora() }));
+        if (!semRede(e) || importado) throw e;
+        const novos = prontos.map((r) => ({ ...r, created_at: r.created_at || agora() }));
         if (!escreve(K_FILA, [...fila, ...novos])) throw e;   // aparelho sem espaço: melhor avisar do que fingir que guardou
         fila.push(...novos); store.semRede = true;
         return novos.map(pend);

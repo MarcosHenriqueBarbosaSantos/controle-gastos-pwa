@@ -1,14 +1,25 @@
-// Service worker: guarda os arquivos do app para abrir rápido e funcionar como app instalado.
-// Os dados (Supabase) sempre vêm da internet. Ao mudar arquivos, aumente a VERSAO.
-const VERSAO = "meus-gastos-v42";
+// Service worker: guarda os arquivos do app para abrir na hora, com ou sem sinal, e funcionar como app instalado.
+// Os dados (Supabase) sempre vêm da internet; sem conexão, o app usa a cópia e a fila do aparelho (js/store.js, comFila).
+// Ao mudar arquivos, aumente a VERSAO: é ela que faz os celulares baixarem a versão nova.
+const VERSAO = "meus-gastos-v46";
 const ARQUIVOS = [
   "./", "index.html", "css/style.css", "manifest.webmanifest",
   "js/app.js", "js/calc.js", "js/store.js", "js/excel.js", "js/leitor.js", "js/qr.js", "js/extrato.js", "js/config.js",
-  "icons/icon-192.png", "icons/icon-512.png",
+  "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png",
 ];
+// Bibliotecas de fora que a tela usa logo ao abrir. Se a rede falhar na instalação, elas entram no primeiro uso.
+const DE_FORA = [
+  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js",
+  "https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js",
+];
+// Endereços de fora que podem ser guardados: bibliotecas e as fontes.
+const HOSTS = ["cdn.jsdelivr.net", "fonts.googleapis.com", "fonts.gstatic.com"];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(VERSAO).then((c) => c.addAll(ARQUIVOS)).then(() => self.skipWaiting()));
+  // cache: "reload" pula o cache do navegador, para a versão nova não nascer com arquivo velho.
+  e.waitUntil(caches.open(VERSAO).then((c) => c.addAll(ARQUIVOS.map((u) => new Request(u, { cache: "reload" })))
+    .then(() => Promise.all(DE_FORA.map((u) => c.add(u).catch(() => {})))))
+    .then(() => self.skipWaiting()));
 });
 self.addEventListener("activate", (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== VERSAO && k !== COMPARTILHADO).map((k) => caches.delete(k))))
@@ -34,16 +45,26 @@ self.addEventListener("fetch", (e) => {
   if (e.request.method === "POST" && url.origin === location.origin && url.pathname.endsWith("/compartilhar")) return void e.respondWith(recebeCompartilhado(e.request));
   if (e.request.method !== "GET") return;
   if (url.hostname.endsWith("supabase.co")) return; // dados: sempre da rede
-  // Arquivos do app: tenta a rede primeiro (pega atualizações) e cai no cache se estiver offline.
-  e.respondWith(
-    fetch(e.request).then((r) => {
-      if (r.ok && (url.origin === location.origin || url.hostname === "cdn.jsdelivr.net")) {
-        const copia = r.clone(); caches.open(VERSAO).then((c) => c.put(e.request, copia));
-      }
-      return r;
-    }).catch(() => caches.match(e.request).then((m) => m || (e.request.mode === "navigate" ? caches.match("index.html") : Response.error())))
-  );
+  if (url.origin !== location.origin && !HOSTS.includes(url.hostname)) return;
+  e.respondWith(daCopiaEAtualiza(e));
 });
+/**
+ * Abre na hora com o que está guardado e busca a versão da rede por trás, para a próxima abertura
+ * (stale-while-revalidate). Com sinal fraco, o app não fica esperando a rede para aparecer.
+ * Sem cópia guardada, vai à rede; sem rede, a navegação cai no index.html.
+ */
+async function daCopiaEAtualiza(e) {
+  const req = e.request, navega = req.mode === "navigate";
+  const copia = await caches.match(req, { ignoreSearch: navega });   // ./?atalho=lancar abre o mesmo index.html
+  const daRede = fetch(req).then(async (r) => {
+    // As fontes do Google chegam "opacas" (sem CORS); dá para guardar e usar do mesmo jeito.
+    if (r.ok || (r.type === "opaque" && new URL(req.url).hostname === "fonts.googleapis.com")) await (await caches.open(VERSAO)).put(req, r.clone());
+    return r;
+  });
+  if (copia) { e.waitUntil(daRede.catch(() => {})); return copia; }
+  try { return await daRede; }
+  catch { return (navega && (await caches.match("index.html"))) || Response.error(); }
+}
 
 // Notificações enviadas pelo servidor de avisos (supabase/functions/avisos): contas a vencer, resumo da semana e lembrete do fim do dia.
 // Cada tipo tem a sua etiqueta (tag), para um não apagar o outro na tela do celular.

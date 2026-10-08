@@ -90,11 +90,26 @@ input.money{font-variant-numeric:tabular-nums;font-weight:600}
 
 /* ---------- resumo do mês: quanto sobra e para onde o dinheiro vai ---------- */
 .hero{position:relative;overflow:hidden;display:grid;gap:16px;background:var(--hero);color:var(--hero-ink);border-radius:26px;padding:24px 26px 18px;box-shadow:0 18px 40px rgba(40,60,200,.3)}
-.hero.neg{background:linear-gradient(135deg,#b3261e 0%,#a01f4f 55%,#7a1d6a 100%);box-shadow:0 18px 40px rgba(170,30,60,.32)}   /* mês no vermelho */
+/* a cor diz como o mês está (estadoDoMes): verde sobrando, laranja atenção, vermelho estourado; sem dados fica o azul */
+.hero{transition:background .4s,box-shadow .4s}
+.hero.est-ok{background:linear-gradient(135deg,#0d7a4f 0%,#0b6b5c 55%,#0b5a6b 100%);box-shadow:0 18px 40px rgba(10,110,80,.3)}
+.hero.est-atencao{background:linear-gradient(135deg,#b84a06 0%,#a8380c 55%,#93301a 100%);box-shadow:0 18px 40px rgba(180,70,10,.32)}
+.hero.est-estourado{background:linear-gradient(135deg,#b3261e 0%,#a01f4f 55%,#7a1d6a 100%);box-shadow:0 18px 40px rgba(170,30,60,.32)}
+.hero .estado{display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 8px;margin:8px 0 2px;font-size:13.5px;line-height:1.4}
+.hero .estado b{display:inline-flex;align-items:center;gap:6px;padding:3px 10px 3px 8px;border-radius:999px;background:rgba(255,255,255,.2);font-size:12.5px;font-weight:700;letter-spacing:.01em}
+.hero .estado b::before{content:"";width:8px;height:8px;border-radius:50%;background:#fff}
+.hero.est-ok .estado b::before{background:#8ff0c0} .hero.est-atencao .estado b::before{background:#ffd27a} .hero.est-estourado .estado b::before{background:#ffb4b4}
+.hero-dia{position:relative;display:flex;align-items:center;gap:8px;margin:0;font-size:13.5px;opacity:.95} .hero-dia b{font-weight:700;font-variant-numeric:tabular-nums}
+.hero-dia .ic{flex:none;width:18px;height:18px}
+/* a régua, agora dentro de "Entenda essa conta" */
+.conta-regua{display:grid;gap:10px;margin:0 0 14px}
+.conta-regua .regua{background:var(--sunk);box-shadow:inset 0 0 0 1px var(--border)}
+.conta-regua .regua-leg{margin:0} .conta-regua .regua-leg span{display:inline-flex;align-items:center;gap:7px;font-size:13px;padding:2px 8px 2px 0;color:var(--ink-2)}
+.conta-regua .regua-leg b{color:var(--ink)} .conta-regua .regua-leg i.sobra{background:var(--sunk);box-shadow:inset 0 0 0 1px var(--border)} .conta-regua .regua-leg i.falta{background:var(--bad)}
 .hero::before{content:"";position:absolute;right:-90px;top:-130px;width:320px;height:320px;border-radius:50%;background:radial-gradient(closest-side,rgba(255,255,255,.2),transparent);pointer-events:none}
 .hero-main{position:relative;display:grid;gap:4px;min-width:0}
 .hero-main .l{font-size:15px;font-weight:600;opacity:.92}
-.hero-main .v{font-family:var(--display);font-size:52px;font-weight:800;letter-spacing:-.035em;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;width:fit-content;max-width:100%}
+.hero-main .v{font-family:var(--display);font-size:60px;font-weight:800;letter-spacing:-.035em;line-height:1;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:pointer;width:fit-content;max-width:100%}
 .hero .n{font-size:13.5px;opacity:.92;line-height:1.5} .hero .n b{font-weight:700}
 .hero .ln{border:0;background:none;color:inherit;font:inherit;font-weight:700;padding:0;text-decoration:underline;text-decoration-color:rgba(255,255,255,.45);text-underline-offset:3px}
 /* a régua: cada cor é uma parte do que sai; o trecho claro que resta é a sobra */
@@ -122,8 +137,7 @@ input.money{font-variant-numeric:tabular-nums;font-weight:600}
 @media (min-width:981px){   /* no computador: a frase à esquerda, os dois números à direita, a régua embaixo */
   .hero{grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);align-items:center;gap:18px 28px}
   .hero-duo{grid-column:2;grid-row:1}
-  .hero .regua,.hero .regua-leg,.hero .entenda{grid-column:1/-1}
-  .hero .regua{height:26px}
+  .hero .hero-dia,.hero .entenda{grid-column:1/-1}
 }
 
 /* ---------- seu dia ---------- */
@@ -347,6 +361,19 @@ button.teto{cursor:pointer} button.teto:hover{border-color:var(--series)}
 .busca-x[hidden]{display:none} .busca-x .ic{width:16px;height:16px}
 .busca-res{margin:-4px 0 10px;font-size:13px} .busca-res b{color:var(--ink)}
 .so-leitor{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+/* descrições já usadas: completam a descrição e repetem o que foi feito da última vez */
+.fields .desc{position:relative}
+.sugere{display:flex;flex-wrap:wrap;gap:6px}
+.sugere[hidden],.como-antes[hidden]{display:none}
+.sugere button{display:inline-flex;align-items:baseline;gap:6px;max-width:100%;border:1px solid var(--border);background:var(--sunk);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:500;text-align:left}
+.sugere button span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sugere button small{font-size:12px;font-weight:400;color:var(--muted);white-space:nowrap}
+.sugere button:hover,.sugere button:focus-visible{border-color:var(--series)}
+.como-antes{font-size:12px;font-weight:400;color:var(--muted)}
+@media (min-width:981px){   /* no computador a linha do formulário é uma só: as sugestões abrem por cima, abaixo do campo */
+  .sugere{position:absolute;top:100%;left:0;z-index:6;margin-top:6px;padding:8px;width:max(100%,320px);background:var(--surface);border:1px solid var(--border);border-radius:12px;box-shadow:var(--shadow-sm)}
+  .como-antes{position:absolute;top:0;right:0;max-width:calc(100% - 70px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}   /* ao lado de "Descrição" */
+}
 /* gastos que a pessoa mais repete, no formulário de lançar */
 .rapidos{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px}
 .rapidos[hidden]{display:none}
@@ -552,6 +579,11 @@ input.in.cod::placeholder{color:var(--axis)}
 }
 @media (max-width:560px){.dlg-form{grid-template-columns:1fr}.actions .btn{flex:1 1 auto}.who{width:100%;justify-content:space-between}}
 .so-mobile,.bnav,.toast,.sub,.v-mais{display:none}
+/* aviso com "Desfazer" (Já paguei): também no computador */
+.toast.com-acao{display:flex;align-items:center;justify-content:space-between;gap:12px;position:fixed;left:50%;bottom:24px;transform:translateX(-50%);z-index:50;width:min(460px,calc(100% - 32px));
+  background:var(--ink);color:var(--bg);padding:8px 8px 8px 15px;border-radius:14px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow);animation:surge .2s ease-out}
+.toast-acao{flex:none;border:0;background:none;color:inherit;font:inherit;font-weight:700;padding:9px 10px;border-radius:10px;text-decoration:underline;text-underline-offset:3px;min-height:40px}
+.toast-acao:hover{background:color-mix(in srgb,var(--bg) 14%,transparent)}
 .fora{display:none!important}
 .organiza{margin:0;display:flex;justify-content:center}
 .org-lista{display:grid;gap:4px;margin:8px 0 4px} .check.org{align-items:flex-start;padding:9px 2px;border-top:1px solid var(--border)} .check.org:first-child{border-top:0}
@@ -606,7 +638,7 @@ input.in.cod::placeholder{color:var(--axis)}
   .voltar[hidden]{display:none} .voltar .ic{width:18px;height:18px}
   /* resumo */
   .hero{padding:20px 18px 14px;gap:14px;border-radius:24px}
-  .hero-main .v{font-size:44px}
+  .hero-main .v{font-size:50px}
   .hstat{padding:11px 12px} .hstat .v{font-size:18px}
   .regua-leg{display:grid;grid-template-columns:1fr 1fr;gap:2px 8px} .regua-leg button{padding:5px 4px;font-size:12.5px;gap:6px;white-space:nowrap}
   .hstat .l{align-items:flex-start;line-height:1.25} .hstat .l .ic{margin-top:1px}
@@ -721,6 +753,7 @@ input.in.cod::placeholder{color:var(--axis)}
   .bnav [data-nav="menu"] svg{stroke-width:3}
   .toast{display:block;position:fixed;left:16px;right:16px;bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:50;background:var(--ink);color:var(--bg);
     padding:13px 15px;border-radius:14px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow);animation:surge .2s ease-out}
+  .toast.com-acao{left:16px;right:16px;width:auto;transform:none;bottom:calc(86px + env(safe-area-inset-bottom,0px));padding:6px 6px 6px 15px}
   /* diálogos sobem da parte de baixo da tela */
   dialog{width:100%;max-width:100%;margin:auto 0 0;border-radius:24px 24px 0 0;border-bottom:0;max-height:90dvh;padding:26px 18px calc(20px + env(safe-area-inset-bottom,0px))}
   dialog::before{content:"";position:absolute;top:9px;left:50%;width:40px;height:4px;margin-left:-20px;border-radius:4px;background:var(--axis)}
@@ -730,7 +763,7 @@ input.in.cod::placeholder{color:var(--axis)}
 }
 @media (max-width:360px){
   .monthnav h1{font-size:18px} .monthnav .iconbtn{width:34px;height:34px}
-  .hero{padding:18px 14px 12px} .hero-main .v{font-size:36px} .hero-duo{gap:8px} .hstat{padding:10px} .hstat .v{font-size:15px}
+  .hero{padding:18px 14px 12px} .hero-main .v{font-size:40px} .hero-duo{gap:8px} .hstat{padding:10px} .hstat .v{font-size:15px}
   table.lanc .num{font-size:13.5px} td.desc .ava{width:36px;height:36px}
   td.desc .tx{overflow-wrap:anywhere}
   .fields>label:first-child input{font-size:38px}

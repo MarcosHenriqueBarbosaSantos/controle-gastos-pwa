@@ -247,6 +247,27 @@ export function raioX(c) {
 }
 
 /**
+ * A cor do resumo no alto da tela: diz, num relance, como o mês está.
+ * - "estourado" (vermelho): as saídas já passaram das entradas, ou o custo passou do limite do mês.
+ * - "atencao" (laranja): ainda sobra, mas no ritmo atual o mês fecha no vermelho, ou passa do limite, ou já usou 80% dele.
+ * - "ok" (verde): está sobrando e nada indica que vai faltar.
+ * - "neutro": mês sem entradas e sem custo (ainda não há o que avaliar).
+ * Só o mês em andamento olha para a previsão; meses fechados e futuros usam o número que já têm.
+ * @returns {{nivel:"ok"|"atencao"|"estourado"|"neutro", motivo:string, projSobra:number|null}}
+ */
+export function estadoDoMes(c, teto = 0) {
+  const sobra = raioX(c).sobra, atual = c.fase === "atual", projSobra = atual ? round2(c.rec - c.proj - c.res) : null, u = usoDoTeto(c, teto);
+  const real = (v) => `R$ ${Math.round(Math.abs(v)).toLocaleString("pt-BR")}`;
+  if (!(c.rec > 0) && !(c.custo > 0) && !(c.res > 0)) return { nivel: "neutro", motivo: "", projSobra };
+  if (sobra < 0) return { nivel: "estourado", motivo: `As saídas passaram das entradas em ${real(sobra)}.`, projSobra };
+  if (u && u.nivel >= 100) return { nivel: "estourado", motivo: `Passou ${real(u.gasto - u.teto)} do limite do mês.`, projSobra };
+  if (atual && projSobra < 0) return { nivel: "atencao", motivo: `No ritmo atual, faltam ${real(projSobra)} no fim do mês.`, projSobra };
+  if (u && atual && u.vaiPassar) return { nivel: "atencao", motivo: `No ritmo atual, o mês passa do limite de ${real(u.teto)}.`, projSobra };
+  if (u && u.nivel >= 80) return { nivel: "atencao", motivo: `Já usou ${u.pct}% do limite do mês.`, projSobra };
+  return { nivel: "ok", motivo: atual ? "No ritmo atual, o mês fecha com sobra." : c.fase === "passado" ? "O mês fechou com sobra." : "", projSobra };
+}
+
+/**
  * Quanto dá para gastar por dia, de hoje até o fim do mês, sem o mês fechar no vermelho.
  * Parte do saldo do mês, que já desconta o que foi gasto, todas as contas fixas e as faturas. Só existe no mês atual.
  */
@@ -714,14 +735,52 @@ export function maisUsados(lancs, hoje, n = 4) {
  * @returns {string} "" quando não há histórico.
  */
 export function categoriaAprendida(lancs, descricao, tipo = "Despesa") {
+  return ultimoParecido(lancs, descricao, tipo)?.categoria || "";
+}
+
+/** Lançamentos do tipo com descrição e categoria, do mais recente para o mais antigo. */
+const recentesDoTipo = (lancs, tipo) => lancs.filter((x) => x.tipo === tipo && x.descricao && x.categoria)
+  .sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+
+/**
+ * O lançamento mais recente com essa descrição (mesmas regras de categoriaAprendida): é dele que o app copia
+ * a categoria e, no gasto, a forma de pagamento e o cartão. Assim a pessoa repete o que fez da última vez.
+ * @returns {object|null}
+ */
+export function ultimoParecido(lancs, descricao, tipo = "Despesa") {
   const alvo = semAcento(semParcela(descricao));
-  if (alvo.length < 3) return "";
-  const doTipo = lancs.filter((x) => x.tipo === tipo && x.descricao && x.categoria).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  if (alvo.length < 3) return null;
+  const doTipo = recentesDoTipo(lancs, tipo);
   const igual = doTipo.find((x) => semAcento(semParcela(x.descricao)) === alvo);
-  if (igual) return igual.categoria;
+  if (igual) return igual;
   const duas = alvo.split(/\s+/).slice(0, 2).join(" ");
-  if (duas.includes(" ") && duas.length >= 6) { const p = doTipo.find((x) => (semAcento(semParcela(x.descricao)) + " ").startsWith(duas + " ")); if (p) return p.categoria; }
-  return "";
+  if (duas.includes(" ") && duas.length >= 6) return doTipo.find((x) => (semAcento(semParcela(x.descricao)) + " ").startsWith(duas + " ")) || null;
+  return null;
+}
+
+/**
+ * Descrições já usadas que combinam com o que a pessoa está digitando, para completar com um toque.
+ * Combina quando alguma palavra da descrição começa com o texto: "merc" acha "Mercado do mês" e "Pão de Açúcar Mercado", mas não "Supermercado".
+ * Vêm primeiro as que começam com o texto, depois as mais usadas no último ano, depois as mais recentes.
+ * Cada sugestão traz o que foi feito da última vez: categoria, forma de pagamento e cartão.
+ * @returns {{descricao:string, categoria:string, forma:string, cartao_id:string|null, vezes:number}[]}
+ */
+export function descricoesParecidas(lancs, texto, tipo = "Despesa", hoje = toISO(new Date()), n = 3) {
+  const alvo = semAcento(texto);
+  if (alvo.length < 2) return [];
+  const desde = toISO(new Date(new Date(hoje + "T12:00:00").getTime() - 365 * 86400000)), grupos = new Map();
+  for (const x of recentesDoTipo(lancs, tipo)) {
+    const d = semParcela(x.descricao).trim(), k = semAcento(d);
+    if (!k || k === alvo) continue;
+    const comeca = k.startsWith(alvo);
+    if (!comeca && !k.split(/\s+/).some((p) => p.startsWith(alvo))) continue;
+    const g = grupos.get(k);
+    if (g) { if (x.data >= desde) g.vezes++; continue; }
+    // O primeiro encontrado é o mais recente: é ele que dá a categoria, a forma e o cartão.
+    grupos.set(k, { descricao: d, categoria: x.categoria, forma: x.forma || "", cartao_id: x.cartao_id || null, vezes: x.data >= desde ? 1 : 0, comeca, ultima: x.data });
+  }
+  return [...grupos.values()].sort((a, b) => b.comeca - a.comeca || b.vezes - a.vezes || b.ultima.localeCompare(a.ultima))
+    .slice(0, n).map(({ comeca, ultima, ...r }) => r);
 }
 
 /**

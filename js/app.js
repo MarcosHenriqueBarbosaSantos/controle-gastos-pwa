@@ -3,7 +3,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PL
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
-  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimosMeses, comparaCategorias , calendarioDoMes,
+  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
@@ -606,28 +606,30 @@ function renderKpis(c) {
   const resTotal = reservaAcumulada(S.data, S.mes), destinos = guardadoPorDestino(S.data, S.mes);
   const resMes = c.res > 0 ? `+ ${brl0(c.res)} neste mês` : c.res < 0 ? `− ${brl0(-c.res)} neste mês` : "Nada guardado neste mês";
   const resLinhas = destinos.length > 1 ? `<ul class="dest">${destinos.map(([k, v]) => `<li><span>${esc(k)}</span><b>${brl0(v)}</b></li>`).join("")}</ul>` : destinos.length === 1 ? `<span class="n">${esc(destinos[0][0])}</span>` : "";
-  // Resumo no alto: quanto sobra (ou falta) no mês e, em uma régua, para onde o dinheiro vai.
-  const rx = raioX(c), livre = livrePorDia(c), mesNome = nomeMes(S.mes), falta = rx.sobra < 0;
+  // Resumo no alto: um número só em destaque (quanto sobra ou falta), com a cor dizendo como o mês está,
+  // e ao lado o custo até agora e a previsão. A régua de para onde vai o dinheiro fica em "Entenda essa conta".
+  const rx = raioX(c), livre = livrePorDia(c), mesNome = nomeMes(S.mes), falta = rx.sobra < 0, est = estadoDoMes(c, S.prefs.teto);
   const verbo = c.fase === "passado" ? (falta ? "Faltaram" : "Sobraram") : c.fase === "futuro" ? (falta ? "Devem faltar" : "Devem sobrar") : falta ? "Faltam" : "Sobram";
-  const COR = { fixos: "#ffc857", dia: "#ff8fa3", faturas: "#c3b4ff", guardado: "#7ee0d2" }, DET = { fixos: "fixos", dia: "custo", faturas: "faturas", guardado: "guardado" };
-  const regua = rx.partes.length || rx.sobra > 0 ? `<div class="regua${falta ? " over" : ""}" role="img" aria-label="${esc(rx.partes.map((p) => `${p.nome}: ${brl0(p.valor)}`).concat(falta ? [`Faltam ${brl0(-rx.sobra)}`] : [`Sobra ${brl0(rx.sobra)}`]).join(". "))}">
-      ${rx.partes.map((p) => `<i style="width:${p.pct.toFixed(2)}%;background:${COR[p.k]}"></i>`).join("")}${rx.limitePct !== null ? `<em style="left:${rx.limitePct.toFixed(2)}%"></em>` : ""}</div>
-    <ul class="regua-leg">${rx.partes.map((p) => `<li><button type="button" data-det="${DET[p.k]}"><i style="background:${COR[p.k]}"></i>${p.nome}<b>${brl0(p.valor)}</b></button></li>`).join("")}
-      <li><button type="button" data-det="saldo"><i class="${falta ? "falta" : "sobra"}"></i>${falta ? "Falta" : "Sobra"}<b>${brl0(Math.abs(rx.sobra))}</b></button></li></ul>` : "";
-  const proj = c.fase === "atual" ? round2(c.rec - c.proj - c.res) : null;
-  $("resumo").innerHTML = `<div class="hero${falta ? " neg" : ""}">
+  const ROTULO = { ok: "Tudo certo", atencao: "Atenção", estourado: falta ? "No vermelho" : "Passou do limite" };
+  const entra = c.rec > 0 ? `Entram <button type="button" class="ln" data-det="entradas">${brl(c.rec)}</button>` : `<button type="button" class="ln" data-det="entradas">Nenhuma entrada lançada</button>`;
+  const guardado = c.res > 0 ? ` · guardado <button type="button" class="ln" data-det="guardado">${brl(c.res)}</button>` : "";
+  const duo = c.fase === "atual" ? `
+      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">Custo até agora</span><span class="v">${brl0(c.custo)}</span><span class="n">com as contas fixas</span></div>
+      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">Projeção do mês</span><span class="v">${brl0(c.proj)}</span><span class="n">${est.projSobra < 0 ? `faltam ${brl0(-est.projSobra)} no fim` : `sobram ${brl0(est.projSobra)} no fim`}</span></div>`
+    : `
+      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">${c.fase === "futuro" ? "Custo previsto" : "Custo do mês"}</span><span class="v">${brl0(c.custo)}</span><span class="n">${c.fase === "futuro" ? "por enquanto, só as contas fixas" : "fechado"}</span></div>
+      <div class="hstat" data-det="entradas" role="button" tabindex="0"><span class="l">Entradas</span><span class="v">${brl0(c.rec)}</span><span class="n">${c.fase === "futuro" ? "previstas" : "no mês"}</span></div>`;
+  $("resumo").innerHTML = `<div class="hero est-${est.nivel}">
     <div class="hero-main">
       <span class="l">${verbo} em ${mesNome}</span>
-      <span class="v" data-det="saldo" role="button" tabindex="0">${brl(Math.abs(rx.sobra))}</span>
-      <span class="n">${c.rec > 0 ? `Entram <button type="button" class="ln" data-det="entradas">${brl(c.rec)}</button>.` : `<button type="button" class="ln" data-det="entradas">Nenhuma entrada lançada</button>.`} Custo do mês: <button type="button" class="ln" data-det="custo">${brl(c.custo)}</button>.</span>
+      <span class="v" data-det="saldo" role="button" tabindex="0" aria-label="${verbo} ${brl(Math.abs(rx.sobra))} em ${mesNome}. Abrir">${brl(Math.abs(rx.sobra))}</span>
+      ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
+      <span class="n">${entra}${guardado}.</span>
       ${acum !== c.saldo ? `<span class="n">Com os meses anteriores, o saldo acumulado é <b>${sgn(acum)}</b>.</span>` : ""}
     </div>
-    ${regua}
-    ${c.fase === "atual" ? `<div class="hero-duo">
-      <div class="hstat"><span class="l">${ico("dia")}Pode gastar por dia</span><span class="v">${livre.valor > 0 ? brl(livre.valor) : "R$ 0,00"}</span><span class="n">${livre.valor > 0 ? (livre.restam === 1 ? "hoje, último dia do mês" : `nos ${livre.restam} dias que faltam`) : "o mês já está no limite"}</span></div>
-      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">${ico("rumo")}No ritmo atual, ${proj < 0 ? "faltam" : "sobram"}</span><span class="v">${brl0(Math.abs(proj))}</span><span class="n">no fim do mês</span></div>
-    </div>` : ""}
-    <button type="button" class="entenda" id="entenda">${ico("luz")}Entenda essa conta</button></div>`;
+    <div class="hero-duo">${duo}</div>
+    ${livre ? `<p class="hero-dia">${ico("dia")}<span>${livre.valor > 0 ? `Dá para gastar <b>${brl(livre.valor)} por dia</b> ${livre.restam === 1 ? "hoje, último dia do mês" : `nos ${livre.restam} dias que faltam`}.` : "Não sobra nada para o dia a dia: cada gasto novo aumenta o que falta."}</span></p>` : ""}
+    <button type="button" class="entenda" id="entenda">${ico("luz")}Entenda essa conta e para onde vai o dinheiro</button></div>`;
   $("entenda").onclick = () => entendaAConta(c);
   renderGuia(); renderDia(c); renderTeto(c); renderMetas(c);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
@@ -909,13 +911,19 @@ function entendaAConta(c) {
   const rx = raioX(c), livre = livrePorDia(c), mes = nomeMes(S.mes), menos = (v) => `− ${brl(v)}`;
   const linha = (t, s2, v, cls = "") => `<li><span></span><span>${t}${s2 ? `<span class="mini">${s2}</span>` : ""}</span><b class="${cls}">${v}</b></li>`;
   const expl = { fixos: "aluguel, internet e o que mais se repete todo mês, pago ou não", dia: "o que você lançou no dia a dia, fora do cartão", faturas: "faturas que vencem neste mês", guardado: "o que você separou para reserva ou investimento" };
-  abreDetalhe(`A conta de ${mes}`, "De onde vem cada número do resumo.", [{ html: `<ul class="itens conta">
+  // A régua: cada cor é uma parte do que sai; o trecho que resta é a sobra.
+  const COR = { fixos: "#ffc857", dia: "#ff8fa3", faturas: "#c3b4ff", guardado: "#7ee0d2" }, falta = rx.sobra < 0;
+  const regua = rx.partes.length || rx.sobra > 0 ? `<div class="conta-regua"><div class="regua${falta ? " over" : ""}" role="img" aria-label="${esc(rx.partes.map((p) => `${p.nome}: ${brl0(p.valor)}`).concat(falta ? [`Faltam ${brl0(-rx.sobra)}`] : [`Sobra ${brl0(rx.sobra)}`]).join(". "))}">
+      ${rx.partes.map((p) => `<i style="width:${p.pct.toFixed(2)}%;background:${COR[p.k]}"></i>`).join("")}${rx.limitePct !== null ? `<em style="left:${rx.limitePct.toFixed(2)}%"></em>` : ""}</div>
+    <ul class="regua-leg" aria-hidden="true">${rx.partes.map((p) => `<li><span><i style="background:${COR[p.k]}"></i>${p.nome}<b>${brl0(p.valor)}</b></span></li>`).join("")}
+      <li><span><i class="${falta ? "falta" : "sobra"}"></i>${falta ? "Falta" : "Sobra"}<b>${brl0(Math.abs(rx.sobra))}</b></span></li></ul></div>` : "";
+  abreDetalhe(`A conta de ${mes}`, "De onde vem cada número do resumo.", [{ html: `${regua}<ul class="itens conta">
       ${linha("Entra no mês", c.frT ? `${brl(c.frT)} de entradas fixas${c.recLanc ? ` e ${brl(c.recLanc)} lançados` : ""}` : "o que você lançou como entrada", brl(c.rec), "pos")}
       ${c.res < 0 ? linha("Retirado do que estava guardado", "", "+ " + brl(-c.res), "pos") : ""}
       ${rx.partes.map((p) => linha(p.nome, expl[p.k], menos(p.valor))).join("")}
       <li class="tot"><span></span><span>${rx.sobra < 0 ? "Falta" : "Sobra"}</span><b class="${rx.sobra < 0 ? "txt-bad" : "pos"}">${brl(Math.abs(rx.sobra))}</b></li></ul>
     ${livre ? `<p class="hint" style="margin:10px 0 0;font-size:13px">${livre.valor > 0 ? `Dividindo a sobra pelos ${livre.restam} ${livre.restam === 1 ? "dia que falta" : "dias que faltam"} (contando hoje), dá <b>${brl(livre.valor)} por dia</b>. Gastando até isso, o mês não fecha no vermelho.` : "Como não há sobra, o valor por dia fica em zero: cada gasto novo aumenta o que falta."}</p>
-      <p class="hint" style="margin:8px 0 0;font-size:13px">"No ritmo atual" é a previsão: o app supõe que os gastos do dia a dia continuam no mesmo passo até o fim do mês.</p>` : ""}
+      <p class="hint" style="margin:8px 0 0;font-size:13px">"Projeção do mês" é a previsão: o app supõe que os gastos do dia a dia continuam no mesmo passo até o fim do mês. Ela mistura o ritmo deste mês com a média dos anteriores e não repete compras grandes que foram pontuais.</p>` : ""}
     ${c.comprasCartao ? `<p class="hint" style="margin:8px 0 0;font-size:13px">As compras no cartão deste mês (${brl(c.comprasCartao)}) não entram agora: elas pesam no mês em que a fatura vencer.</p>` : ""}` }]);
 }
 
@@ -985,17 +993,56 @@ function calendario(m, escolhido = "") {
     <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
   $("calAnt").onclick = () => calendario(addM(m, -1)); $("calProx").onclick = () => calendario(addM(m, 1));
   $("dlgBody").querySelectorAll(".cal-d").forEach((b) => (b.onclick = () => calendario(m, b.dataset.d)));
-  $("dlgBody").querySelectorAll("[data-cpg]").forEach((b) => (b.onclick = async () => { b.disabled = true; await pagarConta(dSel.contas[Number(b.dataset.cpg)]); if ($("calDia")) calendario(m, sel); }));
+  $("dlgBody").querySelectorAll("[data-cpg]").forEach((b) => (b.onclick = () => { const vez = pagarConta(dSel.contas[Number(b.dataset.cpg)]); calendario(m, sel); vez.then((ok) => { if (!ok && $("calDia")) calendario(m, sel); }); }));
   $("dlgBody").querySelector(".cal-d.sel")?.focus({ preventScroll: true });
 }
 
-/** Marca uma conta (fatura ou ocorrência de fixo) como paga e atualiza a tela. */
-async function pagarConta(x) {
-  if (x.tipo === "fatura") {
-    if (x.auto) await gravaFaturaAuto({ id: x.id, cartao_id: x.cartao_id, cartao: x.cartao, vencimento: x.data, valor: x.valor }, { status: "Paga" });
-    else if (await grava(() => S.store.updateFatura(x.id, { status: "Paga" }))) { const f = S.data.faturas.find((z) => z.id === x.id); if (f) f.status = "Paga"; }
-  } else if (await grava(() => S.store.setPago(x.id, x.chave, true))) { S.data.pagos.push({ fixo_id: x.id, mes: x.chave }); const fim = fimDoPrazo(x.id, x.chave); if (fim) toastOuFlash(fim); }
+/**
+ * "Já paguei" em um toque: a conta sai da lista na mesma hora e a gravação acontece por trás.
+ * O aviso de baixo traz "Desfazer", para o toque sem querer. Se a gravação falhar, a conta volta e o aviso explica.
+ */
+function pagarConta(x) {
+  const feito = mudaPago(x, true);
+  const fim = x.tipo === "fixo" ? fimDoPrazo(x.id, x.chave) : "";
+  toastDesfazer(fim || `${x.titulo}: marcada como paga.`, () => mudaPago(x, false).then((ok) => ok && toast(`${x.titulo} voltou para a lista.`)));
+  return feito;
+}
+let filaPago = Promise.resolve();   // uma mudança de cada vez: o "Desfazer" só vai para o banco depois do "Já paguei"
+/**
+ * Muda a situação de uma conta (ocorrência de fixo ou fatura) primeiro na tela, depois no banco.
+ * Fatura calculada que nunca foi mexida ganha o seu registro aqui (ver gravaFaturaAuto).
+ * @returns {Promise<boolean>} se a gravação deu certo
+ */
+function mudaPago(x, pago) {
+  let volta;
+  if (x.tipo === "fixo") {
+    const eh = (p) => p.fixo_id === x.id && p.mes === x.chave;
+    if (pago) { S.data.pagos.push({ fixo_id: x.id, mes: x.chave }); volta = () => { const i = S.data.pagos.findIndex(eh); if (i >= 0) S.data.pagos.splice(i, 1); }; }
+    else { const antes = S.data.pagos.filter(eh); S.data.pagos = S.data.pagos.filter((p) => !eh(p)); volta = () => S.data.pagos.push(...antes); }
+  } else {
+    const status = pago ? "Paga" : "Aberta";
+    let reg = x.reg || S.data.faturas.find((z) => (x.id && z.id === x.id) || (x.auto && z.cartao_id === x.cartao_id && mKey(z.vencimento) === mKey(x.data)));
+    if (reg) { const antes = reg.status; reg.status = status; volta = () => { reg.status = antes; }; }
+    else {
+      reg = { id: null, cartao_id: x.cartao_id, cartao: x.cartao, vencimento: x.data, valor: x.valor, status, valor_fixo: false };
+      S.data.faturas.push(reg); volta = () => { const i = S.data.faturas.indexOf(reg); if (i >= 0) S.data.faturas.splice(i, 1); };
+    }
+    x.reg = reg;
+  }
   render();
+  const vez = filaPago.then(async () => {
+    const ok = await grava(async () => {
+      if (x.tipo === "fixo") return S.store.setPago(x.id, x.chave, pago);
+      const reg = x.reg;
+      if (reg.id) return S.store.updateFatura(reg.id, { status: reg.status });
+      const { id, ...row } = reg, novo = await S.store.addFatura(row);
+      Object.assign(reg, novo, { status: reg.status });   // se o "Desfazer" veio no meio, vale o que está na tela
+    });
+    if (!ok) { volta(); render(); $("toast").hidden = true; }
+    return ok;
+  });
+  filaPago = vez.catch(() => false);
+  return vez;
 }
 /**
  * Grava a situação ou o valor corrigido de uma fatura calculada. O registro só é criado na primeira vez
@@ -1444,25 +1491,65 @@ async function quitarVencidas(ids) {
 }
 
 /* ================= lançamento rápido ================= */
-$("tipoSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tipo = b.dataset.t; S.catManual = false; renderForm(); });
+$("tipoSeg").addEventListener("click", (e) => { const b = e.target.closest("button"); if (!b) return; S.tipo = b.dataset.t; S.catManual = false; S.formaManual = false; limpaSugestoes(); renderForm(); });
 // Um toque em um gasto que se repete preenche valor, descrição, categoria e forma de pagamento. A pessoa confere e lança.
 $("fRapidos").addEventListener("click", (e) => {
   const b = e.target.closest("[data-rap]"), r = b && S.rapidos?.[Number(b.dataset.rap)]; if (!r) return;
   $("fValor").value = r.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); $("fDesc").value = r.descricao;
   if (cats("Despesa").includes(r.categoria)) $("fCat").value = r.categoria;
   if (FORMAS.includes(r.forma)) $("fForma").value = r.forma;
-  S.catManual = true; renderForm(); $("fOk").focus();
+  S.catManual = true; S.formaManual = true; limpaSugestoes(); renderForm(); $("fOk").focus();
 });
 // A categoria acompanha a descrição enquanto a pessoa não escolher uma à mão: o app usa o que ela já escolheu antes para aquele nome.
+// A forma de pagamento e o cartão também seguem a última vez, até a pessoa trocar à mão.
 $("fCat").addEventListener("change", () => { S.catManual = true; });
+$("fCartao").addEventListener("change", () => { S.formaManual = true; });
+/**
+ * Repete o que a pessoa fez da última vez com essa descrição: a categoria e, no gasto, a forma de pagamento e o cartão.
+ * Só mexe no que ela ainda não escolheu à mão, e diz embaixo do campo o que foi preenchido.
+ */
+function aplicaComoAntes(u) {
+  const feito = [];
+  if (!S.catManual && cats(S.tipo).includes(u.categoria)) { $("fCat").value = u.categoria; feito.push(u.categoria); }
+  if (S.tipo === "Despesa" && !S.formaManual && FORMAS.includes(u.forma)) {
+    $("fForma").value = u.forma; renderForm();   // mostra ou esconde a linha do cartão
+    const k = u.forma === CARTAO && cartoesAtivos().find((z) => z.id === u.cartao_id);
+    if (k) $("fCartao").value = k.id;
+    feito.push(k ? k.nome : u.forma);
+  }
+  const ca = $("fComoAntes"); ca.textContent = feito.length ? `Da última vez: ${feito.join(" · ")}` : ""; ca.title = ca.textContent; ca.hidden = !feito.length;
+}
+function limpaSugestoes() { $("fSugere").hidden = true; $("fSugere").innerHTML = ""; S.sugestoes = []; $("fComoAntes").hidden = true; }
+/** Descrições já usadas que combinam com o que está sendo digitado: um toque completa e repete o resto. */
+function mostraSugestoes() {
+  const el = $("fSugere"), lista = S.loaded && S.tipo !== "Reserva" ? descricoesParecidas(S.data.lancamentos, $("fDesc").value, S.tipo, hoje()) : [];
+  S.sugestoes = lista; el.hidden = !lista.length;
+  el.innerHTML = lista.map((x, i) => `<button type="button" data-sug="${i}"><span>${esc(x.descricao)}</span><small>${esc(x.categoria)}</small></button>`).join("");
+}
 $("fDesc").addEventListener("input", () => {
-  if (S.catManual || S.tipo === "Reserva") return;
-  const c = palpiteCat($("fDesc").value, S.tipo);
+  mostraSugestoes();
+  if (S.tipo === "Reserva") return;
+  const u = S.loaded ? ultimoParecido(S.data.lancamentos, $("fDesc").value, S.tipo) : null;
+  if (u) return aplicaComoAntes(u);
+  $("fComoAntes").hidden = true;
+  if (S.catManual) return;
+  const c = palpiteCat($("fDesc").value, S.tipo);   // sem histórico: as palavras conhecidas ("uber" → Transporte)
   if (c !== "Outros" && cats(S.tipo).includes(c)) $("fCat").value = c;
 });
+// Tocar na sugestão não tira o foco do campo antes da hora (no computador, a lista fecharia antes do clique).
+$("fSugere").addEventListener("mousedown", (e) => e.preventDefault());
+$("fSugere").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-sug]"), x = b && S.sugestoes?.[Number(b.dataset.sug)]; if (!x) return;
+  $("fDesc").value = x.descricao; $("fSugere").hidden = true;
+  aplicaComoAntes(x);
+  // Com o valor já digitado, o próximo passo é lançar; sem ele, volta para o valor.
+  if (parseMoney($("fValor").value) > 0) $("fOk").focus(); else $("fValor").focus();
+});
+$("fDesc").addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("fSugere").hidden) { e.preventDefault(); $("fSugere").hidden = true; } });
+$("fDesc").addEventListener("blur", () => setTimeout(() => { if (!$("fSugere").contains(document.activeElement)) $("fSugere").hidden = true; }, 120));
 $("fFixo").addEventListener("change", renderForm);
 $("fData").addEventListener("change", renderForm);
-$("fForma").addEventListener("change", renderForm);
+$("fForma").addEventListener("change", () => { S.formaManual = true; $("fComoAntes").hidden = true; renderForm(); });
 $("fValor").addEventListener("input", () => { if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });   // atualiza o valor de cada parcela e o total do prazo
 $("fRepete").addEventListener("change", renderForm);
 $("fAte").addEventListener("change", renderForm);
@@ -1470,11 +1557,22 @@ $("fIrCartoes").onclick = () => { fecharLancar(); S.view = "listas"; S.tab = "c"
 
 /* ================= celular: navegação, lançamento em tela cheia e menu ================= */
 let toastT;
-function toast(t) { const el = $("toast"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), Math.min(10000, Math.max(3500, t.length * 60))); }
+function toast(t) { const el = $("toast"); el.classList.remove("com-acao"); el.textContent = t; el.hidden = false; clearTimeout(toastT); toastT = setTimeout(() => (el.hidden = true), Math.min(10000, Math.max(3500, t.length * 60))); }
+/** Aviso com um botão (Desfazer, Atualizar). Aparece também no computador. `dura` = 0: fica até a pessoa tocar. */
+function toastAcao(t, rotulo, acao, dura = 7000) {
+  const el = $("toast"); el.classList.add("com-acao"); el.hidden = false;
+  el.innerHTML = `<span>${esc(t)}</span><button type="button" class="toast-acao">${esc(rotulo)}</button>`;
+  el.querySelector("button").onclick = () => { el.hidden = true; clearTimeout(toastT); acao(); };
+  clearTimeout(toastT); if (dura) toastT = setTimeout(() => (el.hidden = true), dura);
+}
+const toastDesfazer = (t, desfazer) => toastAcao(t, "Desfazer", desfazer);
 function abrirLancar() {
   document.body.classList.add("lancando"); $("flash").textContent = "";
   try { if (!history.state?.lanc) history.pushState({ lanc: true }, ""); } catch { /* sem histórico: o ✕ fecha */ }   // o botão Voltar do celular fecha a tela
-  setTimeout(() => $("fValor").focus(), 50);
+  // O foco vai para o valor na hora do toque: o iPhone só abre o teclado quando o foco vem direto do toque,
+  // e não de um setTimeout. O setTimeout fica só para quando a tela abre sem toque (compartilhar, atalho).
+  const v = $("fValor"); v.focus({ preventScroll: true });
+  if (document.activeElement !== v) setTimeout(() => v.focus(), 50);
 }
 function fecharLancar(viaVoltar = false) {
   if (!document.body.classList.contains("lancando")) return;
@@ -1787,7 +1885,7 @@ $("formLanc").addEventListener("submit", async (e) => {
     flash.style.color = "var(--good)";
     const nVezes = fx.ate ? vezesNoPrazo(fx, mKey(fx.ate)) : 0;
     flash.textContent = `${fx.ate ? (ent ? "Entrada com prazo cadastrada" : "Conta com prazo cadastrada") : ent ? "Entrada fixa cadastrada" : "Gasto fixo cadastrado"}: ${fx.descricao} · ${brl(fx.valor)}, ${sem ? "toda semana, " + DIAS_SEMANA[wd] : "todo dia " + pad(dia)}${fx.ate ? `, até ${mesAno(mKey(fx.ate))} (${vezesTxt(nVezes)}, ${brl(round2(nVezes * fx.valor))} no total)` : ""}. Para alterar, abra ${ent ? "Entradas fixas" : "Contas fixas"}.`;
-    $("fValor").value = ""; $("fDesc").value = ""; $("fFixo").checked = false; $("fRepete").value = "mensal"; $("fAte").value = "";
+    $("fValor").value = ""; $("fDesc").value = ""; S.catManual = false; S.formaManual = false; limpaSugestoes(); $("fFixo").checked = false; $("fRepete").value = "mensal"; $("fAte").value = "";
     aposLancar(flash.textContent);
     return render();
   }
@@ -1795,12 +1893,20 @@ $("formLanc").addEventListener("submit", async (e) => {
     forma: formaDe(S.tipo, $("fForma").value), valor: round2(v), import_key: null, ...cartaoDoForm() };
   const nivelAntes = nivelDoTeto(), ehMeta = S.tipo === "Reserva", metaAntes = ehMeta ? andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()) : null;
   const combinar = ehMeta && row.forma !== RETIRADA && $("fFixo").checked;
-  $("fOk").disabled = true;
-  let novos;
-  const ok = await grava(async () => { novos = await S.store.addLancamentos([row]); });
-  $("fOk").disabled = false;
-  if (!ok) return;
-  S.data.lancamentos.push(...novos);
+  // O lançamento entra na tela no mesmo toque, já com o id definitivo; o envio acontece por trás.
+  // Sem conexão (ou com sinal fraco) ele fica na fila do aparelho; se o banco recusar, ele sai da tela e o aviso explica.
+  row.id = crypto.randomUUID();
+  const naTela = { ...row, created_at: new Date().toISOString(), enviando: true };   // "aguardando internet" só aparece se cair na fila
+  S.data.lancamentos.push(naTela);
+  const envio = grava(async () => {
+    const [novo] = await S.store.addLancamentos([row]);
+    const i = S.data.lancamentos.indexOf(naTela);
+    if (i >= 0) S.data.lancamentos[i] = novo ? { ...novo, valor: Number(novo.valor) } : { ...naTela, enviando: undefined };
+  }).then((ok) => {
+    if (!ok) { const i = S.data.lancamentos.indexOf(naTela); if (i >= 0) S.data.lancamentos.splice(i, 1); $("toast").hidden = true; }
+    render(); avisoDaFila();
+    return ok;
+  });
   flash.style.color = "var(--good)";
   const kc = cartaoPorId(row.cartao_id || "");
   flash.textContent = `Lançado: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}${mKey(data) !== S.mes ? " (outro mês)" : ""}.`
@@ -1809,9 +1915,9 @@ $("formLanc").addEventListener("submit", async (e) => {
   const nivelDepois = nivelDoTeto();
   if (nivelDepois > nivelAntes) { const u = usoDoTeto(calcMes(S.data, mKey(hoje()), hoje()), S.prefs.teto), t = textoDoTeto(u); flash.style.color = "var(--warn)"; flash.textContent += ` ${t.titulo} do mês: ${u.pct}% usado. ${t.frase}`; }
   if (ehMeta) flash.textContent += recadoDaMeta(metaAntes, andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()), row.forma === RETIRADA);
-  $("fValor").value = ""; $("fDesc").value = ""; $("fParc").value = "1"; S.catManual = false;
+  $("fValor").value = ""; $("fDesc").value = ""; $("fParc").value = "1"; S.catManual = false; S.formaManual = false; limpaSugestoes();
   aposLancar(flash.textContent);
-  if (combinar) {
+  if (combinar && (await envio)) {
     // "Repetir todo mês" em Guardar: o valor vira o combinado da meta desse lugar. Sem meta ainda, o app pede o valor final.
     const m = (metasDe()[row.categoria] ||= { valor: 0, ate: "" });
     m.plano = { valor: row.valor, dia: Number(data.slice(8, 10)) }; $("fFixo").checked = false; salvaPrefs();
@@ -1868,7 +1974,7 @@ function editarLancamento(id) {
     <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" id="eDeNovo">Lançar de novo hoje</button><button class="btn" type="button" data-close>Cancelar</button><button class="btn perigo" type="button" id="eExcluir">${ico("lixo")}Excluir</button></div></form>`);
   // Mesmo lançamento, com a data de hoje: para o gasto que se repete.
   $("eDeNovo").onclick = async () => {
-    const { id: _id, created_at: _c, user_id: _u, pendente: _p, ...copia } = x;
+    const { id: _id, created_at: _c, user_id: _u, pendente: _p, enviando: _e, ...copia } = x;
     const row = { ...copia, data: hoje(), import_key: null };
     $("eDeNovo").disabled = true;
     let novos; const ok = await grava(async () => { novos = await S.store.addLancamentos([row]); });
@@ -2949,6 +3055,13 @@ addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt 
 $("btnInstall").onclick = async () => { if (!installEvt) return; installEvt.prompt(); await installEvt.userChoice; installEvt = null; $("btnInstall").hidden = true; };
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("sw.js").catch(() => {});
+  // O app abre com a cópia guardada (sw.js). Quando uma versão nova termina de baixar, a pessoa escolhe a hora de atualizar:
+  // nada recarrega sozinho no meio de um lançamento.
+  const tinhaVersao = Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (!tinhaVersao) return;   // primeira instalação: a tela já é a mais nova
+    toastAcao("Tem uma versão nova do app.", "Atualizar", () => location.reload(), 0);
+  });
   // Tocou numa notificação com o app já aberto: o lembrete do fim do dia leva direto para o lançamento.
   navigator.serviceWorker.addEventListener("message", (e) => {
     if (e.data?.tipo !== "notificacao" || !/[?&]atalho=lancar\b/.test(String(e.data.url || ""))) return;

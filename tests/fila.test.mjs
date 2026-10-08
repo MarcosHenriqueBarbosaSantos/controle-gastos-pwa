@@ -122,3 +122,26 @@ test("a cópia não guarda o que está pendente, e some ao sair da conta; a fila
   s.esqueceCopia();
   assert.equal(g.getItem("cg-u1-copia"), null); assert.equal(s.naFila(), 1);
 });
+
+test("sinal fraco: sem resposta no prazo, o lançamento vai para a fila com o mesmo id e não duplica quando o envio lento chega", async () => {
+  const c = conta(), g = gaveta(); let n = 0, libera;
+  const lento = { ...c.base, addLancamentos: (rows) => new Promise((ok) => { libera = () => ok(c.base.addLancamentos(rows)); }) };
+  const s = comFila(lento, { chave: "cg-u1", guarda: g, uuid: () => "id-" + ++n, agora: () => "2026-10-06T15:00:00.000Z", espera: 20 });
+  const [l] = await s.addLancamentos([novo("Café", 5)]);
+  assert.equal(l.pendente, true); assert.equal(l.id, "id-1"); assert.equal(s.naFila(), 1);
+  libera(); await new Promise((r) => setTimeout(r, 5));   // o envio que demorou chega ao servidor
+  assert.equal(c.servidor.lancamentos.filter((x) => x.id === "id-1").length, 1);
+  const s2 = comFila(c.base, { chave: "cg-u1", guarda: g });   // mais tarde, com conexão boa
+  const r = await s2.enviaFila();
+  assert.equal(r.enviados.length, 1); assert.equal(r.faltam, 0); assert.equal(r.erro, "");
+  assert.equal(c.servidor.lancamentos.filter((x) => x.id === "id-1").length, 1, "o reenvio dá 'já existe' e conta como entregue");
+});
+
+test("o id escolhido pela tela é mantido, com e sem internet", async () => {
+  const c = conta(), [s] = monta(c);
+  const [a] = await s.addLancamentos([{ ...novo("Pão", 8), id: "tela-1" }]);
+  assert.equal(a.id, "tela-1");
+  c.fora = true;
+  const [b] = await s.addLancamentos([{ ...novo("Uber", 20), id: "tela-2" }]);
+  assert.equal(b.id, "tela-2"); assert.equal(b.pendente, true);
+});
