@@ -22,7 +22,7 @@ test("resumo: vermelho quando as saídas já passaram das entradas (o guardado c
 
 test("resumo: laranja quando ainda sobra, mas no ritmo atual vai faltar", () => {
   const e = estadoDoMes(mes({ proj: 3300 }));
-  assert.equal(e.nivel, "atencao"); assert.match(e.motivo, /faltam R\$ 300/);
+  assert.equal(e.nivel, "atencao"); assert.match(e.motivo, /fecha R\$ 300 no vermelho/);
 });
 
 test("resumo: o limite do mês também muda a cor", () => {
@@ -36,4 +36,17 @@ test("resumo: mês fechado não olha a previsão; mês vazio fica neutro", () =>
   assert.equal(estadoDoMes(mes({ proj: 9000, fase: "passado" })).nivel, "ok");
   assert.equal(estadoDoMes(mes({ rec: 0, fixos: 0, dia: 0 })).nivel, "neutro");
   assert.equal(estadoDoMes(mes({ fase: "futuro" })).projSobra, null);
+});
+
+test("o que sobra: entradas menos o que já tem dono; o dia a dia desconta; fecha com o resumo do início", async () => {
+  const { sobraDoMes, raioX } = await import("../js/calc.js");
+  const c = { rec: 6785, fxCusto: 5420, vari: 1228, fatT: 0, res: 300, custo: 6648, proj: 8061, fase: "atual", dias: 8, n: 31 };
+  const s = sobraDoMes(c);
+  assert.equal(s.comDono, 5720); assert.equal(s.livre, 1065); assert.equal(s.usado, 1228); assert.equal(s.resta, -163);
+  assert.equal(s.resta, raioX(c).sobra);
+  assert.equal(s.ideal, Math.round(1065 * 8 / 31 * 100) / 100); assert.equal(s.ritmo, "acima"); assert.equal(s.porDia, 0);
+  const folga = sobraDoMes({ ...c, vari: 200 });
+  assert.equal(folga.ritmo, "dentro"); assert.equal(folga.restam, 24); assert.equal(folga.porDia, Math.round(865 / 24 * 100) / 100);
+  const retirou = sobraDoMes({ ...c, res: -100, vari: 0 });
+  assert.equal(retirou.entra, 6885); assert.equal(retirou.resta, raioX({ ...c, res: -100, vari: 0 }).sobra);
 });

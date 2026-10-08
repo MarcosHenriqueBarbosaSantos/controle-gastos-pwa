@@ -130,7 +130,7 @@ test("calendário: contas e entradas de cada dia, com a situação de cada conta
   assert.deepEqual(d(3).contas.map((x) => [x.titulo, x.situacao]), [["Fatura Azul", "paga"], ["Internet", "paga"]]); assert.equal(d(3).aPagar, 0); assert.equal(d(3).situacao, "paga");
   assert.deepEqual([d(6).contas[0].titulo, d(6).situacao, d(6).aPagar], ["Luz", "hoje", 150]);
   assert.deepEqual([d(8).contas[0].titulo, d(8).situacao], ["Fatura Roxo", "a vencer"]);
-  assert.deepEqual(d(5).entradas, [{ titulo: "Salário", valor: 3900 }]); assert.equal(d(5).contas.length, 0); assert.equal(d(5).situacao, "");
+  assert.deepEqual(d(5).entradas.map(({ titulo, valor }) => ({ titulo, valor })), [{ titulo: "Salário", valor: 3900 }]); assert.ok(d(5).entradas[0].id, "a entrada traz o id, para abrir a edição"); assert.equal(d(5).contas.length, 0); assert.equal(d(5).situacao, "");
   assert.equal(d(12).contas.length, 0, "fixo no cartão não aparece: ele é pago junto com a fatura");
   assert.equal(d(31).contas[0].titulo, "Seguro");
   assert.deepEqual([cal.aPagar, cal.pago, cal.entra], [1630.9, 149.9, 3900]);

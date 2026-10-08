@@ -261,10 +261,10 @@ export function estadoDoMes(c, teto = 0) {
   if (!(c.rec > 0) && !(c.custo > 0) && !(c.res > 0)) return { nivel: "neutro", motivo: "", projSobra };
   if (sobra < 0) return { nivel: "estourado", motivo: `As saídas passaram das entradas em ${real(sobra)}.`, projSobra };
   if (u && u.nivel >= 100) return { nivel: "estourado", motivo: `Passou ${real(u.gasto - u.teto)} do limite do mês.`, projSobra };
-  if (atual && projSobra < 0) return { nivel: "atencao", motivo: `No ritmo atual, faltam ${real(projSobra)} no fim do mês.`, projSobra };
-  if (u && atual && u.vaiPassar) return { nivel: "atencao", motivo: `No ritmo atual, o mês passa do limite de ${real(u.teto)}.`, projSobra };
+  if (atual && projSobra < 0) return { nivel: "atencao", motivo: `Se o dia a dia continuar nesse ritmo, o mês fecha ${real(projSobra)} no vermelho (gastos maiores que as entradas).`, projSobra };
+  if (u && atual && u.vaiPassar) return { nivel: "atencao", motivo: `Se o dia a dia continuar nesse ritmo, o mês passa do limite de ${real(u.teto)}.`, projSobra };
   if (u && u.nivel >= 80) return { nivel: "atencao", motivo: `Já usou ${u.pct}% do limite do mês.`, projSobra };
-  return { nivel: "ok", motivo: atual ? "No ritmo atual, o mês fecha com sobra." : c.fase === "passado" ? "O mês fechou com sobra." : "", projSobra };
+  return { nivel: "ok", motivo: atual ? "Se o dia a dia continuar nesse ritmo, o mês fecha com sobra." : c.fase === "passado" ? "O mês fechou com sobra." : "", projSobra };
 }
 
 /**
@@ -388,16 +388,18 @@ export function projetaDiaADia(st, m, gastos, dias, n) {
  * origem: "gasto" | "fixo" | "cartao" (compra dentro de uma fatura) | "fatura".
  */
 export function itensDoCusto(c) {
-  const out = [];
+  // `ref` diz de onde o item veio, para a tela abrir a edição certa ao tocar: um lançamento, um fixo ou uma fatura.
+  const out = [], refFatura = (f) => ({ k: "fatura", id: f.id || null, cartao_id: f.cartao_id || null, cartao: f.cartao, venc: f.vencimento });
   c.it.filter((x) => x.tipo === "Despesa" && !noCartao(x)).forEach((x) =>
-    out.push({ origem: "gasto", data: x.data, descricao: x.descricao || x.categoria, categoria: x.categoria, valor: Number(x.valor), forma: x.forma || "" }));
+    out.push({ origem: "gasto", data: x.data, descricao: x.descricao || x.categoria, categoria: x.categoria, valor: Number(x.valor), forma: x.forma || "", ref: { k: "lanc", id: x.id } }));
   c.fx.filter((f) => !noCartao(f)).forEach((f) =>
-    out.push({ origem: "fixo", data: f.data, descricao: f.descricao, categoria: f.categoria, valor: Number(f.valor), forma: f.forma || "" }));
+    out.push({ origem: "fixo", data: f.data, descricao: f.descricao, categoria: f.categoria, valor: Number(f.valor), forma: f.forma || "", prazo: Boolean(f.ate), ref: { k: "fixo", id: f.id } }));
   c.fat.forEach((f) => {
     const dif = f.auto ? round2(f.valor - f.calculado) : 0;
-    if (!f.auto || dif < 0) return out.push({ origem: "fatura", data: f.vencimento, descricao: `Fatura ${f.cartao}`, categoria: CAT_FATURA, valor: Number(f.valor), cartao: f.cartao });
-    f.itens.forEach((i) => out.push({ origem: "cartao", data: i.data, descricao: i.descricao, categoria: i.categoria, valor: i.valor, cartao: f.cartao, parcela: i.parcela, de: i.de }));
-    if (dif > 0) out.push({ origem: "fatura", data: f.vencimento, descricao: `Fatura ${f.cartao}: diferença do valor corrigido`, categoria: CAT_FATURA, valor: dif, cartao: f.cartao });
+    if (!f.auto || dif < 0) return out.push({ origem: "fatura", data: f.vencimento, descricao: `Fatura ${f.cartao}`, categoria: CAT_FATURA, valor: Number(f.valor), cartao: f.cartao, ref: refFatura(f) });
+    f.itens.forEach((i) => out.push({ origem: "cartao", data: i.data, descricao: i.descricao, categoria: i.categoria, valor: i.valor, cartao: f.cartao, parcela: i.parcela, de: i.de,
+      fixo: i.origem === "fixo", ref: { k: i.origem === "fixo" ? "fixo" : "lanc", id: i.id } }));
+    if (dif > 0) out.push({ origem: "fatura", data: f.vencimento, descricao: `Fatura ${f.cartao}: diferença do valor corrigido`, categoria: CAT_FATURA, valor: dif, cartao: f.cartao, ref: refFatura(f) });
   });
   return out;
 }
@@ -831,7 +833,7 @@ export function calendarioDoMes(st, m, hoje) {
   const noDia = (data) => porDia[Math.min(n, Math.max(1, Number(data.slice(8, 10)))) - 1];
   c.fx.filter((o) => !noCartao(o)).forEach((o) => noDia(o.data).contas.push({ tipo: "fixo", id: o.id, chave: o.chave, data: o.data, titulo: o.descricao, valor: Number(o.valor), situacao: sit(o.data, c.pagosSet.has(o.id + "|" + o.chave)) }));
   c.fat.forEach((f) => noDia(f.vencimento).contas.push({ tipo: "fatura", id: f.id || null, auto: Boolean(f.auto), cartao_id: f.cartao_id || null, cartao: f.cartao, data: f.vencimento, titulo: `Fatura ${f.cartao}`, valor: Number(f.valor), situacao: sit(f.vencimento, f.status === "Paga") }));
-  c.fr.forEach((o) => noDia(o.data).entradas.push({ titulo: o.descricao, valor: Number(o.valor) }));
+  c.fr.forEach((o) => noDia(o.data).entradas.push({ id: o.id, titulo: o.descricao, valor: Number(o.valor) }));
   const ordem = ["atrasada", "hoje", "a vencer", "paga"];
   let aPagar = 0, pago = 0, entra = 0;
   porDia.forEach((d) => {
@@ -1040,4 +1042,36 @@ export function repetidosDoMes(st, m, ignorar = []) {
   junta("fixo", ativos, mesmoFixo);
   junta("lancamento", (st.lancamentos || []).filter((x) => mKey(x.data) === m && !x.import_key && !x.pendente).sort((a, b) => a.data.localeCompare(b.data)), mesmoLancamento);
   return out;
+}
+
+/**
+ * Em que mês cai a vez número `n` de um fixo (contando do começo dele): é o "vai até" de quem pensa em
+ * quantidade de parcelas ("36 vezes") e não em mês. Devolve "AAAA-MM", ou "" se não chega lá em `limite` meses.
+ */
+export function mesDaVez(f, n, limite = 240) {
+  if (!(n >= 1)) return "";
+  let tot = 0;
+  for (let m = mKey(f.desde), g = 0; g < limite; m = addM(m, 1), g++) {
+    tot += ocorrencias([{ ...f, ate: null }], m, f.tipo || "Despesa").length;
+    if (tot >= n) return m;
+  }
+  return "";
+}
+
+/**
+ * "O que sobra": o jeito que a maioria das pessoas pensa o mês.
+ * Do que entra, primeiro sai o que já tem dono (contas fixas, faturas que vencem no mês, o que foi guardado);
+ * o resto é a sobra para viver o mês, e cada gasto do dia a dia desconta dela.
+ * `ideal` é quanto da sobra caberia ter usado até hoje, dividindo por igual pelos dias do mês.
+ * A conta fecha com o resumo do início: resta = raioX(c).sobra.
+ */
+export function sobraDoMes(c) {
+  const retirado = Math.max(0, -c.res), guardado = Math.max(0, c.res);
+  const entra = round2(c.rec + retirado), fixos = round2(c.fxCusto), faturas = round2(c.fatT);
+  const comDono = round2(fixos + faturas + guardado), livre = round2(entra - comDono), usado = round2(c.vari), resta = round2(livre - usado);
+  const atual = c.fase === "atual", passados = atual ? c.dias : c.fase === "passado" ? c.n : 0, restam = atual ? c.n - c.dias + 1 : 0;
+  const ideal = livre > 0 ? round2((livre * passados) / c.n) : 0;
+  const porDia = atual && resta > 0 ? round2(resta / restam) : 0;
+  return { entra, retirado, fixos, faturas, guardado, comDono, livre, usado, resta, ideal, passados, restam, porDia, porSemana: round2(porDia * 7),
+    pct: livre > 0 ? Math.round((usado / livre) * 100) : null, ritmo: !atual || livre <= 0 ? null : usado <= ideal ? "dentro" : "acima" };
 }
