@@ -892,7 +892,7 @@ export function lembreteDoDia(st, hoje, { semGasto = [], anotouHoje = false, des
 
 /* ===================== Conta de casal ===================== */
 /** O que passa a ser um só para os dois quando as contas são divididas. O resto (avisos, tema, quadros do início) continua de cada um. */
-export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos
+export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos", "fotos"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos
 
 /** Só as chaves que são dos dois. */
 export function comumDoCasal(prefs) {
@@ -913,6 +913,7 @@ export function juntaPrefsDoCasal(deQuemConvidou = {}, deQuemAceitou = {}) {
     for (const t of new Set([...Object.keys(a.categorias), ...Object.keys(b.categorias)])) out.categorias[t] = [...new Set([...(a.categorias[t] || []), ...(b.categorias[t] || [])])];
   }
   if (a.metas || b.metas) out.metas = { ...(b.metas || {}), ...(a.metas || {}) };
+  if (a.fotos || b.fotos) out.fotos = { ...(b.fotos || {}), ...(a.fotos || {}) };
   if (a.naoRepetidos || b.naoRepetidos) out.naoRepetidos = [...new Set([...(a.naoRepetidos || []), ...(b.naoRepetidos || [])])];
   if (a.semGasto || b.semGasto) out.semGasto = [...new Set([...(a.semGasto || []), ...(b.semGasto || [])])].sort().slice(-90);
   return out;

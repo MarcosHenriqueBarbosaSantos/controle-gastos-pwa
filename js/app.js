@@ -55,6 +55,9 @@ const ICO = {
   esq: "M15 6l-6 6 6 6", dir: "M9 6l6 6-6 6",
   casal: "M9 11a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM2.5 20a6.5 6.5 0 0 1 13 0M16 4.2a3.5 3.5 0 0 1 0 6.6M17.5 14.2A6.5 6.5 0 0 1 21.5 20",
   sobe: "M12 19V6M6.5 11.5 12 6l5.5 5.5", desce: "M12 5v13M6.5 12.5 12 18l5.5-5.5",
+  mais: "M12 5v14M5 12h14",
+  mic: "M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3",
+  olhoFechado: "M3 3l18 18M10.6 6.1A10 10 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3 3.6M6.6 6.6A17 17 0 0 0 2.5 12S6 18 12 18a9.6 9.6 0 0 0 4.4-1M9.9 9.9a3 3 0 0 0 4.2 4.2",
   olho: "M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
 };
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICO[n]}"/></svg>`;
@@ -501,7 +504,7 @@ function render() {
   const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab;
   const onde = S.view === "inicio" ? "inicio" : naMais || sub ? "menu" : S.tab;
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
-  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : "";
+  $("listaTitulo").textContent = S.tab === "l" ? "Extrato" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   $("listaVoltar").hidden = !sub;
   renderForm(); renderInstalar(); renderFechamento(); renderRepetidos(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
@@ -608,6 +611,7 @@ function renderForm() {
     if (fk.dataset.k !== k) { fk.innerHTML = optsCartao(fk.value); fk.dataset.k = k; }
     $("fParc").innerHTML = optsParcelas(parseMoney($("fValor").value), fixo ? 1 : $("fParc").value || 1);
   }
+  mostraEfeito();
 }
 /** Cartão e parcelas escolhidos no formulário de lançar. Sem cartão cadastrado não devolve nada: o lançamento segue como sempre foi. */
 function cartaoDoForm() {
@@ -635,17 +639,36 @@ function renderKpis(c) {
     : `
       <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">${c.fase === "futuro" ? "Custo previsto" : "Custo do mês"}</span><span class="v">${brl0(c.custo)}</span><span class="n">${c.fase === "futuro" ? "por enquanto, só as contas fixas" : "fechado"}</span></div>
       <div class="hstat" data-det="entradas" role="button" tabindex="0"><span class="l">Entradas</span><span class="v">${brl0(c.rec)}</span><span class="n">${c.fase === "futuro" ? "previstas" : "no mês"}</span></div>`;
-  $("resumo").innerHTML = `<div class="hero est-${est.nivel}">
-    <div class="hero-main">
-      <span class="l">${verbo} em ${mesNome}</span>
-      <span class="v" data-det="saldo" role="button" tabindex="0" aria-label="${verbo} ${brl(Math.abs(rx.sobra))} em ${mesNome}. Abrir">${brl(Math.abs(rx.sobra))}</span>
-      ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
-      <span class="n">${entra}${guardado}.</span>
-      ${acum !== c.saldo ? `<span class="n">Com os meses anteriores, o saldo acumulado é <b>${sgn(acum)}</b>.</span>` : ""}
-    </div>
-    <div class="hero-duo">${duo}</div>
-    ${livre ? `<p class="hero-dia">${ico("dia")}<span>${livre.valor > 0 ? `Dá para gastar <b>${brl(livre.valor)} por dia</b> ${livre.restam === 1 ? "hoje, último dia do mês" : `nos ${livre.restam} dias que faltam`}.` : "Não sobra nada para o dia a dia: cada gasto novo aumenta o que falta."}</span></p>` : ""}
-    <div class="hero-links">${c.fase === "passado" ? `<button type="button" class="entenda" id="verFech">${ico("baixar")}Fechamento para compartilhar</button>` : ""}<button type="button" class="entenda" id="verSobra">${ico("cofre")}O que sobra para viver o mês</button><button type="button" class="entenda" id="entenda">${ico("luz")}Entenda essa conta</button></div></div>`;
+  // Topo com cara de banco: o valor livre em destaque, a barra do quanto da sobra já foi usado (na cor do estado do mês),
+  // o olho para esconder os valores e, logo abaixo, as ações rápidas e o resumo em três números.
+  const sb = sobraDoMes(c), atualM = c.fase === "atual";
+  const rotulo = atualM ? (falta ? `Passou do que tinha para ${mesNome}` : `Livre para gastar em ${mesNome}`) : `${verbo} em ${mesNome}`;
+  const usado = sb.livre > 0 ? Math.min(100, Math.round((sb.usado / sb.livre) * 100)) : 100;
+  const ocultos = valoresOcultos();
+  $("resumo").innerHTML = `<div class="hero banco est-${est.nivel}">
+    <div class="hero-top"><span class="l">${rotulo}</span>
+      <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
+    <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
+    ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i></div>
+    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? `de ${brl(sb.livre)} depois das contas` : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>` : ""}
+    ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
+    ${acum !== c.saldo ? `<span class="n ocultavel">Com os meses anteriores, o saldo acumulado é <b>${sgn(acum)}</b>.</span>` : ""}
+  </div>
+  <div class="acoes-rap" role="group" aria-label="Ações rápidas">
+    <button type="button" data-acao="lancar"><span class="forte">${ico("mais")}</span>Lançar gasto</button>
+    ${Reconhecedor ? `<button type="button" data-acao="voz"><span>${ico("mic")}</span>Por voz</button>` : `<button type="button" data-acao="cal"><span>${ico("agenda")}</span>Calendário</button>`}
+    <button type="button" data-acao="ler"><span>${ico("qr")}</span>Escanear e importar</button>
+    <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
+  </div>
+  <div class="resumo3 ocultavel">
+    <button type="button" data-det="entradas"><small>Entradas</small><b class="pos">${brl0(c.rec)}</b>${guardado ? `<small>${c.res > 0 ? `guardado ${brl0(c.res)}` : ""}</small>` : ""}</button>
+    <button type="button" data-det="custo"><small>${c.fase === "futuro" ? "Custo previsto" : atualM ? "Custo até hoje" : "Custo do mês"}</small><b>${brl0(c.custo)}</b><small>com as contas fixas</small></button>
+    ${atualM ? `<button type="button" data-det="custo"><small>Projeção</small><b>${brl0(c.proj)}</b><small class="${est.projSobra < 0 ? "neg" : "pos"}">${est.projSobra < 0 ? `fecha ${brl0(-est.projSobra)} no vermelho` : `sobram ${brl0(est.projSobra)}`}</small></button>`
+      : `<button type="button" data-det="saldo"><small>${falta ? "Faltou" : "Sobrou"}</small><b>${brl0(Math.abs(rx.sobra))}</b></button>`}
+    <div class="resumo3-links">${c.fase === "passado" ? `<button type="button" class="link" id="verFech">Fechamento para compartilhar</button>` : ""}<button type="button" class="link" id="verSobra">O que sobra para viver o mês</button><button type="button" class="link" id="entenda">Entenda essa conta</button></div>
+  </div>`;
+  $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
+  $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   $("verSobra").onclick = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
@@ -932,7 +955,7 @@ function paneM(c) {
   const atual = calcMes(S.data, cur, hoje()), dinheiro = (v) => (v > 0 ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "");
   const avisar = S.prefs.avisos?.limite !== false, t = u ? textoDoTeto(u) : null, lim = S.prefs.limites || {};
   const metasP = S.loaded ? metasEmAndamento(S.data, S.prefs.metas, hoje()) : [];
-  host.innerHTML = `${htmlSobra(c)}<h2 class="pl-h">Limite de gasto</h2><p class="hint" style="margin-top:0;font-size:13px">O máximo que você quer gastar no mês. O app avisa quando chegar perto.</p>
+  host.innerHTML = `${htmlSobra(c)}${htmlCaixinhas()}<h2 class="pl-h">Limite de gasto</h2><p class="hint" style="margin-top:0;font-size:13px">O máximo que você quer gastar no mês. O app avisa quando chegar perto.</p>
     <form id="tetoForm" class="teto-form" autocomplete="off">
       <label class="f">Limite de gastos por mês (R$)<input class="in money" id="tetoValor" inputmode="decimal" placeholder="Ex.: 3.500,00" value="${esc(dinheiro(Number(S.prefs.teto) || 0))}"></label>
       <button class="btn primary" type="submit">${u ? "Mudar limite" : "Salvar limite"}</button>
@@ -1032,7 +1055,7 @@ function renderVenc() {
   host.innerHTML = cab(`${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`) +
     `<ul class="venc">${alerta}${vis.map((x, i) => `<li data-u="${cls(x.dias)}">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
-      <span class="oque"><b>${esc(x.titulo)}</b><span>${x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Gasto fixo · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Gasto fixo"}</span></span>
+      <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<b>${esc(x.titulo)}</b><span>${x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Gasto fixo · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Gasto fixo"}</span></span>
       <span class="quando ${cls(x.dias)}">${quandoVence(x.dias)}</span>
       <span class="valor">${brl(x.valor)}</span>
       <button class="btn sm" type="button" data-pg="${i}">Já paguei</button></li>`).join("")}${combHtml}
@@ -1279,8 +1302,11 @@ function armDelete(b, fn) {
 }
 
 /** Uma linha da lista de lançamentos. `comAno` mostra o ano junto da data (resultado de busca, que mistura meses). */
+/** O tipo do lançamento em letras pequenas no extrato, como nos bancos: de onde ele vem. */
+const tipoDoLanc = (x) => x.tipo === "Receita" ? "Entrada" : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "Retirada" : "Guardado")
+  : Number(x.parcelas) > 1 ? `${x.parcelas}x no cartão` : x.forma === CARTAO ? "No cartão" : "Dia a dia";
 function linhaLanc(x, toque, comAno = false) {
-  return `<tr data-id="${esc(x.id)}"${toque}><td class="d">${comAno ? ddmm(x.data) + "/" + x.data.slice(2, 4) : ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}${x.pendente ? ` <span class="tag espera">aguardando internet</span>` : ""}${quemTag(x)}<span class="sub">${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
+  return `<tr data-id="${esc(x.id)}"${toque}><td class="d">${comAno ? ddmm(x.data) + "/" + x.data.slice(2, 4) : ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}${x.pendente ? ` <span class="tag espera">aguardando internet</span>` : ""}${quemTag(x)}<span class="sub"><span class="tp">${tipoDoLanc(x)}</span>${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(pagoCom(x)) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : "Guardou"}</td>
       <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "← " : "→ ") : "− "}${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-ed="${esc(x.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">${ico("lixo")}</span></button></td></tr>`;
@@ -1331,7 +1357,7 @@ function listaL(c) {
   const gastoDoDia = (d) => round2(it.filter((x) => !x.auto && x.tipo === "Despesa" && x.data === d).reduce((t, x) => t + x.valor, 0));
   const dia = (x, i) => i && it[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
   host.innerHTML = `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque em um lançamento para editar ou excluir.</p><div class="tbl"><table class="lanc">${cab}<tbody>${
-    it.map((x, i) => dia(x, i) + (x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub">Entrada fixa</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
+    it.map((x, i) => dia(x, i) + (x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub"><span class="tp">Entrada fixa</span>${esc(x.categoria)}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(x.id)}">Alterar</button></td></tr>`
     : linhaLanc(x, toque))).join("")}</tbody></table></div>`;
@@ -1363,7 +1389,7 @@ function paneF(c, tipo) {
     // Conta com prazo: mostra até quando vai; na última vez, avisa.
     const ultima = f.ate && mKey(f.ate) === S.mes && !fx.some((o) => o.id === f.id && o.data > f.data);
     const prazo = f.ate ? ` <span class="tag ${ultima ? "fim" : "prazo"}">${ultima ? "última vez" : ateCurto(f.ate)}</span>` : "";
-    return `<tr><td class="d">${quando}</td><td class="desc">${ava(f.categoria, ent ? "Receita" : "Despesa")}<span class="tx">${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}${prazo}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
+    return `<tr><td class="d">${quando}</td><td class="desc">${avaFoto("fixo", f.descricao) || ava(f.categoria, ent ? "Receita" : "Despesa")}<span class="tx">${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}${prazo}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
       <td class="st">${status}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(f.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
   }).join("");
@@ -1630,8 +1656,16 @@ $("fDesc").addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("fS
 $("fDesc").addEventListener("blur", () => setTimeout(() => { if (!$("fSugere").contains(document.activeElement)) $("fSugere").hidden = true; }, 120));
 $("fFixo").addEventListener("change", renderForm);
 $("fData").addEventListener("change", renderForm);
-$("fForma").addEventListener("change", () => { S.formaManual = true; $("fComoAntes").hidden = true; renderForm(); });
-$("fValor").addEventListener("input", () => { if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });   // atualiza o valor de cada parcela e o total do prazo
+$("fForma").addEventListener("change", () => { S.formaManual = true; $("fComoAntes").hidden = true; renderForm(); mostraEfeito(); });
+$("fValor").addEventListener("input", () => { mostraEfeito(); if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });
+/** "Livre agora → depois": o efeito do gasto na sobra do mês, antes de confirmar (só no mês atual, e só para gasto fora do cartão). */
+function mostraEfeito() {
+  const el = $("fEfeito"), v = parseMoney($("fValor").value), d = $("fData").value || hoje();
+  const conta = S.loaded && v > 0 && S.tipo !== "Receita" && mKey(d) === mKey(hoje()) && !(S.tipo === "Despesa" && $("fForma").value === CARTAO) && !$("fFixo").checked && !(S.tipo === "Reserva" && $("fForma").value === "Retirar");
+  el.hidden = !conta; if (!conta) return;
+  const livre = raioX(calcMes(S.data, mKey(hoje()), hoje())).sobra, depois = round2(livre - v);
+  el.innerHTML = `Livre agora ${brl(livre)} → depois <b class="${depois < 0 ? "txt-bad" : ""}">${brl(depois)}</b>`;
+}   // atualiza o valor de cada parcela e o total do prazo
 $("fRepete").addEventListener("change", renderForm);
 $("fAte").addEventListener("change", renderForm);
 // "Quantas vezes?" no formulário de lançar: a base é a mesma que monta as opções do "Vai até".
@@ -2007,6 +2041,103 @@ function ajuda() {
   $("ajudaPassos").onclick = () => { guiaDe().fechado = false; salvaPrefs(); guiaPasso("renda", true); };
 }
 $("btnAjuda").onclick = ajuda;
+/* ================= fotos: capas das caixinhas e das contas fixas =================
+   A foto é reduzida no aparelho (quadrada, 320 px, JPEG) e guardada nas preferências, que na conta de casal valem para os dois.
+   A chave é o nome (sem acento e caixa): a foto continua quando a conta muda de valor e vira uma versão nova. */
+const chaveFoto = (tipo, nome) => `${tipo}:${norm(nome)}`;
+const fotoDe = (tipo, nome) => S.prefs.fotos?.[chaveFoto(tipo, nome)] || "";
+const avaFoto = (tipo, nome) => { const f = fotoDe(tipo, nome); return f ? `<span class="ava foto" style="background-image:url('${f}')" aria-hidden="true"></span>` : ""; };
+function escolheFoto() {
+  return new Promise((ok) => {
+    const inp = document.createElement("input"); inp.type = "file"; inp.accept = "image/*";
+    inp.onchange = async () => {
+      const arq = inp.files?.[0]; if (!arq) return ok("");
+      try {
+        const img = await createImageBitmap(arq), lado = Math.min(img.width, img.height), cv = document.createElement("canvas"); cv.width = cv.height = 320;
+        cv.getContext("2d").drawImage(img, (img.width - lado) / 2, (img.height - lado) / 2, lado, lado, 0, 0, 320, 320);
+        ok(cv.toDataURL("image/jpeg", 0.72));
+      } catch { toast("Não deu para abrir essa imagem. Tente outra."); ok(""); }
+    };
+    inp.click();
+  });
+}
+async function trocaFoto(tipo, nome, depois) {
+  const url = await escolheFoto(); if (!url) return;
+  S.prefs.fotos = { ...(S.prefs.fotos || {}), [chaveFoto(tipo, nome)]: url };
+  await salvaPrefs(); render(); depois?.();
+}
+async function tiraFoto(tipo, nome, depois) {
+  const f = { ...(S.prefs.fotos || {}) }; delete f[chaveFoto(tipo, nome)]; S.prefs.fotos = f;
+  await salvaPrefs(); render(); depois?.();
+}
+
+/* ================= caixinhas: o dinheiro guardado, como nos bancos =================
+   Cada destino do guardado (reserva, investimentos, viagem…) é uma caixinha com capa, quanto tem e o progresso da meta. */
+const CORES_CAIXA = ["#1e5fbf", "#157347", "#9a4a06", "#6b3fb8", "#b42318", "#0f6e74"];
+function htmlCaixinhas() {
+  if (!S.loaded) return "";
+  const cur = mKey(hoje()), saldo = new Map(guardadoPorDestino(S.data, cur)), metas = metasDe();
+  const nomes = [...new Set([...saldo.keys(), ...Object.keys(metas)])];
+  const total = round2([...saldo.values()].reduce((t, v) => t + v, 0));
+  const card = (nome, i) => {
+    const v = saldo.get(nome) || 0, a = andamentoDaMeta(S.data, nome, metas[nome], hoje()), foto = fotoDe("dest", nome);
+    return `<button type="button" class="caixa" data-caixa="${esc(nome)}">
+      <span class="capa${foto ? " com" : ""}" style="${foto ? `background-image:url('${foto}')` : `background:${CORES_CAIXA[i % CORES_CAIXA.length]}`}">${foto ? "" : `<b>${esc(nome.charAt(0).toUpperCase())}</b>`}</span>
+      <span class="info"><b class="nome">${esc(nome)}</b><span class="vv ocultavel">${brl(v)}</span>
+      ${a ? `<span class="pbar"><i style="width:${Math.min(100, a.pct)}%"></i></span><small>${a.pct}% de ${brl0(a.alvo)}</small>` : `<small>sem meta</small>`}</span></button>`;
+  };
+  return `<section class="caixas"><div class="caixas-h"><h2>Caixinhas</h2><span class="ocultavel">${brl(total)} guardados</span></div>
+    <div class="caixas-grid">${nomes.map(card).join("")}
+      <button type="button" class="caixa nova" data-caixa-nova="1"><span class="capa"><b>+</b></span><span class="info"><b class="nome">Nova caixinha</b><small>viagem, carro, reserva…</small></span></button></div></section>`;
+}
+function abrirCaixa(nome) {
+  const v = (guardadoPorDestino(S.data, mKey(hoje())).find(([k]) => k === nome) || [0, 0])[1], foto = fotoDe("dest", nome);
+  const guardar = (retirar) => { $("dlg").close(); S.tipo = "Reserva"; renderForm(); $("fCat").value = nome; $("fForma").value = retirar ? "Retirar" : "Guardar"; S.catManual = true; renderForm();
+    setTimeout(() => { if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } }, 200); };
+  openDlg(`<div class="caixa-capa${foto ? " com" : ""}" style="${foto ? `background-image:url('${foto}')` : ""}"><h3>${esc(nome)}</h3></div>
+    <p class="caixa-valor ocultavel">${brl(v)}</p><p class="hint" style="margin:0 0 12px">guardados nesta caixinha</p>
+    <div class="caixa-acoes"><button class="btn primary" type="button" id="cxGuardar">Guardar</button><button class="btn" type="button" id="cxRetirar">Retirar</button></div>
+    <div class="caixa-mais">
+      <button class="mais-item" type="button" id="cxMeta"><span class="tx"><b>${metasDe()[nome] ? "Ver e mudar a meta" : "Criar uma meta"}</b><span>quanto quer juntar e até quando</span></span>${ico("chev")}</button>
+      <button class="mais-item" type="button" id="cxFoto"><span class="tx"><b>${foto ? "Trocar a foto" : "Colocar uma foto"}</b><span>a capa da caixinha, como nos bancos</span></span>${ico("chev")}</button>
+      ${foto ? `<button class="mais-item" type="button" id="cxSemFoto"><span class="tx"><b>Tirar a foto</b></span>${ico("chev")}</button>` : ""}
+    </div>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  $("cxGuardar").onclick = () => guardar(false); $("cxRetirar").onclick = () => guardar(true);
+  $("cxMeta").onclick = () => detalheMeta(nome);
+  $("cxFoto").onclick = () => trocaFoto("dest", nome, () => abrirCaixa(nome));
+  if ($("cxSemFoto")) $("cxSemFoto").onclick = () => tiraFoto("dest", nome, () => abrirCaixa(nome));
+}
+$("pane-m").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-caixa]"); if (b) return abrirCaixa(b.dataset.caixa);
+  if (e.target.closest("[data-caixa-nova]")) detalheMeta(cats("Reserva")[0] || "Reserva de emergência", true);
+});
+
+/* ================= esconder os valores e ações rápidas do início =================
+   O olho do topo esconde os valores (fica guardado neste aparelho), para abrir o app em público sem mostrar quanto tem. */
+const valoresOcultos = () => { try { return localStorage.getItem("cg-ocultar") === "1"; } catch { return false; } };
+function ocultaValores(sim) { try { sim ? localStorage.setItem("cg-ocultar", "1") : localStorage.removeItem("cg-ocultar"); } catch { /* vale só agora */ } document.body.classList.toggle("ocultar", sim); }
+document.body.classList.toggle("ocultar", valoresOcultos());
+/** "Escanear e importar": tudo o que traz gastos de fora, num lugar só. */
+function escanearEImportar() {
+  const op = (id, icone, t, s) => `<button class="mais-item" type="button" id="${id}"><span class="ic-box">${ico(icone)}</span><span class="tx"><b>${t}</b><span>${s}</span></span>${ico("chev")}</button>`;
+  openDlg(`<h3>Escanear e importar</h3><p class="hint" style="margin:0 0 12px">O app lê no próprio aparelho e mostra tudo para você conferir antes de lançar.</p>
+    <div class="caixa-mais">${op("esQr", "qr", "Ler QR code", "Pix, cupom fiscal (nota) ou código de barras do boleto")}
+      ${op("esFoto", "camera", "Foto ou PDF de comprovante", "Pix, boleto, maquininha, fatura ou holerite")}
+      ${op("esExtrato", "subir", "Importar extrato do cartão", "o arquivo que o banco exporta: CSV, OFX ou Excel")}</div>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  $("esQr").onclick = () => { $("dlg").close(); setTimeout(() => { abrirLancar(); abrirQr(); }, 200); };
+  $("esFoto").onclick = () => { $("dlg").close(); setTimeout(() => abrirLeitor(), 200); };
+  $("esExtrato").onclick = () => { $("dlg").close(); setTimeout(() => abrirExtrato(), 200); };
+}
+function acaoRapida(a) {
+  if (a === "cal") return calendario(mKey(hoje()));
+  if (a === "ler") return escanearEImportar();
+  S.tipo = a === "recebi" ? "Receita" : "Despesa"; S.catManual = false; S.formaManual = false; renderForm();
+  if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
+  if (a === "voz") ouvirGasto();
+}
+
 /* ================= fechamento do mês =================
    Nos primeiros dias de cada mês, o início mostra como o mês anterior fechou, com uma imagem pronta para compartilhar.
    A imagem é desenhada no aparelho (canvas); nada é enviado para fora. Dá para esconder os valores e mostrar só porcentagens. */
@@ -2460,9 +2591,13 @@ function editarFixo(id) {
         <option value="mes">De ${mesTxt} em diante</option>
         <option value="tudo">Em todos os meses, inclusive os anteriores</option></select></label>
       <p class="hint wide" style="margin:-6px 0 0">Na primeira opção, os meses anteriores ficam como estavam.</p>` : ""}
+    <div class="f wide foto-linha">${avaFoto("fixo", f.descricao) || `<span class="ava">${ico("imagem")}</span>`}<span><b>Foto</b><small>aparece nas listas, para achar a conta de olho</small></span>
+      <button class="btn sm" type="button" id="eFoto">${fotoDe("fixo", f.descricao) ? "Trocar" : "Colocar"}</button>${fotoDe("fixo", f.descricao) ? `<button class="btn sm" type="button" id="eSemFoto">Tirar</button>` : ""}</div>
     <p class="auth-msg err wide" id="edMsg"></p>
     <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
   ligaVezes($("eVezes"), $("eAte"), () => f);
+  $("eFoto").onclick = () => trocaFoto("fixo", f.descricao, () => editarFixo(id));
+  if ($("eSemFoto")) $("eSemFoto").onclick = () => tiraFoto("fixo", f.descricao, () => editarFixo(id));
   const noCartao = () => !ent && $("eForma").value === CARTAO && S.data.cartoes.length > 0;
   if (!ent) { const sync = () => { $("eCartaoWrap").hidden = !noCartao(); }; $("eForma").onchange = sync; sync(); }
   $("edForm").addEventListener("submit", async (e) => {
@@ -2702,12 +2837,12 @@ function ajustes() {
   };
   $("ajIni").onchange = salvaIni; $("ajIniSinal").onchange = salvaIni;
   $("ajBV").onclick = () => { guiaDe().fechado = false; salvaPrefs(); guiaPasso("renda", true); };
-  // O tema fica guardado neste aparelho: escuro é o padrão, claro é opção.
+  // O tema fica guardado neste aparelho: claro (cara de banco) é o padrão, escuro é opção.
   $("ajTema").onchange = (e) => {
     const claro = e.target.value === "claro";
     if (claro) document.documentElement.dataset.tema = "claro"; else delete document.documentElement.dataset.tema;
-    try { claro ? localStorage.setItem("cg-tema", "claro") : localStorage.removeItem("cg-tema"); } catch { /* sem armazenamento: vale só agora */ }
-    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", claro ? "#f2f5f9" : "#0a0f16");
+    try { localStorage.setItem("cg-tema", claro ? "claro" : "escuro"); } catch { /* sem armazenamento: vale só agora */ }
+    document.querySelector('meta[name="theme-color"]')?.setAttribute("content", claro ? "#0b2545" : "#0a0f16");
   };
   if ($("ajEmail")) ligaAjustesDeAvisos();
 }

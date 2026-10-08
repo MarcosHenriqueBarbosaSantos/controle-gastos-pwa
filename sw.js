@@ -1,7 +1,7 @@
 // Service worker: guarda os arquivos do app para abrir na hora, com ou sem sinal, e funcionar como app instalado.
 // Os dados (Supabase) sempre vêm da internet; sem conexão, o app usa a cópia e a fila do aparelho (js/store.js, comFila).
 // Ao mudar arquivos, aumente a VERSAO: é ela que faz os celulares baixarem a versão nova.
-const VERSAO = "meus-gastos-v51";
+const VERSAO = "meus-gastos-v52";
 const ARQUIVOS = [
   "./", "index.html", "css/style.css", "manifest.webmanifest",
   "js/app.js", "js/calc.js", "js/store.js", "js/excel.js", "js/leitor.js", "js/qr.js", "js/extrato.js", "js/config.js", "js/voz.js",

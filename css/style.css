@@ -15,16 +15,20 @@
   --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
   color-scheme:dark;
 }
-/* Tema claro: só quando a pessoa escolhe em Ajustes → Aparência. */
+/* Tema claro, com cara de banco: azul-marinho, branco e cinza-claro. É o padrão; o escuro continua em Ajustes → Aparência. */
 :root[data-tema="claro"]{
-  --bg:#f2f5f9; --surface:#ffffff; --surface-2:#f6f8fb; --sunk:#edf1f6; --ink:#0d1520; --ink-2:#435164; --muted:#687789;
-  --grid:rgba(13,21,32,.08); --axis:rgba(13,21,32,.28); --border:rgba(13,21,32,.1); --brand:#1d4ed8;
-  --series:#2563eb; --series-soft:rgba(37,99,235,.1); --entradas:#0f7a3d;
-  --good:#0f7a3d; --good-soft:rgba(15,122,61,.1); --bad:#c62f2f; --bad-soft:rgba(198,47,47,.08); --warn:#8a5a00; --warn-soft:rgba(242,185,75,.2);
-  --btn:linear-gradient(180deg,#3b78ee,#2459cf); --glass:rgba(242,245,249,.86); --glow:rgba(37,99,235,.1);
-  --shadow:0 12px 30px rgba(13,21,32,.12); --shadow-sm:0 1px 4px rgba(13,21,32,.08);
+  --bg:#f3f5f8; --surface:#ffffff; --surface-2:#f6f8fb; --sunk:#eef2f7; --ink:#13253b; --ink-2:#3d4d61; --muted:#5c6b7d;
+  --grid:rgba(11,37,69,.08); --axis:rgba(11,37,69,.28); --border:#dde3ea; --brand:#0b2545;
+  --series:#1e5fbf; --series-soft:rgba(30,95,191,.1); --entradas:#157347;
+  --good:#157347; --good-soft:#e7f4ec; --bad:#b42318; --bad-soft:#fdecea; --warn:#9a4a06; --warn-soft:#fdf0e3;
+  --hero:#0b2545; --navy:#0b2545;
+  --btn:#0b2545; --glass:rgba(255,255,255,.96); --glow:transparent;
+  --shadow:0 10px 28px rgba(11,37,69,.12); --shadow-sm:0 2px 8px rgba(11,37,69,.06);
   color-scheme:light;
 }
+/* Uma fonte só, como num banco; números alinhados em coluna. */
+:root{--display:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+body{font-variant-numeric:tabular-nums}
 *{box-sizing:border-box}
 html,body{margin:0}
 body{background:radial-gradient(900px 420px at 50% -160px,var(--glow),transparent 70%) no-repeat,var(--bg);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45;
@@ -140,6 +144,63 @@ input.money{font-variant-numeric:tabular-nums;font-weight:600}
   .hero .hero-dia,.hero .entenda,.hero .hero-links{grid-column:1/-1}
 }
 
+/* ---------- topo com cara de banco ---------- */
+.hero.banco{display:flex;flex-direction:column;align-items:stretch;text-align:left;gap:6px;border-radius:0 0 26px 26px;padding:18px 20px 56px;box-shadow:none}
+:root[data-tema="claro"] .hero.banco{background:var(--navy)}
+.hero.banco::before{display:none}
+.hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.hero-top .l{font-size:14px;opacity:.85}
+.hero-top .olho{position:static;transform:none;width:42px;height:42px;border-radius:50%;border:0;background:rgba(255,255,255,.14);color:#fff;display:grid;place-items:center;flex:none}
+.hero-top .olho .ic{width:21px;height:21px} .hero-top .olho[aria-pressed="true"]{color:#fff;background:rgba(255,255,255,.26)}
+.hero.banco .v{font-family:var(--sans);font-size:40px;font-weight:700;letter-spacing:-.5px;line-height:1.1;cursor:pointer;width:fit-content}
+.hbar{height:6px;border-radius:999px;background:rgba(255,255,255,.2);overflow:hidden;margin-top:6px}
+.hbar i{display:block;height:100%;border-radius:999px;background:#6fd39a}
+.hero.est-atencao .hbar i{background:#f4b860} .hero.est-estourado .hbar i{background:#ff8a80}
+.hsub{display:flex;justify-content:space-between;gap:10px;font-size:13px;opacity:.88}
+.hero.banco .estado{margin:6px 0 0}
+.hero.banco .estado b{background:rgba(255,255,255,.14)}
+.acoes-rap{position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:-42px 16px 0;background:var(--surface);border-radius:18px;padding:14px 6px 12px;box-shadow:var(--shadow)}
+.acoes-rap button{display:flex;flex-direction:column;align-items:center;gap:7px;border:0;background:none;color:var(--ink);font-size:12px;font-weight:500;line-height:1.25;text-align:center;padding:2px}
+.acoes-rap span{width:54px;height:54px;border-radius:50%;background:var(--sunk);color:var(--ink);display:grid;place-items:center}
+.acoes-rap span.forte{background:var(--btn);color:#fff}
+.acoes-rap .ic{width:23px;height:23px}
+.resumo3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 16px 0;background:var(--surface);border-radius:18px;padding:12px 8px 10px;box-shadow:var(--shadow-sm);border:1px solid var(--border)}
+.resumo3>button{display:grid;gap:1px;align-content:start;border:0;background:none;text-align:left;padding:4px 8px;color:var(--ink);border-radius:10px}
+.resumo3>button:active{background:var(--sunk)}
+.resumo3 small{font-size:11.5px;color:var(--muted)} .resumo3 b{font-size:15.5px;font-weight:700}
+.resumo3 .pos{color:var(--good)} .resumo3 .neg{color:var(--bad)}
+.resumo3-links{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 16px;padding:8px 8px 0;margin-top:4px;border-top:1px solid var(--border);font-size:13px}
+/* caixinhas do dinheiro guardado */
+.caixas{display:grid;gap:10px;margin:0 0 22px}
+.caixas-h{display:flex;justify-content:space-between;align-items:baseline} .caixas-h h2{margin:0;font-size:18px} .caixas-h span{font-size:13px;color:var(--muted)}
+.caixas-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.caixa{display:grid;border:1px solid var(--border);background:var(--surface);border-radius:18px;overflow:hidden;padding:0;text-align:left;color:var(--ink);box-shadow:var(--shadow-sm)}
+.caixa .capa{height:86px;display:grid;place-items:center;background-size:cover;background-position:center;color:#fff}
+.caixa .capa b{font-size:30px;font-weight:700;opacity:.9}
+.caixa .info{display:grid;gap:3px;padding:10px 12px 12px} .caixa .nome{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.caixa .vv{font-size:17px;font-weight:700} .caixa small{font-size:11.5px;color:var(--muted)}
+.caixa .pbar{height:5px;border-radius:999px;background:var(--sunk);overflow:hidden} .caixa .pbar i{display:block;height:100%;background:var(--good);border-radius:999px}
+.caixa.nova{border-style:dashed;box-shadow:none} .caixa.nova .capa{background:var(--sunk);color:var(--muted)}
+.caixa-capa{height:150px;margin:-6px 0 12px;border-radius:16px;background:var(--navy,#1e5fbf);background-size:cover;background-position:center;display:flex;align-items:flex-end;padding:12px 14px;color:#fff;clear:both}
+.caixa-capa h3{margin:0;font-size:22px;text-shadow:0 1px 8px rgba(0,0,0,.45)}
+.caixa-valor{margin:0;font-size:30px;font-weight:700}
+.caixa-acoes{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:0 0 12px}
+.caixa-mais{display:grid;border:1px solid var(--border);border-radius:16px;overflow:hidden}
+.caixa-mais .mais-item{display:flex;align-items:center;gap:13px;width:100%;min-height:58px;padding:10px 12px 10px 14px;border:0;border-top:1px solid var(--border);background:none;color:var(--ink);text-align:left}
+.caixa-mais .mais-item:first-child{border-top:0} .caixa-mais .mais-item:active{background:var(--sunk)}
+.caixa-mais .mais-item .tx{display:grid;gap:1px;flex:1;min-width:0} .caixa-mais .mais-item .tx b{font-size:15px;font-weight:600} .caixa-mais .mais-item .tx span{font-size:12.5px;color:var(--muted)}
+.caixa-mais .mais-item .ic-box{width:38px;height:38px;border-radius:12px;flex:none;display:grid;place-items:center;background:var(--sunk);color:var(--ink)} .ic-box .ic{width:20px;height:20px} .caixa-mais .mais-item>.ic{color:var(--muted)}
+.ava.foto{background-size:cover;background-position:center}
+.foto-linha{display:grid!important;grid-template-columns:auto minmax(0,1fr) auto auto;gap:10px;align-items:center}
+.foto-linha .ava{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--sunk)} .foto-linha small{display:block;font-size:12px;color:var(--muted);font-weight:400}
+.mini-foto{float:left;width:30px;height:30px;border-radius:9px;margin:2px 10px 0 0;background-size:cover;background-position:center}
+/* tipo em letras pequenas no extrato, e o efeito do gasto no lançar */
+.sub .tp{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.efeito{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin:2px 0 0} .efeito b{color:var(--ink)}
+/* esconder os valores (o olho do topo) */
+body.ocultar .ocultavel,body.ocultar .kpi .v,body.ocultar .sobra-pl .v,body.ocultar .sobra-agora b{filter:blur(9px);user-select:none}
+#resumo{margin-inline:-16px}
+@media (min-width:701px){#resumo{margin-inline:0} .hero.banco{border-radius:24px;padding:24px 28px 62px} .hero.banco .v{font-size:46px} .acoes-rap,.resumo3{margin-inline:24px} }
 /* ---------- seu dia ---------- */
 .dia{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px 14px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow-sm)}
 .dia .ava{width:44px;height:44px;border-radius:14px} .dia .ava .ic{width:22px;height:22px}
@@ -819,6 +880,17 @@ input.in.cod::placeholder{color:var(--axis)}
   .bnav .mais span{width:54px;height:54px;border-radius:50%;background:var(--btn);color:#fff;display:grid;place-items:center;margin-top:-22px;box-shadow:0 8px 20px rgba(47,116,214,.5),0 0 0 5px var(--bg)}
   .bnav .mais svg{width:26px;height:26px;stroke-width:2.4;padding:0;background:none}
   .bnav [data-nav="menu"] svg{stroke-width:3}
+  /* Barra de baixo com cara de banco: 5 itens iguais, todos com nome; a aba ativa ganha um traço no topo.
+     O Lançar fica no meio, num quadrado escuro, no mesmo alinhamento dos outros (nada flutuando por cima). */
+  :root[data-tema="claro"] .bnav{background:#ffffff;backdrop-filter:none;-webkit-backdrop-filter:none;border-top:1px solid var(--border);padding:0 4px env(safe-area-inset-bottom,0px)}
+  .bnav button{position:relative;min-height:64px;font-size:11.5px}
+  .bnav svg{padding:0;width:23px;height:23px}
+  .bnav button>svg{margin-block:4.5px}   /* mesma altura do quadrado do Lançar: os nomes ficam na mesma linha */
+  .bnav button[aria-current="page"] svg{background:none;color:currentColor}
+  .bnav button[aria-current="page"]::before{content:"";position:absolute;top:0;left:26%;right:26%;height:3px;border-radius:0 0 3px 3px;background:var(--ink)}
+  .bnav .mais{color:var(--ink);font-weight:700}
+  .bnav .mais span{width:42px;height:32px;border-radius:10px;margin-top:0;background:var(--btn);color:#fff;box-shadow:none}
+  .bnav .mais svg{width:20px;height:20px}
   .toast{display:block;position:fixed;left:16px;right:16px;bottom:calc(86px + env(safe-area-inset-bottom,0px));z-index:50;background:var(--ink);color:var(--bg);
     padding:13px 15px;border-radius:14px;font-size:13.5px;font-weight:500;box-shadow:var(--shadow);animation:surge .2s ease-out}
   .toast.com-acao{left:16px;right:16px;width:auto;transform:none;bottom:calc(86px + env(safe-area-inset-bottom,0px));padding:6px 6px 6px 15px}

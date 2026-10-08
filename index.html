@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meus Gastos</title>
 <meta name="description" content="Controle de gastos pessoal: lance no dia a dia, acompanhe o custo do mês e a projeção, gastos fixos e faturas de cartão.">
-<meta name="theme-color" content="#0a0f16">
+<meta name="theme-color" content="#0b2545">
 <script>/* Quem chega pela primeira vez ao endereço do app, pelo navegador, vê antes o site que explica o app (pasta site/).
    Quem já usa, quem instalou o app ou quem chega por um link com destino (demonstração, entrar, confirmação de e-mail) vai direto para o app. */
 try {
@@ -15,8 +15,8 @@ try {
   else localStorage.setItem("cg-conhece", "1");
 } catch (e) { /* sem armazenamento: abre o app normalmente */ }
 </script>
-<script>/* Tema: escuro por padrão; claro só se a pessoa escolheu em Ajustes. Roda antes de a tela aparecer, para não piscar. */
-try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.dataset.tema = "claro"; } catch (e) {}</script>
+<script>/* Tema: claro (cara de banco) por padrão; escuro só se a pessoa escolheu em Ajustes. Roda antes de a tela aparecer, para não piscar. */
+try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement.dataset.tema = "claro"; } catch (e) { document.documentElement.dataset.tema = "claro"; }</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
@@ -156,7 +156,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
       <button class="btn sm" type="button" id="vozParar">Parar</button></div>
     <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
     <form id="formLanc" class="fields" autocomplete="off">
-      <label class="f">Valor (R$)<input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
+      <label class="f">Valor (R$)<span class="efeito" id="fEfeito" hidden></span><input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
       <label class="f desc">Descrição<input class="in" id="fDesc" placeholder="Ex.: mercado, uber, farmácia" maxlength="80" enterkeyhint="done" aria-describedby="fComoAntes" aria-controls="fSugere"><span class="sugere" id="fSugere" role="group" aria-label="Descrições que você já usou" hidden></span><span class="como-antes" id="fComoAntes" aria-live="polite" hidden></span></label>
       <label class="f"><span id="fCatLbl">Categoria</span><select class="in" id="fCat"></select></label>
       <label class="f" id="fFormaWrap"><span id="fFormaLbl">Forma de pagamento</span><select class="in" id="fForma"></select></label>
@@ -229,9 +229,9 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
 <!-- Navegação do celular -->
 <nav class="bnav" id="bnav" aria-label="Navegação" hidden>
   <button type="button" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>Início</button>
-  <button type="button" data-nav="l"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Lançamentos</button>
-  <button type="button" data-nav="mais" class="mais" aria-label="Lançar"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span></button>
-  <button type="button" data-nav="m"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01"/></svg>Planejar</button>
+  <button type="button" data-nav="l"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg>Extrato</button>
+  <button type="button" data-nav="mais" class="mais"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>Lançar</button>
+  <button type="button" data-nav="m"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg>Planejar</button>
   <button type="button" data-nav="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg>Mais</button>
 </nav>
 <div class="toast" id="toast" role="status" hidden></div>
