@@ -225,6 +225,13 @@ button.btn{cursor:pointer}
 .plats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;align-items:start}
 .plat{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:0 20px 18px;transition:border-color .2s}
 .plat.aqui-so{border-color:var(--accent)}
+.plat.plat-larga{grid-column:1/-1}
+.plat.plat-larga summary{cursor:pointer}
+.plat.plat-larga:not([open]) summary{padding-bottom:0}
+.plat .acoes-mi{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0 0}
+.plat ul.caminho{margin:8px 0 0;padding:0;list-style:none;display:grid;gap:6px;font-size:.92rem;color:var(--ink-2)}
+.plat ul.caminho li{counter-increment:none;padding-left:14px;min-height:0;position:relative}
+.plat ul.caminho li::before{content:"";position:absolute;left:0;top:.55em;width:6px;height:6px;border-radius:50%;background:var(--accent)}
 .plat summary{list-style:none;padding:18px 0 0;font-family:var(--display);font-weight:700;font-size:1.15rem;letter-spacing:-.01em;cursor:default}
 .plat summary::-webkit-details-marker{display:none}
 .plat summary small{display:block;font-family:var(--sans);font-weight:400;font-size:.84rem;letter-spacing:0;color:var(--muted);margin-top:2px}
@@ -619,6 +626,7 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
       <p>O Meus Gastos é instalado por esta página, direto pelo navegador, sem loja de aplicativos. Ele ganha ícone próprio, abre em tela cheia e passa a enviar notificações. Ao abrir pelo ícone, é só criar a sua conta.</p>
       <div class="inst-acao">
         <button type="button" class="btn pri" id="instBtn" hidden>Instalar agora</button>
+        <a class="btn pri" id="instChrome" data-chrome href="intent://meugastos.com.br/site/?instalar=1#Intent;scheme=https;package=com.android.chrome;end" hidden>Abrir no Chrome</a>
         <a class="btn pri" id="instIr" href="https://meugastos.com.br/site/#instalar" target="_blank" rel="noopener" hidden>Abrir a página de instalação</a>
         <a class="btn sec" data-app="" href="https://meugastos.com.br/" target="_blank" rel="noopener">Abrir no navegador</a>
       </div>
@@ -632,7 +640,7 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
   <div class="plats" id="plats">
     <details class="plat" data-so="android" open><summary>No Android<small>Chrome, Edge ou Samsung Internet</small></summary>
       <ol><li>Toque em <b>Instalar agora</b>, no quadro acima.</li><li>Confirme em <b>Instalar</b> na janela que o navegador abre.</li><li>O ícone do Meus Gastos aparece na tela inicial.</li></ol>
-      <p>Se o botão não aparecer, abra o menu <b>⋮</b> do navegador e toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.</p>
+      <p>Se o botão não aparecer, abra o menu <b>⋮</b> do navegador e toque em <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>. Celular Xiaomi, Redmi ou Poco? Veja <a href="#plat-xiaomi">o passo a passo dele</a>.</p>
     </details>
     <details class="plat" data-so="ios" open><summary>No iPhone<small>Safari</small></summary>
       <ol><li>Toque em <b>Compartilhar</b> <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3M8 7l4-4 4 4M6 11H5a1 1 0 0 0-1 1v8a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-8a1 1 0 0 0-1-1h-1"/></svg>, na barra do Safari.</li><li>Role a lista e toque em <b>Adicionar à Tela de Início</b>.</li><li>Confirme em <b>Adicionar</b>.</li></ol>
@@ -640,6 +648,18 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
     </details>
     <details class="plat" data-so="pc" open><summary>No computador<small>Chrome ou Edge</small></summary>
       <ol><li>Clique em <b>Instalar agora</b>, no quadro acima, ou no ícone de instalar que aparece na barra de endereço.</li><li>Confirme em <b>Instalar</b>.</li><li>O Meus Gastos abre em uma janela própria, como um programa.</li></ol>
+    </details>
+    <!-- Xiaomi, Redmi e Poco: o navegador da Xiaomi não instala apps da web, e o sistema (MIUI/HyperOS) vem com o Chrome proibido de criar ícones. -->
+    <details class="plat plat-larga" data-so="xiaomi" id="plat-xiaomi"><summary>No Xiaomi, Redmi ou Poco<small>O sistema da Xiaomi pede dois cuidados a mais</small></summary>
+      <ol>
+        <li><b>Use o Chrome.</b> O navegador que vem no Xiaomi não instala apps da web: nele o botão de instalar não aparece.
+          <div class="acoes-mi"><a class="btn pri" data-chrome href="intent://meugastos.com.br/site/?instalar=1#Intent;scheme=https;package=com.android.chrome;end">Abrir no Chrome</a><button type="button" class="btn sec" data-copia-link>Copiar o endereço</button></div></li>
+        <li><b>Deixe o Chrome criar o ícone.</b> No Xiaomi essa permissão vem desligada, e por isso o ícone não aparece depois de instalar. Abra:
+          <ul class="caminho"><li><b>Configurações › Apps › Gerenciar apps › Chrome</b></li><li><b>Outras permissões</b> (ou <b>Permissões do app</b>) › <b>Atalhos na tela inicial</b> › <b>Permitir</b></li></ul></li>
+        <li><b>Confira se a tela inicial não está trancada.</b> Em <b>Configurações › Tela inicial</b>, a opção <b>Bloquear layout da tela inicial</b> precisa estar desligada.</li>
+        <li>Volte ao Chrome, abra <b>meugastos.com.br/site</b> e toque em <b>Instalar agora</b> (ou menu <b>⋮</b> › <b>Instalar app</b>).</li>
+      </ol>
+      <p>Os nomes dos menus mudam um pouco entre as versões do sistema (MIUI e HyperOS). Se não encontrar, procure por "atalhos" na busca das Configurações. Instalou e o ícone não apareceu? Faça o passo 2, desinstale pelo menu do Chrome e instale de novo.</p>
     </details>
   </div>
 </div></section>
@@ -682,6 +702,7 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
     <details><summary>Como excluo a minha conta?</summary><p>Dentro do app, em Ajustes, na parte Sua conta. Você confirma com a senha e a conta é apagada na hora, com todos os registros. Antes, dá para baixar tudo em planilha.</p></details>
     <details><summary>Dá para usar a dois, com a minha esposa ou o meu marido?</summary><p>Dá. Em Conta de casal, você convida a outra pessoa pelo e-mail. Cada um entra com o seu e-mail e a sua senha, e os dois veem e lançam nas mesmas contas, cartões, limites e metas. O app mostra quem lançou cada gasto. <span data-venda hidden>Uma assinatura vale para os dois.</span></p></details>
     <details><summary>Preciso instalar alguma coisa?</summary><p>Não é obrigatório: o Meus Gastos abre no navegador. Instalado, ele ganha ícone na tela inicial, abre em tela cheia e envia notificações. A instalação é feita em <a href="#instalar">Instalar</a>, nesta página: um toque no Android e três no iPhone.</p></details>
+    <details><summary>Tenho um Xiaomi (ou Redmi, Poco) e não consigo instalar. O que faço?</summary><p>No Xiaomi, instale pelo Chrome, e não pelo navegador que vem no celular. Antes, permita que o Chrome crie <b>atalhos na tela inicial</b>, nas permissões do app. Sem isso, o ícone não aparece. O passo a passo está em <a href="#plat-xiaomi">Instalar › No Xiaomi</a>.</p></details>
     <details><summary>Procurei na loja de aplicativos e não achei. Onde baixo?</summary><p>Ele não fica na Play Store nem na App Store. A instalação é feita por esta página, pelo próprio navegador do celular, e ocupa muito pouco espaço. Veja em <a href="#instalar">Instalar</a>.</p></details>
     <details><summary>Funciona no iPhone e no Android?</summary><p>Sim, nos dois, e também no computador. No iPhone, a notificação de contas funciona com o app instalado na tela de início.</p></details>
     <details><summary>O app se conecta ao meu banco?</summary><p>Não. Ele não pede senha de banco nem acessa a sua conta. Para não digitar tudo, você pode abrir no app o extrato do cartão que o próprio banco gera (CSV, OFX ou Excel) ou fotografar um comprovante. Você confere antes de salvar.</p></details>
@@ -874,21 +895,34 @@ pintaSim();
 // Android e computador (Chrome, Edge): o navegador avisa quando o app pode ser instalado e o botão chama a janela dele.
 // iPhone: o Safari não oferece botão; a instalação é pelo menu Compartilhar, e a página mostra os passos.
 const uaSo = navigator.userAgent, iOS = /iPhone|iPad|iPod/.test(uaSo) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-const so = iOS ? "ios" : /Android/.test(uaSo) ? "android" : "pc";
+// O navegador da Xiaomi (MIUI e HyperOS) se identifica como MiuiBrowser; o Mint Browser é dela também. Nenhum dos dois instala apps da web.
+const navXiaomi = /MiuiBrowser|XiaoMi\/|Mint Browser/i.test(uaSo);
+const so = iOS ? "ios" : navXiaomi ? "xiaomi" : /Android/.test(uaSo) ? "android" : "pc";
 const inst = { convite: null, feito: false, recusou: false };
 function pintaInstalar() {
   const btn = q("#instBtn"), msg = q("#instMsg");
   btn.hidden = !inst.convite || inst.feito; q("#instIr").hidden = NO_APP;
   msg.classList.toggle("ok", inst.feito);
   msg.textContent = !NO_APP ? "A instalação é feita pelo endereço do app. O botão abre a página certa."
-    : inst.feito ? "Instalado. Abra pelo ícone do Meus Gastos, na tela inicial, e crie a sua conta."
+    : inst.feito ? `Instalado. Abra pelo ícone do Meus Gastos, na tela inicial, e crie a sua conta.${so === "android" ? " O ícone não apareceu? No Xiaomi, Redmi ou Poco, veja o passo 2 de \u201cNo Xiaomi\u201d, abaixo." : ""}`
     : inst.convite ? "Um toque, e o navegador pede só a confirmação."
     : inst.recusou ? "Tudo bem. Quando quiser, a opção Instalar app continua no menu do navegador."
+    : so === "xiaomi" ? "Este é o navegador da Xiaomi, que não instala apps. Abra esta página no Chrome: os passos estão logo abaixo."
     : so === "ios" ? "No iPhone a instalação é feita pelo Safari, em três toques. Veja os passos abaixo."
     : so === "android" ? "Se o botão de instalar não aparecer aqui, siga os passos abaixo."
     : "Aponte a câmera do celular para o código ao lado. Para instalar neste computador, veja os passos abaixo.";
 }
 qa("#plats .plat").forEach((p) => { const aqui = p.dataset.so === so; p.classList.toggle("aqui-so", aqui); if (!aqui && matchMedia("(max-width:900px)").matches) p.open = false; });
+if (so === "xiaomi") { const px = q("#plat-xiaomi"); px.open = true; px.style.order = "-1"; q("#instChrome").hidden = false; }
+// "Abrir no Chrome" e "Copiar o endereço" (passo 1 do Xiaomi). Fora do Android, o link do Chrome não serve: vira o endereço normal.
+qa("[data-chrome]").forEach((a) => { if (!/Android/.test(uaSo)) { a.href = "https://meugastos.com.br/site/#instalar"; a.textContent = "Abrir a página de instalação"; } });
+qa("[data-copia-link]").forEach((b) => b.addEventListener("click", async () => {
+  const link = "https://meugastos.com.br/site/#instalar";
+  try { await navigator.clipboard.writeText(link); b.textContent = "Endereço copiado"; }
+  catch { b.textContent = "meugastos.com.br/site"; }   // sem acesso à área de transferência: mostra o endereço para digitar
+}));
+// Chegou pelo "Abrir no Chrome": vai direto para a parte de instalar.
+if (new URLSearchParams(location.search).has("instalar")) addEventListener("load", () => q("#instalar")?.scrollIntoView());
 addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); inst.convite = e; inst.recusou = false; pintaInstalar(); });
 addEventListener("appinstalled", () => { inst.convite = null; inst.feito = true; pintaInstalar(); });
 q("#instBtn").addEventListener("click", async () => {

@@ -890,7 +890,7 @@ export function lembreteDoDia(st, hoje, { semGasto = [], anotouHoje = false, des
 
 /* ===================== Conta de casal ===================== */
 /** O que passa a ser um só para os dois quando as contas são divididas. O resto (avisos, tema, quadros do início) continua de cada um. */
-export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto"];
+export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos
 
 /** Só as chaves que são dos dois. */
 export function comumDoCasal(prefs) {
@@ -911,6 +911,7 @@ export function juntaPrefsDoCasal(deQuemConvidou = {}, deQuemAceitou = {}) {
     for (const t of new Set([...Object.keys(a.categorias), ...Object.keys(b.categorias)])) out.categorias[t] = [...new Set([...(a.categorias[t] || []), ...(b.categorias[t] || [])])];
   }
   if (a.metas || b.metas) out.metas = { ...(b.metas || {}), ...(a.metas || {}) };
+  if (a.naoRepetidos || b.naoRepetidos) out.naoRepetidos = [...new Set([...(a.naoRepetidos || []), ...(b.naoRepetidos || [])])];
   if (a.semGasto || b.semGasto) out.semGasto = [...new Set([...(a.semGasto || []), ...(b.semGasto || [])])].sort().slice(-90);
   return out;
 }
@@ -974,4 +975,69 @@ export function prazosEmAndamento(st, hoje, tipo = "Despesa") {
   const itens = st.fixos.filter((f) => (f.tipo || "Despesa") === tipo).map((f) => { const r = restanteDoPrazo(st, f, hoje); return r && mKey(f.desde) <= r.ate ? { f, ...r } : null; })
     .filter(Boolean).sort((a, b) => a.ate.localeCompare(b.ate) || a.f.descricao.localeCompare(b.f.descricao));
   return { itens, total: round2(itens.reduce((t, x) => t + x.total, 0)) };
+}
+
+/* ---------- lançamentos repetidos (principalmente na conta de casal, quando as duas pessoas lançam a mesma conta) ---------- */
+const palavras = (s) => semAcento(semParcela(s)).split(/[^a-z0-9]+/).filter((p) => p.length >= 4);
+/** Descrições que falam da mesma coisa: iguais, uma começando com a outra, ou com uma palavra (de 4 letras ou mais) em comum. */
+export function descricaoParecida(a, b) {
+  const x = semAcento(semParcela(a)), y = semAcento(semParcela(b));
+  if (!x || !y) return false;
+  if (x === y || x.startsWith(y) || y.startsWith(x)) return true;
+  const px = new Set(palavras(a));
+  return palavras(b).some((p) => px.has(p));
+}
+const autor = (x) => x.user_id || "";
+/**
+ * Dois lançamentos que parecem ser o mesmo: mesmo tipo e valor, e
+ * - da mesma pessoa, no mesmo dia; da outra pessoa da conta de casal, com até 2 dias de diferença;
+ * - e descrição parecida, ou a mesma categoria, ou um valor de R$ 100 para cima (valor redondo igual quase nunca é coincidência).
+ * Assim o café de todo dia não vira aviso, mas a conta que cada um lançou, sim.
+ */
+export function mesmoLancamento(a, b) {
+  if (a.tipo !== b.tipo || round2(Number(a.valor)) !== round2(Number(b.valor))) return false;
+  const dif = Math.abs(diasEntre(a.data, b.data)), outro = autor(a) && autor(b) && autor(a) !== autor(b);
+  if (dif > (outro ? 2 : 0)) return false;
+  return descricaoParecida(a.descricao, b.descricao) || a.categoria === b.categoria || Number(a.valor) >= 100;
+}
+/**
+ * Dois fixos que parecem ser o mesmo: mesmo tipo e valor, valendo ao mesmo tempo, e no mesmo dia do mês
+ * (até 2 dias de diferença) ou no mesmo dia da semana, ou com a descrição parecida.
+ */
+export function mesmoFixo(a, b) {
+  if ((a.tipo || "Despesa") !== (b.tipo || "Despesa") || round2(Number(a.valor)) !== round2(Number(b.valor))) return false;
+  const ini = (f) => mKey(f.desde), fim = (f) => (f.ate ? mKey(f.ate) : "9999-12");
+  if (ini(a) > fim(b) || ini(b) > fim(a)) return false;   // um acabou antes de o outro começar
+  const semA = a.repete === "semanal", semB = b.repete === "semanal";
+  const mesmoDia = semA && semB ? Number(a.dia_semana) === Number(b.dia_semana) : !semA && !semB && Math.abs((Number(a.dia) || 1) - (Number(b.dia) || 1)) <= 2;
+  return mesmoDia || descricaoParecida(a.descricao, b.descricao);
+}
+/** O lançamento que já existe e parece ser o mesmo que `novo` (o mais próximo na data), ou null. */
+export function lancamentoRepetido(lancs, novo) {
+  return lancs.filter((x) => x.id !== novo.id && mesmoLancamento(x, novo))
+    .sort((a, b) => Math.abs(diasEntre(a.data, novo.data)) - Math.abs(diasEntre(b.data, novo.data)))[0] || null;
+}
+/** O fixo que já existe e parece ser o mesmo que `novo`, ou null. */
+export function fixoRepetido(fixos, novo) { return fixos.find((f) => f.id !== novo.id && mesmoFixo(f, novo)) || null; }
+/** Chave de um par, a mesma nas duas ordens: é ela que guarda o "não é repetido". */
+export const chaveDoPar = (tipo, a, b) => `${tipo}:${[a.id, b.id].sort().join("|")}`;
+/**
+ * Pares que parecem repetidos, para o aviso do início: fixos que valem no mês `m` e lançamentos do mês.
+ * Cada lançamento entra em um par só. Compras importadas do extrato ficam de fora (a importação já evita repetir).
+ * @param {string[]} ignorar  chaves que a pessoa marcou como "não é repetido"
+ * @returns {{tipo:"fixo"|"lancamento", a:object, b:object, chave:string}[]}
+ */
+export function repetidosDoMes(st, m, ignorar = []) {
+  const fora = new Set(ignorar), out = [], usados = new Set();
+  const junta = (tipo, lista, igual) => {
+    for (let i = 0; i < lista.length; i++) for (let j = i + 1; j < lista.length; j++) {
+      const a = lista[i], b = lista[j], k = chaveDoPar(tipo, a, b);
+      if (usados.has(a.id) || usados.has(b.id) || fora.has(k) || !igual(a, b)) continue;
+      out.push({ tipo, a, b, chave: k }); usados.add(a.id); usados.add(b.id);
+    }
+  };
+  const ativos = (st.fixos || []).filter((f) => mKey(f.desde) <= m && (!f.ate || m <= mKey(f.ate)));
+  junta("fixo", ativos, mesmoFixo);
+  junta("lancamento", (st.lancamentos || []).filter((x) => mKey(x.data) === m && !x.import_key && !x.pendente).sort((a, b) => a.data.localeCompare(b.data)), mesmoLancamento);
+  return out;
 }

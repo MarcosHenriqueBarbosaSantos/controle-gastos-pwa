@@ -276,7 +276,7 @@ export function lembreteDoDia(st, hoje, { semGasto = [], anotouHoje = false, des
   if (parado > 7) return null;
   return { seq: sequenciaDeDias(st, hoje, semGasto).dias, parado };
 }
-export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto"];
+export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos"];
 export function comumDoCasal(prefs) {
   const out = {};
   for (const k of COMUM_DO_CASAL) if (prefs && prefs[k] !== undefined && prefs[k] !== null) out[k] = prefs[k];

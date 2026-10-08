@@ -3,7 +3,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PL
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
-  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes,
+  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
@@ -488,7 +488,7 @@ function render() {
   $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   $("listaVoltar").hidden = !sub;
-  renderForm(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
+  renderForm(); renderRepetidos(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
   avisoDaFila();
 }
 
@@ -1866,6 +1866,73 @@ function ajuda() {
   $("ajudaPassos").onclick = () => { guiaDe().fechado = false; salvaPrefs(); guiaPasso("renda", true); };
 }
 $("btnAjuda").onclick = ajuda;
+/** Quem lançou: "Você" ou o nome da outra pessoa da conta de casal. */
+const quemLancou = (x) => (casalAtivo() && x.user_id && x.user_id === S.casal.outro_id ? nomeDoOutro() : "Você");
+/** Para comparar repetidos: cada linha vira "eu" ou "outro" (a pessoa da conta de casal). A linha nova é sempre "eu". */
+const comAutor = (x) => ({ ...x, user_id: casalAtivo() && x.user_id && x.user_id === S.casal.outro_id ? "outro" : "eu" });
+const quandoFixo = (f) => (f.repete === "semanal" ? `toda ${DIAS_SEMANA[Number(f.dia_semana)]}` : `todo dia ${pad(Number(f.dia) || 1)}`);
+/**
+ * Antes de gravar: se já existe um lançamento (ou fixo) que parece o mesmo, pergunta.
+ * Na conta de casal é o que evita a mesma conta entrar duas vezes, uma por pessoa.
+ * @returns {Promise<boolean>} true = lançar mesmo assim
+ */
+function confirmaRepetido(x, fixo) {
+  return new Promise((responde) => {
+    let resp = false;
+    const oque = fixo ? `${esc(x.descricao || x.categoria)} · ${brl(x.valor)}, ${quandoFixo(x)}` : `${esc(x.descricao || x.categoria)} · ${brl(x.valor)} em ${ddmm(x.data)}`;
+    openDlg(`<h3>Isso já foi lançado?</h3>
+      <p class="hint" style="margin:0 0 12px;font-size:14px">${esc(quemLancou(x))} já ${fixo ? "cadastrou" : "lançou"} <b>${oque}</b>${fixo ? ` em ${x.tipo === "Receita" ? "Entradas fixas" : "Contas fixas"}` : ""}. Se for a mesma ${x.tipo === "Receita" ? "entrada" : "conta"}, lançar de novo conta duas vezes.</p>
+      <div class="actions"><button class="btn" type="button" id="repSim">Lançar mesmo assim</button><button class="btn primary" type="button" id="repNao">É a mesma, não lançar</button></div>`);
+    $("repSim").onclick = () => { resp = true; $("dlg").close(); };
+    $("repNao").onclick = () => { $("dlg").close(); };
+    $("dlg").addEventListener("close", () => responde(resp), { once: true });   // fechar no ✕ ou no Voltar = não lançar
+    $("repNao").focus();
+  });
+}
+/** Pares do mês na tela que parecem repetidos, já sem os que alguém marcou como "não é repetido". */
+function repetidosNaTela() {
+  if (!S.loaded) return [];
+  const st = { fixos: S.data.fixos, lancamentos: S.data.lancamentos.map(comAutor) }, orig = new Map(S.data.lancamentos.map((x) => [x.id, x]));
+  return repetidosDoMes(st, S.mes, S.prefs.naoRepetidos || []).map((p) => (p.tipo === "fixo" ? p : { ...p, a: orig.get(p.a.id), b: orig.get(p.b.id) }));
+}
+/** Aviso no início: o que parece ter sido lançado duas vezes (na conta de casal, uma vez por cada pessoa). */
+function renderRepetidos() {
+  const host = $("repet"), pares = repetidosNaTela();
+  host.hidden = !pares.length; if (!pares.length) { host.innerHTML = ""; return; }
+  const p = pares[0], nome = (x) => esc(x.descricao || x.categoria);
+  const frase = pares.length === 1
+    ? `${nome(p.a)} e ${nome(p.b)}: ${brl(p.a.valor)}${p.tipo === "fixo" ? `, ${quandoFixo(p.a)}` : ` em ${ddmm(p.a.data)}${p.a.data !== p.b.data ? ` e ${ddmm(p.b.data)}` : ""}`}.`
+    : `${pares.length} pares de lançamentos com o mesmo valor e data parecida neste mês.`;
+  host.innerHTML = `<div class="repet"><span class="ava" aria-hidden="true">!</span><span class="tx"><b>${pares.length === 1 ? "Pode estar lançado duas vezes" : "Pode haver lançamentos repetidos"}</b><span>${frase}</span></span>
+    <button class="btn sm" type="button" id="repConferir">Conferir</button></div>`;
+  $("repConferir").onclick = conferirRepetidos;
+}
+function conferirRepetidos() {
+  const pares = repetidosNaTela();
+  if (!pares.length) { if ($("dlg").open) $("dlg").close(); render(); return toast("Pronto: nada repetido neste mês."); }
+  const linha = (p, x, lado) => `<li><span class="oque"><b>${esc(x.descricao || x.categoria)}</b><span>${p.tipo === "fixo" ? `${x.tipo === "Receita" ? "Entrada fixa" : "Conta fixa"}, ${quandoFixo(x)}` : ddmm(x.data)} · ${esc(x.categoria)}${casalAtivo() ? ` · ${quemLancou(x) === "Você" ? "lançado por você" : `lançado por ${esc(quemLancou(x))}`}` : ""}</span></span>
+      <b>${brl(x.valor)}</b><button class="btn sm" type="button" data-rapaga="${lado}" style="grid-column:1/-1;justify-self:start">${p.tipo === "fixo" ? "Apagar esta (com o histórico dela)" : "Apagar este"}</button></li>`;
+  openDlg(`<h3>Lançamentos que podem estar repetidos</h3>
+    <p class="hint" style="margin:0 0 12px">Mesmo valor e data parecida${casalAtivo() ? ", às vezes um lançado por cada um" : ""}. Se for a mesma conta, apague uma; se forem coisas diferentes, toque em <b>Não é repetido</b> e o aviso não volta.</p>
+    ${pares.map((p, i) => `<div class="rep-par" data-par="${i}"><ul>${linha(p, p.a, "a")}${linha(p, p.b, "b")}</ul><button class="link nao" type="button" data-ranao>Não é repetido</button></div>`).join("")}
+    <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  $("dlgBody").querySelectorAll("[data-par]").forEach((el) => {
+    const p = pares[Number(el.dataset.par)];
+    el.querySelector("[data-ranao]").onclick = async () => { S.prefs.naoRepetidos = [...new Set([...(S.prefs.naoRepetidos || []), p.chave])]; await salvaPrefs(); render(); conferirRepetidos(); };
+    el.querySelectorAll("[data-rapaga]").forEach((b) => armDelete(b, async () => {
+      const x = p[b.dataset.rapaga]; b.disabled = true;
+      if (p.tipo === "fixo") {
+        if (await grava(() => S.store.deleteFixo(x.id))) { S.data.fixos = S.data.fixos.filter((z) => z.id !== x.id); S.data.pagos = S.data.pagos.filter((z) => z.fixo_id !== x.id); }
+      } else if (await grava(() => S.store.deleteLancamento(x.id))) S.data.lancamentos = S.data.lancamentos.filter((z) => z.id !== x.id);
+      render(); conferirRepetidos();
+    }));
+  });
+}
+function naoLancouRepetido() {
+  $("fValor").value = ""; $("fDesc").value = ""; $("fFixo").checked = false; S.catManual = false; S.formaManual = false; limpaSugestoes(); renderForm();
+  $("flash").style.color = "var(--muted)"; $("flash").textContent = "Nada lançado: essa conta já estava lá.";
+  aposLancar($("flash").textContent);
+}
 $("formLanc").addEventListener("submit", async (e) => {
   e.preventDefault();
   const flash = $("flash"), v = parseMoney($("fValor").value);
@@ -1877,6 +1944,8 @@ $("formLanc").addEventListener("submit", async (e) => {
     const fx = { tipo: S.tipo, descricao: $("fDesc").value.trim() || $("fCat").value, categoria: $("fCat").value, dia: sem ? 1 : dia, valor: round2(v),
       forma: ent ? "" : $("fForma").value, desde: sem ? data : mKey(data) + "-01", ate: $("fAte").value ? $("fAte").value + "-01" : null, ...(sem ? { repete: "semanal", dia_semana: wd } : {}),
       ...(cartaoDoForm().cartao_id ? { cartao_id: cartaoDoForm().cartao_id } : {}) };
+    const igual = fixoRepetido(S.data.fixos, fx);
+    if (igual && !(await confirmaRepetido(igual, true))) return naoLancouRepetido();
     $("fOk").disabled = true;
     let novo; const ok = await grava(async () => { novo = await S.store.addFixo(fx); });
     $("fOk").disabled = false;
@@ -1891,6 +1960,8 @@ $("formLanc").addEventListener("submit", async (e) => {
   }
   const row = { data, descricao: $("fDesc").value.trim(), tipo: S.tipo, categoria: $("fCat").value,
     forma: formaDe(S.tipo, $("fForma").value), valor: round2(v), import_key: null, ...cartaoDoForm() };
+  const parecido = lancamentoRepetido(S.data.lancamentos.map(comAutor), comAutor(row)), igual = parecido && S.data.lancamentos.find((z) => z.id === parecido.id);
+  if (igual && !(await confirmaRepetido(igual, false))) return naoLancouRepetido();
   const nivelAntes = nivelDoTeto(), ehMeta = S.tipo === "Reserva", metaAntes = ehMeta ? andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()) : null;
   const combinar = ehMeta && row.forma !== RETIRADA && $("fFixo").checked;
   // O lançamento entra na tela no mesmo toque, já com o id definitivo; o envio acontece por trás.
