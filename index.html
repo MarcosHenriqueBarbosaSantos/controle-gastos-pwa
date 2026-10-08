@@ -135,12 +135,14 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
   <section class="v-inicio" id="metas" aria-label="Metas do dinheiro guardado" hidden></section>
 
   <section class="v-inicio" id="instCard" aria-label="Instalar o app" hidden></section>
+  <section class="v-inicio" id="fechCard" aria-label="Fechamento do mês" hidden></section>
   <section class="v-inicio" id="repet" aria-label="Lançamentos que podem estar repetidos" hidden></section>
   <section class="v-inicio" id="venc" aria-label="Próximos vencimentos"></section>
 
   <section class="panel quick" aria-label="Lançar">
     <div class="quick-head">
       <h2>Lançar</h2>
+      <button class="btn sm ler voz" id="btnVoz" type="button" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Falar o gasto</span></button>
       <button class="btn sm ler" id="btnLer" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>Ler foto ou PDF</button>
       <button class="voltar-pill so-mobile" id="lancFechar" type="button" aria-label="Voltar sem lançar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Voltar</button>
       <div class="seg" role="group" aria-label="Tipo de lançamento" id="tipoSeg">
@@ -149,6 +151,9 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
         <button type="button" data-t="Reserva" aria-pressed="false">Guardar</button>
       </div>
     </div>
+    <div class="voz-painel" id="vozPainel" role="status" aria-live="polite" hidden><span class="voz-onda" aria-hidden="true"><i></i><i></i><i></i></span>
+      <span class="voz-tx"><b id="vozTitulo">Ouvindo…</b><span id="vozTexto">Fale o gasto, por exemplo: “gastei 32 no mercado no débito”.</span></span>
+      <button class="btn sm" type="button" id="vozParar">Parar</button></div>
     <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
     <form id="formLanc" class="fields" autocomplete="off">
       <label class="f">Valor (R$)<input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
@@ -218,7 +223,7 @@ try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.
   <section class="v-mais" id="mais" aria-label="Mais"></section>
 
   <p class="organiza v-inicio"><button class="btn sm" id="btnOrganizar" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h9M17 7h3M4 17h3M11 17h9M13 5v4M7 15v4"/></svg>Organizar o início</button></p>
-  <p class="foot v-inicio">Compras no cartão de crédito não entram no custo na hora: a cobrança entra no mês em que a fatura vence. Com o cartão cadastrado em Cartões, a fatura é montada sozinha, incluindo as parcelas. O dinheiro que você guarda (reserva, investimentos e outros) sai do saldo do mês e fica somado no quadro Dinheiro guardado.</p>
+  <p class="foot v-inicio">Compras no cartão entram no mês em que a fatura vence. O dinheiro guardado sai do saldo e fica em Dinheiro guardado.</p>
 </div>
 
 <!-- Navegação do celular -->

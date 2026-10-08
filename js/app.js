@@ -8,6 +8,7 @@ import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, par
 import { createSupabaseStore, createLocalStore, demoSeed, comFila } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
+import { entendeFala } from "./voz.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
 
@@ -503,14 +504,14 @@ function render() {
   $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   $("listaVoltar").hidden = !sub;
-  renderForm(); renderInstalar(); renderRepetidos(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
+  renderForm(); renderInstalar(); renderFechamento(); renderRepetidos(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
   avisoDaFila();
 }
 
 /* ---------- chegar por atalho do ícone ou por "Compartilhar" de outro aplicativo ---------- */
 async function aoChegar() {
   const atalho = S.atalho, compartilhado = S.compartilhado; S.atalho = ""; S.compartilhado = false;
-  if (!compartilhado) { if (atalho === "lancar" || atalho === "qr") abrirLancar(); if (atalho === "qr") abrirQr(); return; }
+  if (!compartilhado) { if (atalho === "lancar" || atalho === "qr" || atalho === "voz") abrirLancar(); if (atalho === "qr") abrirQr(); if (atalho === "voz") ouvirGasto(); return; }
   // O arquivo ou o texto compartilhado foi guardado pelo app neste aparelho (sw.js) e é apagado assim que é lido.
   let arquivo = null, texto = "";
   try {
@@ -580,7 +581,7 @@ function renderForm() {
   // Opção de já cadastrar como fixo (repete todo mês). Não vale para dinheiro guardado.
   const fixo = S.tipo !== "Reserva" && $("fFixo").checked, guardando = S.tipo === "Reserva" && fs.value !== "Retirar";
   $("fFixoWrap").hidden = S.tipo === "Reserva" && !guardando;
-  $("fFixoLbl").textContent = S.tipo === "Reserva" ? "Repetir todo mês (vira um combinado da meta: dá para pular quando precisar)" : S.tipo === "Receita" ? "Repete (entrada fixa, como o salário, ou um valor a receber por um prazo)" : "Repete (conta fixa, como o aluguel, ou acerto e parcelamento com data para acabar)";
+  $("fFixoLbl").textContent = S.tipo === "Reserva" ? "Guardar todo mês (dá para pular quando precisar)" : S.tipo === "Receita" ? "Repete (como o salário)" : "Repete (conta fixa ou parcelamento)";
   // Quando é fixo, a pessoa escolhe se repete todo mês ou toda semana; o dia vem da data escolhida.
   const fr = $("fRepete"), dt = fd.value || hoje();
   fr.hidden = !fixo;
@@ -644,8 +645,9 @@ function renderKpis(c) {
     </div>
     <div class="hero-duo">${duo}</div>
     ${livre ? `<p class="hero-dia">${ico("dia")}<span>${livre.valor > 0 ? `Dá para gastar <b>${brl(livre.valor)} por dia</b> ${livre.restam === 1 ? "hoje, último dia do mês" : `nos ${livre.restam} dias que faltam`}.` : "Não sobra nada para o dia a dia: cada gasto novo aumenta o que falta."}</span></p>` : ""}
-    <div class="hero-links"><button type="button" class="entenda" id="verSobra">${ico("cofre")}O que sobra para viver o mês</button><button type="button" class="entenda" id="entenda">${ico("luz")}Entenda essa conta</button></div></div>`;
+    <div class="hero-links">${c.fase === "passado" ? `<button type="button" class="entenda" id="verFech">${ico("baixar")}Fechamento para compartilhar</button>` : ""}<button type="button" class="entenda" id="verSobra">${ico("cofre")}O que sobra para viver o mês</button><button type="button" class="entenda" id="entenda">${ico("luz")}Entenda essa conta</button></div></div>`;
   $("entenda").onclick = () => entendaAConta(c);
+  if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   $("verSobra").onclick = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
   renderGuia(); renderDia(c); renderTeto(c); renderMetas(c);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
@@ -658,14 +660,15 @@ function renderKpis(c) {
   else if (!c.it.length && !c.fx.length && !c.fr.length) t = "Nenhum lançamento neste mês ainda. Lance o primeiro gasto, ou traga o extrato do cartão em Cartões.";
   else if (c.fase === "atual") {
     const med = c.dias ? c.vari / c.dias : 0;
-    t = `Em ${c.dias} ${c.dias === 1 ? "dia" : "dias"} você gastou <strong>${brl(c.vari)}</strong> no dia a dia, média de ${brl(med)} por dia. Somando os fixos${c.fatT ? " e as faturas" : ""}, <strong>o mês deve fechar com custo de ${brl0(c.proj)}</strong>${c.rec ? ` e saldo de ${sgn(round2(c.rec - c.proj - c.res))}` : ""}.${c.comprasCartao ? ` As compras no cartão (${brl0(c.comprasCartao)}) entram no mês em que a fatura vencer.` : ""}`;
+    // Curto: a previsão já está no quadro do topo; aqui fica só o dia a dia.
+    t = `Dia a dia: <strong>${brl(c.vari)}</strong> em ${c.dias} ${c.dias === 1 ? "dia" : "dias"} (${brl(med)} por dia).${c.comprasCartao ? ` No cartão: ${brl0(c.comprasCartao)}, para a próxima fatura.` : ""}`;
   } else if (c.fase === "passado") {
     const top = catMap(c)[0];
     t = `O mês fechou com custo de <strong>${brl(c.custo)}</strong>${top ? `. A maior categoria foi <strong>${esc(top[0])}</strong> (${brl0(top[1])}, ${Math.round((top[1] / c.custo) * 100)}% do custo)` : ""}.`;
   } else t = `Mês futuro: por enquanto aparecem só os gastos fixos previstos (${brl(c.fxT)}).`;
   // Duas leituras a mais, quando existem: como está em relação ao mês passado e os limites perto de estourar.
   const cmp = S.loaded ? comparaComMesAnterior(S.data, c, S.mes) : null;
-  if (cmp && Math.abs(cmp.dif) >= 1) t += ` No dia a dia, são <strong>${brl0(Math.abs(cmp.dif))} a ${cmp.dif > 0 ? "mais" : "menos"}</strong> do que em ${nomeMes(cmp.mes)} até o dia ${pad(c.dias)}.`;
+  if (cmp && Math.abs(cmp.dif) >= 1) t += ` <strong>${brl0(Math.abs(cmp.dif))} a ${cmp.dif > 0 ? "mais" : "menos"}</strong> que em ${nomeMes(cmp.mes)} até hoje.`;
   const perto = S.loaded ? usoDosLimites(c, S.prefs.limites).filter((u) => u.pct >= 80) : [];
   const alerta = perto.length ? `<span class="lim-aviso">${perto.slice(0, 3).map((u) => u.passou ? `<b class="txt-bad">${esc(u.cat)} passou ${brl0(u.passou)} do limite</b>` : `<b>${esc(u.cat)} já usou ${u.pct}% do limite</b>`).join(" · ")}</span>` : "";
   $("insight").innerHTML = ico("luz") + `<span>${t}${alerta}</span>`;
@@ -907,7 +910,7 @@ function htmlSobra(c) {
     ${passos.length > MAX ? `<p class="hint">Mostrando os ${MAX} mais recentes. Todos estão em Lançamentos.</p>` : ""}
     ${c.comprasCartao ? `<p class="hint">Compras no cartão neste mês (${brl(c.comprasCartao)}) não descontam agora: entram na sobra do mês em que a fatura vencer.</p>` : ""}`;
   return `<section class="sobra-pl"><h2>O que sobra para viver ${mes}</h2>
-    <p class="hint">Do que entra no mês, primeiro saem as contas que já têm dono. O que fica é a sua sobra para o dia a dia, e cada gasto que você lança desconta dela.</p>
+    <p class="hint">Entradas menos as contas que já têm dono. Cada gasto do dia a dia desconta daqui.</p>
     ${cascata}
     <div class="sobra-agora${passou ? " neg" : ""}"><span>${passou ? "Passou da sobra em" : "Ainda resta da sobra"}</span><b>${brl(Math.abs(s.resta))}</b>
       <small>Já foram ${brl(s.usado)} no dia a dia${s.pct !== null ? ` (${s.pct}% da sobra)` : ""}</small></div>
@@ -929,7 +932,7 @@ function paneM(c) {
   const atual = calcMes(S.data, cur, hoje()), dinheiro = (v) => (v > 0 ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "");
   const avisar = S.prefs.avisos?.limite !== false, t = u ? textoDoTeto(u) : null, lim = S.prefs.limites || {};
   const metasP = S.loaded ? metasEmAndamento(S.data, S.prefs.metas, hoje()) : [];
-  host.innerHTML = `${htmlSobra(c)}<h2 class="pl-h">Limite de gasto</h2><p class="hint" style="margin-top:0;font-size:13px">Diga quanto você quer gastar no máximo por mês. O app mostra quanto do limite já foi usado e avisa quando você estiver perto ou passar dele.</p>
+  host.innerHTML = `${htmlSobra(c)}<h2 class="pl-h">Limite de gasto</h2><p class="hint" style="margin-top:0;font-size:13px">O máximo que você quer gastar no mês. O app avisa quando chegar perto.</p>
     <form id="tetoForm" class="teto-form" autocomplete="off">
       <label class="f">Limite de gastos por mês (R$)<input class="in money" id="tetoValor" inputmode="decimal" placeholder="Ex.: 3.500,00" value="${esc(dinheiro(Number(S.prefs.teto) || 0))}"></label>
       <button class="btn primary" type="submit">${u ? "Mudar limite" : "Salvar limite"}</button>
@@ -2004,6 +2007,138 @@ function ajuda() {
   $("ajudaPassos").onclick = () => { guiaDe().fechado = false; salvaPrefs(); guiaPasso("renda", true); };
 }
 $("btnAjuda").onclick = ajuda;
+/* ================= fechamento do mês =================
+   Nos primeiros dias de cada mês, o início mostra como o mês anterior fechou, com uma imagem pronta para compartilhar.
+   A imagem é desenhada no aparelho (canvas); nada é enviado para fora. Dá para esconder os valores e mostrar só porcentagens. */
+const mesAnterior = () => addM(mKey(hoje()), -1);
+function renderFechamento() {
+  const host = $("fechCard"), m = mesAnterior(), dia = Number(hoje().slice(8, 10));
+  let fora = false; try { fora = localStorage.getItem("cg-fech-" + m) === "1"; } catch { /* nada */ }
+  const c = S.loaded ? calcMes(S.data, m, hoje()) : null, mostra = c && dia <= 7 && !fora && (c.rec > 0 || c.custo > 0) && S.mes === mKey(hoje());
+  host.hidden = !mostra; if (!mostra) { host.innerHTML = ""; return; }
+  const sobra = raioX(c).sobra;
+  host.innerHTML = `<div class="fech-card${sobra < 0 ? " neg" : ""}"><span class="tx"><small>${nomeMes(m)} fechou</small><b>${sobra < 0 ? "Faltaram" : "Sobraram"} ${brl0(Math.abs(sobra))}</b></span>
+    <button class="btn sm primary" type="button" id="fechVer">Ver o fechamento</button><button class="iconbtn" type="button" id="fechFora" aria-label="Agora não">${ico("x")}</button></div>`;
+  $("fechVer").onclick = () => abrirFechamento(m);
+  $("fechFora").onclick = () => { try { localStorage.setItem("cg-fech-" + m, "1"); } catch { /* nada */ } renderFechamento(); };
+}
+/** Desenha a imagem do fechamento (1080 × 1350, o formato que fica bom no WhatsApp e no Instagram). */
+function desenhaFechamento(m, semValores) {
+  const c = calcMes(S.data, m, hoje()), rx = raioX(c), sobra = rx.sobra, cats = catMap(c).slice(0, 3);
+  const W = 1080, H = 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const g = cv.getContext("2d"), fonte = (peso, tam) => `${peso} ${tam}px "Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif`;
+  const fundo = g.createLinearGradient(0, 0, W, H);
+  if (sobra >= 0) { fundo.addColorStop(0, "#0d7a4f"); fundo.addColorStop(1, "#0b5a6b"); } else { fundo.addColorStop(0, "#b3261e"); fundo.addColorStop(1, "#7a1d6a"); }
+  g.fillStyle = fundo; g.fillRect(0, 0, W, H);
+  g.fillStyle = "rgba(255,255,255,.08)"; g.beginPath(); g.arc(W - 120, 140, 320, 0, Math.PI * 2); g.fill();
+  const pct = (v) => (c.rec > 0 ? `${Math.round((v / c.rec) * 100)}%` : "—"), val = (v) => (semValores ? pct(v) : brl0(v));
+  g.fillStyle = "#fff"; g.textBaseline = "alphabetic";
+  g.font = fonte(600, 40); g.globalAlpha = 0.9; g.fillText("Meus Gastos", 90, 130); g.globalAlpha = 1;
+  g.font = fonte(700, 64); g.fillText(`${nomeMes(m)[0].toUpperCase() + nomeMes(m).slice(1)} de ${m.slice(0, 4)}`, 90, 240);
+  g.font = fonte(600, 52); g.globalAlpha = 0.92; g.fillText(sobra >= 0 ? "Sobrou" : "Faltou", 90, 360); g.globalAlpha = 1;
+  g.font = fonte(800, semValores ? 170 : 150);
+  g.fillText(semValores ? pct(Math.abs(sobra)) : brl0(Math.abs(sobra)), 84, 510);
+  if (semValores) { g.font = fonte(500, 40); g.globalAlpha = 0.9; g.fillText("do que entrou no mês", 90, 575); g.globalAlpha = 1; }
+  // Entrou, custo e guardado
+  const linhas = [["Entrou", semValores ? "100%" : brl0(c.rec)], ["Custo do mês", val(c.custo)], ...(c.res > 0 ? [["Guardado", val(c.res)]] : [])];
+  let y = 690;
+  g.font = fonte(500, 42);
+  linhas.forEach(([r, v]) => { g.globalAlpha = 0.85; g.fillText(r, 90, y); g.globalAlpha = 1; g.textAlign = "right"; g.font = fonte(700, 42); g.fillText(v, W - 90, y); g.textAlign = "left"; g.font = fonte(500, 42); y += 62; });
+  // As categorias que mais pesaram
+  if (cats.length) {
+    y += 40; g.font = fonte(700, 40); g.fillText("Onde mais foi", 90, y); y += 10;
+    const maior = cats[0][1];
+    cats.forEach(([nome, v]) => {
+      y += 58; g.font = fonte(500, 36); g.fillText(nome, 90, y);
+      g.textAlign = "right"; g.fillText(semValores ? `${c.custo ? Math.round((v / c.custo) * 100) : 0}% do custo` : brl0(v), W - 90, y); g.textAlign = "left";
+      y += 20; g.fillStyle = "rgba(255,255,255,.18)"; g.fillRect(90, y, W - 180, 14); g.fillStyle = "#fff"; g.fillRect(90, y, Math.max(14, ((W - 180) * v) / maior), 14);
+    });
+  }
+  g.font = fonte(500, 34); g.globalAlpha = 0.85; g.fillText("meugastos.com.br", 90, H - 70); g.globalAlpha = 1;
+  return cv;
+}
+function abrirFechamento(m) {
+  let semValores = false;
+  const pinta = () => { const cv = desenhaFechamento(m, semValores); $("fechImg").src = cv.toDataURL("image/png"); return cv; };
+  openDlg(`<h3>Fechamento de ${nomeMes(m)}</h3><p class="hint" style="margin:0 0 10px">Uma imagem para guardar ou mandar para quem divide as contas com você. Ela é feita aqui no aparelho.</p>
+    <img id="fechImg" class="fech-img" alt="Resumo de ${nomeMes(m)}">
+    <label class="check" style="margin:10px 0 0"><input type="checkbox" id="fechSem"> Esconder os valores (mostrar só porcentagens)</label>
+    <div class="actions"><button class="btn" type="button" id="fechBaixar">Baixar imagem</button><button class="btn primary" type="button" id="fechShare">Compartilhar</button></div>`);
+  pinta();
+  $("fechSem").onchange = () => { semValores = $("fechSem").checked; pinta(); };
+  const arquivo = () => new Promise((ok) => pinta().toBlob((b) => ok(new File([b], `meus-gastos-${m}.png`, { type: "image/png" })), "image/png"));
+  const baixa = async () => { const f = await arquivo(), a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+  $("fechBaixar").onclick = baixa;
+  $("fechShare").onclick = async () => {
+    const f = await arquivo();
+    if (navigator.canShare?.({ files: [f] })) { try { await navigator.share({ files: [f], text: `Meu ${nomeMes(m)} no Meus Gastos` }); } catch { /* a pessoa desistiu */ } }
+    else { await baixa(); toast("Este aparelho não compartilha imagens direto daqui. A imagem foi baixada: é só enviar pelo app que quiser."); }
+  };
+}
+
+/* ================= lançar por voz =================
+   O navegador transforma a fala em texto (Chrome no Android e no computador, Safari no iPhone); js/voz.js entende o texto
+   e o formulário é preenchido para a pessoa conferir. Nada é lançado sem o toque em "Lançar". */
+const Reconhecedor = window.SpeechRecognition || window.webkitSpeechRecognition;
+let ouvindo = null;
+$("btnVoz").hidden = !Reconhecedor;
+$("btnVoz").onclick = () => (ouvindo ? ouvindo.stop() : ouvirGasto());
+$("vozParar").onclick = () => ouvindo?.stop();
+function ouvirGasto() {
+  if (!Reconhecedor) return toast("Este navegador não entende fala. No Android, use o Chrome; no iPhone, o Safari.");
+  if (ouvindo) return;
+  const r = new Reconhecedor(); r.lang = "pt-BR"; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
+  let final = "", parcial = "", erro = "";
+  ouvindo = r; $("vozPainel").hidden = false; $("vozTitulo").textContent = "Ouvindo…"; $("vozTexto").textContent = "Fale o gasto, por exemplo: “gastei 32 no mercado no débito”.";
+  $("btnVoz").classList.add("ativo"); $("btnVoz").querySelector("span").textContent = "Parar";
+  r.onresult = (e) => {
+    parcial = [...e.results].map((x) => x[0].transcript).join(" ").trim();
+    if ([...e.results].every((x) => x.isFinal)) final = parcial;
+    $("vozTexto").textContent = `“${parcial}”`;
+  };
+  r.onerror = (e) => { erro = e.error || "erro"; };
+  r.onend = () => {
+    ouvindo = null; $("vozPainel").hidden = true; $("btnVoz").classList.remove("ativo"); $("btnVoz").querySelector("span").textContent = "Falar o gasto";
+    const txt = final || parcial;
+    if (txt) return aplicaFala(txt);
+    const msg = erro === "not-allowed" || erro === "service-not-allowed" ? "Para lançar por voz, permita o microfone para o Meus Gastos (no aviso do navegador ou nas permissões do app)."
+      : erro === "network" ? "O reconhecimento de fala precisa de internet. Sem conexão, digite o gasto."
+      : erro === "no-speech" || !erro ? "Não ouvi nada. Toque em Falar o gasto e diga, por exemplo: “gastei 32 no mercado no débito”." : "Não deu para ouvir agora. Tente de novo ou digite o gasto.";
+    $("flash").style.color = "var(--warn)"; $("flash").textContent = msg; if (noCelular()) toast(msg);
+  };
+  try { r.start(); } catch { ouvindo = null; $("vozPainel").hidden = true; toast("Não deu para abrir o microfone agora. Tente de novo."); }
+}
+/** Preenche o formulário com o que foi entendido da fala e diz o que entendeu. */
+function aplicaFala(txt) {
+  const f = entendeFala(txt, hoje());
+  S.tipo = f.tipo; S.catManual = false; S.formaManual = false; limpaSugestoes();
+  const quando = f.data || hoje();
+  if (mKey(quando) !== S.mes) S.mes = mKey(quando);   // "ontem" no dia 1º é do mês passado
+  // Cada fala começa do zero: nada do que foi falado ou digitado antes fica no formulário.
+  $("fValor").value = ""; $("fDesc").value = ""; $("fData").value = quando; $("fFixo").checked = false; $("fParc").value = "1"; $("fForma").value = FORMAS[0];
+  render();
+  $("fData").value = quando;
+  if (f.valor) $("fValor").value = f.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+  if (f.descricao) $("fDesc").value = f.descricao;
+  if (f.tipo === "Reserva") {
+    const dest = cats("Reserva").find((d) => norm(txt).includes(norm(d)));
+    if (dest) { $("fCat").value = dest; S.catManual = true; }
+    $("fForma").value = f.retirada ? "Retirar" : "Guardar";
+  } else if (f.descricao) {
+    // Mesma regra de quando a pessoa digita: o que ela fez da última vez com essa descrição; senão, as palavras conhecidas.
+    const u = ultimoParecido(S.data.lancamentos, f.descricao, f.tipo);
+    if (u) aplicaComoAntes(u); else { const c = palpiteCat(f.descricao, f.tipo); if (cats(f.tipo).includes(c)) $("fCat").value = c; }
+  }
+  if (f.forma && f.tipo === "Despesa") { $("fForma").value = f.forma; S.formaManual = true; }
+  renderForm();
+  if (f.parcelas && f.tipo === "Despesa" && !$("fParcWrap").hidden) { $("fParc").innerHTML = optsParcelas(f.valor || 0, f.parcelas); renderForm(); }
+  const partes = [f.descricao || (f.tipo === "Receita" ? "Entrada" : f.tipo === "Reserva" ? (f.retirada ? "Retirada" : "Guardar") : ""), f.valor ? brl(f.valor) : "",
+    f.tipo === "Despesa" ? $("fForma").value + (f.parcelas ? ` em ${f.parcelas}x` : "") : "", ($("fData").value === hoje() ? "hoje" : ddmm($("fData").value))].filter(Boolean);
+  const flash = $("flash");
+  if (!f.valor) { flash.style.color = "var(--warn)"; flash.textContent = `Ouvi “${txt}”, mas não entendi o valor. Digite o valor e confira o resto.`; $("fValor").focus(); return; }
+  flash.style.color = "var(--good)"; flash.textContent = `Entendi: ${partes.join(" · ")}. Confira e toque em ${$("fOk").textContent}.`;
+  $("fOk").focus();
+}
 /** Quem lançou: "Você" ou o nome da outra pessoa da conta de casal. */
 const quemLancou = (x) => (casalAtivo() && x.user_id && x.user_id === S.casal.outro_id ? nomeDoOutro() : "Você");
 /** Para comparar repetidos: cada linha vira "eu" ou "outro" (a pessoa da conta de casal). A linha nova é sempre "eu". */
@@ -2051,7 +2186,7 @@ function conferirRepetidos() {
   const linha = (p, x, lado) => `<li><span class="oque"><b>${esc(x.descricao || x.categoria)}</b><span>${p.tipo === "fixo" ? `${x.tipo === "Receita" ? "Entrada fixa" : "Conta fixa"}, ${quandoFixo(x)}` : ddmm(x.data)} · ${esc(x.categoria)}${casalAtivo() ? ` · ${quemLancou(x) === "Você" ? "lançado por você" : `lançado por ${esc(quemLancou(x))}`}` : ""}</span></span>
       <b>${brl(x.valor)}</b><button class="btn sm" type="button" data-rapaga="${lado}" style="grid-column:1/-1;justify-self:start">${p.tipo === "fixo" ? "Apagar esta (com o histórico dela)" : "Apagar este"}</button></li>`;
   openDlg(`<h3>Lançamentos que podem estar repetidos</h3>
-    <p class="hint" style="margin:0 0 12px">Mesmo valor e data parecida${casalAtivo() ? ", às vezes um lançado por cada um" : ""}. Se for a mesma conta, apague uma; se forem coisas diferentes, toque em <b>Não é repetido</b> e o aviso não volta.</p>
+    <p class="hint" style="margin:0 0 12px">Mesmo valor e data parecida. Se for a mesma conta, apague uma; se não for, toque em <b>Não é repetido</b>.</p>
     ${pares.map((p, i) => `<div class="rep-par" data-par="${i}"><ul>${linha(p, p.a, "a")}${linha(p, p.b, "b")}</ul><button class="link nao" type="button" data-ranao>Não é repetido</button></div>`).join("")}
     <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
   $("dlgBody").querySelectorAll("[data-par]").forEach((el) => {
@@ -2168,6 +2303,12 @@ function openDlg(html) {
     try { if (!history.state?.dlg) { history.pushState({ ...(history.state || {}), dlg: true }, ""); S.dlgNoHist = true; } } catch { /* sem histórico: o Fechar resolve */ }
   }
 }
+// "Pular e lançar um gasto agora", nos primeiros passos: fecha o guia e abre o lançamento, já no valor.
+$("dlgBody").addEventListener("click", (e) => {
+  if (!e.target.closest("[data-ja-lancar]")) return;
+  $("dlg").close(); S.tipo = "Despesa"; renderForm();
+  setTimeout(() => { if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } }, 200);   // depois de o Voltar do quadro terminar
+});
 // Todo quadro tem o mesmo "Fechar" no canto de cima, além do botão de baixo.
 $("dlgX").onclick = () => $("dlg").close();
 $("dlg").addEventListener("close", () => {
@@ -3200,7 +3341,8 @@ function guiaProximo(k, todos) {
 function guiaPasso(k, todos = false) {
   if (S.mes !== mesAtual()) { S.mes = mesAtual(); render(); }
   const etapa = `<p class="guia-etapa">Passo ${GUIA_PASSOS.indexOf(k) + 1} de ${GUIA_PASSOS.length}</p>`;
-  const depois = `<button class="link gdepois" type="button" data-close>Fazer depois</button>`;
+  // Em todo passo: quem quer só anotar um gasto pula tudo e já lança (os passos ficam em "Comece por aqui").
+  const depois = `<div class="guia-pular"><button class="btn" type="button" data-ja-lancar>Pular e lançar um gasto agora</button><button class="link gdepois" type="button" data-close>Fazer depois</button></div>`;
   const erro = (t) => { $("gMsg").textContent = t; };
 
   if (k === "cartao") {

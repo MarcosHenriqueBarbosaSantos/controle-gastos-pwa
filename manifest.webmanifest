@@ -43,6 +43,19 @@
       ]
     },
     {
+      "name": "Lançar por voz",
+      "short_name": "Por voz",
+      "description": "Abre o app ouvindo: diga o gasto, como “gastei 32 no mercado no débito”",
+      "url": "./?atalho=voz",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
       "name": "Ler QR code",
       "short_name": "QR code",
       "description": "Abre a câmera para ler o Pix ou o cupom",

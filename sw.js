@@ -1,10 +1,10 @@
 // Service worker: guarda os arquivos do app para abrir na hora, com ou sem sinal, e funcionar como app instalado.
 // Os dados (Supabase) sempre vêm da internet; sem conexão, o app usa a cópia e a fila do aparelho (js/store.js, comFila).
 // Ao mudar arquivos, aumente a VERSAO: é ela que faz os celulares baixarem a versão nova.
-const VERSAO = "meus-gastos-v49";
+const VERSAO = "meus-gastos-v51";
 const ARQUIVOS = [
   "./", "index.html", "css/style.css", "manifest.webmanifest",
-  "js/app.js", "js/calc.js", "js/store.js", "js/excel.js", "js/leitor.js", "js/qr.js", "js/extrato.js", "js/config.js",
+  "js/app.js", "js/calc.js", "js/store.js", "js/excel.js", "js/leitor.js", "js/qr.js", "js/extrato.js", "js/config.js", "js/voz.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png",
 ];
 // Bibliotecas de fora que a tela usa logo ao abrir. Se a rede falhar na instalação, elas entram no primeiro uso.
