@@ -54,3 +54,20 @@ test("sem valor: devolve o que der, e a tela pede o valor", () => {
   assert.equal(r.valor, undefined);
   assert.equal(entendeFala("", H).descricao, undefined);
 });
+
+test("voz: números compostos e centavos falados", () => {
+  const h = "2026-10-08";
+  assert.equal(entendeFala("gastei trinta e dois e cinquenta no mercado", h).valor, 32.5);
+  assert.equal(entendeFala("paguei cento e vinte e cinco na farmácia", h).valor, 125);
+  assert.equal(entendeFala("dois mil e quinhentos de aluguel", h).valor, 2500);
+  assert.equal(entendeFala("gastei 100 reais e 5 centavos", h).valor, 100.05);
+  assert.equal(entendeFala("gastei 32,5 no uber", h).valor, 32.5);
+  assert.equal(entendeFala("gastei vinte e um no café", h).valor, 21);
+});
+
+test("voz: 'dia 31' falado em mês seguinte a um mês de 30 dias fica no último dia", () => {
+  assert.equal(entendeFala("gastei 50 dia 31", "2026-10-08").data, "2026-09-30");
+  assert.equal(entendeFala("gastei 50 dia 30", "2026-03-05").data, "2026-02-28");
+  assert.equal(entendeFala("gastei 50 dia 31", "2026-01-05").data, "2025-12-31");
+  assert.equal(entendeFala("gastei 50 dia 3", "2026-10-08").data, "2026-10-03");
+});

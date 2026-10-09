@@ -30,6 +30,15 @@ try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement
 <script type="module" src="js/app.js"></script>
 </head>
 <body>
+<!-- Bloqueio com a digital ou o rosto (opcional, em Ajustes): cobre o app ao abrir e ao voltar depois de alguns minutos. -->
+<div class="trava" id="trava" role="dialog" aria-modal="true" aria-labelledby="travaT" hidden>
+  <img src="icons/icon-192.png" alt="" width="72" height="72">
+  <h2 id="travaT">Meus Gastos está bloqueado</h2>
+  <p>Use a digital ou o rosto do celular para entrar.</p>
+  <button class="btn primary" type="button" id="travaAbrir">Desbloquear</button>
+  <p class="trava-msg" id="travaMsg" role="alert"></p>
+  <button class="link" type="button" id="travaSenha">Entrar com o e-mail e a senha</button>
+</div>
 
 <!-- Conta sem acesso: quem ainda não comprou, ou não renovou -->
 <main id="acesso" class="auth" hidden><div class="auth-card" id="acessoCard"></div></main>
@@ -130,6 +139,9 @@ try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement
 
   <section class="v-inicio" id="guia" aria-label="Primeiros passos" hidden></section>
   <section class="v-inicio" id="resumo" aria-label="Resumo do mês"></section>
+  <!-- Logo depois de entradas e saídas: o que vence nos próximos dias (é o que mais pede ação no dia a dia). -->
+  <section class="v-inicio" id="venc" aria-label="Próximos vencimentos"></section>
+  <section class="v-inicio" id="grafSobraSec" aria-label="Sua sobra no mês"></section>
   <section class="v-inicio" id="dia" aria-label="Seu dia" hidden></section>
   <section class="v-inicio" id="teto" aria-label="Limite de gastos do mês" hidden></section>
   <section class="v-inicio" id="metas" aria-label="Metas do dinheiro guardado" hidden></section>
@@ -137,7 +149,6 @@ try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement
   <section class="v-inicio" id="instCard" aria-label="Instalar o app" hidden></section>
   <section class="v-inicio" id="fechCard" aria-label="Fechamento do mês" hidden></section>
   <section class="v-inicio" id="repet" aria-label="Lançamentos que podem estar repetidos" hidden></section>
-  <section class="v-inicio" id="venc" aria-label="Próximos vencimentos"></section>
 
   <section class="panel quick" aria-label="Lançar">
     <div class="quick-head">
@@ -155,7 +166,7 @@ try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement
       <span class="voz-tx"><b id="vozTitulo">Ouvindo…</b><span id="vozTexto">Fale o gasto, por exemplo: “gastei 32 no mercado no débito”.</span></span>
       <button class="btn sm" type="button" id="vozParar">Parar</button></div>
     <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
-    <form id="formLanc" class="fields" autocomplete="off">
+    <form id="formLanc" class="fields" autocomplete="off" novalidate>
       <label class="f">Valor (R$)<span class="efeito" id="fEfeito" hidden></span><input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
       <label class="f desc">Descrição<input class="in" id="fDesc" placeholder="Ex.: mercado, uber, farmácia" maxlength="80" enterkeyhint="done" aria-describedby="fComoAntes" aria-controls="fSugere"><span class="sugere" id="fSugere" role="group" aria-label="Descrições que você já usou" hidden></span><span class="como-antes" id="fComoAntes" aria-live="polite" hidden></span></label>
       <label class="f"><span id="fCatLbl">Categoria</span><select class="in" id="fCat"></select></label>

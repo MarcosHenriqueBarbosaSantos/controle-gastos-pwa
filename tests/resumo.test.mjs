@@ -50,3 +50,14 @@ test("o que sobra: entradas menos o que já tem dono; o dia a dia desconta; fech
   const retirou = sobraDoMes({ ...c, res: -100, vari: 0 });
   assert.equal(retirou.entra, 6885); assert.equal(retirou.resta, raioX({ ...c, res: -100, vari: 0 }).sobra);
 });
+
+test("sobra dia a dia: desce a cada gasto, termina onde o resumo diz e projeta o fim do mês", async () => {
+  const { sobraDiaADia } = await import("../js/calc.js");
+  const it = [{ tipo: "Despesa", data: "2026-10-01", valor: 100, forma: "Pix" }, { tipo: "Despesa", data: "2026-10-03", valor: 50, forma: "Débito" },
+    { tipo: "Despesa", data: "2026-10-03", valor: 80, forma: "Cartão de crédito", cartao_id: "k" }, { tipo: "Receita", data: "2026-10-05", valor: 3000 }];
+  const c = { rec: 3000, fxCusto: 2000, fatT: 0, res: 0, vari: 150, custo: 2150, proj: 2400, fase: "atual", dias: 4, n: 31, it };
+  const g = sobraDiaADia(c);
+  assert.deepEqual(g.pontos.map((p) => p.resta), [1000, 900, 900, 850, 850], "a compra no cartão não desce agora");
+  assert.equal(g.pontos.at(-1).resta, 1000 - c.vari);
+  assert.deepEqual(g.fim, { d: 31, resta: 600 }); assert.deepEqual(g.ideal[1], { d: 31, resta: 0 });
+});

@@ -1,6 +1,6 @@
 -- Banco de teste parecido com o do Supabase (papéis, auth.users, auth.uid, auth.jwt) para conferir os arquivos de supabase/ em um PostgreSQL local.
 -- Uso, a partir da raiz do projeto:
---   psql -f tests/sql/base.sql && for f in schema acesso conta casal; do psql -d cg -f supabase/$f.sql; done && psql -d cg -f tests/sql/casal-teste.sql
+--   psql -f tests/sql/base.sql && for f in schema acesso conta casal comprovante; do psql -d cg -f supabase/$f.sql; done && psql -d cg -f tests/sql/casal-teste.sql && psql -d cg -f tests/sql/comprovante-teste.sql
 \set ON_ERROR_STOP on
 drop database if exists cg; create database cg; \c cg
 do $$ begin
@@ -31,3 +31,13 @@ begin
   raise exception 'FALHOU: % — não deu erro', m;
 end $$;
 create function t.adm(q text) returns void language plpgsql security definer as $$ begin execute q; end $$;
+-- Storage do Supabase, só o que os arquivos de supabase/ usam: baldes, objetos com RLS e storage.foldername().
+create schema storage;
+create table storage.buckets (id text primary key, name text not null, public boolean not null default false, file_size_limit bigint, allowed_mime_types text[]);
+create table storage.objects (id uuid primary key default gen_random_uuid(), bucket_id text references storage.buckets (id), name text not null, owner uuid default auth.uid(), created_at timestamptz default now(), unique (bucket_id, name));
+alter table storage.objects enable row level security;
+create function storage.foldername(name text) returns text[] language sql immutable as $$
+  select (string_to_array(name, '/'))[1:array_length(string_to_array(name, '/'), 1) - 1] $$;
+grant usage on schema storage to anon, authenticated, service_role;
+grant select, insert, update, delete on storage.objects to authenticated;
+grant select on storage.buckets to authenticated;

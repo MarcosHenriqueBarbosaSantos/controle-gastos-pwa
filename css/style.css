@@ -170,6 +170,21 @@ input.money{font-variant-numeric:tabular-nums;font-weight:600}
 .resumo3 small{font-size:11.5px;color:var(--muted)} .resumo3 b{font-size:15.5px;font-weight:700}
 .resumo3 .pos{color:var(--good)} .resumo3 .neg{color:var(--bad)}
 .resumo3-links{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 16px;padding:8px 8px 0;margin-top:4px;border-top:1px solid var(--border);font-size:13px}
+/* bloqueio com a digital ou o rosto */
+.trava{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;background:#0b2545;color:#fff}
+.trava[hidden]{display:none} .trava img{border-radius:18px} .trava h2{margin:6px 0 0;font-size:22px} .trava p{margin:0;opacity:.85}
+.trava .btn.primary{background:#fff;color:#0b2545;min-width:220px;min-height:52px;font-size:16px} .trava .link{color:#fff;opacity:.85}
+.trava-msg{min-height:1.4em;color:#ffb4ab}
+body.travado{overflow:hidden}
+/* gráfico da sobra dia a dia */
+.graf-sobra{display:grid;gap:6px;width:calc(100% - 32px);margin:12px 16px 0;padding:12px 14px 10px;border-radius:18px;border:1px solid var(--border);background:var(--surface);color:var(--ink);text-align:left;box-shadow:var(--shadow-sm)}
+.graf-sobra svg{width:100%;height:132px;display:block;overflow:visible}
+.gs-h{display:flex;justify-content:space-between;align-items:baseline;font-size:13px;color:var(--muted)} .gs-h>b{font-size:15px;color:var(--ink)} .gs-h span b{color:var(--ink);font-size:15px}
+.gs-zero{stroke:var(--border);stroke-width:1} .gs-ideal{stroke:var(--muted);stroke-width:1.2;stroke-dasharray:3 4;opacity:.7}
+.gs-leg{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);align-items:center}
+.gs-leg i{display:inline-block;width:14px;height:3px;border-radius:2px;margin-right:5px;vertical-align:middle} .gs-leg i.l2{background:none;border-top:2px dashed var(--muted);height:0}
+.gs-fim{margin-left:auto} .gs-fim b{color:var(--ink)} .graf-sobra b.txt-bad{color:var(--bad)}
+@media (min-width:701px){.graf-sobra{margin-inline:24px;width:calc(100% - 48px)}}
 /* caixinhas do dinheiro guardado */
 .caixas{display:grid;gap:10px;margin:0 0 22px}
 .caixas-h{display:flex;justify-content:space-between;align-items:baseline} .caixas-h h2{margin:0;font-size:18px} .caixas-h span{font-size:13px;color:var(--muted)}
@@ -199,8 +214,9 @@ input.money{font-variant-numeric:tabular-nums;font-weight:600}
 .efeito{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin:2px 0 0} .efeito b{color:var(--ink)}
 /* esconder os valores (o olho do topo) */
 body.ocultar .ocultavel,body.ocultar .kpi .v,body.ocultar .sobra-pl .v,body.ocultar .sobra-agora b{filter:blur(9px);user-select:none}
-#resumo{margin-inline:-16px}
-@media (min-width:701px){#resumo{margin-inline:0} .hero.banco{border-radius:24px;padding:24px 28px 62px} .hero.banco .v{font-size:46px} .acoes-rap,.resumo3{margin-inline:24px} }
+#resumo,#grafSobraSec{margin-inline:-16px}
+#grafSobraSec:empty{display:none}
+@media (min-width:701px){#resumo,#grafSobraSec{margin-inline:0} #grafSobraSec .graf-sobra{width:100%;margin-inline:0} .hero.banco{border-radius:24px;padding:24px 28px 62px} .hero.banco .v{font-size:46px} .acoes-rap,.resumo3{margin-inline:24px} }
 /* ---------- seu dia ---------- */
 .dia{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px 14px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow-sm)}
 .dia .ava{width:44px;height:44px;border-radius:14px} .dia .ava .ic{width:22px;height:22px}
@@ -613,6 +629,14 @@ dialog ul.itens,dialog ul.cartoes{padding-left:0}
 .ler-topo img{width:84px;height:104px;object-fit:cover;border-radius:12px;border:1px solid var(--border);background:var(--sunk)}
 .ler-topo .hint{margin:0}
 .ler-topo.sem-foto{grid-template-columns:minmax(0,1fr)}
+/* Comprovante do lançamento: a foto do recibo na pergunta de guardar e na hora de ver. */
+.comp-foto{border:1px solid var(--border);border-radius:14px;background:var(--sunk);overflow:hidden;margin:0 0 12px;display:grid;place-items:center;max-height:46vh}
+.comp-foto img{display:block;width:100%;height:auto;max-height:46vh;object-fit:contain}
+.comp-foto.grande{max-height:58vh}
+.comp-foto.grande img{max-height:58vh}
+/* Marca de quem tem comprovante guardado, nas listas e no extrato. */
+.clipe{display:inline-grid;place-items:center;width:17px;height:17px;vertical-align:-3px;margin-left:5px;color:var(--ink-2)}
+.clipe svg{width:14px;height:14px}
 .barra.vai i{width:35%;animation:vaivem 1.3s ease-in-out infinite alternate}
 @keyframes vaivem{from{margin-left:0}to{margin-left:65%}}
 @media (prefers-reduced-motion:reduce){.barra.vai i{animation:none;width:100%;opacity:.5}}
@@ -909,3 +933,31 @@ input.in.cod::placeholder{color:var(--axis)}
   .fields>label:first-child input{font-size:38px}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+
+/* Valores grandes não empurram a tela para os lados: o número encolhe e, no limite, quebra a linha. */
+.hero.banco .v{font-size:clamp(28px,10.4vw,40px);max-width:100%;overflow-wrap:anywhere}
+@media (min-width:701px){.hero.banco .v{font-size:46px}}
+.resumo3 b{overflow-wrap:anywhere;font-size:clamp(13px,4vw,15.5px)}
+/* O aviso sem botão não segura o toque: o que está embaixo dele continua respondendo. */
+.toast:not(.com-acao){pointer-events:none}
+/* Ação de excluir dentro de uma lista (caixinha): em vermelho, e cheia no segundo toque. */
+.mais-item.perigo,.mais-item.perigo b{color:var(--bad)}
+.mais-item.perigo.arm{background:var(--bad);color:#fff;justify-content:center;font-weight:700}
+/* Salvando: o botão de confirmar do quadro espera a resposta (evita salvar duas vezes com a internet lenta). */
+body.salvando #dlg button[type="submit"],body.salvando #dlg .btn.primary:not([data-close]){pointer-events:none;opacity:.55}
+
+/* Próximos vencimentos como lista de banco: um cartão só, com as contas separadas por um fio (antes, um cartão por conta
+   ocupava a tela inteira). Fica logo depois de entradas e saídas, então precisa ser compacto. */
+.venc{gap:0;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-sm);overflow:hidden}
+.venc li{border:0;border-radius:0;box-shadow:none;border-top:1px solid var(--border);background:transparent}
+.venc li:first-child{border-top:0}
+.venc li.vazio{border-style:solid;border-width:1px 0 0;border-color:var(--border);padding:11px 16px;text-align:center}
+.venc li.vazio:first-child{border-top:0}
+.venc li.alerta.bad,.venc li.alerta.warn{border-top:0}
+@media (max-width:700px){
+  .venc li{padding:11px 12px;gap:4px 12px}
+  .venc .dt{padding:5px 0 4px} .venc .dt b{font-size:17px}
+  .venc .oque b{font-size:14.5px} .venc .oque span{font-size:12.5px}
+  .venc .quando{padding:3px 9px;font-size:11.5px}
+  .venc .btn.sm{min-height:32px;padding:3px 12px;font-size:13px}
+}

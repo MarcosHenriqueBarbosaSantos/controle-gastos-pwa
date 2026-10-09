@@ -5,6 +5,7 @@
 //   loadAll()                      → { lancamentos, fixos, pagos, faturas, cartoes }
 //   addLancamentos(rows)           → linhas inseridas (ignora import_key repetido)
 //   updateLancamento(id, patch) / deleteLancamento(id)
+//   guardaComprovante(lancId, arquivo) → caminho · linkComprovante(caminho) → endereço · apagaComprovante(caminho)
 //   loadPrefs() / savePrefs(dados)   → categorias e ajustes do usuário
 //   addFixo(row) / updateFixo(id, patch) / deleteFixo(id)
 //   setPago(fixoId, mes, pago)
@@ -46,16 +47,42 @@ export function createSupabaseStore(client) {
     },
     async updateLancamento(id, patch) { ok(await client.from("lancamentos").update(patch).eq("id", id)); },
     async deleteLancamento(id) { ok(await client.from("lancamentos").delete().eq("id", id)); },
+    // Comprovantes (supabase/comprovante.sql): a foto do recibo vai para um balde privado,
+    // em uma pasta por pessoa. O lançamento guarda só o caminho do arquivo.
+    async guardaComprovante(lancId, arquivo) {
+      const uid = (await client.auth.getSession()).data.session?.user.id;
+      if (!uid) throw new Error("sem-login");
+      const caminho = `${uid}/${lancId}.jpg`;
+      ok(await client.storage.from("comprovantes").upload(caminho, arquivo, { contentType: "image/jpeg", upsert: true }));
+      return caminho;
+    },
+    /** Endereço para mostrar a foto. Vale uma hora: o balde é privado, não há endereço fixo. */
+    async linkComprovante(caminho) {
+      return ok(await client.storage.from("comprovantes").createSignedUrl(caminho, 3600)).signedUrl;
+    },
+    async apagaComprovante(caminho) { ok(await client.storage.from("comprovantes").remove([caminho])); },
     // Preferências: uma linha por usuário. Uma cópia fica neste aparelho, para o caso de
     // a tabela ainda não existir no banco ou de faltar conexão.
+    // Cada gravação leva a hora em que foi feita (_em). Ao abrir, vale a mais nova entre a do servidor e a deste aparelho:
+    // uma mudança que não chegou ao servidor (sinal caiu) não é mais desfeita pela cópia velha de lá — e é reenviada.
     async loadPrefs() {
-      try { const r = ok(await client.from("preferencias").select("dados").maybeSingle()); if (r) return r.dados; }
-      catch { /* usa a cópia local */ }
-      try { return JSON.parse(localStorage.getItem(await prefsKey())); } catch { return null; }
+      const chave = await prefsKey();
+      let local = null, srv = null, leuServidor = false;
+      try { local = JSON.parse(localStorage.getItem(chave)); } catch { /* sem cópia */ }
+      try { const r = ok(await comPrazo(client.from("preferencias").select("dados").maybeSingle(), 8000)); srv = r?.dados || null; leuServidor = true; }
+      catch { /* sem conexão: fica a cópia */ }
+      if (local && (!srv || (Number(local._em) || 0) >= (Number(srv._em) || 1))) {
+        if (leuServidor) client.from("preferencias").upsert({ dados: local, updated_at: new Date().toISOString() }, { onConflict: "user_id" }).then(() => {}, () => {});
+        return local;
+      }
+      if (srv) { try { localStorage.setItem(chave, JSON.stringify(srv)); } catch { /* nada */ } }
+      return srv;
     },
     async savePrefs(dados) {
-      try { localStorage.setItem(await prefsKey(), JSON.stringify(dados)); } catch { /* nada */ }
-      const { error } = await client.from("preferencias").upsert({ dados, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      const comHora = { ...dados, _em: Date.now() };
+      try { localStorage.setItem(await prefsKey(), JSON.stringify(comHora)); } catch { /* nada */ }
+      const { error } = await client.from("preferencias").upsert({ dados: comHora, updated_at: new Date().toISOString() }, { onConflict: "user_id" });
+      if (error && !/schema cache|does not exist|relation/i.test(String(error.message))) throw error;   // o app avisa; a cópia do aparelho já está guardada
       if (error) console.warn("Preferências salvas só neste aparelho:", error.message);
     },
     async addFixo(row) { return num(ok(await client.from("fixos").insert(row).select().single())); },
@@ -94,6 +121,13 @@ export function createSupabaseStore(client) {
     // Apaga a conta de quem está logado e, com ela, todos os registros. O banco só aceita logo depois de um login (supabase/conta.sql).
     async excluirConta() {
       const chave = await prefsKey();
+      // Os comprovantes saem antes: o Supabase não exclui uma conta que ainda é dona de arquivos, e as fotos são da pessoa.
+      const uid = (await client.auth.getSession()).data.session?.user.id;
+      for (let volta = 0; uid && volta < 100; volta++) {
+        const { data: arqs, error } = await client.storage.from("comprovantes").list(uid, { limit: 100 });
+        if (error || !arqs?.length) break;   // sem balde (comprovante.sql não foi rodado) ou pasta vazia
+        ok(await client.storage.from("comprovantes").remove(arqs.map((f) => `${uid}/${f.name}`)));
+      }
       ok(await client.rpc("excluir_minha_conta"));
       try { localStorage.removeItem(chave); localStorage.removeItem("cg-email"); } catch { /* nada */ }
     },
@@ -179,16 +213,26 @@ export function comFila(base, { chave, guarda = localStorage, uuid = () => crypt
      */
     async enviaFila() {
       const enviados = []; let erro = "";
-      for (const r of [...fila]) {
+      for (const { id } of [...fila]) {
+        // Lê a versão de agora: a pessoa pode ter apagado ou mudado o lançamento enquanto a fila andava.
+        const r = fila.find((x) => x.id === id); if (!r) continue;
+        let foi = false;
         try {
           const [novo] = await base.addLancamentos([r]);
-          enviados.push(novo || r);
+          enviados.push(novo || r); foi = true;
         } catch (e) {
           // "Já existe": a tentativa anterior chegou ao servidor e só a resposta se perdeu. Está entregue.
-          if (String(e?.code) === "23505" || /duplicate key/i.test(String(e?.message))) enviados.push(r);
+          if (String(e?.code) === "23505" || /duplicate key/i.test(String(e?.message))) { enviados.push(r); foi = true; }
           else { if (!semRede(e)) erro = String(e?.message || e); break; }
         }
-        fila = fila.filter((x) => x.id !== r.id); escreve(K_FILA, fila);
+        // Mexeram nele durante o envio: o que vale é o que a pessoa fez por último.
+        const depois = fila.find((x) => x.id === id);
+        fila = fila.filter((x) => x.id !== id); escreve(K_FILA, fila);
+        if (!foi) continue;
+        try {
+          if (!depois) { await base.deleteLancamento(id); enviados.pop(); }
+          else if (depois !== r) { const { id: _i, created_at: _c, ...mudou } = limpo(depois); await base.updateLancamento(id, mudou); enviados[enviados.length - 1] = { ...enviados[enviados.length - 1], ...mudou }; }
+        } catch { /* sem conexão de novo: o servidor fica com a versão enviada, que é a que a pessoa vê depois de recarregar */ }
       }
       if (enviados.length) store.semRede = false;
       return { enviados, faltam: fila.length, erro };
@@ -210,7 +254,7 @@ export function createLocalStore(key, seedFn) {
     kind: "local",
     async meuAcesso() { return { cobranca: false, ativo: true, ate: null, status: null, origem: null }; },   // a demonstração é sempre livre
     async casalMeu() { return { situacao: "demo" }; },   // na demonstração não há outra pessoa para convidar
-    async loadAll() { const { prefs, ...dados } = db; return structuredClone(dados); },
+    async loadAll() { const { prefs, comprovantes, ...dados } = db; return structuredClone(dados); },
     async addLancamentos(rows) {
       const keys = new Set(db.lancamentos.map((r) => r.import_key).filter(Boolean));
       const out = rows.filter((r) => !r.import_key || !keys.has(r.import_key))
@@ -218,7 +262,31 @@ export function createLocalStore(key, seedFn) {
       db.lancamentos.push(...out); persist(); return structuredClone(out);
     },
     async updateLancamento(id, patch) { Object.assign(db.lancamentos.find((r) => r.id === id) || {}, patch); persist(); },
-    async deleteLancamento(id) { db.lancamentos = db.lancamentos.filter((r) => r.id !== id); persist(); },
+    async deleteLancamento(id) {
+      db.lancamentos = db.lancamentos.filter((r) => r.id !== id);
+      if (db.comprovantes) delete db.comprovantes[id];
+      persist();
+    },
+    // Comprovantes na demonstração: ficam só neste aparelho, dentro do próprio armazenamento do navegador.
+    // Cabe pouco, então o app guarda apenas os últimos — é uma demonstração, não a conta de verdade.
+    async guardaComprovante(lancId, arquivo) {
+      const dataUrl = await new Promise((pronto, nao) => {
+        const fr = new FileReader(); fr.onload = () => pronto(fr.result); fr.onerror = () => nao(fr.error); fr.readAsDataURL(arquivo);
+      });
+      db.comprovantes ||= {};
+      db.comprovantes[lancId] = dataUrl;
+      const ids = Object.keys(db.comprovantes);
+      if (ids.length > 5) {   // o mais antigo sai, e o lançamento dele deixa de mostrar o clipe
+        delete db.comprovantes[ids[0]];
+        const velho = db.lancamentos.find((r) => r.id === ids[0]); if (velho) delete velho.comprovante;
+      }
+      persist();
+      return "demo:" + lancId;
+    },
+    async linkComprovante(caminho) { return db.comprovantes?.[String(caminho).replace(/^demo:/, "")] || ""; },
+    async apagaComprovante(caminho) {
+      if (db.comprovantes) { delete db.comprovantes[String(caminho).replace(/^demo:/, "")]; persist(); }
+    },
     async loadPrefs() { return db.prefs ? structuredClone(db.prefs) : null; },
     async savePrefs(dados) { db.prefs = structuredClone(dados); persist(); },
     async addFixo(row) { const r = { ...row, id: uuid() }; db.fixos.push(r); persist(); return { ...r }; },

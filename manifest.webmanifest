@@ -7,7 +7,15 @@
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
   "orientation": "portrait",
+  "launch_handler": {
+    "client_mode": "navigate-existing"
+  },
+  "prefer_related_applications": false,
   "background_color": "#f3f5f8",
   "theme_color": "#0b2545",
   "icons": [
@@ -26,6 +34,43 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "site/img/tela-inicio.png",
+      "sizes": "585x1266",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "O início: quanto está livre para gastar no mês"
+    },
+    {
+      "src": "site/img/tela-vencimentos.png",
+      "sizes": "585x1266",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Próximos vencimentos, com o Já paguei"
+    },
+    {
+      "src": "site/img/tela-lancar.png",
+      "sizes": "585x1266",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "Lançar um gasto em segundos"
+    },
+    {
+      "src": "site/img/tela-lista.png",
+      "sizes": "585x1266",
+      "type": "image/png",
+      "form_factor": "narrow",
+      "label": "O extrato do mês, dia por dia"
+    },
+    {
+      "src": "site/img/tela-computador.png",
+      "sizes": "1600x825",
+      "type": "image/png",
+      "form_factor": "wide",
+      "label": "O Meus Gastos no computador"
     }
   ],
   "shortcuts": [

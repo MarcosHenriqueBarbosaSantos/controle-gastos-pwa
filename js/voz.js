@@ -28,14 +28,19 @@ export function extensoParaNumero(texto) {
     if (p === "mil" && out.length && /^\d+(?:[,.]\d+)?$/.test(out[out.length - 1])) { out[out.length - 1] = String(Math.round(Number(out[out.length - 1].replace(",", ".")) * 1000)); continue; }
     const comeca = ehNumeroPorExtenso(p) && !((p === "um" || p === "uma") && !/^(mil|real|reais|e)$/.test(semAcento(t[i + 1] || "")));
     if (!comeca) { out.push(t[i]); continue; }
-    let total = 0, grupo = 0, j = i, ultimoNum = i;
+    let total = 0, grupo = 0, j = i, ultimoNum = i, ultimo = Infinity;
     while (j < t.length) {
       const q = semAcento(t[j]);
-      if (q === "mil") { total += (grupo || 1) * 1000; grupo = 0; ultimoNum = j; j++; continue; }
+      if (q === "mil") { total += (grupo || 1) * 1000; grupo = 0; ultimoNum = j; ultimo = 1000; j++; continue; }
       const v = valorDaPalavra(q);
-      if (v !== undefined) { grupo += v; ultimoNum = j; j++; continue; }
-      // "e" liga partes do mesmo número ("trinta e dois"), mas não "reais e cinquenta"
-      if (q === "e" && j + 1 < t.length && ehNumeroPorExtenso(semAcento(t[j + 1]))) { j++; continue; }
+      if (v !== undefined) { grupo += v; ultimoNum = j; ultimo = v; j++; continue; }
+      // "e" liga partes do mesmo número só quando a parte seguinte é menor: "cento e vinte e cinco" é um número,
+      // mas "trinta e dois e cinquenta" são dois (32 reais e 50 centavos) — depois do "dois" não cabe mais nada.
+      if (q === "e" && j + 1 < t.length) {
+        const nq = semAcento(t[j + 1]), nv = nq === "mil" ? 1000 : valorDaPalavra(nq);
+        const cabe = ultimo >= 1000 ? nv < 1000 : ultimo >= 100 ? nv < 100 : ultimo >= 20 ? nv < 10 : false;
+        if (nv !== undefined && cabe) { j++; continue; }
+      }
       break;
     }
     out.push(String(total + grupo));
@@ -89,7 +94,9 @@ export function entendeFala(fala, hoje) {
   if (dia && Number(dia[1]) >= 1 && Number(dia[1]) <= 31) {
     const [a, m] = hoje.split("-").map(Number), d = Number(dia[1]);
     // Dia que ainda não chegou neste mês: é do mês passado.
-    const data = d <= Number(hoje.slice(8, 10)) ? `${a}-${pad(m)}-${pad(d)}` : (m === 1 ? `${a - 1}-12-${pad(d)}` : `${a}-${pad(m - 1)}-${pad(d)}`);
+    // Mês passado mais curto ("dia 31" falado em outubro, setembro tem 30): fica no último dia dele.
+    const ultimoDoAnterior = new Date(a, m - 1, 0).getDate();
+    const data = d <= Number(hoje.slice(8, 10)) ? `${a}-${pad(m)}-${pad(d)}` : (m === 1 ? `${a - 1}-12-${pad(Math.min(d, ultimoDoAnterior))}` : `${a}-${pad(m - 1)}-${pad(Math.min(d, ultimoDoAnterior))}`);
     out.data = data; tira(dia[0]);
   }
 
@@ -102,8 +109,9 @@ export function entendeFala(fala, hoje) {
   if (v) {
     let n = Number(v[1].replace(/\./g, ""));
     if (/\bmil\b/.test(v[0])) n *= 1000;
-    const cent = v[2] ?? v[3];
-    if (cent !== undefined) n += Number(cent.length === 1 ? cent + "0" : cent) / 100;
+    // "32,5" é 32,50; mas "100 reais e 5 centavos" é 100,05 — o zero só entra depois de vírgula ou ponto.
+    if (v[2] !== undefined) n += Number(v[2].length === 1 ? v[2] + "0" : v[2]) / 100;
+    else if (v[3] !== undefined) n += Number(v[3]) / 100;
     if (n > 0) out.valor = Math.round(n * 100) / 100;
     tira(v[0]);
   }

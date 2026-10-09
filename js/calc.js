@@ -42,6 +42,8 @@ export function parseMoney(s) {
   return Number(s);
 }
 export const round2 = (v) => Math.round(v * 100) / 100;
+/** Maior valor aceito em um lançamento, conta fixa, fatura ou meta: pega o zero digitado a mais. */
+export const VALOR_MAX = 9999999.99;
 
 /**
  * Fixos que contam no mês m ("AAAA-MM"). desde/ate são datas "AAAA-MM-01".
@@ -1075,4 +1077,20 @@ export function sobraDoMes(c) {
   const porDia = atual && resta > 0 ? round2(resta / restam) : 0;
   return { entra, retirado, fixos, faturas, guardado, comDono, livre, usado, resta, ideal, passados, restam, porDia, porSemana: round2(porDia * 7),
     pct: livre > 0 ? Math.round((usado / livre) * 100) : null, ritmo: !atual || livre <= 0 ? null : usado <= ideal ? "dentro" : "acima" };
+}
+
+/**
+ * A sobra dia a dia, para o gráfico no estilo de app de investimento:
+ * `pontos`: quanto restava da sobra no fim de cada dia que já passou (a sobra menos o dia a dia acumulado);
+ * `ideal`: a reta de gastar por igual até o fim do mês; `fim`: onde a previsão diz que o mês termina.
+ */
+export function sobraDiaADia(c) {
+  const s = sobraDoMes(c), n = c.n, ate = c.fase === "atual" ? c.dias : c.fase === "passado" ? n : 0;
+  const porDia = new Array(n + 1).fill(0);
+  c.it.filter((x) => x.tipo === "Despesa" && !noCartao(x)).forEach((x) => { const d = Number(x.data.slice(8, 10)); if (d >= 1 && d <= n) porDia[d] += Number(x.valor); });
+  const pontos = [{ d: 0, resta: s.livre }];
+  let acum = 0;
+  for (let d = 1; d <= ate; d++) { acum += porDia[d]; pontos.push({ d, resta: round2(s.livre - acum) }); }
+  const projDia = c.fase === "atual" ? round2(c.proj - c.fxCusto - c.fatT) : round2(acum);
+  return { n, livre: s.livre, pontos, ideal: [{ d: 0, resta: s.livre }, { d: n, resta: 0 }], fim: c.fase === "atual" ? { d: n, resta: round2(s.livre - projDia) } : null };
 }

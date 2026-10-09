@@ -7,7 +7,7 @@
 <meta property="og:title" content="Meus Gastos">
 <meta property="og:description" content="Veja quanto sobra no mês antes de ele acabar.">
 <meta property="og:type" content="website">
-<meta name="theme-color" content="#0c2038">
+<meta name="theme-color" content="#0b2545">
 <link rel="icon" href="img/icone.png">
 <!-- O site fica dentro do app (pasta site/). Com estas linhas, o navegador oferece a instalação do app a partir daqui. -->
 <link rel="manifest" href="../manifest.webmanifest">
@@ -16,21 +16,21 @@
 <meta name="apple-mobile-web-app-title" content="Meus Gastos">
 <title>Meus Gastos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
 /* Layout: abertura em azul-marinho com um exemplo do app que responde ao toque; depois uma vitrine
    em que o texto rola à esquerda e a tela do celular, fixa à direita, troca junto. Tudo alinhado à esquerda. */
 :root{
-  /* Visual único, escuro: o mesmo do app. */
-  --bg:#0b1118; --surface:#141c27; --ink:#f1f5fa; --ink-2:#bcc8d6; --muted:#8a98a9; --line:rgba(255,255,255,.13);
-  --band:#0b1a2e; --band-2:#17304f; --band-ink:#f1f6fc; --band-mute:#a9bdd4;
-  --accent:#4f97ec; --accent-ink:#06121f; --accent-soft:rgba(79,151,236,.16); --luz:#8fc0ff;
-  --good:#4ccf5f; --good-soft:rgba(12,163,12,.18); --warn:#f0b43a; --warn-soft:rgba(250,178,25,.16); --bad:#f07b7b; --bad-soft:rgba(230,103,103,.14);
-  --frame:#2a3646; --shadow:0 18px 40px rgba(0,0,0,.45); --tile:#05080c; --tile-ink:#ffffff;
-  --display:"Bricolage Grotesque","Trebuchet MS","Segoe UI",sans-serif;
+  /* O mesmo visual do app: claro, sério, azul-marinho de banco, IBM Plex Sans. */
+  --bg:#f3f5f8; --surface:#ffffff; --sunk:#e9eef4; --ink:#13253b; --ink-2:#3e5068; --muted:#5c6b7d; --line:#dde3ea;
+  --band:#0b2545; --band-2:#123a66; --band-ink:#ffffff; --band-mute:#b7c7da;
+  --accent:#0b2545; --accent-ink:#ffffff; --accent-soft:#e8eef8; --luz:#8fc0ff; --link:#1e5fbf;
+  --good:#157347; --good-soft:#e7f4ec; --warn:#9a4a06; --warn-soft:#fdf0e3; --bad:#b42318; --bad-soft:#fdecea;
+  --frame:#13253b; --shadow:0 18px 40px rgba(11,37,69,.14); --tile:#0b2545; --tile-ink:#ffffff;
+  --display:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
-  color-scheme:dark;
+  color-scheme:light;
 }
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
@@ -42,18 +42,23 @@ button{font:inherit;color:inherit;cursor:pointer}
 [id]{scroll-margin-top:84px}
 .col{max-width:1100px;margin:0 auto;padding-inline:20px}
 h1,h2,h3{font-family:var(--display);text-wrap:balance;margin:0;letter-spacing:-.02em;line-height:1.05}
-h1{font-size:clamp(2.3rem,5.8vw,4.1rem);font-weight:800}
+h1{font-size:clamp(2.2rem,5.4vw,3.7rem);font-weight:700}
 h2{font-size:clamp(1.7rem,3.6vw,2.6rem);font-weight:700}
 h3{font-size:1.15rem;font-weight:700;line-height:1.2;letter-spacing:-.01em}
 p{margin:0;max-width:60ch}
 .rot{font-family:var(--mono);font-size:.74rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:1rem;text-decoration:none;border-radius:12px;padding:14px 22px;border:1px solid transparent;transition:transform .15s,filter .15s,border-color .15s}
-.btn.pri{background:var(--accent);color:var(--accent-ink);box-shadow:0 8px 22px rgba(42,120,214,.35)}
+.btn.pri{background:var(--accent);color:var(--accent-ink);box-shadow:0 8px 22px rgba(11,37,69,.22)}
 .btn.pri:hover{filter:brightness(1.08);transform:translateY(-2px)}
 .btn.pri::after{content:"→";transition:transform .15s}
 .btn.pri:hover::after{transform:translateX(4px)}
 .btn.sec{border-color:var(--line);color:var(--ink);background:var(--surface)}
 .btn.sec:hover{border-color:var(--accent)}
+.topo .btn.pri,.abre .btn.pri,.oferta .btn.pri,.fixo .btn.pri{background:#fff;color:var(--band);box-shadow:0 8px 22px rgba(0,0,0,.18)}
+.fixo .btn.pri{background:var(--band);color:#fff}
+.oferta .cartao-oferta .btn.pri{background:var(--band);color:#fff}
+a.lk-inst,.faq a,.plat a,footer a,.paraquem a,.casal-tx a:not(.btn),p a{color:var(--link)}
+.abre a:not(.btn),.oferta .txt a{color:inherit}
 
 /* barra de leitura e menu fixo */
 .prog{position:fixed;left:0;top:0;height:3px;width:100%;transform-origin:0 50%;transform:scaleX(0);background:var(--luz);z-index:60}
@@ -89,7 +94,7 @@ p{margin:0;max-width:60ch}
 .selos li{border:1px solid rgba(241,246,252,.18);border-radius:999px;padding:5px 12px}
 
 /* exemplo que responde ao toque */
-.sim{background:var(--bg);color:var(--ink);border-radius:26px;padding:16px;display:grid;gap:10px;box-shadow:0 30px 70px rgba(0,0,0,.45);border:1px solid rgba(241,246,252,.14)}
+.sim{background:var(--bg);color:var(--ink);border-radius:26px;padding:16px;display:grid;gap:10px;box-shadow:0 30px 70px rgba(0,0,0,.35);border:1px solid rgba(255,255,255,.18)}
 .sim-top{display:flex;justify-content:space-between;align-items:center;padding:2px 4px}
 .sim-top b{font-family:var(--display);font-size:1.05rem}
 .venc{display:grid;grid-template-columns:44px minmax(0,1fr) auto;gap:4px 12px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 14px;transition:opacity .3s,transform .3s}
@@ -100,9 +105,9 @@ p{margin:0;max-width:60ch}
 .venc .oq b{display:block;font-weight:600;font-size:.97rem}
 .venc .oq span{font-size:.84rem;color:var(--ink-2)}
 .venc .dir{display:grid;justify-items:end;gap:5px}
-.pill{font-family:var(--mono);font-size:.72rem;padding:3px 10px;border-radius:999px;white-space:nowrap}
+.pill{font-family:var(--sans);font-weight:600;font-size:.72rem;padding:3px 10px;border-radius:999px;white-space:nowrap}
 .pill.ok{background:var(--good-soft);color:var(--good)} .pill.warn{background:var(--warn-soft);color:var(--warn)} .pill.bad{background:var(--bad-soft);color:var(--bad)}
-.venc .v{font-family:var(--mono);font-weight:500;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:.92rem}
+.venc .v{font-family:var(--sans);font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap;font-size:.92rem}
 .mini{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 10px;font-size:.78rem;font-weight:600;transition:border-color .15s,background .15s}
 .mini:hover{border-color:var(--accent)}
 .venc.paga{opacity:.62}
@@ -120,14 +125,14 @@ p{margin:0;max-width:60ch}
 .sim-lim{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 10px;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:11px 14px;transition:border-color .3s}
 .sim-lim .t{font-size:.9rem;font-weight:600}
 .sim-lim .t{white-space:nowrap}
-.sim-lim .tb{grid-column:1/-1;height:6px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}
+.sim-lim .tb{grid-column:1/-1;height:6px;border-radius:999px;background:var(--sunk);overflow:hidden}
 .sim-lim .tb i{display:block;height:100%;border-radius:999px;background:var(--good);width:84%;transition:width .6s cubic-bezier(.2,.7,.2,1),background .3s}
 .sim-lim .d{grid-column:1/-1;font-size:.82rem;color:var(--ink-2)}
 .sim-lim .d b{color:var(--ink);font-variant-numeric:tabular-nums}
 .sim-lim.warn{border-color:rgba(240,180,58,.45)} .sim-lim.warn .tb i{background:var(--warn)}
 .sim-lim.bad{border-color:rgba(240,123,123,.55)} .sim-lim.bad .tb i{background:var(--bad)}
-.pill.info{background:var(--accent-soft);color:var(--luz)}
-.sim-meta .tb i{background:var(--accent);width:10%}
+.pill.info{background:var(--accent-soft);color:var(--link)}
+.sim-meta .tb i{background:var(--link);width:10%}
 .sim-meta .mini{grid-column:1/-1;justify-self:start;border-color:var(--accent);background:var(--accent-soft);padding:7px 14px;font-size:.84rem}
 .sim-meta .mini:disabled{opacity:.5;border-color:var(--line);background:var(--surface)}
 .sim-meta.feita{border-color:rgba(76,207,95,.45)} .sim-meta.feita .tb i{background:var(--good)}
@@ -140,7 +145,7 @@ p{margin:0;max-width:60ch}
 .chips button.zera{border-color:var(--line);background:transparent;color:var(--muted);font-weight:500}
 .sim-lista{list-style:none;margin:0;padding:0;display:grid;gap:4px;font-size:.84rem;min-height:1.5em;color:var(--ink-2)}
 .sim-lista li{display:flex;justify-content:space-between;gap:10px;border-bottom:1px dashed var(--line);padding:3px 0}
-.sim-lista li b{font-family:var(--mono);font-weight:500;color:var(--ink)}
+.sim-lista li b{font-weight:700;font-variant-numeric:tabular-nums;color:var(--ink)}
 .sim-lista li.vazio{border:0;color:var(--muted)}
 
 /* seções */
@@ -196,7 +201,7 @@ section{padding-block:72px}
 /* passos */
 .como{counter-reset:p;list-style:none;margin:34px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:22px;position:relative}
 .como::before{content:"";position:absolute;left:24px;right:calc((100% - 88px) / 5 - 24px);top:24px;height:2px;background:var(--line)}
-.como h3 small{display:block;font-family:var(--sans);font-weight:500;font-size:.8rem;letter-spacing:0;color:var(--luz);margin-bottom:3px}
+.como h3 small{display:block;font-family:var(--sans);font-weight:500;font-size:.8rem;letter-spacing:0;color:var(--link);margin-bottom:3px}
 /* vídeo do app em uso */
 .uso .col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,300px);gap:56px;align-items:center}
 .uso-txt{display:grid;gap:14px;justify-items:start}
@@ -237,9 +242,9 @@ button.btn{cursor:pointer}
 .plat summary small{display:block;font-family:var(--sans);font-weight:400;font-size:.84rem;letter-spacing:0;color:var(--muted);margin-top:2px}
 .plat ol{margin:14px 0 0;padding:0;list-style:none;counter-reset:i;display:grid;gap:10px;color:var(--ink-2);font-size:.95rem}
 .plat ol li{counter-increment:i;position:relative;padding-left:34px;min-height:24px}
-.plat ol li::before{content:counter(i);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--luz);font-family:var(--display);font-weight:700;font-size:.82rem}
+.plat ol li::before{content:counter(i);position:absolute;left:0;top:0;width:24px;height:24px;border-radius:50%;display:grid;place-items:center;background:var(--accent-soft);color:var(--link);font-family:var(--display);font-weight:700;font-size:.82rem}
 .plat ol b{color:var(--ink);font-weight:600}
-.plat ol svg{width:17px;height:17px;vertical-align:-3px;stroke:var(--luz);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.plat ol svg{width:17px;height:17px;vertical-align:-3px;stroke:var(--link);fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .plat p{font-size:.86rem;color:var(--muted);margin:14px 0 0;padding-top:12px;border-top:1px solid var(--line)}
 .lk-inst{justify-self:center;font-size:.92rem;color:var(--ink-2)}
 .cartao-oferta .lanc{margin:0;font-weight:600;color:var(--good);background:var(--good-soft);border-radius:10px;padding:8px 12px;font-size:.95rem}
@@ -263,7 +268,7 @@ button.btn{cursor:pointer}
 .oferta .txt{display:grid;gap:14px}
 .oferta p{color:#d5e2f1}
 .oferta .rot{color:var(--band-mute)}
-.cartao-oferta{background:var(--surface);color:var(--ink);border-radius:20px;padding:28px;display:grid;gap:12px;box-shadow:0 30px 70px rgba(0,0,0,.4)}
+.cartao-oferta{background:var(--surface);color:var(--ink);border-radius:20px;padding:28px;display:grid;gap:12px;box-shadow:0 30px 70px rgba(0,0,0,.3)}
 .cartao-oferta p{color:var(--ink-2)}
 .cartao-oferta .preco{font-family:var(--display);font-weight:800;font-size:2.6rem;line-height:1}
 .cartao-oferta .btn{width:100%}
@@ -306,6 +311,36 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
 }
 @media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 
+/* como usar: cinco passos com as telas de verdade, e a barra de baixo do app explicada */
+.usar{padding-block:64px 56px}
+.usar-lead{color:var(--ink-2);margin-top:12px}
+.usar-lista{list-style:none;margin:30px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px}
+.usar-lista li{display:grid;gap:14px;align-content:start}
+.usar-lista .tela{margin:0;border:7px solid var(--frame);border-bottom:0;border-radius:28px 28px 0 0;overflow:hidden;aspect-ratio:585/800;background:var(--frame);box-shadow:var(--shadow)}
+.usar-lista .tela img{width:100%;height:100%;object-fit:cover;object-position:top}
+.usar-lista .n{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:var(--accent-ink);font-weight:700;font-size:.88rem;margin-bottom:8px}
+.usar-lista h3{font-size:1.05rem}
+.usar-lista p{color:var(--ink-2);font-size:.93rem;margin-top:6px}
+.barra-app{margin-top:34px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px 22px 18px;box-shadow:0 2px 8px rgba(11,37,69,.05)}
+.barra-app h3{font-size:1rem;margin-bottom:14px}
+.barra-app ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.barra-app li{display:grid;justify-items:center;text-align:center;gap:6px;align-content:start}
+.barra-app li>svg{margin-block:5px} .barra-app svg{width:24px;height:24px;fill:none;stroke:var(--band);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.barra-app li.meio i{display:grid;place-items:center;width:44px;height:34px;border-radius:10px;background:var(--band)}
+.barra-app li.meio svg{stroke:#fff;stroke-width:2.4;width:20px;height:20px}
+.barra-app b{font-size:.95rem} .barra-app span{font-size:.86rem;color:var(--ink-2);max-width:22ch}
+@media (max-width:900px){
+  .usar{padding-block:40px 30px}
+  .usar-lista{display:flex;overflow-x:auto;scroll-snap-type:x mandatory;gap:14px;margin:22px -20px 0;padding:4px 20px 14px;scrollbar-width:none}
+  .usar-lista::-webkit-scrollbar{display:none}
+  .usar-lista li{flex:0 0 74%;scroll-snap-align:start}
+  .usar-lista .tela{aspect-ratio:585/700;border-radius:24px 24px 0 0}
+  .barra-app{padding:18px}
+  .barra-app ul{grid-template-columns:minmax(0,1fr);gap:12px}
+  .barra-app li{grid-template-columns:44px 74px minmax(0,1fr);justify-items:start;text-align:left;align-items:center;gap:10px}
+  .barra-app li>svg{justify-self:center}
+  .barra-app span{max-width:none}
+}
 .so-cel{display:none}
 /* ===== Celular primeiro: é onde a maioria das pessoas vai ver o site ===== */
 @media (max-width:900px){
@@ -392,6 +427,7 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
   body{padding-bottom:calc(74px + env(safe-area-inset-bottom,0px))}
 }
 @media (max-width:480px){
+  .sim-top .rot{display:none}
   .venc{grid-template-columns:40px minmax(0,1fr)}
   .venc .dir{grid-column:2;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 }
@@ -402,7 +438,7 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
 <header class="topo"><div class="col">
   <a class="marca" href="#inicio"><img src="img/icone.png" alt="" width="32" height="32">Meus Gastos</a>
   <nav aria-label="Seções">
-    <a class="lk" href="#casal">Para casais</a><a class="lk" href="#recursos">Recursos</a><a class="lk" href="#como">Como funciona</a><a class="lk" href="#instalar">Instalar</a><a class="lk" href="#perguntas">Perguntas</a>
+    <a class="lk" href="#usar">Como usar</a><a class="lk" href="#casal">Para casais</a><a class="lk" href="#recursos">Recursos</a><a class="lk" href="#instalar">Instalar</a><a class="lk" href="#perguntas">Perguntas</a>
     <a class="entrar" data-app="" href="https://meugastos.com.br/" target="_blank" rel="noopener">Entrar</a>
     <a class="btn pri" data-cta data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Testar agora</a>
   </nav>
@@ -420,15 +456,15 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
     </div>
     <p class="nota" data-nota>Abre no navegador, sem cadastro. Os dados de exemplo ficam só no seu aparelho.</p>
     <p class="nota" data-venda hidden><a data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Ver a demonstração grátis antes</a></p>
-    <ul class="selos"><li><a href="#casal">Conta de casal</a></li><li>Lança por voz</li><li>Android e iPhone</li><li>Aviso por e-mail e notificação</li><li>Lê foto, PDF e extrato do cartão</li></ul>
+    <ul class="selos"><li><a href="#casal">Conta de casal</a></li><li>Lança por voz</li><li>Guarda o comprovante</li><li>Entra com a digital</li><li>Android e iPhone</li><li>Lê foto, PDF e extrato do cartão</li></ul>
   </div>
 
   <div class="sim" id="sim" aria-label="Exemplo do app que responde ao toque">
-    <div class="sim-top"><b>Outubro</b><span class="rot">Exemplo · toque para testar</span></div>
+    <div class="sim-top"><b>Próximos vencimentos</b><span class="rot">Exemplo · toque para testar</span></div>
     <div class="venc" data-venc><span class="dt"><b>08</b><span>OUT</span></span><span class="oq"><b>Fatura Cartão roxo</b><span>4 compras, com a parcela do tênis</span></span><span class="dir"><span class="pill warn" data-pill>em 4 dias</span><span class="v">R$ 300,90</span><button class="mini" type="button" data-pagar>Já paguei</button></span></div>
     <div class="venc" data-venc><span class="dt"><b>10</b><span>OUT</span></span><span class="oq"><b>Aluguel</b><span>Gasto fixo</span></span><span class="dir"><span class="pill warn" data-pill>em 6 dias</span><span class="v">R$ 1.100,00</span><button class="mini" type="button" data-pagar>Já paguei</button></span></div>
     <div class="custo">
-      <span class="l" id="simRot">Sobram em outubro</span>
+      <span class="l" id="simRot">Livre para gastar em outubro</span>
       <span class="n" id="simCusto">R$ 960,60</span>
       <div class="medidor" id="simMed" role="img" aria-label="Quanto das entradas de R$ 3.900 já está comprometido"><i id="simBarra"></i><b id="simMarca"></b></div>
       <span class="p" id="simPrev">Dá para gastar <b>R$ 34,31</b> por dia nos 28 dias que faltam. No ritmo atual, sobram <b>R$ 277</b> no fim do mês.</span>
@@ -457,7 +493,37 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
   </div>
 </div></div>
 
-<!-- Conta de casal: o diferencial em destaque, logo depois da abertura -->
+
+<!-- Como usar: o dia a dia do app em cinco passos, com as telas de verdade, e a barra de baixo explicada. -->
+<section class="usar" id="usar"><div class="col">
+  <span class="rot">Como usar</span>
+  <h2 class="sobe" style="margin-top:10px">O seu dia com o Meus Gastos, em cinco toques.</h2>
+  <p class="sobe usar-lead">O app foi desenhado como os apps de banco: o que importa aparece primeiro, e tudo fica a um toque da tela inicial.</p>
+  <ol class="usar-lista">
+    <li class="sobe"><figure class="tela"><img src="img/tela-inicio.png" alt="Tela inicial: R$ 810,60 livres para gastar em outubro, com os botões Lançar gasto, Por voz, Escanear e Recebi" loading="lazy" width="585" height="1266"></figure>
+      <div><span class="n">1</span><h3>Abra e veja quanto está livre</h3><p>O número grande é o que ainda dá para gastar no mês, depois das contas. A cor avisa se o mês vai bem. O olho esconde os valores quando você está em público.</p></div></li>
+    <li class="sobe d1"><figure class="tela"><img src="img/tela-vencimentos.png" alt="Próximos vencimentos: Terapia atrasada, Aluguel em 2 dias, cada um com o botão Já paguei" loading="lazy" width="585" height="1266"></figure>
+      <div><span class="n">2</span><h3>Resolva o que vence</h3><p>Logo depois das entradas e saídas ficam as contas dos próximos 30 dias. Pagou? Um toque em <b>Já paguei</b>. Tocou errado? <b>Desfazer</b>.</p></div></li>
+    <li class="sobe d2"><figure class="tela"><img src="img/tela-lancar.png" alt="Lançar: R$ 32,50 no mercado, mostrando livre agora R$ 810,60 e depois R$ 778,10" loading="lazy" width="585" height="1266"></figure>
+      <div><span class="n">3</span><h3>Lance na hora</h3><p>O botão do meio da barra abre o lançamento já no valor. Digite, diga “gastei 32 no mercado no débito” ou fotografe o comprovante. Antes de salvar, você vê quanto fica livre depois.</p></div></li>
+    <li class="sobe"><figure class="tela"><img src="img/tela-comprovante.png" alt="Pergunta do app: guardar esse comprovante? Com os botões Guardar comprovante e Não guardar" loading="lazy" width="585" height="1266"></figure>
+      <div><span class="n">4</span><h3>Guarde o comprovante, se quiser</h3><p>Lançou pela foto? O app pergunta se você quer guardar o comprovante junto do gasto. Ele fica no lançamento, marcado com um clipe no extrato.</p></div></li>
+    <li class="sobe d1"><figure class="tela"><img src="img/tela-metas.png" alt="Planejar: o que sobra para viver outubro, com entradas, contas fixas, faturas e o guardado" loading="lazy" width="585" height="1266"></figure>
+      <div><span class="n">5</span><h3>Planeje o mês</h3><p>Em <b>Planejar</b>: o que sobra para viver o mês, as caixinhas do dinheiro guardado (com foto, como nos bancos), as metas e o limite de gastos.</p></div></li>
+  </ol>
+  <div class="barra-app sobe">
+    <h3>A barra de baixo do app</h3>
+    <ul>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg><b>Início</b><span>Quanto está livre, o que vence e o gráfico do mês.</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg><b>Extrato</b><span>Tudo o que entrou e saiu, dia por dia, com busca.</span></li>
+      <li class="meio"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></i><b>Lançar</b><span>Gasto, entrada ou dinheiro guardado. Por voz ou foto também.</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg><b>Planejar</b><span>O que sobra, caixinhas, metas e limites.</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg><b>Mais</b><span>Contas fixas, cartões, calendário, casal e ajustes.</span></li>
+    </ul>
+  </div>
+</div></section>
+
+<!-- Conta de casal: o diferencial em destaque -->
 <section class="casal-sec" id="casal"><div class="col">
   <div class="casal-tx">
     <span class="rot">Para casais</span>
@@ -483,67 +549,53 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
   </ul>
 </div></section>
 
-<section class="uso" id="video" style="padding-block:44px 30px"><div class="col">
-  <div class="uso-txt">
-    <span class="rot">Em menos de 1 minuto</span>
-    <h2 class="sobe">Veja o app em uso.</h2>
-    <p style="color:var(--ink-2)">Um passeio narrado, com música, pela demonstração do app no celular. Os dados são de exemplo. Ligue o som.</p>
-    <ul>
-      <li>Ver quanto sobra no mês e quanto dá para gastar por dia.</li>
-      <li>Anotar um gasto, digitando ou pela foto do comprovante.</li>
-      <li>Marcar uma conta como paga.</li>
-      <li>Abrir a fatura do cartão e trazer o extrato do banco.</li>
-      <li>Definir um limite de gastos e criar uma meta.</li>
-      <li>Receber avisos e baixar o relatório.</li>
-    </ul>
-  </div>
-  <div class="uso-video sobe"><video controls playsinline preload="none" poster="img/video-capa.jpg" width="720" height="1280" aria-label="Vídeo narrado: o Meus Gastos em uso no celular">
-    <source src="video/meus-gastos.mp4" type="video/mp4"><source src="video/meus-gastos.webm" type="video/webm">O seu navegador não mostra vídeos. <a href="video/meus-gastos.mp4">Baixe o vídeo</a>.</video></div>
-</div></section>
+
 
 <section id="recursos" style="padding-top:30px">
 <div class="col so-cel cab-rec">
   <span class="rot">O que ele faz</span>
   <h2 style="margin-top:8px">Sete motivos para abrir o app todo dia.</h2>
   <div class="atalhos" id="atalhos" role="tablist" aria-label="Recursos">
-    <button type="button" class="on" data-ir="0">Resumo</button><button type="button" data-ir="1">Limites</button><button type="button" data-ir="2">Metas</button><button type="button" data-ir="3">Avisos</button><button type="button" data-ir="4">Cartão</button><button type="button" data-ir="5">Extrato</button><button type="button" data-ir="6">Lançar</button>
+    <button type="button" class="on" data-ir="0">Início</button><button type="button" data-ir="1">Limites</button><button type="button" data-ir="2">Caixinhas</button><button type="button" data-ir="3">Avisos</button><button type="button" data-ir="4">Cartão</button><button type="button" data-ir="5">Extrato</button><button type="button" data-ir="6">Lançar</button>
   </div>
 </div>
 <div class="col vit">
   <div class="trilho" id="trilho">
     <article class="passo ativo" data-tela="0">
       <span class="rot">Resumo do mês</span>
-      <h2>A primeira tela responde: quanto sobra?</h2>
-      <p>O que entra menos tudo o que sai no mês, em um número grande. Logo abaixo, quanto você ainda pode gastar por dia até o mês acabar.</p>
+      <h2>A primeira tela responde: quanto está livre?</h2>
+      <p>Como no app do banco, o número grande vem primeiro: o que ainda dá para gastar no mês, depois das contas. Logo abaixo, as entradas, o custo até hoje e a projeção, e em seguida as contas que vencem.</p>
       <ul>
-        <li>Uma barra colorida mostra para onde o dinheiro foi: contas fixas, dia a dia, faturas e o que ainda sobra.</li>
-        <li>Previsão de como o mês fecha se o ritmo de gastos continuar o mesmo.</li>
-        <li>Toque em qualquer número para abrir a lista do que compõe aquele valor.</li>
+        <li>A cor do quadro avisa: tudo certo, atenção ou no vermelho, com a frase do porquê.</li>
+        <li>Quatro botões rápidos: lançar gasto, por voz, escanear e recebi.</li>
+        <li>O gráfico da sobra mostra o mês dia a dia, como nos apps de investimento.</li>
+        <li>Toque em qualquer número para ver o que compõe aquele valor. O olho esconde os valores.</li>
       </ul>
-      <div class="so-fone"><div class="fone"><img src="img/tela-inicio.png" alt="Tela inicial: sobram R$ 960,60 em outubro, com a barra do dinheiro e quanto dá para gastar por dia" loading="lazy" width="585" height="1266"></div></div>
+      <div class="so-fone"><div class="fone"><img src="img/tela-inicio.png" alt="Tela inicial: R$ 810,60 livres para gastar em outubro, com os botões rápidos e o resumo de entradas, custo e projeção" loading="lazy" width="585" height="1266"></div></div>
     </article>
     <article class="passo" data-tela="1">
       <span class="rot">Limites de gasto</span>
       <h2>Você define o teto do mês. O app acompanha.</h2>
-      <p>Na aba Limites, diga quanto quer gastar no máximo por mês. O app mostra quanto do limite já foi usado e se, no ritmo atual, o mês vai passar dele.</p>
+      <p>Em Planejar, diga quanto quer gastar no máximo por mês. O app mostra quanto do limite já foi usado e se, no ritmo atual, o mês vai passar dele. Mudou de ideia? Tire o limite com um toque.</p>
       <ul>
         <li>Limite também por categoria, como mercado, lazer ou transporte.</li>
         <li>O quadro muda de cor ao chegar a 80% do limite e quando você passa dele.</li>
         <li>Sem ideia de valor? O app sugere um a partir do que você gastou no mês anterior.</li>
       </ul>
-      <div class="so-fone"><div class="fone"><img src="img/tela-limites.png" alt="Aba Limites: limite de R$ 3.500 por mês, com 84% usado e o aviso de que está perto do limite" loading="lazy" width="585" height="1266"></div></div>
+      <div class="so-fone"><div class="fone"><img src="img/tela-limites.png" alt="Planejar: o limite de gastos do mês, com a sugestão baseada no mês anterior, e a meta da reserva de emergência" loading="lazy" width="585" height="1266"></div></div>
     </article>
     <article class="passo" data-tela="2">
-      <span class="rot">Metas</span>
+      <span class="rot">Caixinhas e metas</span>
       <h2>Diga quanto quer juntar. O app mostra quando você chega lá.</h2>
-      <p>Crie uma meta para a reserva de emergência, a viagem ou o que for. O app acompanha o que você guarda e diz em que mês a meta fica pronta.</p>
+      <p>O dinheiro guardado fica em caixinhas, como nos bancos: reserva de emergência, viagem, carro. Cada uma pode ter foto de capa e uma meta, e o app diz em que mês ela fica pronta.</p>
       <ul>
+        <li>Guardar e retirar direto da caixinha. A meta pode ser mudada ou excluída quando quiser, e o dinheiro guardado continua lá.</li>
         <li>Com o que deve sobrar no mês, ele sugere quanto dá para guardar.</li>
         <li>Um valor por mês vira um combinado, com os botões "Guardei" e "Pular". Não é uma conta: pular o mês não tem problema.</li>
         <li>Ao guardar, o app comemora cada etapa. Em mês apertado, não cobra nada.</li>
         <li>A previsão usa só o que você guardou e os meses que faltam. O app não promete rendimento.</li>
       </ul>
-      <div class="so-fone"><div class="fone"><img src="img/tela-metas.png" alt="Meta Reserva de emergência: R$ 300 de R$ 3.000 guardados, previsão de ficar pronta em junho de 2027 e sugestão de quanto guardar neste mês" loading="lazy" width="585" height="1266"></div></div>
+      <div class="so-fone"><div class="fone"><img src="img/tela-metas.png" alt="Planejar: o que sobra para viver outubro, com entradas, contas fixas, faturas e o dinheiro guardado" loading="lazy" width="585" height="1266"></div></div>
     </article>
     <article class="passo" data-tela="3">
       <span class="rot">Avisos</span>
@@ -568,7 +620,7 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
         <li>A compra só pesa no mês em que a fatura vence, como no seu bolso.</li>
         <li>Abra a fatura para ver o que tem dentro e corrija o valor se o banco cobrou diferente.</li>
       </ul>
-      <div class="so-fone"><div class="fone baixo"><img src="img/tela-fatura.png" alt="Tela da fatura do cartão, com as compras e a parcela 1 de 3 do tênis" loading="lazy" width="585" height="1266"></div></div>
+      <div class="so-fone"><div class="fone baixo"><img src="img/tela-fatura.png" alt="Fatura do Cartão roxo: as compras de setembro, com a parcela 1 de 3 do tênis, somando R$ 300,90" loading="lazy" width="585" height="1266"></div></div>
     </article>
     <article class="passo" data-tela="5">
       <span class="rot">Extrato do cartão</span>
@@ -580,19 +632,20 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
         <li>Abrir o mesmo extrato duas vezes não duplica as compras.</li>
         <li>O app não acessa a sua conta no banco. Quem escolhe o arquivo é você.</li>
       </ul>
-      <div class="so-fone"><div class="fone"><img src="img/tela-extrato.png" alt="Importar extrato do cartão: 8 compras encontradas, cada uma com a categoria sugerida" loading="lazy" width="585" height="1266"></div></div>
+      <div class="so-fone"><div class="fone"><img src="img/tela-extrato.png" alt="Importar extrato do cartão: 8 compras encontradas no arquivo, cada uma com a categoria sugerida, prontas para lançar" loading="lazy" width="585" height="1266"></div></div>
     </article>
     <article class="passo" data-tela="6">
       <span class="rot">Lançamento</span>
-      <h2>Anotar um gasto leva dez segundos. Ou uma foto.</h2>
-      <p>Toque no botão +, digite o valor e escolha a categoria. Se preferir, aponte a câmera para o comprovante ou para a conta: o app lê o valor, a data e a descrição, e você só confere.</p>
+      <h2>Anotar um gasto leva dez segundos. Por voz, ou por uma foto.</h2>
+      <p>Toque em Lançar, no meio da barra, e digite o valor: a categoria vem sugerida pelo que você costuma lançar. Ou diga “gastei 32 no mercado no débito”. Ou aponte a câmera para o comprovante: o app lê o valor, a data e a descrição, e você só confere.</p>
       <ul>
+        <li>Depois de lançar pela foto, o app pergunta se você quer guardar o comprovante junto do gasto. Só guarda com o seu sim.</li>
         <li>Lê foto e PDF de comprovante, boleto, conta de consumo, recibo, fatura de cartão e holerite.</li>
         <li>Lê o QR code do Pix e do cupom de mercado pela câmera. No cupom, busca o valor, a loja e a data no site da Fazenda (testado com notas de São Paulo).</li>
-        <li>A leitura é feita no próprio aparelho. O documento não é enviado para nenhum servidor.</li>
+        <li>A leitura é feita no próprio aparelho. A foto só sai dele se você escolher guardar o comprovante.</li>
         <li>Gastos fixos e salário são cadastrados uma vez e entram sozinhos, todo mês ou toda semana.</li>
       </ul>
-      <div class="so-fone"><div class="fone"><img src="img/tela-leitura.png" alt="Conferir leitura: o app preencheu valor, data e descrição a partir da foto de um comprovante" loading="lazy" width="585" height="1266"></div></div>
+      <div class="so-fone"><div class="fone"><img src="img/tela-leitura.png" alt="Conferir leitura: o app preencheu R$ 23,80, a data e a descrição a partir da foto de um comprovante" loading="lazy" width="585" height="1266"></div></div>
     </article>
   </div>
   <div class="palco" aria-hidden="true">
@@ -625,8 +678,11 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
     <div class="sobe"><h3>No celular e no computador</h3><p>Instala na tela inicial do Android e do iPhone, com tema escuro ou claro. No computador, vira um painel completo.</p></div>
     <div class="sobe d1"><h3>Cada pessoa com a sua conta</h3><p>Entrada por e-mail e senha. Cada conta só acessa os próprios dados, e essa regra é aplicada no banco de dados.</p></div>
     <div class="sobe d2"><h3>O seu dia em um quadro</h3><p>Quanto você gastou hoje e há quantos dias seguidos vem anotando. Não gastou nada? Um toque registra isso também.</p></div>
+    <div class="sobe"><h3>Entra com a digital ou o rosto</h3><p>Ligue o bloqueio em Ajustes e o app abre com a biometria do próprio celular, como o do banco. A digital nunca sai do aparelho.</p></div>
+    <div class="sobe d1"><h3>Comprovante junto do gasto</h3><p>Guarde a foto do recibo no lançamento e abra quando precisar. Só você, e quem divide as contas com você, pode ver.</p></div>
+    <div class="sobe d2"><h3>O mês fechado em uma imagem</h3><p>No fim do mês, o app monta um resumo com quanto entrou, saiu e sobrou, pronto para compartilhar. Dá para esconder os valores.</p></div>
   </div>
-  <div class="larga sobe"><img src="img/tela-computador.png" alt="O app no computador: o resumo do mês com quanto sobra, o quadro do dia e o limite de gastos" loading="lazy" width="1120" height="577"></div>
+  <div class="larga sobe"><img src="img/tela-computador.png" alt="O app no computador: R$ 810,60 livres para gastar em outubro, os botões rápidos e o resumo do mês" loading="lazy" width="1600" height="825"></div>
 </div></section>
 
 <section id="como" style="padding-top:20px"><div class="col">
@@ -637,9 +693,27 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
     <li class="sobe"><h3><small>1 minuto</small>Crie a sua conta</h3><p><a href="#instalar">Instale o app</a>, digite o seu e-mail, escolha uma senha e confirme pelo e-mail que chega.</p></li>
     <li class="sobe d1"><h3><small>2 minutos</small>Responda três perguntas</h3><p>Quanto você recebe, quais contas paga todo mês e se usa cartão. O app pergunta na primeira vez que você entra.</p></li>
     <li class="sobe d2"><h3><small>Na hora</small>Veja quanto sobra</h3><p>A tela inicial já mostra o que sobra no mês e quanto dá para gastar por dia.</p></li>
-    <li class="sobe"><h3><small>10 segundos</small>Lance o primeiro gasto</h3><p>Toque no +, digite o valor e pronto. Ou fotografe o comprovante.</p></li>
-    <li class="sobe d1"><h3><small>1 minuto</small>Ligue os avisos e crie uma meta</h3><p>Em Ajustes, ative a notificação das contas a vencer. Na aba Limites, diga o seu teto do mês. Em Dinheiro guardado, diga quanto quer juntar.</p></li>
+    <li class="sobe"><h3><small>10 segundos</small>Lance o primeiro gasto</h3><p>Toque em <b>Lançar</b>, no meio da barra, e digite o valor. Ou fale o gasto, ou fotografe o comprovante.</p></li>
+    <li class="sobe d1"><h3><small>1 minuto</small>Ligue os avisos e crie uma meta</h3><p>Em Ajustes, ative a notificação das contas a vencer. Em <b>Planejar</b>, diga o seu limite do mês e crie uma caixinha com a meta do que quer juntar.</p></li>
   </ol>
+</div></section>
+
+<section class="uso" id="video" style="padding-block:44px 30px"><div class="col">
+  <div class="uso-txt">
+    <span class="rot">Em menos de 1 minuto</span>
+    <h2 class="sobe">Veja o app em uso.</h2>
+    <p style="color:var(--ink-2)">Um passeio narrado, com música, pela demonstração do app no celular. Os dados são de exemplo. Ligue o som. O vídeo foi gravado com o visual anterior do app: as telas mudaram de cor, mas o caminho é o mesmo.</p>
+    <ul>
+      <li>Ver quanto sobra no mês e quanto dá para gastar por dia.</li>
+      <li>Anotar um gasto, digitando ou pela foto do comprovante.</li>
+      <li>Marcar uma conta como paga.</li>
+      <li>Abrir a fatura do cartão e trazer o extrato do banco.</li>
+      <li>Definir um limite de gastos e criar uma meta.</li>
+      <li>Receber avisos e baixar o relatório.</li>
+    </ul>
+  </div>
+  <div class="uso-video sobe"><video controls playsinline preload="none" poster="img/video-capa.jpg" width="720" height="1280" aria-label="Vídeo narrado: o Meus Gastos em uso no celular">
+    <source src="video/meus-gastos.mp4" type="video/mp4"><source src="video/meus-gastos.webm" type="video/webm">O seu navegador não mostra vídeos. <a href="video/meus-gastos.mp4">Baixe o vídeo</a>.</video></div>
 </div></section>
 
 <section class="instalar" id="instalar" style="padding-top:20px"><div class="col">
@@ -649,6 +723,7 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
       <h2>Leve o app para a tela inicial do celular.</h2>
       <p>O Meus Gastos é instalado por esta página, direto pelo navegador, sem loja de aplicativos. Ele ganha ícone próprio, abre em tela cheia e passa a enviar notificações. Ao abrir pelo ícone, é só criar a sua conta.</p>
       <div class="inst-acao">
+        <a class="btn pri" id="instPlay" href="https://play.google.com/store/apps/details?id=" target="_blank" rel="noopener" hidden>Baixar no Google Play</a>
         <button type="button" class="btn pri" id="instBtn" hidden>Instalar agora</button>
         <a class="btn pri" id="instChrome" data-chrome href="intent://meugastos.com.br/site/?instalar=1#Intent;scheme=https;package=com.android.chrome;end" hidden>Abrir no Chrome</a>
         <a class="btn pri" id="instIr" href="https://meugastos.com.br/site/#instalar" target="_blank" rel="noopener" hidden>Abrir a página de instalação</a>
@@ -727,10 +802,12 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
     <details><summary>Dá para usar a dois, com a minha esposa ou o meu marido?</summary><p>Dá. Em Conta de casal, você convida a outra pessoa pelo e-mail. Cada um entra com o seu e-mail e a sua senha, e os dois veem e lançam nas mesmas contas, cartões, limites e metas. O app mostra quem lançou cada gasto. <span data-venda hidden>Uma assinatura vale para os dois.</span></p></details>
     <details><summary>Preciso instalar alguma coisa?</summary><p>Não é obrigatório: o Meus Gastos abre no navegador. Instalado, ele ganha ícone na tela inicial, abre em tela cheia e envia notificações. A instalação é feita em <a href="#instalar">Instalar</a>, nesta página: um toque no Android e três no iPhone.</p></details>
     <details><summary>Tenho um Xiaomi (ou Redmi, Poco) e não consigo instalar. O que faço?</summary><p>No Xiaomi, instale pelo Chrome, e não pelo navegador que vem no celular. Antes, permita que o Chrome crie <b>atalhos na tela inicial</b>, nas permissões do app. Sem isso, o ícone não aparece. O passo a passo está em <a href="#plat-xiaomi">Instalar › No Xiaomi</a>.</p></details>
-    <details><summary>Procurei na loja de aplicativos e não achei. Onde baixo?</summary><p>Ele não fica na Play Store nem na App Store. A instalação é feita por esta página, pelo próprio navegador do celular, e ocupa muito pouco espaço. Veja em <a href="#instalar">Instalar</a>.</p></details>
+    <details><summary>Procurei na loja de aplicativos e não achei. Onde baixo?</summary><p id="faqLoja">Ele não fica na Play Store nem na App Store. A instalação é feita por esta página, pelo próprio navegador do celular, e ocupa muito pouco espaço. Veja em <a href="#instalar">Instalar</a>.</p></details>
     <details><summary>Funciona no iPhone e no Android?</summary><p>Sim, nos dois, e também no computador. No iPhone, a notificação de contas funciona com o app instalado na tela de início.</p></details>
     <details><summary>O app se conecta ao meu banco?</summary><p>Não. Ele não pede senha de banco nem acessa a sua conta. Para não digitar tudo, você pode abrir no app o extrato do cartão que o próprio banco gera (CSV, OFX ou Excel) ou fotografar um comprovante. Você confere antes de salvar.</p></details>
-    <details><summary>A foto do comprovante vai para algum servidor?</summary><p>Não. A leitura de fotos e PDFs é feita no próprio aparelho. O que fica guardado na sua conta são só os campos que você confirma: valor, data, descrição e categoria.</p></details>
+    <details><summary>A foto do comprovante vai para algum servidor?</summary><p>Só se você quiser. A leitura de fotos e PDFs é feita no próprio aparelho. Depois de lançar, o app pergunta se você quer guardar o comprovante: dizendo sim, uma cópia reduzida fica na sua conta, em área privada, e abre só para você (e para quem divide as contas com você). Dizendo não, ficam só os campos que você confirmou. Dá para remover o comprovante quando quiser.</p></details>
+    <details><summary>Como marco uma conta como paga?</summary><p>Na tela inicial, logo depois das entradas e saídas, ficam os Próximos vencimentos. Toque em <b>Já paguei</b> ao lado da conta. Tocou errado? O aviso que aparece tem o botão <b>Desfazer</b>. Também dá para ver tudo no calendário de vencimentos.</p></details>
+    <details><summary>Dá para entrar com a digital?</summary><p>Dá. Em Ajustes, ligue o bloqueio do app: ele passa a abrir com a digital ou o rosto, usando o recurso do próprio celular. Se a biometria não funcionar, você entra com o e-mail e a senha.</p></details>
     <details><summary>Meus dados ficam seguros?</summary><p>Cada pessoa entra com e-mail e senha e só acessa os próprios dados, a não ser que escolha dividir as contas com alguém. Essa regra é aplicada no banco de dados, e não só na tela do app. O app não vende dados nem mostra anúncios. Os detalhes estão na <a href="privacidade.html">Política de privacidade</a>.</p></details>
     <details><summary>Consigo tirar os meus dados do app?</summary><p>Sim. A qualquer momento você baixa um relatório de gastos em planilha do Excel, com os lançamentos, os gastos fixos, as faturas e o resumo de cada mês.</p></details>
     <details><summary>Esqueci a senha. E agora?</summary><p>Na tela de entrada, toque em Esqueci minha senha e digite o seu e-mail. Você recebe uma mensagem com um código e um botão para criar a senha nova. Use sempre a mensagem mais recente.</p></details>
@@ -863,7 +940,7 @@ function pintaSim() {
   const sobra = BASE.entradas - sim.custo - sim.guardado, noFim = Math.round(BASE.entradas - sim.previsao - sim.guardado), pct = (v) => Math.min(100, (v / BASE.entradas) * 100) + "%";
   q("#simBarra").style.width = pct(sim.custo + sim.guardado); q("#simMarca").style.left = pct(sim.previsao + sim.guardado);
   q("#simMed").classList.toggle("estourou", noFim < 0);
-  q("#simRot").textContent = sobra >= 0 ? "Sobram em outubro" : "Faltam em outubro";
+  q("#simRot").textContent = sobra >= 0 ? "Livre para gastar em outubro" : "Passou do que tinha para outubro";
   q("#simCusto").classList.toggle("neg", sobra < 0);
   q("#simPrev").innerHTML = sobra <= 0 ? `As saídas já passaram do que entra no mês. Hora de segurar os gastos.`
     : `Dá para gastar <b>${brl(sobra / BASE.faltam)}</b> por dia nos ${BASE.faltam} dias que faltam. ` + (noFim >= 0
@@ -922,6 +999,16 @@ const uaSo = navigator.userAgent, iOS = /iPhone|iPad|iPod/.test(uaSo) || (naviga
 // O navegador da Xiaomi (MIUI e HyperOS) se identifica como MiuiBrowser; o Mint Browser é dela também. Nenhum dos dois instala apps da web.
 const navXiaomi = /MiuiBrowser|XiaoMi\/|Mint Browser/i.test(uaSo);
 const so = iOS ? "ios" : navXiaomi ? "xiaomi" : /Android/.test(uaSo) ? "android" : "pc";
+// Loja do Google: depois de publicar o app na Play Store, escreva aqui o mesmo nome de pacote que está
+// em js/config.js (PLAY_PACOTE) e em .well-known/assetlinks.json. Passo a passo: docs/google-play.md.
+// Vazio: a página continua instalando pelo navegador, como hoje.
+const PLAY_PACOTE = "";
+if (PLAY_PACOTE && /Android/.test(uaSo)) {
+  const a = q("#instPlay");
+  a.href = "https://play.google.com/store/apps/details?id=" + encodeURIComponent(PLAY_PACOTE);
+  a.hidden = false;
+}
+if (PLAY_PACOTE && q("#faqLoja")) q("#faqLoja").innerHTML = 'Sim: o Meus Gastos está na <b>Google Play</b>. Procure por <b>Meus Gastos</b> na loja do Android, ou baixe em <a href="https://play.google.com/store/apps/details?id=' + encodeURIComponent(PLAY_PACOTE) + '" target="_blank" rel="noopener">Instalar</a>. No iPhone a instalação é pelo Safari, em <a href="#instalar">Instalar</a>.';
 const inst = { convite: null, feito: false, recusou: false };
 function pintaInstalar() {
   const btn = q("#instBtn"), msg = q("#instMsg");

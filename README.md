@@ -7,10 +7,10 @@ App web instalável no celular para **lançar gastos no dia a dia e acompanhar q
 <p align="center">
   <img src="docs/screenshot-desktop.png" alt="Tela principal no computador" width="68%">
   &nbsp;
-  <img src="docs/screenshot-mobile.png" alt="Tela principal no celular, tema escuro" width="24%">
+  <img src="docs/screenshot-mobile.png" alt="Tela principal no celular: quanto está livre para gastar no mês" width="24%">
 </p>
 
-<p align="center"><img src="docs/telas-celular.png" alt="Telas no celular: início, lançar, lançamentos, fixos e cartões" width="100%"></p>
+<p align="center"><img src="docs/telas-celular.png" alt="Telas no celular: início, próximos vencimentos, lançar e planejar" width="100%"></p>
 
 ## O problema
 
@@ -223,6 +223,15 @@ Rode [`supabase/casal.sql`](supabase/casal.sql) depois de `schema.sql`, `acesso.
 
 Os testes do banco ficam em [`tests/sql`](tests/sql) e rodam em um PostgreSQL local (veja o cabeçalho de `tests/sql/base.sql`).
 
+### 4d. Comprovantes (a foto do recibo junto do lançamento)
+
+Depois de lançar pela foto ou pelo PDF, o app **pergunta** se a pessoa quer guardar o comprovante; só com o sim a foto (reduzida no próprio celular, ~100 KB) vai para um balde **privado** do Supabase. Também dá para anexar, ver, trocar e remover o comprovante abrindo o lançamento, e o extrato marca com um clipe quem tem comprovante.
+
+1. No Supabase, rode [`supabase/comprovante.sql`](supabase/comprovante.sql) (SQL Editor → New query → cole tudo → Run). Ele cria a coluna `comprovante`, o balde `comprovantes` e as regras: grava só na própria pasta; vê e apaga quem enxerga o lançamento (a própria pessoa e, na conta de casal, a outra). Pode rodar de novo, e a ordem em relação aos outros arquivos não importa.
+2. Pronto. Sem esse passo, o app continua funcionando: a pergunta aparece, e guardar mostra o aviso de que não deu.
+
+Excluir a conta apaga antes os comprovantes da pessoa. A consulta que acha arquivos soltos está no fim do próprio `comprovante.sql`.
+
 ### 5. E-mails da conta (confirmação e nova senha)
 
 No Supabase, em **Authentication**:
@@ -241,6 +250,14 @@ A página de apresentação tem uma seção **Instalar** (`/site/#instalar`), co
 - **Xiaomi, Redmi e Poco:** o navegador da Xiaomi não instala apps da web, e o sistema (MIUI/HyperOS) vem com o Chrome proibido de criar atalhos na tela inicial. A página de instalação reconhece o navegador da Xiaomi, oferece **Abrir no Chrome** e mostra o passo a passo: permitir **Atalhos na tela inicial** nas permissões do Chrome e desligar **Bloquear layout da tela inicial**.
 
 Quem abre o endereço do app pela primeira vez, pelo navegador, é levado antes a essa página. Quem já usa, quem instalou ou quem chega por um link com destino (demonstração, confirmação de e-mail) vai direto para o app.
+
+### 7. Google Play (opcional)
+
+O mesmo site pode entrar na Play Store como aplicativo, sem reescrever nada: uma casca Android (**Trusted Web Activity**) abre o `meugastos.com.br` em tela cheia, e as atualizações continuam saindo pelo próprio site. Vale pela instalação que nunca falha em Xiaomi, Redmi e Poco, pela confiança de quem baixa e pela busca dentro da loja.
+
+Passo a passo completo: **[docs/google-play.md](docs/google-play.md)** — conta de desenvolvedor, `bubblewrap`, a ligação pelo `.well-known/assetlinks.json`, a ficha da loja e os 14 dias de teste que a Google exige de conta pessoal.
+
+Depois de publicar, escreva o nome do pacote em `js/config.js` (`PLAY_PACOTE`): o botão **Instalar** passa a oferecer **Baixar no Google Play** junto com o caminho do navegador.
 
 ## Rodar no computador
 
@@ -273,11 +290,14 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 ├── supabase/avisos.sql     tabelas e agendamento dos avisos
 ├── supabase/conta.sql      função que exclui a conta de quem pediu, com todos os registros
 ├── supabase/casal.sql      conta de casal: convite, regra de acesso para os dois e encerramento
+├── supabase/comprovante.sql  comprovantes: coluna, balde privado e quem vê cada foto
 ├── supabase/functions/     servidor de avisos (e-mail e notificação)
 ├── supabase/emails/        modelos dos e-mails de confirmar cadastro e de nova senha
 ├── modelo/                 exemplo de extrato de cartão para testar a importação
 ├── tests/                  testes com node:test
-├── manifest.webmanifest    dados do app instalável
+├── docs/google-play.md     passo a passo para publicar o app na Play Store (Trusted Web Activity)
+├── .well-known/assetlinks.json  liga o app da Play Store a este domínio (preencher antes de publicar)
+├── manifest.webmanifest    dados do app instalável (ícones, atalhos e as telas do convite de instalar)
 └── sw.js                   service worker
 ```
 
