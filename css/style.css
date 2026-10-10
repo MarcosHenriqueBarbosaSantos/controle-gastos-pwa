@@ -1014,3 +1014,4 @@ body.salvando #dlg button[type="submit"],body.salvando #dlg .btn.primary:not([da
 .convite-card span{color:var(--muted);font-size:14px}
 .convite-card .btn{margin-top:6px;justify-self:start}
 @media (min-width:701px){.convite-card{margin-inline:24px}}
+.nova-cat{display:grid;gap:10px;padding:12px;border-radius:14px;background:var(--surface-2,rgba(127,127,127,.08))}.nova-cat .actions{margin:0}

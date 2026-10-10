@@ -150,6 +150,40 @@ function fimDoPrazo(id, chave) {
 const MOVS = ["Guardar", "Retirar"];
 const formaDe = (tipo, v) => (tipo === "Despesa" ? v : tipo === "Reserva" && v === "Retirar" ? RETIRADA : "");
 const opts = (lista, atual) => lista.map((c) => `<option${c === atual ? " selected" : ""}>${esc(c)}</option>`).join("");
+/* "+ Nova caixinha…" / "+ Nova categoria…" no fim da lista: a pessoa dá o nome que quiser ali mesmo, sem ir em Ajustes. */
+const NOVA_CAT = "__nova__";
+const optNova = (tipo) => `<option value="${NOVA_CAT}">${tipo === "Reserva" ? "+ Nova caixinha…" : "+ Nova categoria…"}</option>`;
+/** Liga a opção "nova" a um seletor de categoria. tipo() diz se é gasto, entrada ou guardado; sugestao() dá um nome para começar (a descrição). */
+function ligaNovaCategoria(sel, tipo, sugestao, criada) {
+  let antes = sel.value === NOVA_CAT ? "" : sel.value;
+  sel.addEventListener("focus", () => { if (sel.value !== NOVA_CAT) antes = sel.value; });
+  sel.addEventListener("change", (e) => {
+    if (sel.value !== NOVA_CAT) { antes = sel.value; return; }
+    e.stopImmediatePropagation();
+    sel.value = antes || sel.options[0]?.value || "";
+    const lbl = sel.closest("label"), t = tipo(), caixa = t === "Reserva";
+    lbl.parentElement.querySelector(".nova-cat")?.remove();
+    const box = document.createElement("div");
+    box.className = "nova-cat"; box.style.gridColumn = "1/-1";
+    box.innerHTML = `<label class="f">${caixa ? "Nome da nova caixinha" : "Nome da nova categoria"}<input class="in" maxlength="40" placeholder="${caixa ? "Ex.: Viagem, Carro, Feitura" : "Ex.: Academia, Pet"}"></label>
+      <div class="actions"><button class="btn primary sm" type="button" data-nc="ok">${caixa ? "Criar caixinha" : "Criar categoria"}</button><button class="btn sm" type="button" data-nc="nao">Cancelar</button></div>
+      <p class="hint" role="status" style="margin:0"></p>`;
+    lbl.after(box);
+    const inp = box.querySelector("input"), msg = box.querySelector("p"), sug = (sugestao() || "").trim();
+    if (sug && !cats(t).some((c) => norm(c) === norm(sug))) inp.value = sug.slice(0, 40);
+    inp.focus(); inp.select();
+    const cria = async () => {
+      const nome = inp.value.trim().replace(/\s+/g, " ");
+      if (!nome) { msg.style.color = "var(--bad)"; msg.textContent = "Escreva o nome."; return inp.focus(); }
+      const l = cats(t), ja = l.find((c) => norm(c) === norm(nome));
+      if (!ja) { S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), [t]: [...l, nome] }; salvaPrefs(); }
+      box.remove(); criada(ja || nome, !ja);
+    };
+    box.querySelector('[data-nc="ok"]').onclick = cria;
+    box.querySelector('[data-nc="nao"]').onclick = () => { box.remove(); sel.focus(); };
+    inp.addEventListener("keydown", (k) => { if (k.key === "Enter") { k.preventDefault(); cria(); } if (k.key === "Escape") { k.preventDefault(); k.stopPropagation(); box.remove(); sel.focus(); } });
+  });
+}
 /* Cartões cadastrados: os ativos aparecem para novas compras; os desativados só mantêm as faturas antigas. */
 const cartoesAtivos = () => S.data.cartoes.filter((k) => k.ativo !== false);
 const cartaoPorId = (id) => S.data.cartoes.find((k) => k.id === id) || null;
@@ -646,7 +680,7 @@ function renderForm() {
   fr2.hidden = !rap.length;
   const sel = $("fCat");
   const lista = cats(S.tipo), chave = S.tipo + "|" + lista.join("|");
-  if (sel.dataset.k !== chave) { sel.innerHTML = opts(lista); sel.dataset.k = chave; }
+  if (sel.dataset.k !== chave) { const v = sel.value; sel.innerHTML = opts(lista) + optNova(S.tipo); sel.dataset.k = chave; if (lista.includes(v)) sel.value = v; }
   $("fCatLbl").textContent = S.tipo === "Reserva" ? "Onde guardar" : "Categoria";
   // No tipo Guardado, o segundo seletor vira o movimento (guardar ou retirar).
   const fs = $("fForma"), modo = S.tipo === "Reserva" ? "mov" : "forma";
@@ -1724,6 +1758,10 @@ $("fRapidos").addEventListener("click", (e) => {
 });
 // A categoria acompanha a descrição enquanto a pessoa não escolher uma à mão: o app usa o que ela já escolheu antes para aquele nome.
 // A forma de pagamento e o cartão também seguem a última vez, até a pessoa trocar à mão.
+ligaNovaCategoria($("fCat"), () => S.tipo, () => $("fDesc").value, (nome, nova) => {
+  renderForm(); $("fCat").value = nome; S.catManual = true; render();
+  const fl = $("flash"); fl.style.color = "var(--good)"; fl.textContent = nova ? `${S.tipo === "Reserva" ? "Caixinha" : "Categoria"} ${nome} criada e escolhida.` : `${nome} já existia: escolhida.`;
+});
 $("fCat").addEventListener("change", () => { S.catManual = true; });
 $("fCartao").addEventListener("change", () => { S.formaManual = true; });
 /**
@@ -2841,7 +2879,7 @@ const envios = new Map();
 function editarLancamento(id) {
   if (envios.has(id)) { toast("Terminando de salvar esse lançamento…"); return void envios.get(id).then((ok) => { if (ok) editarLancamento(id); }); }
   const x = S.data.lancamentos.find((z) => z.id === id); if (!x) return;
-  const catOpts = (tipo, atual) => { const l = cats(tipo); return opts(l.includes(atual) || !atual ? l : [atual, ...l], atual); };
+  const catOpts = (tipo, atual) => { const l = cats(tipo); return opts(l.includes(atual) || !atual ? l : [atual, ...l], atual) + optNova(tipo); };
   openDlg(`<h3>Editar lançamento</h3><form id="edForm" class="dlg-form" autocomplete="off">
     <label class="f">Tipo<select class="in" id="eTipo">${TIPOS.map(([v, r]) => `<option value="${v}"${v === x.tipo ? " selected" : ""}>${r}</option>`).join("")}</select></label>
     <label class="f">Valor (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${esc(x.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}"></label>
@@ -2887,6 +2925,7 @@ function editarLancamento(id) {
   $("eForma").onchange = syncCartao;
   $("eValor").oninput = () => { $("eParc").innerHTML = optsParcelas(parseMoney($("eValor").value), $("eParc").value); };
   $("eTipo").onchange = () => { $("eCat").innerHTML = catOpts($("eTipo").value, ""); sync(""); };
+  ligaNovaCategoria($("eCat"), () => $("eTipo").value, () => $("eDesc").value, (nome) => { $("eCat").innerHTML = catOpts($("eTipo").value, nome); $("eCat").value = nome; });
   sync(x.forma);
   $("edForm").addEventListener("submit", async (e) => {
     e.preventDefault();
