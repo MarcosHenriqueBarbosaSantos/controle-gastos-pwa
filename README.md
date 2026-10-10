@@ -312,4 +312,4 @@ Sem o `js/config.js` preenchido, o app abre direto com a opção de demonstraç�
 **Marcos Henrique Barbosa Santos**, estudante de Ciência de Dados.
 [LinkedIn](https://www.linkedin.com/in/SEU-LINKEDIN) · [GitHub](https://github.com/MarcosHenriqueBarbosaSantos)
 
-Licença [MIT](LICENSE).
+Código de propriedade do autor, todos os direitos reservados. Veja [LICENSE](LICENSE).
