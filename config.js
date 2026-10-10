@@ -16,3 +16,11 @@ export const SUPORTE_CONTATO = "meugastos@gmail.com";
 // (supabase/acesso.sql): com ela desligada, o app funciona para todos como sempre.
 export const LINK_COMPRA = "https://pay.hotmart.com/G107911431C";
 export const PRECO_PLANO = "R$ 49,90 por ano";
+
+// Loja do Google (opcional). Depois de publicar o app na Play Store, escreva aqui o nome do pacote,
+// o mesmo que está em .well-known/assetlinks.json (ex.: "br.com.meugastos.app").
+// Com ele preenchido, o botão Instalar passa a oferecer a loja nos celulares Android — é a instalação
+// mais simples em Xiaomi, Redmi e Poco, porque não depende do navegador deixar.
+// Vazio: o app continua instalando pelo navegador, como hoje.
+// Passo a passo para publicar: docs/google-play.md
+export const PLAY_PACOTE = "";

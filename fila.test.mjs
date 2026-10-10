@@ -145,3 +145,20 @@ test("o id escolhido pela tela é mantido, com e sem internet", async () => {
   const [b] = await s.addLancamentos([{ ...novo("Uber", 20), id: "tela-2" }]);
   assert.equal(b.id, "tela-2"); assert.equal(b.pendente, true);
 });
+
+test("apagado ou mudado enquanto a fila era enviada: vale o que a pessoa fez por último", async () => {
+  const c = conta(), [s] = monta(c);
+  await s.loadAll(); c.fora = true;
+  await s.addLancamentos([novo("Almoço", 30)]); await s.addLancamentos([novo("Ônibus", 5)]); await s.addLancamentos([novo("Café", 7)]);
+  c.fora = false;
+  // O envio de cada um demora: no meio do primeiro, a pessoa apaga o segundo e muda o primeiro.
+  const add = c.base.addLancamentos; let vez = 0;
+  c.base.addLancamentos = async (rows) => {
+    if (++vez === 1) { await s.deleteLancamento("fila-2"); await s.updateLancamento("fila-1", { valor: 33 }); }
+    return add(rows);
+  };
+  const r = await s.enviaFila();
+  const srv = c.servidor.lancamentos.map((x) => [x.id, x.valor]);
+  assert.deepEqual(srv, [["s1", 100], ["fila-1", 33], ["fila-3", 7]], "o apagado não chega, e o mudado chega com o valor novo");
+  assert.equal(r.faltam, 0); assert.deepEqual(r.enviados.map((x) => [x.id, x.valor]), [["fila-1", 33], ["fila-3", 7]]);
+});

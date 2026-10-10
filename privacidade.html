@@ -4,30 +4,31 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="description" content="Política de privacidade do Meus Gastos: que dados o app guarda, para que usa, onde ficam e como pedir para apagar.">
-<meta name="theme-color" content="#0c2038">
+<meta name="theme-color" content="#0b2545">
 <link rel="icon" href="img/icone.png">
 <title>Política de privacidade · Meus Gastos</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap">
 <style>
-:root{--bg:#0b1118;--surface:#141c27;--ink:#f1f5fa;--ink-2:#bcc8d6;--muted:#8a98a9;--line:rgba(255,255,255,.13);--accent:#4f97ec;--luz:#8fc0ff;color-scheme:dark}
+/* Mesmo visual do app: claro, azul-marinho, IBM Plex Sans. */
+:root{--bg:#f3f5f8;--surface:#ffffff;--ink:#13253b;--ink-2:#3e5068;--muted:#5c6b7d;--line:#dde3ea;--accent:#0b2545;--luz:#1e5fbf;--navy:#0b2545;color-scheme:light}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16.5px;line-height:1.6}
 a{color:var(--luz)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
-header{border-bottom:1px solid var(--line);background:#0b1a2e}
+header{background:var(--navy);color:#fff} header a{color:#fff}
 header div,main,footer div{max-width:760px;margin:0 auto;padding-inline:20px}
 header div{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:14px}
-.marca{display:flex;align-items:center;gap:10px;font-family:"Bricolage Grotesque","Trebuchet MS",sans-serif;font-weight:700;font-size:1.1rem;text-decoration:none;color:var(--ink)}
+.marca{display:flex;align-items:center;gap:10px;font-family:inherit;font-weight:700;font-size:1.1rem;text-decoration:none;color:#fff}
 .marca img{width:32px;height:32px;border-radius:8px}
 main{padding-block:38px 56px}
-h1,h2{font-family:"Bricolage Grotesque","Trebuchet MS",sans-serif;letter-spacing:-.02em;line-height:1.1;text-wrap:balance}
-h1{font-size:clamp(2rem,6vw,2.8rem);font-weight:800;margin:0 0 10px}
+h1,h2{font-family:inherit;letter-spacing:-.02em;line-height:1.1;text-wrap:balance}
+h1{font-size:clamp(2rem,6vw,2.8rem);font-weight:700;margin:0 0 10px}
 h2{font-size:1.35rem;font-weight:700;margin:38px 0 8px}
 p,li{color:var(--ink-2)} p{margin:0 0 12px} ul{margin:0 0 12px;padding-left:20px;display:grid;gap:6px}
 b{color:var(--ink);font-weight:600}
 .data{color:var(--muted);font-size:.92rem}
-.resumo{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:14px;padding:18px 20px;margin:22px 0 0}
+.resumo{background:var(--surface);border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:16px;box-shadow:0 2px 8px rgba(11,37,69,.05);padding:18px 20px;margin:22px 0 0}
 .resumo p:last-child{margin:0}
 footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;padding-block:24px 40px}
 </style>
@@ -36,7 +37,7 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
 <header><div><a class="marca" href="./"><img src="img/icone.png" alt="" width="32" height="32">Meus Gastos</a><a href="./">Voltar ao site</a></div></header>
 <main>
   <h1>Política de privacidade</h1>
-  <p class="data">Atualizada em 6 de outubro de 2026.</p>
+  <p class="data">Atualizada em 8 de outubro de 2026.</p>
 
   <div class="resumo">
     <p><b>Em resumo:</b> o Meus Gastos guarda o seu e-mail e os gastos que você mesmo registra, para mostrar as suas contas e enviar os avisos que você ligar. Ele não pede senha de banco, não acessa a sua conta bancária, não vende dados e não mostra anúncios.</p>
@@ -49,7 +50,8 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <h2>Que dados o app guarda</h2>
   <ul>
     <li><b>Dados da conta:</b> o seu e-mail e a sua senha. A senha é guardada de forma embaralhada (hash): ninguém consegue lê-la, nem nós.</li>
-    <li><b>O que você registra:</b> gastos, entradas, dinheiro guardado, contas fixas, cartões (só o nome que você der e os dias de fechamento e vencimento), faturas, categorias, limites e ajustes.</li>
+    <li><b>O que você registra:</b> gastos, entradas, dinheiro guardado, contas fixas, cartões (só o nome que você der e os dias de fechamento e vencimento), faturas, categorias, limites e ajustes, e as fotos que você escolher para a capa das caixinhas e das contas fixas.</li>
+    <li><b>Comprovantes, só se você escolher guardar:</b> depois de lançar pela foto ou pelo PDF, o app pergunta se você quer guardar aquele comprovante. Só com o seu sim, uma cópia reduzida da imagem fica guardada na sua conta, em uma área privada: abre apenas para você e, na conta de casal, para quem divide as contas com você. Você pode remover o comprovante quando quiser; ele é apagado junto com o lançamento e com a conta.</li>
     <li><b>Conta de casal:</b> se você convidar alguém para dividir as contas, o app guarda o e-mail convidado e a situação do convite. Enquanto a conta de casal durar, guarda também o que é dos dois: categorias, limites, metas, saldo inicial e o nome que cada um escolheu mostrar.</li>
     <li><b>Avisos:</b> se você ligar a notificação, o app guarda o endereço de notificação do seu aparelho (fornecido pelo navegador) e o registro de que um aviso foi enviado, para não repetir.</li>
     <li><b>Compra e assinatura:</b> quando o app é comprado, a Hotmart avisa o Meus Gastos. Guardamos o e-mail usado na compra, o código da compra e até quando o acesso vale. Não recebemos nem guardamos dados do cartão ou do pagamento.</li>
@@ -59,7 +61,8 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:.9rem;paddi
   <h2>O que o app não guarda</h2>
   <ul>
     <li>Senha de banco, número de cartão, código de segurança ou acesso à sua conta bancária. O app não se conecta a banco nenhum.</li>
-    <li>Fotos e PDFs lidos pelo leitor. A leitura é feita no seu aparelho; só ficam guardados os campos que você confirma (valor, data, descrição e categoria).</li>
+    <li>Fotos e PDFs lidos pelo leitor, a não ser que você escolha guardar o comprovante (veja acima). A leitura é feita no seu aparelho; sem o seu sim, só ficam guardados os campos que você confirma (valor, data, descrição e categoria).</li>
+    <li>A sua digital ou o seu rosto. O bloqueio do app usa o recurso do próprio celular: a impressão digital e o rosto nunca saem do aparelho, e o app guarda só, no próprio aparelho, o identificador da chave criada por ele.</li>
     <li>Imagens da câmera. Ao ler um QR code, a câmera é usada só naquele momento e no seu aparelho; nenhuma imagem é guardada ou enviada.</li>
     <li>A nota fiscal consultada. Ao ler o QR code de um cupom de mercado, o app envia ao nosso servidor o endereço que está no código; o servidor abre a página pública da nota no site da Fazenda e devolve o valor, a loja, a data e os itens para você conferir. O servidor não guarda nem registra a nota, e só fica salvo o lançamento que você confirmar.</li>
     <li>O arquivo de extrato do cartão. Ele é aberto no seu aparelho; só as compras que você escolhe lançar são guardadas.</li>

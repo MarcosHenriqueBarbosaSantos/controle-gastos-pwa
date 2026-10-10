@@ -61,3 +61,13 @@ test("mudar um acerto de um mês em diante mantém a data em que ele acaba", () 
   assert.deepEqual(encerra, { ate: "2026-11-01" }); assert.equal(novo.ate, "2027-03-01"); assert.equal(novo.desde, "2026-12-01"); assert.equal(novo.valor, 180);
   assert.equal(novaVersaoDeFixo(f, { ate: "2027-06-01" }, "2026-12").novo.ate, "2027-06-01");   // e dá para mudar o fim junto
 });
+
+test("mês da vez: 36 vezes por mês acabam 35 meses depois; por semana, conta as semanas", async () => {
+  const { mesDaVez, vezesNoPrazo } = await import("../js/calc.js");
+  const carro = { tipo: "Despesa", descricao: "Parcela do carro", valor: 1900, dia: 24, desde: "2026-10-01" };
+  assert.equal(mesDaVez(carro, 1), "2026-10"); assert.equal(mesDaVez(carro, 12), "2027-09"); assert.equal(mesDaVez(carro, 36), "2029-09");
+  assert.equal(vezesNoPrazo(carro, mesDaVez(carro, 32)), 32);
+  const uber = { tipo: "Despesa", descricao: "Uber", valor: 30, repete: "semanal", dia_semana: 5, desde: "2026-10-02" };   // sextas, a partir de 02/10
+  assert.equal(vezesNoPrazo(uber, mesDaVez(uber, 10)) >= 10, true);
+  assert.equal(mesDaVez(carro, 0), ""); assert.equal(mesDaVez(carro, 500, 240), "");
+});
