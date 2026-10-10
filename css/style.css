@@ -1015,3 +1015,8 @@ body.salvando #dlg button[type="submit"],body.salvando #dlg .btn.primary:not([da
 .convite-card .btn{margin-top:6px;justify-self:start}
 @media (min-width:701px){.convite-card{margin-inline:24px}}
 .nova-cat{display:grid;gap:10px;padding:12px;border-radius:14px;background:var(--surface-2,rgba(127,127,127,.08))}.nova-cat .actions{margin:0}
+.meta-inline{display:grid;gap:8px;padding:12px;border-radius:14px;background:var(--surface-2,rgba(127,127,127,.08))}
+.meta-inline-campos{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:560px){.meta-inline-campos{grid-template-columns:1fr}}
+.meta-conta{margin:0;font-size:14px}
+.chip-nome{background:none;border:0;padding:4px 2px;font:inherit;color:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;min-height:32px}

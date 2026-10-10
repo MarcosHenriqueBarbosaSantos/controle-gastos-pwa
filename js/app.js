@@ -988,7 +988,7 @@ function detalheMeta(destino, escolher = false, aviso = "") {
       <p class="hint larga">O valor por mês vira um <b>combinado</b>: ele aparece todo mês em Próximos vencimentos para você marcar <b>Guardei</b>. Não é uma conta: dá para pular o mês quando precisar, sem problema.</p>
       <p class="hint larga meta-prev" id="metaPrev" aria-live="polite"></p>
       <p class="hint larga" id="metaErro" role="alert" hidden></p>
-      <div class="meta-acoes larga"><button class="btn primary" type="submit">${a ? "Salvar mudanças" : "Criar meta"}</button>${meta ? `<button class="btn perigo" type="button" id="metaTirar">${ico("lixo")}Excluir a meta</button>` : ""}</div>
+      <div class="meta-acoes larga"><button class="btn primary" type="submit">${a ? "Salvar mudanças" : "Criar meta"}</button>${cats("Reserva").includes(destino) ? `<button class="btn" type="button" id="metaNome">Mudar o nome</button>` : ""}${meta ? `<button class="btn perigo" type="button" id="metaTirar">${ico("lixo")}Excluir a meta</button>` : ""}</div>
     </form>
     <h4 class="meta-h">Recados da meta</h4>
     <label class="check"><input type="checkbox" id="metaAvisar" ${avisar ? "checked" : ""}> Receber lembretes e parabéns das metas</label>
@@ -1019,6 +1019,7 @@ function detalheMeta(destino, escolher = false, aviso = "") {
     metasDe()[destino] = m; await salvaPrefs(); render();
     detalheMeta(destino, false, a ? "Meta atualizada." : noCelular() ? "Meta criada. Ela aparece em Planejar → Análise do mês." : "Meta criada. Ela já aparece no início do app.");
   });
+  if ($("metaNome")) $("metaNome").onclick = () => renomearCategoria("Reserva", destino, (novo) => detalheMeta(novo || destino));
   if ($("metaTirar")) armDelete($("metaTirar"), () => excluiMeta(destino), "Toque de novo para excluir");
   $("metaAvisar").onchange = async (e) => { S.prefs.avisos = { ...S.prefs.avisos, meta: e.target.checked }; await salvaPrefs(); };
 }
@@ -2889,6 +2890,10 @@ function editarLancamento(id) {
     <label class="f" id="eCartaoWrap" hidden>Cartão<select class="in" id="eCartao">${optsCartao(x.cartao_id, cartaoPorId(x.cartao_id) ? "" : "Sem cartão escolhido")}</select></label>
     <label class="f" id="eParcWrap" hidden>Parcelas<select class="in" id="eParc">${optsParcelas(x.valor, x.parcelas || 1)}</select></label>
     <label class="f">Data<input class="in" type="date" id="eData" required value="${esc(x.data)}"></label>
+    <div class="f wide meta-inline" id="eMetaWrap" hidden><b id="eMetaTit">Meta da caixinha</b>
+      <div class="meta-inline-campos"><label class="f">Quanto quer juntar (R$)<input class="in money" id="eMetaValor" inputmode="decimal" placeholder="Ex.: 6.000,00"></label>
+      <label class="f">Até quando<select class="in" id="eMetaAte"></select></label></div>
+      <p class="hint meta-conta" id="eMetaConta" aria-live="polite"></p></div>
     ${x.pendente || typeof S.store.guardaComprovante !== "function" ? "" : `<div class="f wide foto-linha"><span class="ava">${ico(temComprovante(x) ? "clipe" : "imagem")}</span>
       <span><b>Comprovante</b><small>${temComprovante(x) ? "a foto do recibo está guardada neste lançamento" : "guarde a foto do recibo para consultar depois"}</small></span>
       <button class="btn sm" type="button" id="eComp">${temComprovante(x) ? "Ver" : "Anexar"}</button></div>`}
@@ -2924,19 +2929,51 @@ function editarLancamento(id) {
   const syncCartao = () => { $("eCartaoWrap").hidden = !noCartao(); $("eParcWrap").hidden = !noCartao(); };
   $("eForma").onchange = syncCartao;
   $("eValor").oninput = () => { $("eParc").innerHTML = optsParcelas(parseMoney($("eValor").value), $("eParc").value); };
-  $("eTipo").onchange = () => { $("eCat").innerHTML = catOpts($("eTipo").value, ""); sync(""); };
-  ligaNovaCategoria($("eCat"), () => $("eTipo").value, () => $("eDesc").value, (nome) => { $("eCat").innerHTML = catOpts($("eTipo").value, nome); $("eCat").value = nome; });
-  sync(x.forma);
+  $("eTipo").onchange = () => { $("eCat").innerHTML = catOpts($("eTipo").value, ""); sync(""); enchMeta(); };
+  ligaNovaCategoria($("eCat"), () => $("eTipo").value, () => $("eDesc").value, (nome) => { $("eCat").innerHTML = catOpts($("eTipo").value, nome); $("eCat").value = nome; enchMeta(); });
+  // Guardado: a meta da caixinha (quanto juntar e até quando) pode ser mudada aqui mesmo, com a conta de quanto guardar por mês.
+  const enchMeta = () => {
+    const guard = $("eTipo").value === "Reserva", cx = $("eCat").value; $("eMetaWrap").hidden = !guard; if (!guard) return;
+    const m = metasDe()[cx], cur = mKey(hoje()), meses = Array.from({ length: 121 }, (_, i) => addM(cur, i));
+    if (m?.ate && !meses.includes(m.ate)) meses.unshift(m.ate);
+    $("eMetaTit").textContent = `Meta da caixinha ${cx}`;
+    $("eMetaValor").value = Number(m?.valor) > 0 ? Number(m.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "";
+    $("eMetaAte").innerHTML = `<option value="">Sem data</option>` + meses.map((k) => `<option value="${k}"${k === m?.ate ? " selected" : ""}>${mesAno(k)}</option>`).join("");
+    contaMeta();
+  };
+  const contaMeta = () => {
+    const host = $("eMetaConta"), v = parseMoney($("eMetaValor").value), ate = $("eMetaAte").value, cx = $("eCat").value;
+    if (!(v > 0)) { host.textContent = "Diga quanto quer juntar e até quando: o app calcula quanto guardar por mês."; return; }
+    const a = andamentoDaMeta(S.data, cx, { ...(metasDe()[cx] || {}), valor: round2(v), ate }, hoje());
+    if (!a) { host.textContent = ""; return; }
+    if (a.concluida) { host.innerHTML = `Você já tem <b>${brl(a.guardado)}</b> aqui: a meta está batida.`; return; }
+    const base = `Já tem <b>${brl(a.guardado)}</b>, faltam <b>${brl(a.falta)}</b>.`;
+    if (!ate) { host.innerHTML = `${base} Escolha até quando para ver quanto guardar por mês.`; return; }
+    const cur0 = mKey(hoje()), n = (Number(ate.slice(0, 4)) - Number(cur0.slice(0, 4))) * 12 + Number(ate.slice(5, 7)) - Number(cur0.slice(5, 7)) + 1;
+    host.innerHTML = a.prazoPassou ? `${base} Esse mês já passou: escolha uma data daqui para frente.`
+      : `${base} Para chegar lá até <b>${mesAno(ate)}</b> (${n} ${n === 1 ? "mês" : "meses"}, contando este), guarde mais ou menos <b>${brl(a.porMes)} por mês</b>. ${a.esteMes > 0 ? `Neste mês ainda faltam ${brl(a.esteMes)}.` : "Este mês já está feito."}`;
+  };
+  $("eCat").addEventListener("change", enchMeta); $("eMetaValor").addEventListener("input", contaMeta); $("eMetaAte").onchange = contaMeta;
+  sync(x.forma); enchMeta();
   $("edForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const v = parseMoney($("eValor").value);
     if (avisoValor(v)) { $("edMsg").textContent = avisoValor(v); return; }
+    const mv = $("eTipo").value === "Reserva" ? parseMoney($("eMetaValor").value) : 0;
+    if (mv > VALOR_MAX) { $("edMsg").textContent = ALTO_DEMAIS; return $("eMetaValor").focus(); }
     const tipo = $("eTipo").value;
     const patch = { data: $("eData").value, descricao: $("eDesc").value.trim(), tipo, categoria: $("eCat").value,
       forma: formaDe(tipo, $("eForma").value), valor: round2(v),
       import_key: String(x.import_key || "").startsWith("ext|") ? x.import_key : null,   // compra vinda do extrato continua marcada, para não voltar na próxima importação
       ...(S.data.cartoes.length || x.cartao_id ? { cartao_id: noCartao() ? $("eCartao").value || null : null, parcelas: noCartao() && $("eCartao").value ? Number($("eParc").value) || 1 : 1 } : {}) };
-    if (await grava(() => S.store.updateLancamento(id, patch))) { Object.assign(x, patch); $("dlg").close(); render(); }
+    if (await grava(() => S.store.updateLancamento(id, patch))) {
+      Object.assign(x, patch);
+      if (mv > 0) {   // só cria ou muda a meta quando há valor; apagar a meta continua na tela da meta
+        const cx = patch.categoria, m = metasDe()[cx] || {}, nova = { ...m, valor: round2(mv), ate: $("eMetaAte").value };
+        if (nova.valor !== m.valor || (nova.ate || "") !== (m.ate || "")) { metasDe()[cx] = nova; salvaPrefs(); toast(`Meta de ${cx} salva: ${brl(nova.valor)}${nova.ate ? ` até ${mesAno(nova.ate)}` : ""}.`); }
+      }
+      $("dlg").close(); render();
+    }
   });
 }
 /** Fatura: a lançada à mão pode ter tudo alterado; a calculada mostra as compras e deixa corrigir o valor. */
@@ -3199,17 +3236,64 @@ const suporteHtml = () => {
   const link = /^https?:/.test(SUPORTE_CONTATO);
   return `<p class="hint" style="margin:0">Precisa de ajuda? ${link ? `<a href="${esc(SUPORTE_CONTATO)}" target="_blank" rel="noopener">Fale com o suporte</a>` : `Escreva para <a href="mailto:${esc(SUPORTE_CONTATO)}">${esc(SUPORTE_CONTATO)}</a>`}.</p>`;
 };
+/**
+ * Mudar o nome de uma categoria ou caixinha. Tudo o que já usa o nome antigo passa para o novo:
+ * lançamentos, contas fixas, a meta, o limite e a foto. Se o nome novo já existe, junta as duas.
+ */
+function renomearCategoria(tipo, antigo, depois = ajustes) {
+  const caixa = tipo === "Reserva", oque = caixa ? "caixinha" : "categoria";
+  const usam = S.data.lancamentos.filter((x) => x.tipo === tipo && x.categoria === antigo).length
+    + (tipo === "Reserva" ? 0 : S.data.fixos.filter((f) => (f.tipo === "Receita" ? "Receita" : "Despesa") === tipo && f.categoria === antigo).length);
+  openDlg(`<h3>Mudar o nome da ${oque}</h3>
+    <form id="rnForm" class="dlg-form" autocomplete="off">
+      <label class="f wide">Novo nome<input class="in" id="rnNome" required maxlength="40" value="${esc(antigo)}"></label>
+      <p class="hint wide" style="margin:0">${usam ? `${usam === 1 ? "1 lançamento usa" : `${usam} lançamentos e contas usam`} <b>${esc(antigo)}</b>: ${usam === 1 ? "ele passa" : "todos passam"} para o nome novo.` : `Nenhum lançamento usa <b>${esc(antigo)}</b> ainda.`}${caixa && metasDe()[antigo] ? " A meta vai junto." : ""}</p>
+      <p class="auth-msg err wide" id="rnMsg"></p>
+      <div class="actions wide"><button class="btn primary" type="submit">Salvar nome</button><button class="btn" type="button" id="rnVoltar">Voltar</button></div></form>`);
+  const inp = $("rnNome"); inp.focus(); inp.select();
+  $("rnVoltar").onclick = () => depois();
+  $("rnForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const novo = inp.value.trim().replace(/\s+/g, " ");
+    if (!novo) { $("rnMsg").textContent = "Escreva o nome."; return inp.focus(); }
+    if (novo === antigo) return depois();
+    const l = cats(tipo), igual = l.find((c) => c !== antigo && norm(c) === norm(novo));
+    const destino = igual || novo;
+    if (igual && !$("rnForm").dataset.junta) {
+      $("rnForm").dataset.junta = "1";
+      $("rnMsg").textContent = `Já existe ${igual}. Toque em Salvar nome de novo para juntar ${antigo} com ${igual}.`; return;
+    }
+    const btn = $("rnForm").querySelector("[type=submit]"); btn.disabled = true; btn.textContent = "Salvando…";
+    const lancs = S.data.lancamentos.filter((x) => x.tipo === tipo && x.categoria === antigo);
+    const fixos = tipo === "Reserva" ? [] : S.data.fixos.filter((f) => (f.tipo === "Receita" ? "Receita" : "Despesa") === tipo && f.categoria === antigo);
+    const ok = await grava(async () => {
+      for (const x of lancs) { await S.store.updateLancamento(x.id, { categoria: destino }); x.categoria = destino; }
+      for (const f of fixos) { await S.store.updateFixo(f.id, { categoria: destino }); f.categoria = destino; }
+    });
+    if (!ok) { btn.disabled = false; btn.textContent = "Salvar nome"; render(); return; }
+    // A lista fica na mesma ordem, com o nome novo no lugar do antigo (ou some, se juntou com outra).
+    S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), [tipo]: igual ? l.filter((c) => c !== antigo) : l.map((c) => (c === antigo ? novo : c)) };
+    if (tipo === "Despesa" && S.prefs.limites?.[antigo] !== undefined) {
+      const lim = { ...S.prefs.limites }; if (lim[destino] === undefined) lim[destino] = lim[antigo]; delete lim[antigo]; S.prefs.limites = lim;
+    }
+    if (caixa && metasDe()[antigo]) { const ms = metasDe(); if (!ms[destino]) ms[destino] = ms[antigo]; delete ms[antigo]; }
+    const fa = S.prefs.fotos?.[chaveFoto(tipo, antigo)];
+    if (fa) { const f = { ...S.prefs.fotos }; if (!f[chaveFoto(tipo, destino)]) f[chaveFoto(tipo, destino)] = fa; delete f[chaveFoto(tipo, antigo)]; S.prefs.fotos = f; }
+    salvaPrefs(); render(); depois(destino);
+    toast(igual ? `${antigo} juntou com ${igual}.` : `Nome mudado: ${antigo} agora é ${novo}.`);
+  });
+}
 function ajustes() {
   const first = primeiroMes(S.data) || mKey(hoje()), cur = mKey(hoje()), meses = [];
   for (let m = first, i = 0; m <= cur && i < 120; m = addM(m, 1), i++) meses.push(m);
   const desde = S.prefs.saldoDesde && meses.includes(S.prefs.saldoDesde) ? S.prefs.saldoDesde : first;
   const ini = Number(S.prefs.saldoInicial) || 0;
   const bloco = (tipo, titulo) => `<div class="aj-sec"><h4>${titulo}</h4><div class="chips">${
-    cats(tipo).map((c) => `<span class="chip">${esc(c)}<button type="button" data-rm="${esc(c)}" data-tipo="${tipo}" aria-label="Remover ${esc(c)}">${ico("x")}</button></span>`).join("")}</div>
+    cats(tipo).map((c) => `<span class="chip"><button type="button" class="chip-nome" data-rn="${esc(c)}" data-tipo="${tipo}" aria-label="Mudar o nome de ${esc(c)}">${esc(c)}</button><button type="button" data-rm="${esc(c)}" data-tipo="${tipo}" aria-label="Remover ${esc(c)}">${ico("x")}</button></span>`).join("")}</div>
     <form class="aj-add" data-add="${tipo}" autocomplete="off"><input class="in" maxlength="30" placeholder="${tipo === "Reserva" ? "Novo destino" : "Nova categoria"}" aria-label="Adicionar em ${titulo.toLowerCase()}"><button class="btn" type="submit">Adicionar</button></form></div>`;
   openDlg(`<h3>Ajustes</h3>
     ${bloco("Despesa", "Categorias de gasto")}${bloco("Receita", "Categorias de entrada")}${bloco("Reserva", "Onde você guarda dinheiro")}
-    <p class="hint" style="margin:-4px 0 0">Remover uma categoria não apaga os lançamentos que já usam ela.</p>
+    <p class="hint" style="margin:-4px 0 0">Toque no nome para mudar. Remover uma categoria não apaga os lançamentos que já usam ela.</p>
     <div class="aj-sec"><h4>Aparência</h4>
       <label class="f">Tema<select class="in" id="ajTema"><option value="escuro">Escuro</option><option value="claro"${document.documentElement.dataset.tema === "claro" ? " selected" : ""}>Claro</option></select></label>
     </div>
@@ -3253,6 +3337,7 @@ function ajustes() {
     <div class="actions"><button class="btn primary" data-close>Pronto</button></div>`);
   const body = $("dlgBody");
   if ($("ajSenha")) { $("ajCasal").onclick = () => abrirCasal(); $("ajSenha").onclick = () => trocarSenha(ajustes); $("ajExcluir").onclick = () => excluirConta(ajustes); }
+  body.querySelectorAll("[data-rn]").forEach((b) => (b.onclick = () => renomearCategoria(b.dataset.tipo, b.dataset.rn)));
   body.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = async () => {
     const t = b.dataset.tipo, l = cats(t);
     if (l.length <= 1) return;
