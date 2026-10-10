@@ -3,7 +3,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PL
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
-  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
+  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
@@ -807,7 +807,7 @@ function renderKpis(c) {
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   $("verSobra").onclick = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
   }
-  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c);
+  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
   $("kpis").innerHTML = `
    <div class="kpi reserva" data-det="guardado" role="button" tabindex="0">${cab("cofre", "Caixinhas")}<span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
@@ -939,9 +939,73 @@ function renderMetas(c) {
   const MAX = 2, vis = l.slice(0, MAX);
   host.hidden = false;
   host.innerHTML = vis.map((a, i) => `<button type="button" class="teto meta${a.concluida ? " ok" : ""}" data-meta="${i}" aria-label="Meta ${esc(a.destino)}: ${a.pct}% guardado. Abrir">${cartaoDaMeta(a, textoDaSugestao(sugestaoDaMeta(a, c)))}</button>`).join("")
-    + (todas.length > vis.length ? `<button class="link" type="button" id="metasTodas">Ver as ${todas.length} metas</button>` : "");
+    + `<button class="link" type="button" id="metasTodas">${todas.length > 1 ? `Ver as ${todas.length} metas` : "Ver a meta em detalhe"}</button>`;
   host.querySelectorAll("[data-meta]").forEach((b) => (b.onclick = () => detalheMeta(vis[Number(b.dataset.meta)].destino)));
-  if ($("metasTodas")) $("metasTodas").onclick = () => detalheKpi("guardado");
+  $("metasTodas").onclick = () => todasAsMetas();
+}
+
+/** A situação da meta em palavras: se está no caminho ou se a pessoa precisa mudar o valor por mês ou a data. */
+function fraseDaSituacao(a) {
+  const s = situacaoDaMeta(a); if (!s) return null;
+  const vem = s.passo > 0 ? (a.plano > 0 ? `seu combinado é ${brl(s.passo)} por mês` : `você vem guardando ${brl(s.passo)} por mês`) : "";
+  switch (s.estado) {
+    case "completa": return { cls: "good", titulo: "Meta batida", frase: `Você juntou ${brl(a.guardado)}. Parabéns!` };
+    case "prazoPassou": return { cls: "bad", titulo: "A data passou", frase: `Ainda faltam ${brl(a.falta)}. Toque em Alterar e escolha uma data nova.` };
+    case "noPrazo": return { cls: "good", titulo: "No caminho", frase: `Para chegar até ${mesAno(a.ate)} são ${brl(s.porMes)} por mês, e ${vem}. Dá tempo.` };
+    case "atrasada": return { cls: "warn", titulo: "Precisa ajustar", frase: `Para chegar até ${mesAno(a.ate)} são ${brl(s.porMes)} por mês, mas ${vem}${a.previsao ? `: assim ela só fica pronta em ${mesAno(a.previsao)}` : ""}. Guarde ${brl(s.aMais)} a mais por mês ou mude a data.` };
+    case "semRitmo": return { cls: "info", titulo: "Comece a guardar", frase: `Para chegar até ${mesAno(a.ate)}, guarde ${brl(s.porMes)} por mês.` };
+    default: return { cls: "info", titulo: "Sem data", frase: textoDaMeta(a) + " Escolha até quando para saber quanto guardar por mês." };
+  }
+}
+/** A meta que aparece no início do celular: a que a pessoa escolheu, ou a de data mais próxima. */
+function metaPrincipal(todas) {
+  return todas.find((a) => a.destino === S.prefs.metaPrincipal) || todas.find((a) => !a.concluida) || todas[0] || null;
+}
+/** Início do celular: um quadro com a meta principal. Tocar abre todas as metas. */
+function renderMetaIni(c) {
+  const host = $("metaIni"), some = () => { host.hidden = true; host.innerHTML = ""; };
+  if (!S.loaded || c.fase !== "atual") return some();
+  const todas = metasEmAndamento(S.data, S.prefs.metas, hoje()), a = metaPrincipal(todas);
+  if (!a) return some();
+  const sit = fraseDaSituacao(a);
+  host.hidden = false;
+  host.innerHTML = `<button type="button" class="teto meta${a.concluida ? " ok" : ""}" id="metaIniBtn" aria-label="Meta ${esc(a.destino)}: ${a.pct}% guardado. Ver ${todas.length > 1 ? "todas as metas" : "a meta"}">
+    <span class="topo"><span class="l">${ico("cofre")}Meta: ${esc(a.destino)}</span><span class="pill ${sit.cls}">${sit.titulo}</span></span>
+    <span class="num"><b>${brl(a.guardado)}</b> de ${brl(a.alvo)} <em>${a.pct}%</em></span><span class="tbar mbar"><i style="width:${Math.max(0, a.pct)}%"></i></span>
+    <span class="n">${a.concluida ? sit.frase : `Faltam <b>${brl(a.falta)}</b>${a.ate && !a.prazoPassou ? ` · ${brl(a.porMes)} por mês até ${mesAno(a.ate)}` : !a.ate && a.previsao ? ` · guardando ${brl(a.plano > 0 ? a.plano : a.ritmo)} por mês, fica pronta em ${mesAno(a.previsao)}` : ""}.`}</span>
+    <span class="n ver">${todas.length > 1 ? `Ver as ${todas.length} metas` : "Ver a meta em detalhe"} ${ico("chev")}</span></button>`;
+  $("metaIniBtn").onclick = () => todasAsMetas();
+}
+/** Todas as metas, cada uma com quanto já guardou, quanto falta, quanto guardar por mês e se precisa mudar alguma coisa. */
+function todasAsMetas() {
+  const hj = hoje(), c = calcMes(S.data, mKey(hj), hj), todas = metasEmAndamento(S.data, S.prefs.metas, hj), princ = metaPrincipal(todas);
+  const linha = (rot, v) => `<div><dt>${rot}</dt><dd>${v}</dd></div>`;
+  openDlg(`<h3>Suas metas</h3>
+    ${todas.length ? `<p class="hint" style="margin:0 0 12px">A conta é simples: o que falta dividido pelos meses até a data. ${todas.length > 1 ? "A meta marcada aparece no início." : ""}</p>` : `<p class="hint">Você ainda não tem meta. Diga quanto quer juntar e até quando: o app calcula quanto guardar por mês.</p>`}
+    <div class="metas-todas">${todas.map((a, i) => {
+      const sit = fraseDaSituacao(a), dica = textoDaSugestao(sugestaoDaMeta(a, c)), s = situacaoDaMeta(a);
+      return `<article class="meta-card ${sit.cls}">
+        <header><b>${esc(a.destino)}</b><span class="pill ${sit.cls}">${sit.titulo}</span></header>
+        <span class="tbar mbar"><i style="width:${Math.max(0, a.pct)}%"></i></span>
+        <dl class="meta-nums">
+          ${linha("Já guardou", `<b>${brl(a.guardado)}</b> (${a.pct}%)`)}
+          ${linha("Meta", brl(a.alvo))}
+          ${linha("Falta", a.concluida ? "nada" : `<b>${brl(a.falta)}</b>`)}
+          ${linha("Até quando", a.ate ? mesAno(a.ate) : "sem data")}
+          ${a.ate && !a.concluida && !a.prazoPassou ? linha("Precisa por mês", `<b>${brl(a.porMes)}</b>`) : ""}
+          ${!a.concluida && s.passo > 0 ? linha(a.plano > 0 ? "Seu combinado" : "Vem guardando", `${brl(s.passo)} por mês`) : ""}
+          ${!a.concluida && a.previsao && (!a.ate || !a.noPrazo) ? linha("Nesse ritmo fica pronta", mesAno(a.previsao)) : ""}
+        </dl>
+        <p class="meta-sit">${sit.frase}</p>${dica ? `<p class="hint" style="margin:0">Este mês: ${dica}</p>` : ""}
+        <div class="meta-btns"><button class="btn sm primary" type="button" data-malt="${i}">Alterar</button>${a.concluida ? "" : `<button class="btn sm" type="button" data-mgu="${i}">Guardar</button>`}${todas.length > 1 ? (a === princ ? `<span class="meta-ini-tag">Aparece no início</span>` : `<button class="link" type="button" data-mini="${i}">Mostrar no início</button>`) : ""}</div>
+      </article>`;
+    }).join("")}</div>
+    <div class="actions"><button class="btn" type="button" id="metaNova">+ Nova meta</button><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  const body = $("dlgBody");
+  body.querySelectorAll("[data-malt]").forEach((b) => (b.onclick = () => detalheMeta(todas[Number(b.dataset.malt)].destino)));
+  body.querySelectorAll("[data-mgu]").forEach((b) => (b.onclick = () => { const a = todas[Number(b.dataset.mgu)], sg = sugestaoDaMeta(a, c); guardarParaMeta(a.destino, sg?.tipo === "guardar" ? sg.valor : 0); }));
+  body.querySelectorAll("[data-mini]").forEach((b) => (b.onclick = () => { S.prefs.metaPrincipal = todas[Number(b.dataset.mini)].destino; salvaPrefs(); render(); todasAsMetas(); toast(`${S.prefs.metaPrincipal} aparece no início.`); }));
+  $("metaNova").onclick = () => { const livre = cats("Reserva").find((k) => !metasDe()[k]); detalheMeta(livre || cats("Reserva")[0], true); };
 }
 
 /** Leva para o formulário de lançar já em Guardar, no destino da meta e com o valor sugerido. */
@@ -3277,6 +3341,7 @@ function renomearCategoria(tipo, antigo, depois = ajustes) {
       const lim = { ...S.prefs.limites }; if (lim[destino] === undefined) lim[destino] = lim[antigo]; delete lim[antigo]; S.prefs.limites = lim;
     }
     if (caixa && metasDe()[antigo]) { const ms = metasDe(); if (!ms[destino]) ms[destino] = ms[antigo]; delete ms[antigo]; }
+    if (caixa && S.prefs.metaPrincipal === antigo) S.prefs.metaPrincipal = destino;
     const fa = S.prefs.fotos?.[chaveFoto(tipo, antigo)];
     if (fa) { const f = { ...S.prefs.fotos }; if (!f[chaveFoto(tipo, destino)]) f[chaveFoto(tipo, destino)] = fa; delete f[chaveFoto(tipo, antigo)]; S.prefs.fotos = f; }
     salvaPrefs(); render(); depois(destino);

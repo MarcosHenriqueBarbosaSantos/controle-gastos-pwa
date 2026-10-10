@@ -1,7 +1,7 @@
 // Testes das metas do dinheiro guardado: andamento, previsão, quanto guardar por mês, sugestão com a sobra e lembretes.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RETIRADA, calcMes, andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, lembreteDaMeta, combinadosDoMes, parabensDaMeta } from "../js/calc.js";
+import { RETIRADA, calcMes, andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, lembreteDaMeta, combinadosDoMes, parabensDaMeta, situacaoDaMeta } from "../js/calc.js";
 import * as regras from "../supabase/functions/avisos/regras.js";
 
 const HOJE = "2026-10-20", RES = "Reserva de emergência";
@@ -185,4 +185,17 @@ test("servidor e app fazem a mesma conta da meta", () => {
   assert.deepEqual(regras.metasEmAndamento(st, metas, HOJE), metasEmAndamento(st, metas, HOJE));
   st.lancamentos.push(G("2026-10-19", 600));
   assert.deepEqual(regras.parabensDaMeta(st, metas, HOJE), parabensDaMeta(st, metas, HOJE));
+});
+
+test("situação da meta: diz se está no prazo, atrasada ou se a data passou", () => {
+  const sit = (m, st = base()) => situacaoDaMeta(andamentoDaMeta(st, RES, m, HOJE));
+  assert.deepEqual(sit({ valor: 3000, ate: "2026-12" }), { estado: "atrasada", passo: 300, porMes: 700, aMais: 400 });
+  assert.deepEqual(sit({ valor: 3000, ate: "2027-12" }), { estado: "noPrazo", passo: 300, porMes: 140 });
+  assert.equal(sit({ valor: 3000, ate: "2026-08" }).estado, "prazoPassou");
+  assert.equal(sit({ valor: 3000 }).estado, "semData");
+  assert.equal(sit({ valor: 500 }).estado, "completa");
+  assert.deepEqual(sit({ valor: 3000, ate: "2027-12" }, base([])), { estado: "semRitmo", passo: 0, porMes: 200 });
+  // com combinado, o passo é o combinado
+  assert.equal(sit({ valor: 3000, ate: "2026-12", plano: { valor: 800, dia: 5 } }).estado, "noPrazo");
+  assert.equal(situacaoDaMeta(null), null);
 });

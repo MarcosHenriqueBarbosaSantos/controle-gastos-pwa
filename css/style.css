@@ -1020,3 +1020,14 @@ body.salvando #dlg button[type="submit"],body.salvando #dlg .btn.primary:not([da
 @media (max-width:560px){.meta-inline-campos{grid-template-columns:1fr}}
 .meta-conta{margin:0;font-size:14px}
 .chip-nome{background:none;border:0;padding:4px 2px;font:inherit;color:inherit;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px;min-height:32px}
+.meta-ini .teto .ver{display:flex;align-items:center;gap:4px;color:var(--brand);font-weight:600}
+.meta-ini .teto .ver .ic{width:16px;height:16px}
+.metas-todas{display:grid;gap:12px;margin-bottom:12px}
+.meta-card{display:grid;gap:10px;padding:14px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface)}
+.meta-card.warn{border-color:var(--warn)} .meta-card.bad{border-color:var(--bad)}
+.meta-card header{display:flex;justify-content:space-between;align-items:center;gap:8px} .meta-card header b{font-size:16px}
+.meta-nums{display:grid;grid-template-columns:1fr 1fr;gap:8px 12px;margin:0}
+.meta-nums div{display:grid;gap:1px} .meta-nums dt{font-size:12px;color:var(--muted)} .meta-nums dd{margin:0;font-size:14px}
+.meta-sit{margin:0;font-size:14px}
+.meta-btns{display:flex;flex-wrap:wrap;align-items:center;gap:8px}
+.meta-ini-tag{font-size:12px;color:var(--muted)}

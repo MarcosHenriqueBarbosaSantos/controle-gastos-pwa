@@ -547,6 +547,22 @@ export function andamentoDaMeta(st, destino, meta, hoje) {
   return { destino, alvo, guardado, falta, pct, marco, concluida, noMes, ritmo, mesesDeBase: janela.length, plano, diaDoPlano, pulou, previsao, ate, porMes, prazoPassou, noPrazo, ref, esteMes };
 }
 
+/**
+ * Situação da meta em uma palavra, para dizer à pessoa se precisa mudar alguma coisa:
+ * "completa" | "prazoPassou" | "atrasada" (no passo atual não chega na data) | "noPrazo" | "semRitmo" (tem data, ainda não guardou) | "semData".
+ * passo = o combinado por mês ou, sem ele, a média dos últimos meses. aMais = quanto a mais por mês para chegar na data.
+ */
+export function situacaoDaMeta(a) {
+  if (!a) return null;
+  const passo = a.plano > 0 ? a.plano : a.ritmo;
+  if (a.concluida) return { estado: "completa", passo };
+  if (a.prazoPassou) return { estado: "prazoPassou", passo };
+  if (!a.ate) return { estado: "semData", passo };
+  if (!(passo > 0)) return { estado: "semRitmo", passo, porMes: a.porMes };
+  if (a.noPrazo) return { estado: "noPrazo", passo, porMes: a.porMes };
+  return { estado: "atrasada", passo, porMes: a.porMes, aMais: round2(Math.max(0, a.porMes - passo)) };
+}
+
 /** Todas as metas com valor, com o andamento de cada uma: primeiro as que ainda faltam (as com data mais próxima na frente). */
 export function metasEmAndamento(st, metas, hoje) {
   return Object.entries(metas || {}).map(([destino, m]) => andamentoDaMeta(st, destino, m, hoje)).filter(Boolean)
