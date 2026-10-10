@@ -233,7 +233,7 @@ export function buildWorkbook(XLSX, st, ano, calcMes, hoje) {
     .forEach((c) => C.push([c.cartao, br(c.vencimento), c.valor, c.status, c.valor_fixo ? "Calculada pelo app (valor corrigido)" : "Calculada pelo app"])));
   const K = [["Cartão", "Fecha no dia", "Vence no dia", "Ativo?"]];
   cartoes.forEach((k) => K.push([k.nome, k.fechamento, k.vencimento, k.ativo === false ? "Não" : "Sim"]));
-  const R = [["Mês", "Entradas", "Gastos do dia a dia (fora do cartão)", "Gastos fixos (fora do cartão)", "Faturas de cartão", "Custo do mês", "Guardado no mês", "Saldo"]];
+  const R = [["Mês", "Entradas", "Gastos do dia a dia (fora do cartão)", "Contas fixas (fora do cartão)", "Faturas de cartão", "Custo do mês", "Guardado no mês", "Saldo"]];
   MES3.forEach((nome, i) => {
     const c = calcMes(st, `${ano}-${pad(i + 1)}`, hoje);
     R.push([`${nome}/${ano}`, c.rec, c.vari, c.fxCusto, c.fatT, c.custo, c.res, c.saldo]);

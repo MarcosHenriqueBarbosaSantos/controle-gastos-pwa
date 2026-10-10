@@ -43,7 +43,7 @@ button{cursor:pointer}
 /* ---------- estrutura e topo ---------- */
 .wrap{max-width:1120px;margin:0 auto;padding-inline:20px;padding-block:22px 56px;display:grid;grid-template-columns:minmax(0,1fr);gap:20px}   /* a coluna pode encolher: nada empurra a tela para o lado */
 .top{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between}
-.eyebrow{font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;font-family:var(--mono)}
+.eyebrow{font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-weight:600;font-family:var(--mono)}
 .monthnav{display:flex;align-items:center;gap:6px;margin-top:2px}
 .monthnav h1{font-family:var(--display);font-size:28px;margin:0;font-weight:700;letter-spacing:-.02em;min-width:9.5ch;text-align:center;text-transform:capitalize}
 .iconbtn{width:36px;height:36px;border-radius:50%;border:1px solid var(--border);background:var(--surface);font-size:18px;line-height:1;display:grid;place-items:center;color:var(--ink-2);transition:background .15s,color .15s}
@@ -78,7 +78,7 @@ input.money{font-variant-numeric:tabular-nums;font-weight:600}
 .flash{font-size:12.5px;color:var(--good);min-height:18px}
 .pill{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:600;padding:3px 9px;border-radius:999px;width:fit-content}
 .pill.bad{background:var(--bad-soft);color:var(--bad)} .pill.good{background:var(--good-soft);color:var(--good)} .pill.warn{background:var(--warn-soft);color:var(--warn)}
-.tag{font-size:11px;color:var(--ink-2);background:var(--sunk);border:1px solid var(--border);border-radius:6px;padding:1px 6px;white-space:nowrap;font-weight:500}
+.tag{font-size:12px;color:var(--ink-2);background:var(--sunk);border:1px solid var(--border);border-radius:6px;padding:1px 6px;white-space:nowrap;font-weight:500}
 .pos{color:var(--good)} .res{color:var(--series)} .txt-bad{color:var(--bad)}
 .empty{color:var(--muted);font-size:13px;padding:22px 12px;text-align:center;border:1px dashed var(--border);border-radius:var(--r-sm)}
 .aviso{font-size:13px;color:var(--warn);background:var(--warn-soft);border-radius:var(--r-sm);padding:10px 12px;margin:10px 0 0}
@@ -167,7 +167,7 @@ input.money{font-variant-numeric:tabular-nums;font-weight:600}
 .resumo3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 16px 0;background:var(--surface);border-radius:18px;padding:12px 8px 10px;box-shadow:var(--shadow-sm);border:1px solid var(--border)}
 .resumo3>button{display:grid;gap:1px;align-content:start;border:0;background:none;text-align:left;padding:4px 8px;color:var(--ink);border-radius:10px}
 .resumo3>button:active{background:var(--sunk)}
-.resumo3 small{font-size:11.5px;color:var(--muted)} .resumo3 b{font-size:15.5px;font-weight:700}
+.resumo3 small{font-size:12.5px;color:var(--muted)} .resumo3 b{font-size:15.5px;font-weight:700}
 .resumo3 .pos{color:var(--good)} .resumo3 .neg{color:var(--bad)}
 .resumo3-links{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 16px;padding:8px 8px 0;margin-top:4px;border-top:1px solid var(--border);font-size:13px}
 /* bloqueio com a digital ou o rosto */
@@ -193,7 +193,7 @@ body.travado{overflow:hidden}
 .caixa .capa{height:86px;display:grid;place-items:center;background-size:cover;background-position:center;color:#fff}
 .caixa .capa b{font-size:30px;font-weight:700;opacity:.9}
 .caixa .info{display:grid;gap:3px;padding:10px 12px 12px} .caixa .nome{font-size:14px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.caixa .vv{font-size:17px;font-weight:700} .caixa small{font-size:11.5px;color:var(--muted)}
+.caixa .vv{font-size:17px;font-weight:700} .caixa small{font-size:12.5px;color:var(--muted)}
 .caixa .pbar{height:5px;border-radius:999px;background:var(--sunk);overflow:hidden} .caixa .pbar i{display:block;height:100%;background:var(--good);border-radius:999px}
 .caixa.nova{border-style:dashed;box-shadow:none} .caixa.nova .capa{background:var(--sunk);color:var(--muted)}
 .caixa-capa{height:150px;margin:-6px 0 12px;border-radius:16px;background:var(--navy,#1e5fbf);background-size:cover;background-position:center;display:flex;align-items:flex-end;padding:12px 14px;color:#fff;clear:both}
@@ -210,7 +210,7 @@ body.travado{overflow:hidden}
 .foto-linha .ava{width:42px;height:42px;border-radius:12px;display:grid;place-items:center;background:var(--sunk)} .foto-linha small{display:block;font-size:12px;color:var(--muted);font-weight:400}
 .mini-foto{float:left;width:30px;height:30px;border-radius:9px;margin:2px 10px 0 0;background-size:cover;background-position:center}
 /* tipo em letras pequenas no extrato, e o efeito do gasto no lançar */
-.sub .tp{font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-right:6px}
+.sub .tp{font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-right:6px}
 .efeito{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin:2px 0 0} .efeito b{color:var(--ink)}
 /* esconder os valores (o olho do topo) */
 body.ocultar .ocultavel,body.ocultar .kpi .v,body.ocultar .sobra-pl .v,body.ocultar .sobra-agora b{filter:blur(9px);user-select:none}
@@ -377,7 +377,7 @@ button.teto{cursor:pointer} button.teto:hover{border-color:var(--series)}
 .venc li{display:grid;grid-template-columns:50px minmax(0,1fr) auto auto auto;gap:16px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:10px 16px 10px 10px;box-shadow:var(--shadow-sm)}
 .venc .dt{display:grid;justify-items:center;gap:0;background:var(--sunk);border-radius:12px;padding:7px 0 6px}
 .venc .dt b{font-family:var(--display);font-size:20px;line-height:1.05;font-weight:800}
-.venc .dt span{font-family:var(--mono);font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.venc .dt span{font-family:var(--mono);font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
 .venc li[data-u="bad"] .dt{background:var(--bad-soft)} .venc li[data-u="bad"] .dt b,.venc li[data-u="bad"] .dt span{color:var(--bad)}
 .venc li[data-u="warn"] .dt{background:var(--warn-soft)} .venc li[data-u="warn"] .dt b,.venc li[data-u="warn"] .dt span{color:var(--warn)}
 .venc .oque{display:grid;gap:1px;min-width:0}
@@ -461,7 +461,7 @@ button.teto{cursor:pointer} button.teto:hover{border-color:var(--series)}
 .evo-b i{display:block;width:min(18px,34%);border-radius:4px 4px 0 0;background:var(--series);transition:height .5s cubic-bezier(.2,.8,.2,1)}
 .evo-b i.ent{background:var(--entradas)}
 .evo-n{font-size:12px;color:var(--ink-2)}
-.evo-s{font-size:11.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+.evo-s{font-size:12.5px;font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
 .evo-s.neg{color:var(--bad)}
 .evo-nota{margin:6px 0 0;font-size:12px}
 @media (prefers-reduced-motion:reduce){.evo-b i{transition:none}}
@@ -472,12 +472,12 @@ button.teto{cursor:pointer} button.teto:hover{border-color:var(--series)}
 .cal-nav{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 0 6px} .cal-nav b{font-size:16px} .cal-nav b::first-letter{text-transform:uppercase}
 .cal-res{margin:0 0 10px;font-size:13px} .cal-res b{color:var(--ink)}
 .cal{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px}
-.cal-s{text-align:center;font-size:11.5px;color:var(--muted);padding:2px 0}
+.cal-s{text-align:center;font-size:12px;color:var(--muted);padding:2px 0}
 .cal-d{position:relative;display:grid;align-content:start;justify-items:center;gap:1px;min-height:50px;padding:5px 2px;border:1px solid transparent;border-radius:10px;background:var(--sunk);color:var(--ink);font-variant-numeric:tabular-nums}
 .cal-d .n{font-size:13.5px;font-weight:600}
-.cal-d .m{display:flex;align-items:center;gap:2px;font-size:10.5px;color:var(--ink-2);white-space:nowrap}
+.cal-d .m{display:flex;align-items:center;gap:2px;font-size:11.5px;color:var(--ink-2);white-space:nowrap}
 .cal-d .m i,.cal-leg i,.cal-lista .q i{font-style:normal;font-weight:700}
-.cal-d .e{position:absolute;top:2px;right:5px;font-size:11px;font-weight:700;color:var(--good)}
+.cal-d .e{position:absolute;top:2px;right:5px;font-size:12px;font-weight:700;color:var(--good)}
 .cal-d.hoje{border-color:var(--series)} .cal-d.sel{background:var(--series-soft);border-color:var(--series)}
 .cal-d:hover{border-color:var(--border)}
 .s-atrasada i{color:var(--bad)} .s-hoje i,.s-a-vencer i{color:var(--warn)} .s-paga i{color:var(--good)} .s-entra i{color:var(--good)}
@@ -540,7 +540,7 @@ button.teto{cursor:pointer} button.teto:hover{border-color:var(--series)}
 .tabs button[aria-selected="true"]{color:var(--ink);background:var(--surface-2);box-shadow:var(--shadow-sm)}
 .tbl{overflow-x:auto}
 table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
-th{text-align:left;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--grid);white-space:nowrap}
+th{text-align:left;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--grid);white-space:nowrap}
 th.num{text-align:right}
 td{padding:9px 8px;border-bottom:1px solid var(--grid);vertical-align:middle}
 tbody tr{transition:background .12s} tbody tr:hover{background:var(--surface-2)}
@@ -897,7 +897,7 @@ input.in.cod::placeholder{color:var(--axis)}
   /* barra de navegação */
   .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
     border-top:1px solid var(--border);padding:4px 6px env(safe-area-inset-bottom,0px)}
-  .bnav button{border:0;background:none;display:grid;justify-items:center;align-content:center;gap:3px;min-height:60px;font-size:11px;font-weight:500;color:var(--muted);padding:6px 0}
+  .bnav button{border:0;background:none;display:grid;justify-items:center;align-content:center;gap:3px;min-height:60px;font-size:12px;font-weight:500;color:var(--muted);padding:6px 0}
   .bnav svg{width:22px;height:22px;box-sizing:content-box;padding:3px 14px;border-radius:999px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:background .15s}
   .bnav button[aria-current="page"]{color:var(--ink);font-weight:600}
   .bnav button[aria-current="page"] svg{background:var(--series-soft);color:var(--series)}
@@ -907,7 +907,7 @@ input.in.cod::placeholder{color:var(--axis)}
   /* Barra de baixo com cara de banco: 5 itens iguais, todos com nome; a aba ativa ganha um traço no topo.
      O Lançar fica no meio, num quadrado escuro, no mesmo alinhamento dos outros (nada flutuando por cima). */
   :root[data-tema="claro"] .bnav{background:#ffffff;backdrop-filter:none;-webkit-backdrop-filter:none;border-top:1px solid var(--border);padding:0 4px env(safe-area-inset-bottom,0px)}
-  .bnav button{position:relative;min-height:64px;font-size:11.5px}
+  .bnav button{position:relative;min-height:64px;font-size:12.5px}
   .bnav svg{padding:0;width:23px;height:23px}
   .bnav button>svg{margin-block:4.5px}   /* mesma altura do quadrado do Lançar: os nomes ficam na mesma linha */
   .bnav button[aria-current="page"] svg{background:none;color:currentColor}
@@ -958,6 +958,59 @@ body.salvando #dlg button[type="submit"],body.salvando #dlg .btn.primary:not([da
   .venc li{padding:11px 12px;gap:4px 12px}
   .venc .dt{padding:5px 0 4px} .venc .dt b{font-size:17px}
   .venc .oque b{font-size:14.5px} .venc .oque span{font-size:12.5px}
-  .venc .quando{padding:3px 9px;font-size:11.5px}
+  .venc .quando{padding:3px 9px;font-size:12.5px}
   .venc .btn.sm{min-height:32px;padding:3px 12px;font-size:13px}
 }
+
+/* v55 — área de toque de pelo menos 44 px nos botões pequenos, sem mudar o desenho:
+   a área extra é invisível (pseudo-elemento), então o layout continua igual. */
+.link,.btn.sm,.monthnav .iconbtn{position:relative}
+.link::after{content:"";position:absolute;inset:-8px -6px}
+.link + .link::after,.link + br + .link::after{top:-2px}
+.btn.sm::after{content:"";position:absolute;inset:-6px -2px}
+.monthnav .iconbtn::after{content:"";position:absolute;inset:-6px}
+/* v55 — tema claro: os ícones da tela Mais ficavam brancos em fundo branco (a regra geral de .ava pinta o fundo
+   com --c, que essas linhas não definem). Aqui eles voltam para o azul suave, como Entradas fixas e Cartões. */
+:root[data-tema="claro"] .mais-item .ava:not(.in):not(.res):not(.card):not(.aviso),
+:root[data-tema="claro"] .mais-quem .ava:not(.in):not(.res):not(.card):not(.foto){background:var(--series-soft);color:var(--series)}
+:root[data-tema="claro"] .mais-item .ava.aviso:not(.in){background:var(--warn-soft);color:var(--warn)}
+:root[data-tema="claro"] .inst-card .ava:not(.in):not(.res):not(.card){background:var(--btn);color:#fff}
+
+/* v55 — Análise do mês: no celular, o Início fica só com o que se usa todo dia (resumo, lançar, contas que vencem e o seu dia).
+   Gráficos, categorias, últimos meses, limite, metas e os quadros de totais vão para a tela Análise (Planejar → Análise do mês). */
+.analise-topo,.ir-analise{display:none}
+@media (max-width:700px){
+  .wrap[data-view="inicio"] .v-analise{display:none!important}
+  .wrap[data-view="analise"] .v-inicio:not(.v-analise),.wrap[data-view="analise"] .v-listas,.wrap[data-view="analise"] .v-mais{display:none!important}
+  .wrap[data-view="analise"] .analise-topo{display:flex;align-items:center;gap:12px;padding:4px 2px 2px}
+  .analise-topo h2{margin:0;font-size:20px;font-family:var(--display)}
+  .wrap[data-view="inicio"] .ir-analise{display:block}
+  .ir-analise .mais-item,.pl-analise .mais-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);box-shadow:var(--shadow-sm)}
+  .pl-analise{margin:0 0 14px}
+}
+@media (min-width:701px){.pl-analise{display:none}}
+
+/* v55 — Lançar mais rápido */
+.data-f{display:grid;gap:6px;grid-column:1/-1}
+.dia-chips button{white-space:nowrap}
+.dia-chips{display:grid;grid-template-columns:repeat(3,1fr)}
+.dia-chips button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm);font-weight:700}
+.data-f #fData:not([hidden]){margin-top:2px}
+@media (max-width:700px){
+  /* Falar e Foto menores: o valor fica no centro da tela */
+  .quick-head .btn.ler.voz{margin-right:0}
+  .quick-head .btn.ler{flex:0 1 auto;min-height:38px;padding:7px 14px;font-size:13.5px;border-radius:999px;gap:6px}
+  .quick-head .btn.ler .ic{width:16px;height:16px}
+}
+/* v55 — demonstração: faixa fina no topo, com Criar conta */
+.banner.fina{display:flex;flex-wrap:wrap;align-items:center;gap:4px 14px;padding:8px 14px;font-size:13px;min-height:0}
+.banner.fina[hidden]{display:none}
+.banner.fina span{flex:1 1 auto}
+.banner.fina .link{font-size:13px}
+/* v55 — conta nova: convite no lugar dos R$ 0 */
+.hero-vazio .v.convite{font-size:30px;line-height:1.15;letter-spacing:-.02em}
+.hero-vazio .n{margin-top:6px}
+.convite-card{display:grid;gap:6px;margin:12px 16px 0;padding:16px;border-radius:var(--r);background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.convite-card span{color:var(--muted);font-size:14px}
+.convite-card .btn{margin-top:6px;justify-self:start}
+@media (min-width:701px){.convite-card{margin-inline:24px}}

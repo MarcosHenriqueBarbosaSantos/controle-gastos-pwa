@@ -53,7 +53,7 @@ export function montaAviso(p, urlApp, lim = null, meta = null) {
   const caixaDe = (x, fundo) => (x ? `<div style="margin:0 0 16px;padding:12px 14px;border-radius:8px;background:${fundo};border-left:4px solid ${x.cor}"><b style="color:${x.cor}">${esc(x.titulo)}</b><br><span style="font-size:14px">${esc(x.frase)}</span></div>` : "");
   const caixa = caixaDe(lim, "#fdf3e1") + caixaDe(meta, meta?.fundo);
   const rodape = "Para deixar de receber, abra o app e desmarque em Ajustes &rarr; Avisos de contas ou na aba Limites.";
-  const sairDaMeta = "Para deixar de receber os recados da meta, abra o app, toque em Dinheiro guardado, abra a meta e desmarque os recados.";
+  const sairDaMeta = "Para deixar de receber os recados da meta, abra o app, toque em Planejar, abra a caixinha da meta e desmarque os recados.";
   const recados = [lim, meta].filter(Boolean);
   if (!p.itens.length && recados.length) {   // só o limite ou a meta, sem conta para vencer
     const um = recados[0], botao = lim ? "Abrir o app e ver para onde foi o dinheiro" : meta.botao;

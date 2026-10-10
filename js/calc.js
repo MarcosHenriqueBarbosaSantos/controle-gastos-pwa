@@ -1018,6 +1018,37 @@ export function mesmoFixo(a, b) {
   return mesmoDia || descricaoParecida(a.descricao, b.descricao);
 }
 /** O lançamento que já existe e parece ser o mesmo que `novo` (o mais próximo na data), ou null. */
+/**
+ * Valor muito acima do costume, provável erro de digitação (3890 em vez de 38,90).
+ * Compara com o maior gasto da mesma categoria nos últimos 6 meses (ou de todas, se a categoria é nova).
+ * Só avisa a partir de R$ 1.000 e quando o valor passa de 5 vezes esse maior gasto.
+ * @returns {null | {maior: number, sugestao: number|null}} sugestao = o valor dividido por 100, quando parece faltar a vírgula
+ */
+/**
+ * A forma de pagamento que a pessoa mais usou nos gastos dos últimos 90 dias (fora o cartão de crédito sem cartão cadastrado).
+ * Serve para o formulário de lançar já abrir com ela marcada. Sem histórico suficiente (menos de 3 gastos), devolve null.
+ */
+export function formaMaisUsada(lancs, hojeISO, formas = FORMAS) {
+  const d = new Date(hojeISO + "T12:00:00"); d.setDate(d.getDate() - 90);
+  const desde = toISO(d), conta = new Map();
+  for (const x of lancs || []) if (x.tipo === "Despesa" && x.data >= desde && formas.includes(x.forma)) conta.set(x.forma, (conta.get(x.forma) || 0) + 1);
+  const total = [...conta.values()].reduce((a, b) => a + b, 0);
+  if (total < 3) return null;
+  return [...conta.entries()].sort((a, b) => b[1] - a[1] || formas.indexOf(a[0]) - formas.indexOf(b[0]))[0][0];
+}
+export function valorForaDoComum(lancs, novo, hojeISO, texto = "") {
+  if (!novo || novo.tipo !== "Despesa" || !(novo.valor >= 1000)) return null;
+  const desde = addM(mKey(hojeISO), -6) + "-01";
+  const antes = (lancs || []).filter((x) => x.tipo === "Despesa" && x.data >= desde && Number(x.valor) > 0);
+  const daCat = antes.filter((x) => x.categoria === novo.categoria);
+  const base = daCat.length >= 3 ? daCat : antes;
+  if (base.length < 3) return novo.valor >= 10000 ? { maior: 0, sugestao: null } : null;
+  const maior = Math.max(...base.map((x) => Number(x.valor)));
+  if (novo.valor <= Math.max(1000, maior * 5)) return null;
+  const semVirgula = !/[,.]/.test(String(texto).trim());
+  const cem = round2(novo.valor / 100);
+  return { maior: round2(maior), sugestao: semVirgula && cem >= 1 && cem <= maior * 2 ? cem : null };
+}
 export function lancamentoRepetido(lancs, novo) {
   return lancs.filter((x) => x.id !== novo.id && mesmoLancamento(x, novo))
     .sort((a, b) => Math.abs(diasEntre(a.data, novo.data)) - Math.abs(diasEntre(b.data, novo.data)))[0] || null;
