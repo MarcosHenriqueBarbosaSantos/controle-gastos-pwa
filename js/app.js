@@ -3,7 +3,7 @@ import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PL
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
-  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
+  andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
@@ -1150,7 +1150,8 @@ async function pularCombinado(x) {
  * lançamento por lançamento, com o ritmo pelo andamento do mês. Fica no topo do Planejar.
  */
 function htmlSobra(c) {
-  const s = sobraDoMes(c), mes = nomeMes(S.mes), atual = c.fase === "atual";
+  const metasMes = c.fase === "atual" && S.loaded ? metasAGuardarNoMes(S.data, S.prefs.metas, hoje()) : 0, contaMetas = metasMes > 0 && S.prefs.metasNoCusto === true;
+  const s = sobraDoMes(c, contaMetas ? metasMes : 0), mes = nomeMes(S.mes), atual = c.fase === "atual";
   if (!S.loaded) return "";
   if (!(s.entra > 0)) return `<section class="sobra-pl"><h2>O que sobra para viver ${mes}</h2>
     <p class="hint">Para o app mostrar o que sobra do salário depois das contas, cadastre o que entra todo mês (o salário, por exemplo) em <b>Entradas fixas</b>.</p>
@@ -1162,6 +1163,8 @@ function htmlSobra(c) {
     ${linha("− Contas fixas", "aluguel, internet e o que se repete, pagas ou não", "− " + brl(s.fixos))}
     ${s.faturas ? linha("− Faturas do cartão", "as que vencem neste mês", "− " + brl(s.faturas)) : ""}
     ${s.guardado ? linha("− Guardado", "reserva, investimentos e metas", "− " + brl(s.guardado)) : ""}
+    ${metasMes > 0 ? `<li class="opc${contaMetas ? "" : " desligada"}"><span><b>${contaMetas ? "− " : ""}Metas das caixinhas</b><small>falta guardar neste mês · opcional</small>
+      <label class="check sm"><input type="checkbox" id="sobraMetas" ${contaMetas ? "checked" : ""}> Contar na conta do mês</label></span><b class="v">${contaMetas ? "− " : ""}${brl(metasMes)}</b></li>` : ""}
     ${linha(`= Sobra para viver ${mes}`, "mercado, transporte, lazer: o dia a dia", brl(s.livre), "tot" + (s.livre <= 0 ? " neg" : ""))}</ul>`;
   if (s.livre <= 0) return `<section class="sobra-pl"><h2>O que sobra para viver ${mes}</h2>${cascata}
     <p class="sobra-aviso bad">As contas fixas e o que já tem dono passam das entradas: este mês não sobra nada para o dia a dia. Cada gasto novo aumenta o que falta.</p></section>`;
@@ -1190,6 +1193,11 @@ function htmlSobra(c) {
     ${ritmo}${porDia}${dd.length ? tempo : `<p class="hint">Nenhum gasto do dia a dia lançado ainda: a sobra está inteira.</p>`}
   </section>`;
 }
+$("pane-m").addEventListener("change", (e) => {
+  if (e.target.id !== "sobraMetas") return;
+  S.prefs.metasNoCusto = e.target.checked; salvaPrefs(); render();
+  toast(e.target.checked ? "As metas entram na conta do mês: a sobra já desconta o que falta guardar." : "As metas saíram da conta do mês.");
+});
 // Na aba Planejar: tocar num gasto da linha do tempo abre a edição; o botão do salário leva às Entradas fixas.
 $("pane-m").addEventListener("click", (e) => {
   const li = e.target.closest(".sobra-pl [data-ref]"); if (li) return abrirItem(JSON.parse(li.dataset.ref));

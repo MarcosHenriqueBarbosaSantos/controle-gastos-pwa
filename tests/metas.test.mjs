@@ -1,7 +1,7 @@
 // Testes das metas do dinheiro guardado: andamento, previsão, quanto guardar por mês, sugestão com a sobra e lembretes.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { RETIRADA, calcMes, andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, lembreteDaMeta, combinadosDoMes, parabensDaMeta, situacaoDaMeta } from "../js/calc.js";
+import { RETIRADA, calcMes, andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, lembreteDaMeta, combinadosDoMes, parabensDaMeta, situacaoDaMeta, metasAGuardarNoMes, sobraDoMes } from "../js/calc.js";
 import * as regras from "../supabase/functions/avisos/regras.js";
 
 const HOJE = "2026-10-20", RES = "Reserva de emergência";
@@ -198,4 +198,14 @@ test("situação da meta: diz se está no prazo, atrasada ou se a data passou", 
   // com combinado, o passo é o combinado
   assert.equal(sit({ valor: 3000, ate: "2026-12", plano: { valor: 800, dia: 5 } }).estado, "noPrazo");
   assert.equal(situacaoDaMeta(null), null);
+});
+
+test("metas no custo do mês (opcional): quanto falta guardar e a sobra descontando", () => {
+  const st = base();
+  assert.equal(metasAGuardarNoMes(st, { [RES]: { valor: 3000, ate: "2026-12" } }, HOJE), 700);
+  st.lancamentos.push(G("2026-10-10", 200));
+  assert.equal(metasAGuardarNoMes(st, { [RES]: { valor: 3000, ate: "2026-12" }, Viagem: { valor: 1000, ate: "2026-11" } }, HOJE), 1000);   // 500 + 500
+  const c = calcMes(st, "2026-10", HOJE), sem = sobraDoMes(c), com = sobraDoMes(c, 500);
+  assert.equal(com.aGuardar, 500); assert.equal(com.livre, Math.round((sem.livre - 500) * 100) / 100);
+  assert.equal(sobraDoMes(calcMes(st, "2026-08", HOJE), 500).aGuardar, 0);   // mês que já passou não muda
 });

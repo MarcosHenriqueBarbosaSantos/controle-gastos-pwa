@@ -547,6 +547,11 @@ export function andamentoDaMeta(st, destino, meta, hoje) {
   return { destino, alvo, guardado, falta, pct, marco, concluida, noMes, ritmo, mesesDeBase: janela.length, plano, diaDoPlano, pulou, previsao, ate, porMes, prazoPassou, noPrazo, ref, esteMes };
 }
 
+/** Quanto ainda falta guardar neste mês para todas as metas (o combinado, ou o valor por mês até a data, menos o que já foi guardado). */
+export function metasAGuardarNoMes(st, metas, hoje) {
+  return round2(metasEmAndamento(st, metas, hoje).filter((a) => !a.concluida && !a.pulou && a.esteMes > 0).reduce((t, a) => t + a.esteMes, 0));
+}
+
 /**
  * Situação da meta em uma palavra, para dizer à pessoa se precisa mudar alguma coisa:
  * "completa" | "prazoPassou" | "atrasada" (no passo atual não chega na data) | "noPrazo" | "semRitmo" (tem data, ainda não guardou) | "semData".
@@ -1115,14 +1120,15 @@ export function mesDaVez(f, n, limite = 240) {
  * `ideal` é quanto da sobra caberia ter usado até hoje, dividindo por igual pelos dias do mês.
  * A conta fecha com o resumo do início: resta = raioX(c).sobra.
  */
-export function sobraDoMes(c) {
-  const retirado = Math.max(0, -c.res), guardado = Math.max(0, c.res);
+export function sobraDoMes(c, metas = 0) {
+  // metas: o que ainda falta guardar neste mês para as metas das caixinhas. É opcional: só entra quando a pessoa pede.
+  const retirado = Math.max(0, -c.res), guardado = Math.max(0, c.res), aGuardar = c.fase === "atual" ? round2(Math.max(0, Number(metas) || 0)) : 0;
   const entra = round2(c.rec + retirado), fixos = round2(c.fxCusto), faturas = round2(c.fatT);
-  const comDono = round2(fixos + faturas + guardado), livre = round2(entra - comDono), usado = round2(c.vari), resta = round2(livre - usado);
+  const comDono = round2(fixos + faturas + guardado + aGuardar), livre = round2(entra - comDono), usado = round2(c.vari), resta = round2(livre - usado);
   const atual = c.fase === "atual", passados = atual ? c.dias : c.fase === "passado" ? c.n : 0, restam = atual ? c.n - c.dias + 1 : 0;
   const ideal = livre > 0 ? round2((livre * passados) / c.n) : 0;
   const porDia = atual && resta > 0 ? round2(resta / restam) : 0;
-  return { entra, retirado, fixos, faturas, guardado, comDono, livre, usado, resta, ideal, passados, restam, porDia, porSemana: round2(porDia * 7),
+  return { entra, retirado, fixos, faturas, guardado, aGuardar, comDono, livre, usado, resta, ideal, passados, restam, porDia, porSemana: round2(porDia * 7),
     pct: livre > 0 ? Math.round((usado / livre) * 100) : null, ritmo: !atual || livre <= 0 ? null : usado <= ideal ? "dentro" : "acima" };
 }
 
