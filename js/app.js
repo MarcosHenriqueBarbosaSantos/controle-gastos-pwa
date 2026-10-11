@@ -916,7 +916,7 @@ function recadoDaMeta(antes, depois, retirou) {
   if (depois.marco > (antes?.marco || 0)) return ` Você chegou a ${depois.marco}% da meta ${d}. ${depois.marco === 50 ? "Metade do caminho" : depois.marco === 75 ? "Falta pouco" : "Bom começo"}: faltam ${brl(depois.falta)}.`;
   return ` Meta ${d}: ${depois.pct}%, faltam ${brl(depois.falta)}. Mais um passo.`;
 }
-const cartaoDaMeta = (a, dica, cls = "") => `<span class="topo"><span class="l">${ico("cofre")}Meta: ${esc(a.destino)}</span><span class="pill ${a.concluida ? "good" : "info"}">${a.concluida ? "Completa" : a.pct + "%"}</span></span>
+const cartaoDaMeta = (a, dica, cls = "") => `<span class="topo"><span class="l">${ico("cofre")}Caixinha ${esc(a.destino)}</span><span class="pill ${a.concluida ? "good" : "info"}">${a.concluida ? "Completa" : a.pct + "%"}</span></span>
   <span class="num"><b>${brl(a.guardado)}</b> de ${brl(a.alvo)}</span><span class="tbar mbar${cls}"><i style="width:${Math.max(0, a.pct)}%"></i></span>
   <span class="n">${textoDaMeta(a)}</span>${dica ? `<span class="n dica">${dica}</span>` : ""}`;
 
@@ -939,7 +939,7 @@ function renderMetas(c) {
   const MAX = 2, vis = l.slice(0, MAX);
   host.hidden = false;
   host.innerHTML = vis.map((a, i) => `<button type="button" class="teto meta${a.concluida ? " ok" : ""}" data-meta="${i}" aria-label="Meta ${esc(a.destino)}: ${a.pct}% guardado. Abrir">${cartaoDaMeta(a, textoDaSugestao(sugestaoDaMeta(a, c)))}</button>`).join("")
-    + `<button class="link" type="button" id="metasTodas">${todas.length > 1 ? `Ver as ${todas.length} metas` : "Ver a meta em detalhe"}</button>`;
+    + `<button class="link" type="button" id="metasTodas">Ver todas as caixinhas</button>`;
   host.querySelectorAll("[data-meta]").forEach((b) => (b.onclick = () => detalheMeta(vis[Number(b.dataset.meta)].destino)));
   $("metasTodas").onclick = () => todasAsMetas();
 }
@@ -969,23 +969,57 @@ function renderMetaIni(c) {
   if (!a) return some();
   const sit = fraseDaSituacao(a);
   host.hidden = false;
-  host.innerHTML = `<button type="button" class="teto meta${a.concluida ? " ok" : ""}" id="metaIniBtn" aria-label="Meta ${esc(a.destino)}: ${a.pct}% guardado. Ver ${todas.length > 1 ? "todas as metas" : "a meta"}">
-    <span class="topo"><span class="l">${ico("cofre")}Meta: ${esc(a.destino)}</span><span class="pill ${sit.cls}">${sit.titulo}</span></span>
+  host.innerHTML = `<button type="button" class="teto meta${a.concluida ? " ok" : ""}" id="metaIniBtn" aria-label="Caixinha ${esc(a.destino)}: ${a.pct}% da meta. Ver todas as caixinhas">
+    <span class="topo"><span class="l">${ico("cofre")}Caixinha ${esc(a.destino)}</span><span class="pill ${sit.cls}">${sit.titulo}</span></span>
     <span class="num"><b>${brl(a.guardado)}</b> de ${brl(a.alvo)} <em>${a.pct}%</em></span><span class="tbar mbar"><i style="width:${Math.max(0, a.pct)}%"></i></span>
     <span class="n">${a.concluida ? sit.frase : `Faltam <b>${brl(a.falta)}</b>${a.ate && !a.prazoPassou ? ` · ${brl(a.porMes)} por mês até ${mesAno(a.ate)}` : !a.ate && a.previsao ? ` · guardando ${brl(a.plano > 0 ? a.plano : a.ritmo)} por mês, fica pronta em ${mesAno(a.previsao)}` : ""}.`}</span>
-    <span class="n ver">${todas.length > 1 ? `Ver as ${todas.length} metas` : "Ver a meta em detalhe"} ${ico("chev")}</span></button>`;
+    <span class="n ver">Ver todas as caixinhas ${ico("chev")}</span></button>`;
   $("metaIniBtn").onclick = () => todasAsMetas();
+}
+/** Nova caixinha: o nome é a pessoa que escolhe; a meta (quanto e até quando) pode vir junto, já com a conta por mês. */
+function novaCaixinha() {
+  const cur = mKey(hoje()), meses = Array.from({ length: 121 }, (_, i) => addM(cur, i));
+  openDlg(`<h3>Nova caixinha</h3>
+    <form id="ncForm" class="dlg-form" autocomplete="off">
+      <label class="f wide">Nome da caixinha<input class="in" id="ncNome" required maxlength="40" placeholder="Ex.: Viagem, Carro, Reforma"></label>
+      <label class="f">Quanto quer juntar (opcional, R$)<input class="in money" id="ncValor" inputmode="decimal" placeholder="Ex.: 6.000,00"></label>
+      <label class="f">Até quando (opcional)<select class="in" id="ncAte"><option value="">Sem data</option>${meses.map((m) => `<option value="${m}">${mesAno(m)}</option>`).join("")}</select></label>
+      <p class="hint wide meta-conta" id="ncConta" aria-live="polite"></p>
+      <p class="auth-msg err wide" id="ncMsg"></p>
+      <div class="actions wide"><button class="btn primary" type="submit">Criar caixinha</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
+  $("ncNome").focus();
+  const conta = () => {
+    const v = parseMoney($("ncValor").value), ate = $("ncAte").value, host = $("ncConta");
+    if (!(v > 0)) { host.textContent = ""; return; }
+    const a = andamentoDaMeta(S.data, $("ncNome").value.trim() || "\u0000", { valor: round2(v), ate }, hoje());
+    host.innerHTML = ate && a?.porMes ? `Para juntar ${brl(v)} até <b>${mesAno(ate)}</b>, guarde mais ou menos <b>${brl(a.porMes)} por mês</b>.` : "Escolha até quando para ver quanto guardar por mês.";
+  };
+  $("ncValor").addEventListener("input", conta); $("ncAte").onchange = conta;
+  $("ncForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const nome = $("ncNome").value.trim().replace(/\s+/g, " "), v = parseMoney($("ncValor").value), l = cats("Reserva");
+    if (!nome) { $("ncMsg").textContent = "Escreva o nome da caixinha."; return $("ncNome").focus(); }
+    if (l.some((c) => norm(c) === norm(nome))) { $("ncMsg").textContent = `Já existe a caixinha ${l.find((c) => norm(c) === norm(nome))}.`; return $("ncNome").focus(); }
+    if (v > VALOR_MAX) { $("ncMsg").textContent = ALTO_DEMAIS; return $("ncValor").focus(); }
+    S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), Reserva: [...l, nome] };
+    if (v > 0) S.prefs.metas = { ...metasDe(), [nome]: { valor: round2(v), ate: $("ncAte").value } };
+    await salvaPrefs(); $("dlg").close(); render();
+    toast(`Caixinha ${nome} criada${v > 0 ? ` com meta de ${brl(v)}${$("ncAte").value ? ` até ${mesAno($("ncAte").value)}` : ""}` : ""}.`);
+  });
 }
 /** Todas as metas, cada uma com quanto já guardou, quanto falta, quanto guardar por mês e se precisa mudar alguma coisa. */
 function todasAsMetas() {
   const hj = hoje(), c = calcMes(S.data, mKey(hj), hj), todas = metasEmAndamento(S.data, S.prefs.metas, hj), princ = metaPrincipal(todas);
+  // Caixinha e meta são a mesma coisa: a meta é quanto a pessoa quer juntar naquela caixinha. As que ainda não têm meta aparecem no fim.
+  const saldo = new Map(guardadoPorDestino(S.data, mKey(hj))), comMeta = new Set(todas.map((a) => a.destino));
+  const semMeta = [...new Set([...cats("Reserva"), ...saldo.keys()])].filter((k) => !comMeta.has(k));
   const linha = (rot, v) => `<div><dt>${rot}</dt><dd>${v}</dd></div>`;
-  openDlg(`<h3>Suas metas</h3>
-    ${todas.length ? `<p class="hint" style="margin:0 0 12px">A conta é simples: o que falta dividido pelos meses até a data. ${todas.length > 1 ? "A meta marcada aparece no início." : ""}</p>` : `<p class="hint">Você ainda não tem meta. Diga quanto quer juntar e até quando: o app calcula quanto guardar por mês.</p>`}
+  openDlg(`<h3>Suas caixinhas</h3>
+    <p class="hint" style="margin:0 0 12px">Cada caixinha pode ter uma meta: quanto juntar e até quando. A conta é simples: o que falta dividido pelos meses.${todas.length > 1 ? " A marcada aparece no início." : ""}</p>
     <div class="metas-todas">${todas.map((a, i) => {
       const sit = fraseDaSituacao(a), dica = textoDaSugestao(sugestaoDaMeta(a, c)), s = situacaoDaMeta(a);
       return `<article class="meta-card ${sit.cls}">
-        <header><b>${esc(a.destino)}</b><span class="pill ${sit.cls}">${sit.titulo}</span></header>
+        <header><b>Caixinha ${esc(a.destino)}</b><span class="pill ${sit.cls}">${sit.titulo}</span></header>
         <span class="tbar mbar"><i style="width:${Math.max(0, a.pct)}%"></i></span>
         <dl class="meta-nums">
           ${linha("Já guardou", `<b>${brl(a.guardado)}</b> (${a.pct}%)`)}
@@ -999,13 +1033,17 @@ function todasAsMetas() {
         <p class="meta-sit">${sit.frase}</p>${dica ? `<p class="hint" style="margin:0">Este mês: ${dica}</p>` : ""}
         <div class="meta-btns"><button class="btn sm primary" type="button" data-malt="${i}">Alterar</button>${a.concluida ? "" : `<button class="btn sm" type="button" data-mgu="${i}">Guardar</button>`}${todas.length > 1 ? (a === princ ? `<span class="meta-ini-tag">Aparece no início</span>` : `<button class="link" type="button" data-mini="${i}">Mostrar no início</button>`) : ""}</div>
       </article>`;
-    }).join("")}</div>
-    <div class="actions"><button class="btn" type="button" id="metaNova">+ Nova meta</button><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+    }).join("")}
+    ${semMeta.map((k) => `<article class="meta-card sem"><header><b>Caixinha ${esc(k)}</b><span class="pill">Sem meta</span></header>
+      <p class="meta-sit">${saldo.get(k) ? `Tem <b>${brl(saldo.get(k))}</b> guardados.` : "Ainda sem dinheiro guardado."} Diga quanto quer juntar e até quando.</p>
+      <div class="meta-btns"><button class="btn sm primary" type="button" data-mcriar="${esc(k)}">Criar meta</button></div></article>`).join("")}</div>
+    <div class="actions"><button class="btn" type="button" id="metaNova">+ Nova caixinha</button><button class="btn primary" type="button" data-close>Fechar</button></div>`);
   const body = $("dlgBody");
   body.querySelectorAll("[data-malt]").forEach((b) => (b.onclick = () => detalheMeta(todas[Number(b.dataset.malt)].destino)));
   body.querySelectorAll("[data-mgu]").forEach((b) => (b.onclick = () => { const a = todas[Number(b.dataset.mgu)], sg = sugestaoDaMeta(a, c); guardarParaMeta(a.destino, sg?.tipo === "guardar" ? sg.valor : 0); }));
   body.querySelectorAll("[data-mini]").forEach((b) => (b.onclick = () => { S.prefs.metaPrincipal = todas[Number(b.dataset.mini)].destino; salvaPrefs(); render(); todasAsMetas(); toast(`${S.prefs.metaPrincipal} aparece no início.`); }));
-  $("metaNova").onclick = () => { const livre = cats("Reserva").find((k) => !metasDe()[k]); detalheMeta(livre || cats("Reserva")[0], true); };
+  body.querySelectorAll("[data-mcriar]").forEach((b) => (b.onclick = () => detalheMeta(b.dataset.mcriar)));
+  $("metaNova").onclick = () => novaCaixinha();
 }
 
 /** Leva para o formulário de lançar já em Guardar, no destino da meta e com o valor sugerido. */
@@ -1038,7 +1076,7 @@ function detalheMeta(destino, escolher = false, aviso = "") {
   const meses = Array.from({ length: 120 }, (_, i) => addM(cur, i)); if (meta?.ate && !meses.includes(meta.ate)) meses.unshift(meta.ate);
   const salario = S.data.fixos.find((f) => f.tipo === "Receita" && f.repete !== "semanal" && !f.ate), diaPadrao = Number(meta?.plano?.dia) || Number(salario?.dia) || Number(hj.slice(8, 10));
   const avisar = S.prefs.avisos?.meta !== false, demo = S.store?.kind === "local";
-  openDlg(`<h3>${a ? "Meta" : "Nova meta"}: ${esc(destino)}</h3>
+  openDlg(`<h3>Caixinha ${esc(destino)}${a ? "" : ": criar meta"}</h3>
     ${aviso ? `<p class="hint meta-aviso">${aviso}</p>` : ""}
     ${a ? `<div class="teto meta parado${a.concluida ? " ok" : ""}">${cartaoDaMeta(a, dica)}</div>
       ${a.concluida ? "" : `<button class="btn primary" type="button" id="metaGuardar">${s?.tipo === "guardar" ? `Guardar ${brl(s.valor)} agora` : "Guardar agora"}</button>`}`
@@ -1080,8 +1118,11 @@ function detalheMeta(destino, escolher = false, aviso = "") {
     const m = lido(), erro = $("metaErro");
     if (!(m.valor > 0) || m.valor > VALOR_MAX) { erro.hidden = false; erro.style.color = "var(--bad)"; erro.textContent = m.valor > VALOR_MAX ? ALTO_DEMAIS : "Digite quanto você quer juntar, por exemplo 6.000,00."; $("metaValor").focus(); return; }
     if (!m.plano) { delete m.plano; delete m.pulos; }
-    metasDe()[destino] = m; await salvaPrefs(); render();
-    detalheMeta(destino, false, a ? "Meta atualizada." : noCelular() ? "Meta criada. Ela aparece em Planejar → Análise do mês." : "Meta criada. Ela já aparece no início do app.");
+    S.prefs.metas = { ...metasDe(), [destino]: m }; await salvaPrefs();
+    if ($("dlg").open) $("dlg").close();
+    render();
+    const pa = andamentoDaMeta(S.data, destino, m, hoje());
+    toast(`${a ? "Meta salva" : "Meta criada"}: ${destino}, ${brl(m.valor)}${m.ate ? ` até ${mesAno(m.ate)}` : ""}.${pa && !pa.concluida && m.ate && pa.porMes ? ` Guarde ${brl(pa.porMes)} por mês.` : m.plano ? ` Combinado: ${brl(m.plano.valor)} por mês.` : ""}`);
   });
   if ($("metaNome")) $("metaNome").onclick = () => renomearCategoria("Reserva", destino, (novo) => detalheMeta(novo || destino));
   if ($("metaTirar")) armDelete($("metaTirar"), () => excluiMeta(destino), "Toque de novo para excluir");
@@ -1170,10 +1211,6 @@ function paneM(c) {
     </form>
     ${u ? `<div class="teto ${t.cls} parado"><span class="topo"><span class="l">${ico("alvo")}Uso do limite em ${nomeMes(S.mes)}</span><span class="pill ${t.cls === "ok" ? "good" : t.cls}">${t.titulo}</span></span>
       <span class="num"><b>${brl(u.gasto)}</b> de ${brl(u.teto)} <em>${u.pct}%</em></span>${barraDoTeto(u)}<span class="n">${t.frase}</span></div>` : ""}
-    <h3 class="sub-h">Metas das caixinhas</h3>
-    ${metasP.length ? `<div class="plano-metas">${metasP.map((a, i) => `<button type="button" class="teto meta${a.concluida ? " ok" : ""}" data-pmeta="${i}" aria-label="Meta ${esc(a.destino)}: ${a.pct}% guardado. Abrir">${cartaoDaMeta(a, "")}</button>`).join("")}</div>`
-      : `<p class="hint" style="margin-top:0">Diga quanto quer juntar e o app mostra quanto falta e em que mês você chega lá.</p>`}
-    <button class="btn" type="button" id="planoMeta">${metasP.length ? "Ver as caixinhas" : "Criar uma meta"}</button>
     <h3 class="sub-h">Limite por categoria</h3>
     <p class="hint" style="margin-top:0">Opcional. Deixe em branco as categorias que não precisam de limite.</p>
     <form id="limCats" class="lim-cats" autocomplete="off">
@@ -1184,8 +1221,6 @@ function paneM(c) {
     <label class="check"><input type="checkbox" id="tetoAvisar" ${avisar ? "checked" : ""}> Avisar por e-mail e notificação no celular</label>
     <p class="hint" style="margin:6px 0 0">Você recebe um aviso de manhã quando chegar a <b>80%</b> do limite, outro quando <b>passar</b> e outro se passar em <b>mais de 20%</b>. Cada um chega uma vez no mês. Dentro do app, o quadro do início muda de cor na hora.
       ${S.store?.kind === "local" ? "Na demonstração os avisos por e-mail e notificação não são enviados." : `Os canais (e-mail e notificação neste aparelho) são os mesmos dos avisos de contas. <button class="link" type="button" id="tetoCanais">Ver em Ajustes</button>`}</p>`;
-  host.querySelectorAll("[data-pmeta]").forEach((b) => (b.onclick = () => detalheMeta(metasP[Number(b.dataset.pmeta)].destino)));
-  $("planoMeta").onclick = () => (metasP.length ? detalheKpi("guardado") : detalheMeta(guardadoPorDestino(S.data, S.mes)[0]?.[0] || cats("Reserva")[0], true));
   if ($("tetoUsar")) $("tetoUsar").onclick = () => { $("tetoValor").value = dinheiro(Math.ceil(media / 50) * 50); $("tetoValor").focus(); };
   if ($("tetoCanais")) $("tetoCanais").onclick = () => $("btnAjustes").click();
   if ($("tetoTirar")) armDelete($("tetoTirar"), () => {
@@ -2097,14 +2132,18 @@ const casalAtivo = () => S.casal?.situacao === "ativo";
 const nomeDoOutro = () => S.casal?.dados?.nomes?.[S.casal.outro_id] || apelidoDoEmail(S.casal?.outro) || "a outra pessoa";
 const quemTag = (x) => (casalAtivo() && x.user_id && x.user_id === S.casal.outro_id ? ` <span class="tag quem">${esc(nomeDoOutro())}</span>` : "");
 /** Coloca nas preferências o que é dos dois: categorias, limites, metas e saldo. */
-function aplicaCasal() { if (casalAtivo()) S.prefs = { ...S.prefs, ...comumDoCasal(S.casal.dados) }; }
+// Cópia funda: se as metas (ou categorias) da tela fossem o mesmo objeto guardado como "dados do casal",
+// mudar uma meta mudava os dois juntos, o app achava que não havia nada novo para o casal e não enviava.
+// Ao abrir de novo, a versão antiga do casal voltava por cima — a meta "não salvava".
+const copia = (o) => (o == null ? o : JSON.parse(JSON.stringify(o)));
+function aplicaCasal() { if (casalAtivo()) S.prefs = { ...S.prefs, ...copia(comumDoCasal(S.casal.dados)) }; }
 const canonico = (o) => JSON.stringify(o, (_k, v) => (v && typeof v === "object" && !Array.isArray(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, v[k]])) : v));
 /** Guarda na conta de casal o que é dos dois, só quando mudou. */
 async function salvaCasal() {
   if (!casalAtivo() || !S.store.casalSalvar) return;
   const novo = { ...comumDoCasal(S.prefs), nomes: S.casal.dados?.nomes || {} };
   if (canonico(novo) === canonico(S.casal.dados || {})) return;
-  await S.store.casalSalvar(novo); S.casal.dados = novo;
+  await S.store.casalSalvar(novo); S.casal.dados = copia(novo);
 }
 function resumoDoCasal() {
   const c = S.casal;
@@ -2154,7 +2193,7 @@ async function abrirCasal(aviso = "", erro = false) {
     $("csNomes").addEventListener("submit", async (e) => {
       e.preventDefault();
       const novos = { ...nomes }; for (const [id, campo] of [[c.eu, "csMeu"], [c.outro_id, "csDele"]]) { const v = $(campo).value.trim().slice(0, 20); if (v) novos[id] = v; else delete novos[id]; }
-      try { const dados = { ...comumDoCasal(S.prefs), nomes: novos }; await S.store.casalSalvar(dados); S.casal.dados = dados; render(); abrirCasal("Nomes salvos."); }
+      try { const dados = { ...comumDoCasal(S.prefs), nomes: novos }; await S.store.casalSalvar(dados); S.casal.dados = copia(dados); render(); abrirCasal("Nomes salvos."); }
       catch (err) { diz(erroDoCasal(err)); }
     });
     $("csEncerrar").onclick = () => {
@@ -2546,7 +2585,7 @@ function abrirCaixa(nome) {
 }
 $("pane-m").addEventListener("click", (e) => {
   const b = e.target.closest("[data-caixa]"); if (b) return abrirCaixa(b.dataset.caixa);
-  if (e.target.closest("[data-caixa-nova]")) detalheMeta(cats("Reserva")[0] || "Reserva de emergência", true);
+  if (e.target.closest("[data-caixa-nova]")) novaCaixinha();
 });
 
 /* ================= esconder os valores e ações rápidas do início =================
