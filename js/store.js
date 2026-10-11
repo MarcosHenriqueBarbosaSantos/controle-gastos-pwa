@@ -15,6 +15,7 @@
 //   comFila(conta, { chave })      → a mesma conta, funcionando sem internet (fila de lançamentos e cópia dos dados)
 //   meuAcesso()                    → { cobranca, ativo, ate, status, origem }: se o app está sendo cobrado e se esta conta tem acesso
 //   excluirConta()                 → só na conta de verdade: apaga a conta e tudo o que está nela (supabase/conta.sql)
+//   sugestoesEnviar(row) / sugestoesMinhas()  → pedidos de melhoria e correção (supabase/sugestoes.sql); na demonstração: erro "demo"
 //   casalMeu() / casalConvidar(email) / casalResponder(aceita) / casalSair() / casalSalvar(dados)
 //                                  → conta de casal (supabase/casal.sql); na demonstração, casalMeu() devolve { situacao: "demo" }
 
@@ -114,6 +115,9 @@ export function createSupabaseStore(client) {
       if (semRede(error)) { try { const c = JSON.parse(localStorage.getItem(chave)); if (c?.situacao) return c; } catch { /* sem cópia */ } }
       throw error;
     },
+    // Pedidos de melhoria e correção (supabase/sugestoes.sql). Cada pessoa vê só os próprios.
+    async sugestoesEnviar(row) { ok(await client.from("sugestoes").insert(row)); },
+    async sugestoesMinhas() { return ok(await client.from("sugestoes").select("id, tipo, texto, status, resposta, criado").order("criado", { ascending: false }).limit(30)); },
     async casalConvidar(email) { return ok(await client.rpc("casal_convidar", { e: email })); },
     async casalResponder(aceita) { return ok(await client.rpc("casal_responder", { aceita })); },
     async casalSair() { return ok(await client.rpc("casal_sair")); },
@@ -253,6 +257,8 @@ export function createLocalStore(key, seedFn) {
   return {
     kind: "local",
     async meuAcesso() { return { cobranca: false, ativo: true, ate: null, status: null, origem: null }; },   // a demonstração é sempre livre
+    async sugestoesEnviar() { throw Object.assign(new Error("demo"), { demo: true }); },
+    async sugestoesMinhas() { return []; },
     async casalMeu() { return { situacao: "demo" }; },   // na demonstração não há outra pessoa para convidar
     async loadAll() { const { prefs, comprovantes, ...dados } = db; return structuredClone(dados); },
     async addLancamentos(rows) {

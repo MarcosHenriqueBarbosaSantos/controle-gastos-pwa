@@ -1,5 +1,5 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
-import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
@@ -50,6 +50,7 @@ const ICO = {
   ok: "M5 12.5l4.5 4.5L19 7.5",
   fogo: "M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.2.4-2.2 1-3 .3 1.2 1 2 2 2.3C10.5 8.5 11 5.5 12 3zM7 14a5 5 0 0 0 10 0",
   alvo: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01",
+  ideia: "M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z",
   ajuda: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.8M12 17h.01",
   pessoa: "M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM4.5 20a7.5 7.5 0 0 1 15 0",
   lupa: "M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-3.7-3.7",
@@ -2128,6 +2129,7 @@ function renderMais(c) {
     ${grupo("Ajustes e ajuda", [
       linha("btnAjustes", "ajustes", "Ajustes e categorias", naDemo ? "Categorias, tema e saldo" : "Categorias, avisos, tema e a sua conta"),
       linha("btnAjuda", "ajuda", "Como usar", "Respostas para as dúvidas mais comuns"),
+      linha("btnSugerir", "ideia", "Sugerir melhoria ou correção", "Conte o que falta ou o que deu errado"),
       linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
     const k = b.dataset.mais;
@@ -2373,11 +2375,72 @@ const AJUDA = [
 function ajuda() {
   openDlg(`<h3>Como usar</h3><p class="hint" style="margin:0 0 12px;font-size:13.5px">Toque em uma pergunta para ver a resposta.</p>
     <div class="ajuda">${AJUDA.map(([q, r]) => `<details><summary>${q}</summary><p>${r}</p></details>`).join("")}</div>
-    <div class="aj-sec" style="margin-top:14px"><button class="link" type="button" id="ajudaPassos">Refazer os primeiros passos</button>${suporteHtml()}</div>
+    <div class="aj-sec" style="margin-top:14px"><button class="link" type="button" id="ajudaPassos">Refazer os primeiros passos</button><button class="link" type="button" id="ajudaSug">Não achou? Sugerir melhoria ou correção</button>${suporteHtml()}</div>
     <div class="actions"><button class="btn primary" data-close>Fechar</button></div>`);
+  $("ajudaSug").onclick = () => sugerir();
   $("ajudaPassos").onclick = () => { guiaDe().fechado = false; salvaPrefs(); guiaPasso("renda", true); };
 }
 $("btnAjuda").onclick = ajuda;
+
+/* ================= pedidos de melhoria e correção =================
+   A pessoa conta o que falta ou o que deu errado; o pedido chega na tabela "sugestoes" (supabase/sugestoes.sql),
+   com a tela e a versão do app para facilitar achar o problema. Ela vê os próprios pedidos e a resposta de volta. */
+const TIPOS_SUG = [["melhoria", "Melhoria", "Ex.: queria ver meus gastos por semana"], ["correcao", "Correção", "Ex.: ao salvar, a tela não fechou. O que você fez e o que apareceu?"], ["outro", "Outro", "Uma dúvida, um elogio ou qualquer outra coisa"]];
+const STATUS_SUG = { nova: ["Recebido", "info"], analisando: ["Em análise", "warn"], feita: ["Feito", "good"], nao_vai: ["Não vai entrar", ""] };
+let rascunhoSug = "";
+function sugerir(tipo = "melhoria") {
+  const naDemo = S.store?.kind === "local";
+  openDlg(`<h3>Sugerir melhoria ou correção</h3>
+    <p class="hint" style="margin:0 0 10px">Conte o que podemos melhorar ou o que não funcionou. Todo pedido é lido. Não escreva senha nem número de cartão.</p>
+    <form id="sugForm" class="dlg-form" autocomplete="off">
+      <div class="f wide"><span id="sugTipoLbl">O que é?</span><div class="seg" role="group" aria-labelledby="sugTipoLbl" id="sugTipo">${TIPOS_SUG.map(([v, r]) => `<button type="button" data-t="${v}" aria-pressed="${v === tipo}">${r}</button>`).join("")}</div></div>
+      <label class="f wide">Seu pedido<textarea class="in" id="sugTexto" rows="5" maxlength="2000" required></textarea></label>
+      <p class="hint wide" style="margin:0" id="sugCont"></p>
+      ${naDemo ? `<p class="hint wide" style="margin:0">Na demonstração o pedido não é enviado por aqui: ao tocar em Enviar, abrimos o seu e-mail com o texto pronto.</p>` : ""}
+      <p class="auth-msg err wide" id="sugMsg" role="alert"></p>
+      <div class="actions wide"><button class="btn primary" type="submit" id="sugOk">Enviar pedido</button><button class="btn" type="button" data-close>Cancelar</button></div></form>
+    <div id="sugLista"></div>`);
+  const ta = $("sugTexto"), msg = $("sugMsg"), tipoAtual = () => $("sugTipo").querySelector('[aria-pressed="true"]').dataset.t;
+  const dica = () => { ta.placeholder = TIPOS_SUG.find(([v]) => v === tipoAtual())[2]; };
+  const conta = () => { const n = ta.value.length; $("sugCont").textContent = n > 1700 ? `${n} de 2000 letras` : ""; rascunhoSug = ta.value; };
+  ta.value = rascunhoSug; dica(); conta();
+  $("sugTipo").querySelectorAll("button").forEach((b) => (b.onclick = () => { $("sugTipo").querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", x === b)); dica(); ta.focus(); }));
+  ta.addEventListener("input", () => { conta(); msg.textContent = ""; });
+  const porEmail = (t, texto) => {
+    if (!SUPORTE_CONTATO || /^https?:/.test(SUPORTE_CONTATO)) { if (/^https?:/.test(SUPORTE_CONTATO || "")) window.open(SUPORTE_CONTATO, "_blank", "noopener"); return false; }
+    const rot = TIPOS_SUG.find(([v]) => v === t)[1];
+    location.href = `mailto:${SUPORTE_CONTATO}?subject=${encodeURIComponent(`Meus Gastos — ${rot}`)}&body=${encodeURIComponent(`${texto}\n\n(app v${APP_VERSAO})`)}`; return true;
+  };
+  $("sugForm").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const texto = ta.value.trim(), t = tipoAtual();
+    if (texto.length < 5) { msg.textContent = "Escreva um pouco mais, para a gente entender o pedido."; return ta.focus(); }
+    if (naDemo) { if (porEmail(t, texto)) { rascunhoSug = ""; $("dlg").close(); } else msg.textContent = "Crie sua conta para enviar pedidos pelo app."; return; }
+    const ok = $("sugOk"); ok.disabled = true; ok.textContent = "Enviando…";
+    try {
+      await comPrazo(S.store.sugestoesEnviar({ tipo: t, texto, tela: S.view + (S.view === "listas" ? "/" + S.tab : ""), versao: APP_VERSAO }), 15000);
+      rascunhoSug = ""; $("dlg").close(); toast("Recebemos o seu pedido. Obrigado por ajudar a melhorar o app!");
+    } catch (err) {
+      ok.disabled = false; ok.textContent = "Enviar pedido";
+      const m = String(err?.message || "") + String(err?.code || "");
+      if (semRede(err)) msg.textContent = "Sem internet agora. O seu texto continua aqui: toque em Enviar quando o sinal voltar.";
+      else if (/limite_diario/.test(m)) msg.textContent = "Você já enviou 10 pedidos hoje. Amanhã dá para enviar mais.";
+      else if (/PGRST205|PGRST202|42P01|schema cache|does not exist/i.test(m)) { if (porEmail(t, texto)) { rascunhoSug = ""; $("dlg").close(); } else msg.textContent = "Não foi possível enviar agora. Tente de novo mais tarde."; }
+      else msg.textContent = "Não foi possível enviar agora. Seu texto continua aqui: tente de novo em instantes.";
+    }
+  });
+  ta.focus();
+  // Os pedidos que a pessoa já fez e o que respondemos (some em silêncio se o banco ainda não tem a tabela).
+  if (!naDemo && typeof S.store.sugestoesMinhas === "function") S.store.sugestoesMinhas().then((l) => {
+    if (!l?.length || !$("sugLista")) return;
+    $("sugLista").innerHTML = `<h4 class="meta-h">Seus pedidos</h4><ul class="sug-lista">${l.map((x) => {
+      const [rot, cls] = STATUS_SUG[x.status] || STATUS_SUG.nova, tp = TIPOS_SUG.find(([v]) => v === x.tipo)?.[1] || "Outro";
+      return `<li><span class="sug-topo"><span class="tag">${tp}</span><span class="pill ${cls}">${rot}</span><small>${ddmm(String(x.criado).slice(0, 10))}</small></span>
+        <p>${esc(x.texto)}</p>${x.resposta ? `<p class="sug-resp"><b>Nossa resposta:</b> ${esc(x.resposta)}</p>` : ""}</li>`;
+    }).join("")}</ul>`;
+  }).catch(() => {});
+}
+$("btnSugerir").onclick = () => sugerir();
 /* ================= gráfico da sobra dia a dia (como nos apps de investimento) =================
    A linha cheia é quanto restava da sobra no fim de cada dia; a tracejada clara é o ritmo ideal (gastar por igual até o dia 31);
    a tracejada colorida, a partir de hoje, é a previsão de onde o mês termina. */

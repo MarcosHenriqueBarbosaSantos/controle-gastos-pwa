@@ -24,3 +24,7 @@ export const PRECO_PLANO = "R$ 49,90 por ano";
 // Vazio: o app continua instalando pelo navegador, como hoje.
 // Passo a passo para publicar: docs/google-play.md
 export const PLAY_PACOTE = "";
+
+// Número da versão do app (o mesmo de sw.js). Vai junto com os pedidos de melhoria e correção, para saber qual versão estava aberta.
+// Ao mudar a VERSAO em sw.js, mude aqui também: um teste confere se os dois batem.
+export const APP_VERSAO = "59";
