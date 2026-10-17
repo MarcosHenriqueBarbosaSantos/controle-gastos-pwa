@@ -1,7 +1,7 @@
 // Ferramentas extras do app, todas funções puras (sem tela), testadas em tests/extras.test.mjs:
 // "Meu desempenho" em frases, calculadoras, desafio de economia, resumo do ano, subcategorias,
 // valor em outra moeda, colar a mensagem do banco, CSV e PDF do relatório.
-import { calcMes, addM, mKey, round2, MESES, MES3, catMap, comparaCategorias, primeiroMes, ocorrencias, diasEntre, ultimosMeses, reservaAcumulada, metasEmAndamento, divisaoDoMes } from "./calc.js";
+import { parseMoney, calcMes, addM, mKey, round2, MESES, MES3, catMap, comparaCategorias, primeiroMes, ocorrencias, diasEntre, ultimosMeses, reservaAcumulada, metasEmAndamento, divisaoDoMes } from "./calc.js";
 
 const semAcento = (s) => String(s ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 const pad = (n) => String(n).padStart(2, "0");
@@ -444,4 +444,29 @@ export function ajustesRestauraveis(guardados, atual = {}) {
   for (const k of ["teto", "saldoInicial"]) if (Number.isFinite(g[k]) && g[k] !== 0 && !atual[k]) patch[k] = g[k];
   if (typeof g.saldoDesde === "string" && /^\d{4}-\d{2}(-\d{2})?$/.test(g.saldoDesde) && !atual.saldoDesde) patch.saldoDesde = g.saldoDesde;
   return patch;
+}
+
+/* ======================= conta no campo de valor =======================
+   "12+8,50" ou "45x2" no valor do gasto: o app faz a conta. Só números e + − × ÷ (sem parênteses). Sem operador, não é conta. */
+/** @returns {number|null} o resultado em reais (2 casas), ou null quando não é uma conta válida com resultado maior que zero */
+export function avaliaConta(txt) {
+  const s = String(txt ?? "").replace(/[R$\s]/g, "").replace(/[x×*]/gi, "*").replace(/[÷/]/g, "/").replace(/[−–]/g, "-");
+  if (!/^[\d.,+\-*/]+$/.test(s) || !/\d[+\-*/]\d/.test(s)) return null;
+  const partes = s.match(/\d[\d.,]*|[+\-*/]/g);
+  if (!partes || partes.join("") !== s || partes.length % 2 === 0) return null;
+  const nums = [], ops = [];
+  for (let i = 0; i < partes.length; i++) {
+    if (i % 2 === 0) { const n = parseMoney(partes[i]); if (!Number.isFinite(n)) return null; nums.push(n); }
+    else ops.push(partes[i]);
+  }
+  // Primeiro × e ÷, depois + e −.
+  const n2 = [nums[0]], o2 = [];
+  for (let i = 0; i < ops.length; i++) {
+    if (ops[i] === "*") n2[n2.length - 1] *= nums[i + 1];
+    else if (ops[i] === "/") { if (nums[i + 1] === 0) return null; n2[n2.length - 1] /= nums[i + 1]; }
+    else { o2.push(ops[i]); n2.push(nums[i + 1]); }
+  }
+  let r = n2[0]; o2.forEach((o, i) => { r = o === "+" ? r + n2[i + 1] : r - n2[i + 1]; });
+  r = round2(r);
+  return Number.isFinite(r) && r > 0 && r < 1e9 ? r : null;
 }

@@ -1092,3 +1092,23 @@ textarea.in{min-height:110px;resize:vertical;font:inherit;line-height:1.45}
 .casal-acerto{border:1px solid var(--line,#2a2f3a);border-radius:14px;padding:12px;margin:10px 0;display:grid;gap:6px}
 .casal-acerto b{font-size:15px} .casal-acerto select{max-width:220px}
 #fDia2Wrap{display:inline-flex;align-items:center;gap:8px} #fDia2Wrap .in{width:64px}
+
+/* v62: conta no valor, deslizar, ritmo do mês, comemoração */
+.conta-wrap,.conta-res{grid-column:1/-1;margin:0}
+.conta-ops{display:flex;gap:8px}
+.conta-ops button{flex:1;min-height:44px;border-radius:12px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:20px;font-weight:600;cursor:pointer}
+.conta-ops button.igual{background:var(--accent,#1e5fbf);color:#fff;border-color:transparent}
+.conta-res{font-size:14px;color:var(--good);font-weight:600}
+.hbar{position:relative;overflow:visible}
+.hbar .ritmo{position:absolute;top:-4px;bottom:-4px;width:3px;margin-left:-1px;border-radius:2px;background:#fff;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.ritmo-txt{display:block;font-size:12.5px;margin-top:8px;opacity:.95}
+.ritmo-txt.alto{color:#ffd8a8} .ritmo-txt.ok{color:#c9f5dc}
+table.lanc tr{transition:transform .18s ease,background .18s ease}
+table.lanc tr.desliza-d td{background:var(--good-soft)} table.lanc tr.desliza-e td{background:var(--bad-soft)}
+@media (max-width:760px){table.lanc tr.desliza-d{background:var(--good-soft)} table.lanc tr.desliza-e{background:var(--bad-soft)} table.lanc tr{touch-action:pan-y}}
+.confete{position:fixed;left:50%;top:40%;width:0;height:0;pointer-events:none;z-index:200}
+.confete i{position:absolute;width:8px;height:12px;border-radius:2px;opacity:0;animation:confete .9s ease-out forwards}
+@keyframes confete{0%{opacity:1;transform:translate(0,0) rotate(0)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) rotate(var(--r))}}
+.bump{animation:bump .35s ease}
+@keyframes bump{0%{transform:scale(1)}40%{transform:scale(1.06)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.confete{display:none}.bump{animation:none}}

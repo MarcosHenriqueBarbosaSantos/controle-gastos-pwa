@@ -1,6 +1,6 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO } from "./config.js";
-import { CATS_PADRAO, RETIRADA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
+import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
@@ -11,7 +11,7 @@ import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
+  avaliaConta, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
 
@@ -152,8 +152,12 @@ function fimDoPrazo(id, chave) {
   const r = restanteDoPrazo(S.data, f, f.desde);   // desde o começo: só terminou se não ficou nenhuma para trás
   return r && r.vezes === 0 ? `${f.descricao}: essa foi a última. Terminou!` : "";
 }
-const MOVS = ["Guardar", "Retirar"];
-const formaDe = (tipo, v) => (tipo === "Despesa" ? v : tipo === "Reserva" && v === "Retirar" ? RETIRADA : "");
+/** O valor do campo de valor: se a pessoa digitou uma conta (12+8,50), o resultado; senão o número de sempre. */
+const valorDoCampo = () => { const r = avaliaConta($("fValor").value); return r !== null ? r : parseMoney($("fValor").value); };
+const MOVS = ["Guardar", "Retirar", "Já tinha guardado"];
+const formaDe = (tipo, v) => (tipo === "Despesa" ? v : tipo === "Reserva" && v === "Retirar" ? RETIRADA : tipo === "Reserva" && v === "Já tinha guardado" ? JA_TINHA : "");
+/** O movimento como aparece no seletor, a partir da forma gravada. */
+const movDe = (forma) => (forma === RETIRADA ? "Retirar" : forma === JA_TINHA ? "Já tinha guardado" : "Guardar");
 const opts = (lista, atual) => lista.map((c) => `<option${c === atual ? " selected" : ""}>${esc(c)}</option>`).join("");
 /* "+ Nova caixinha…" / "+ Nova categoria…" no fim da lista: a pessoa dá o nome que quiser ali mesmo, sem ir em Ajustes. */
 const NOVA_CAT = "__nova__";
@@ -709,7 +713,7 @@ function renderForm() {
   S.mesDoForm = S.mes;
   syncDiaChips();
   // Opção de já cadastrar como fixo (repete todo mês). Não vale para dinheiro guardado.
-  const fixo = S.tipo !== "Reserva" && $("fFixo").checked, guardando = S.tipo === "Reserva" && fs.value !== "Retirar";
+  const fixo = S.tipo !== "Reserva" && $("fFixo").checked, guardando = S.tipo === "Reserva" && fs.value === "Guardar";
   $("fFixoWrap").hidden = S.tipo === "Reserva" && !guardando;
   $("fFixoLbl").textContent = S.tipo === "Reserva" ? "Guardar todo mês (dá para pular quando precisar)" : S.tipo === "Receita" ? "Repete (como o salário)" : "Repete (conta fixa ou parcelamento)";
   // Quando é fixo, a pessoa escolhe se repete todo mês ou toda semana; o dia vem da data escolhida.
@@ -725,7 +729,7 @@ function renderForm() {
   if (fixo) {
     const base = { tipo: S.tipo, desde: semF ? dt : mKey(dt) + "-01", dia: semF ? 1 : Number(dt.slice(8, 10)), ...(semF ? { repete: "semanal", dia_semana: diaDaSemana(dt) } : {}) }, kb = JSON.stringify(base);
     if (fa.dataset.k !== kb) { fa.innerHTML = opcoesDePrazo(base, fa.value); fa.dataset.k = kb; }
-    const n = fa.value ? vezesNoPrazo(base, fa.value) * (fr.value === "duas" ? 2 : 1) : 0, vF = parseMoney($("fValor").value);
+    const n = fa.value ? vezesNoPrazo(base, fa.value) * (fr.value === "duas" ? 2 : 1) : 0, vF = valorDoCampo();
     const quanto = n === 1 ? `Uma vez só${vF > 0 ? `, de ${brl(vF)}` : ""}` : `${vezesTxt(n)}${vF > 0 ? ` de ${brl(vF)}: ${brl(round2(n * vF))} no total` : ""}`;
     dica.textContent = fa.value ? `${quanto}. Começa em ${ddmm(dt)} e acaba em ${mesAno(fa.value)}.` : "";
   }
@@ -738,7 +742,7 @@ function renderForm() {
   if (cc && tem) {
     const fk = $("fCartao"), k = cartoesAtivos().map((z) => z.id + z.nome).join("|");
     if (fk.dataset.k !== k) { fk.innerHTML = optsCartao(fk.value); fk.dataset.k = k; }
-    $("fParc").innerHTML = optsParcelas(parseMoney($("fValor").value), fixo ? 1 : $("fParc").value || 1);
+    $("fParc").innerHTML = optsParcelas(valorDoCampo(), fixo ? 1 : $("fParc").value || 1);
   }
   mostraEfeito();
 }
@@ -774,6 +778,9 @@ function renderKpis(c) {
   const rotulo = atualM ? (falta ? `Passou do que tinha para ${mesNome}` : `Livre para gastar em ${mesNome}`) : `${verbo} em ${mesNome}`;
   const usado = sb.livre > 0 ? Math.min(100, Math.round((sb.usado / sb.livre) * 100)) : 100;
   const ocultos = valoresOcultos();
+  // O traço na barra mostra onde o mês está (quantos dias já passaram); a barra, quanto da folga já foi usado.
+  const tempo = atualM ? Math.max(1, Math.min(99, Math.round((c.dias / c.n) * 100))) : null;
+  const ritmo = atualM && sb.livre > 0 && sb.entra > 0 && c.dias >= 3 ? (usado <= tempo - 8 ? { cls: "ok", t: `No ritmo: você usou ${usado}% da folga e o mês já passou ${tempo}%.` } : usado >= tempo + 8 && usado < 100 ? { cls: "alto", t: `Acima do ritmo: você usou ${usado}% da folga e o mês já passou ${tempo}%.` } : null) : null;
   // Conta nova, ainda sem nada: no lugar dos "R$ 0", um convite para começar (as três perguntas ou o primeiro gasto).
   const vazio = atualM && !S.data.lancamentos.length && !S.data.fixos.length && !(S.data.faturas || []).length;
   if (vazio) {
@@ -798,8 +805,8 @@ function renderKpis(c) {
     <div class="hero-top"><span class="l">${rotulo}</span>
       <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
     <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
-    ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i></div>
-    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? `de ${brl(sb.livre)} depois das contas` : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>` : ""}
+    ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
+    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? `de ${brl(sb.livre)} depois das contas` : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>${ritmo ? `<span class="ritmo-txt ocultavel ${ritmo.cls}">${ritmo.t}</span>` : ""}` : ""}
     ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
     ${acum !== c.saldo ? `<span class="n ocultavel">Com os meses anteriores, o saldo acumulado é <b>${sgn(acum)}</b>.</span>` : ""}
   </div>
@@ -857,12 +864,14 @@ function renderDia(c) {
   const titulo = g.n ? `Hoje você gastou ${brl(g.total)}` : zero ? "Hoje: dia sem gastos" : "Nada anotado hoje";
   const sub = g.n ? `em ${g.n} ${g.n === 1 ? "lançamento" : "lançamentos"}` : zero ? "Anotado. Se aparecer um gasto, é só lançar." : "Anote os gastos de hoje ou marque que não gastou nada.";
   const seqTxt = seq.feitoHoje ? (seq.dias > 1 ? `${seq.dias} dias seguidos anotando` : "Primeiro dia da sequência") : seq.dias ? `Anote hoje para manter ${seq.dias === 1 ? "o dia de ontem em sequência" : `os ${seq.dias} dias seguidos`}` : "";
+  const ult = S.data.lancamentos.filter((x) => x.tipo === "Despesa" && !x.pendente && !x.enviando).sort((p, q) => q.data.localeCompare(p.data) || String(q.created_at || "").localeCompare(String(p.created_at || "")))[0];
   host.hidden = false;
   host.innerHTML = `<div class="dia${seq.feitoHoje ? " feito" : ""}">
     <span class="ava ${seq.feitoHoje ? "in" : "res"}">${ico(seq.feitoHoje ? "ok" : "dia")}</span>
-    <div class="tx"><b>${titulo}</b><span>${sub}</span>${seqTxt ? `<span class="seq">${ico("fogo")}${seqTxt}</span>` : ""}</div>
+    <div class="tx"><b>${titulo}</b><span>${sub}</span>${seqTxt ? `<span class="seq">${ico("fogo")}${seqTxt}</span>` : ""}${ult ? `<button class="link" type="button" id="diaRepetir" style="justify-self:start;text-align:left">Repetir: ${esc(ult.descricao || ult.categoria)} · ${brl(ult.valor)}</button>` : ""}</div>
     <div class="acoes"><button class="btn sm primary" type="button" id="diaLancar">Lançar gasto</button>${g.n || zero ? "" : `<button class="btn sm" type="button" id="diaZero">Não gastei nada</button>`}</div></div>`;
   $("diaLancar").onclick = () => { S.tipo = "Despesa"; renderForm(); if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } };
+  if ($("diaRepetir")) $("diaRepetir").onclick = () => repeteLancamento(ult);
   if ($("diaZero")) $("diaZero").onclick = () => {
     S.prefs.semGasto = [...new Set([...(S.prefs.semGasto || []), hj])].sort().slice(-90);   // guarda só os últimos 90 dias
     salvaPrefs(); render();
@@ -1066,12 +1075,12 @@ function todasAsMetas() {
 }
 
 /** Leva para o formulário de lançar já em Guardar, no destino da meta e com o valor sugerido. */
-function guardarParaMeta(destino, valor = 0) {
+function guardarParaMeta(destino, valor = 0, mov = "Guardar") {
   $("dlg").close(); S.tipo = "Reserva"; S.mes = mKey(hoje()); render();
   if (cats("Reserva").includes(destino)) $("fCat").value = destino;
-  $("fForma").value = "Guardar"; $("fData").value = hoje(); $("fFixo").checked = false;
+  $("fForma").value = mov; $("fData").value = hoje(); $("fFixo").checked = false;
   $("fValor").value = valor > 0 ? valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "";
-  renderForm();
+  renderForm(); mostraEfeito();
   if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
 }
 
@@ -1100,6 +1109,7 @@ function detalheMeta(destino, escolher = false, aviso = "") {
     ${a ? `<div class="teto meta parado${a.concluida ? " ok" : ""}">${cartaoDaMeta(a, dica)}</div>
       ${a.concluida ? "" : `<button class="btn primary" type="button" id="metaGuardar">${s?.tipo === "guardar" ? `Guardar ${brl(s.valor)} agora` : "Guardar agora"}</button>`}`
       : `<p class="hint" style="margin:0 0 4px;font-size:13px">${aqui > 0 ? `Você já tem <b>${brl(aqui)}</b> guardados aqui. Diga aonde quer chegar.` : "Diga quanto quer juntar. O que você guardar aqui passa a contar para a meta."}</p>`}
+    <div class="caixa-acoes meta-mov"><button class="btn" type="button" id="metaRetirar">Retirar dinheiro</button><button class="btn" type="button" id="metaJaTinha">Já tinha guardado</button></div>
     <form id="metaForm" class="meta-form" autocomplete="off">
       ${escolher && !a ? `<label class="f larga">Onde fica esse dinheiro<select class="in" id="metaDest">${opts(destinos, destino)}</select></label>` : ""}
       <label class="f">Quanto você quer juntar (R$)<input class="in money" id="metaValor" inputmode="decimal" placeholder="Ex.: 6.000,00" value="${esc(dinheiro(Number(meta?.valor) || 0))}"></label>
@@ -1131,6 +1141,7 @@ function detalheMeta(destino, escolher = false, aviso = "") {
   ["metaValor", "metaPlano"].forEach((id) => $(id).addEventListener("input", previa)); $("metaAte").onchange = previa; $("metaDia").onchange = previa;
   if (!a) previa();
   if ($("metaDest")) $("metaDest").onchange = (e) => detalheMeta(e.target.value, true);
+  $("metaRetirar").onclick = () => guardarParaMeta(destino, 0, "Retirar"); $("metaJaTinha").onclick = () => guardarParaMeta(destino, 0, "Já tinha guardado");
   if ($("metaGuardar")) $("metaGuardar").onclick = () => guardarParaMeta(destino, s?.tipo === "guardar" ? s.valor : 0);
   $("metaForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -1582,11 +1593,11 @@ function armDelete(b, fn, rotulo = "Confirmar") {
 
 /** Uma linha da lista de lançamentos. `comAno` mostra o ano junto da data (resultado de busca, que mistura meses). */
 /** O tipo do lançamento em letras pequenas no extrato, como nos bancos: de onde ele vem. */
-const tipoDoLanc = (x) => x.tipo === "Receita" ? "Entrada" : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "Retirada" : "Guardado")
+const tipoDoLanc = (x) => x.tipo === "Receita" ? "Entrada" : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "Retirada" : x.forma === JA_TINHA ? "Já tinha" : "Guardado")
   : Number(x.parcelas) > 1 ? `${x.parcelas}x no cartão` : x.forma === CARTAO ? "No cartão" : "Dia a dia";
 function linhaLanc(x, toque, comAno = false) {
   return `<tr data-id="${esc(x.id)}"${toque}><td class="d">${comAno ? ddmm(x.data) + "/" + x.data.slice(2, 4) : ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}${x.pendente ? ` <span class="tag espera">aguardando internet</span>` : ""}${quemTag(x)}${marcaComprovante(x)}<span class="sub"><span class="tp">${tipoDoLanc(x)}</span>${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
-      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(pagoCom(x)) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : "Guardou"}</td>
+      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(pagoCom(x)) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : x.forma === JA_TINHA ? "Já tinha" : "Guardou"}</td>
       <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "← " : "→ ") : "− "}${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-ed="${esc(x.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">${ico("lixo")}</span></button></td></tr>`;
 }
@@ -1635,7 +1646,7 @@ function listaL(c) {
   // No celular a lista é separada por dia, com o total gasto em cada um.
   const gastoDoDia = (d) => round2(it.filter((x) => !x.auto && x.tipo === "Despesa" && x.data === d).reduce((t, x) => t + x.valor, 0));
   const dia = (x, i) => i && it[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
-  host.innerHTML = `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque em um lançamento para editar ou excluir.</p><div class="tbl"><table class="lanc">${cab}<tbody>${
+  host.innerHTML = `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar. Deslize para a direita para repetir o lançamento de hoje e para a esquerda para apagar (dá para desfazer).</p><div class="tbl"><table class="lanc">${cab}<tbody>${
     it.map((x, i) => dia(x, i) + (x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub"><span class="tp">Entrada fixa</span>${esc(x.categoria)}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(x.id)}">Alterar</button></td></tr>`
@@ -1646,9 +1657,10 @@ function listaL(c) {
   $("pane-l").querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
   $("pane-l").querySelectorAll("tr[data-id],tr[data-fixa]").forEach((tr) => {
     const abre = () => { if (tr.dataset.id) editarLancamento(tr.dataset.id); else if (tr.dataset.fixa && tr.dataset.fixa !== "1") editarFixo(tr.dataset.fixa); else { S.view = "listas"; S.tab = "r"; render(); } };
-    tr.addEventListener("click", (e) => { if (noCelular() && !e.target.closest("button")) abre(); });
+    tr.addEventListener("click", (e) => { if (Date.now() - fimDeslizar < 450) return; if (noCelular() && !e.target.closest("button")) abre(); });
     tr.addEventListener("keydown", (e) => { if (noCelular() && e.target === tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abre(); } });
   });
+  if (noCelular()) ligaDeslizar($("pane-l"));
   $("pane-l").querySelectorAll("[data-del]").forEach((b) => armDelete(b, async () => {
     const id = b.dataset.del;
     if (await apagaLancamento(id)) render();
@@ -1961,10 +1973,32 @@ function formaDoCostume() {
   if (f && $("fForma").value !== f) { $("fForma").value = f; renderForm(); }
 }
 $("fForma").addEventListener("change", () => { S.formaManual = true; $("fComoAntes").hidden = true; renderForm(); mostraEfeito(); });
+/** "12+8,50" vira 20,50 no campo (ao sair do campo, no "=" ou ao lançar). */
+function normalizaConta() {
+  const r = avaliaConta($("fValor").value);
+  if (r !== null) { $("fValor").value = r.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); mostraConta(); mostraEfeito(); }
+  return r;
+}
+function mostraConta() {
+  const r = avaliaConta($("fValor").value), el = $("fContaRes");
+  el.hidden = r === null; if (r !== null) el.textContent = `= ${brl(r)}`;
+}
+$("fContaBtn").onclick = () => { const w = $("fContaWrap"); w.hidden = !w.hidden; if (!w.hidden) $("fValor").focus(); };
+$("fContaWrap").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-op]"); if (!b) return;
+  if (b.dataset.op === "=") { normalizaConta(); return $("fValor").focus(); }
+  const v = $("fValor").value.trim();
+  if (!v) return $("fValor").focus();
+  $("fValor").value = v.replace(/\s*[+\-×÷x*/]$/, "") + " " + b.dataset.op + " "; mostraConta(); $("fValor").focus();
+});
+$("fValor").addEventListener("change", normalizaConta);
+$("fValor").addEventListener("input", () => { mostraConta(); });
 $("fValor").addEventListener("input", () => { mostraEfeito(); if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });
 /** "Livre agora → depois": o efeito do gasto na sobra do mês, antes de confirmar (só no mês atual, e só para gasto fora do cartão). */
 function mostraEfeito() {
-  const el = $("fEfeito"), v = parseMoney($("fValor").value), d = $("fData").value || hoje();
+  const el = $("fEfeito"), v = valorDoCampo(), d = $("fData").value || hoje();
+  const jaTinha = S.tipo === "Reserva" && $("fForma").value === "Já tinha guardado";
+  if (jaTinha) { el.hidden = false; el.textContent = "Dinheiro que você já tinha: não sai do seu saldo do mês"; return; }
   const conta = S.loaded && v > 0 && S.tipo !== "Receita" && mKey(d) === mKey(hoje()) && !(S.tipo === "Despesa" && $("fForma").value === CARTAO) && !$("fFixo").checked && !(S.tipo === "Reserva" && $("fForma").value === "Retirar");
   el.hidden = !conta; if (!conta) return;
   const livre = raioX(calcMes(S.data, mKey(hoje()), hoje())).sobra, depois = round2(livre - v);
@@ -2150,6 +2184,7 @@ function renderMais(c) {
       linha("desafio", "alvo", "Desafio de economia", "Guarde um valor por semana e acompanhe"),
       linha("calc", "luz", "Calculadoras", "Rendimento, parcelas com juros, férias e 13º"),
       linha("msg", "clipe", "Colar mensagem do banco", "A notificação ou o SMS vira um lançamento"),
+      linha("share", "baixar", "Compartilhar meu mês", "Uma imagem do seu mês, com ou sem os valores"),
       linha("conq", "medalha", "Conquistas", "As medalhas que você já ganhou e as próximas"),
       linha("btnExport", "baixar", "Baixar relatório", "Excel, PDF ou CSV"),
       linha("copia", "baixar", "Cópia de segurança", "Baixe tudo num arquivo e restaure quando precisar"),
@@ -2161,7 +2196,7 @@ function renderMais(c) {
       linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
     const k = b.dataset.mais;
-    const FERR = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca };
+    const FERR = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
     if (FERR[k]) FERR[k](); else if (SUBS.includes(k)) abrirSub(k); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else $(k).click();
   }));
 }
@@ -2494,12 +2529,13 @@ function ferramentas() {
     ${opFerr("frDesafio", "alvo", "Desafio de economia", "Guarde um valor por semana e acompanhe")}
     ${opFerr("frCalc", "luz", "Calculadoras", "Rendimento, parcelas com juros, férias e 13º")}
     ${opFerr("frMsg", "clipe", "Colar mensagem do banco", "Cole a notificação ou o SMS e o lançamento vem preenchido")}
+    ${opFerr("frShare", "baixar", "Compartilhar meu mês", "Uma imagem do seu mês, com ou sem os valores")}
     ${opFerr("frConq", "medalha", "Conquistas", "As medalhas que você já ganhou e as próximas")}
     ${opFerr("frRel", "baixar", "Baixar relatório", "Excel, PDF ou CSV")}
     ${opFerr("frCopia", "baixar", "Cópia de segurança", "Baixe tudo num arquivo e restaure quando precisar")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
   const vai = (id, fn) => ($(id).onclick = () => fn());
-  vai("frDesemp", meuDesempenho); vai("frAno", () => resumoAno()); vai("frDesafio", () => desafioEconomia()); vai("frCalc", () => calculadoras()); vai("frMsg", colarMensagem); vai("frRel", baixarRelatorio); vai("frConq", conquistasTela); vai("frCopia", copiaDeSeguranca);
+  vai("frDesemp", meuDesempenho); vai("frAno", () => resumoAno()); vai("frDesafio", () => desafioEconomia()); vai("frCalc", () => calculadoras()); vai("frMsg", colarMensagem); vai("frRel", baixarRelatorio); vai("frConq", conquistasTela); vai("frShare", () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes)); vai("frCopia", copiaDeSeguranca);
 }
 $("btnFerramentas").onclick = ferramentas;
 
@@ -2746,6 +2782,68 @@ function baixarRelatorio() {
   $("rlXlsx").onclick = () => baixaExcel($("rlXlsx")); $("rlPdf").onclick = () => baixaPdf(ano); $("rlCsv").onclick = () => baixaCsv(ano);
 }
 
+/* ---------- Repetir um lançamento, apagar com desfazer e deslizar na lista ---------- */
+/** Uma cópia do lançamento, de hoje, pronta para gravar (sem o que é só daquele lançamento). */
+const copiaParaHoje = (x) => { const { id, created_at, enviando, pendente, comprovante, user_id, ...r } = x; return { ...r, data: hoje(), id: crypto.randomUUID(), import_key: null }; };
+const vibra = (ms = 12) => { try { navigator.vibrate?.(ms); } catch { /* sem vibração */ } };
+async function repeteLancamento(x) {
+  if (!x || x.auto || x.forma === JA_TINHA) return;
+  const row = copiaParaHoje(x); let novo;
+  if (!(await grava(async () => { [novo] = await S.store.addLancamentos([row]); }))) return;
+  const g = novo || row; S.data.lancamentos.push({ ...g, valor: Number(g.valor) });
+  vibra(); render();
+  toastDesfazer(`Lançado de novo: ${row.descricao || row.categoria} · ${brl(row.valor)}, hoje.`, async () => { if (await apagaLancamento(g.id)) render(); });
+}
+async function apagaComDesfazer(id) {
+  const x = lancPorId(id); if (!x) return;
+  const { enviando, pendente, comprovante, user_id, ...copia } = x;
+  if (!(await apagaLancamento(id))) return;
+  vibra(); render();
+  toastDesfazer(`Apagado: ${x.descricao || x.categoria} · ${brl(x.valor)}.`, async () => {
+    let novo; if (await grava(async () => { [novo] = await S.store.addLancamentos([copia]); })) { const g = novo || copia; S.data.lancamentos.push({ ...g, valor: Number(g.valor) }); render(); }
+  });
+}
+let fimDeslizar = 0;
+/** Na lista do celular: deslizar para a direita repete o lançamento e para a esquerda apaga (com desfazer). */
+function ligaDeslizar(host) {
+  if (host.dataset.desliza) return; host.dataset.desliza = "1";
+  let tr = null, x0 = 0, y0 = 0, dx = 0, trava = false;
+  host.addEventListener("touchstart", (e) => {
+    tr = e.touches.length === 1 && !e.target.closest("button") ? e.target.closest("tr[data-id]") : null;
+    if (tr) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; trava = false; }
+  }, { passive: true });
+  host.addEventListener("touchmove", (e) => {
+    if (!tr) return;
+    const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+    if (!trava) { if (Math.abs(my) > 12 && Math.abs(my) > Math.abs(mx)) { tr = null; return; } if (Math.abs(mx) > 12 && Math.abs(mx) > Math.abs(my) * 1.5) trava = true; else return; }
+    dx = Math.max(-140, Math.min(140, mx)); tr.style.transform = `translateX(${dx}px)`;
+    tr.classList.toggle("desliza-d", dx > 0); tr.classList.toggle("desliza-e", dx < 0);
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  const solta = () => {
+    if (!tr) return; const el = tr, d = dx, foi = trava; tr = null; dx = 0; trava = false;
+    el.style.transform = ""; el.classList.remove("desliza-d", "desliza-e");
+    if (!foi) return;
+    fimDeslizar = Date.now();
+    if (d > 90) repeteLancamento(lancPorId(el.dataset.id)); else if (d < -90) apagaComDesfazer(el.dataset.id);
+  };
+  host.addEventListener("touchend", solta); host.addEventListener("touchcancel", () => { if (tr) { tr.style.transform = ""; tr.classList.remove("desliza-d", "desliza-e"); tr = null; } });
+}
+
+/* ---------- Comemoração ---------- */
+/** Uns confetes rápidos na tela (some sozinho; não aparece para quem pediu menos movimento). */
+function comemora() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const el = document.createElement("div"); el.className = "confete"; el.setAttribute("aria-hidden", "true");
+  const cores = ["#3ecf74", "#f2b94b", "#6aa8ff", "#ff8fa3", "#c3b4ff"];
+  for (let i = 0; i < 18; i++) {
+    const p = document.createElement("i"), ang = (Math.PI * 2 * i) / 18 + Math.random() * 0.4, d = 90 + Math.random() * 110;
+    p.style.cssText = `background:${cores[i % cores.length]};--dx:${Math.cos(ang) * d}px;--dy:${Math.sin(ang) * d + 40}px;--r:${Math.round(Math.random() * 540 - 270)}deg;animation-delay:${Math.round(Math.random() * 90)}ms`;
+    el.append(p);
+  }
+  document.body.append(el); setTimeout(() => el.remove(), 1300);
+}
+
 /* ---------- Conquistas ---------- */
 const dadosDeConquistas = () => conquistas(S.data, hoje(), { semGasto: S.prefs.semGasto || [], metas: S.prefs.metas, desafios: S.prefs.desafios });
 const nConq = (c, v) => (c.de >= 1000 ? brl0(v) : String(Math.floor(v)));
@@ -2774,12 +2872,13 @@ function avisaConquistas() {
   if (!Array.isArray(vistas)) { S.prefs.conquistas = l.filter((x) => x.feita).map((x) => x.id); salvaPrefs(); return; }
   const novas = novasConquistas(l, vistas); if (!novas.length) return;
   S.prefs.conquistas = [...vistas, ...novas.map((x) => x.id)]; salvaPrefs();
+  comemora();
   toastAcao(`Conquista nova: ${novas[0].titulo}${novas.length > 1 ? ` e mais ${novas.length - 1}` : ""}`, "Ver", conquistasTela, 9000);
 }
 
 /* ---------- Dividir uma compra em categorias ---------- */
 function dividirCompra() {
-  const total = parseMoney($("fValor").value);
+  const total = valorDoCampo();
   if (!(total > 0)) { toast("Digite primeiro o valor total da compra."); return $("fValor").focus(); }
   if (total > VALOR_MAX) { toast(ALTO_DEMAIS); return $("fValor").focus(); }
   const lista = cats("Despesa"), inicial = $("fCat").value;
@@ -3088,11 +3187,12 @@ function htmlCaixinhas() {
 }
 function abrirCaixa(nome) {
   const v = (guardadoPorDestino(S.data, mKey(hoje())).find(([k]) => k === nome) || [0, 0])[1], foto = fotoDe("dest", nome);
-  const guardar = (retirar) => { $("dlg").close(); S.tipo = "Reserva"; renderForm(); $("fCat").value = nome; $("fForma").value = retirar ? "Retirar" : "Guardar"; S.catManual = true; renderForm();
+  const guardar = (mov) => { $("dlg").close(); S.tipo = "Reserva"; renderForm(); $("fCat").value = nome; $("fForma").value = mov; S.catManual = true; renderForm(); mostraEfeito();
     setTimeout(() => { if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } }, 200); };
   openDlg(`<div class="caixa-capa${foto ? " com" : ""}" style="${foto ? `background-image:url('${foto}')` : ""}"><h3>${esc(nome)}</h3></div>
     <p class="caixa-valor ocultavel">${brl(v)}</p><p class="hint" style="margin:0 0 12px">guardados nesta caixinha</p>
     <div class="caixa-acoes"><button class="btn primary" type="button" id="cxGuardar">Guardar</button><button class="btn" type="button" id="cxRetirar">Retirar</button></div>
+    <button class="link" type="button" id="cxJaTinha" style="margin:-4px 0 12px">Já tinha dinheiro aqui? Informe o valor</button>
     <div class="caixa-mais">
       <button class="mais-item" type="button" id="cxMeta"><span class="tx"><b>${metasDe()[nome] ? "Ver e mudar a meta" : "Criar uma meta"}</b><span>quanto quer juntar e até quando</span></span>${ico("chev")}</button>
       <button class="mais-item" type="button" id="cxFoto"><span class="tx"><b>${foto ? "Trocar a foto" : "Colocar uma foto"}</b><span>a capa da caixinha, como nos bancos</span></span>${ico("chev")}</button>
@@ -3100,7 +3200,7 @@ function abrirCaixa(nome) {
       ${metasDe()[nome] ? `<button class="mais-item perigo" type="button" id="cxSemMeta"><span class="tx"><b>Excluir a meta</b><span>o dinheiro guardado continua aqui</span></span>${ico("lixo")}</button>` : ""}
     </div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
-  $("cxGuardar").onclick = () => guardar(false); $("cxRetirar").onclick = () => guardar(true);
+  $("cxGuardar").onclick = () => guardar("Guardar"); $("cxRetirar").onclick = () => guardar("Retirar"); $("cxJaTinha").onclick = () => guardar("Já tinha guardado");
   $("cxMeta").onclick = () => detalheMeta(nome);
   $("cxFoto").onclick = () => trocaFoto("dest", nome, () => abrirCaixa(nome));
   if ($("cxSemFoto")) $("cxSemFoto").onclick = () => tiraFoto("dest", nome, () => abrirCaixa(nome));
@@ -3165,7 +3265,7 @@ function desenhaFechamento(m, semValores) {
   const pct = (v) => (c.rec > 0 ? `${Math.round((v / c.rec) * 100)}%` : "—"), val = (v) => (semValores ? pct(v) : brl0(v));
   g.fillStyle = "#fff"; g.textBaseline = "alphabetic";
   g.font = fonte(600, 40); g.globalAlpha = 0.9; g.fillText("Meus Gastos", 90, 130); g.globalAlpha = 1;
-  g.font = fonte(700, 64); g.fillText(`${nomeMes(m)[0].toUpperCase() + nomeMes(m).slice(1)} de ${m.slice(0, 4)}`, 90, 240);
+  g.font = fonte(700, 64); g.fillText(`${nomeMes(m)[0].toUpperCase() + nomeMes(m).slice(1)} de ${m.slice(0, 4)}${c.fase === "atual" ? " (até hoje)" : ""}`, 90, 240);
   g.font = fonte(600, 52); g.globalAlpha = 0.92; g.fillText(sobra >= 0 ? "Sobrou" : "Faltou", 90, 360); g.globalAlpha = 1;
   g.font = fonte(800, semValores ? 170 : 150);
   g.fillText(semValores ? pct(Math.abs(sobra)) : brl0(Math.abs(sobra)), 84, 510);
@@ -3360,7 +3460,7 @@ function naoLancouRepetido() {
 }
 $("formLanc").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const flash = $("flash"); let v = parseMoney($("fValor").value);
+  const flash = $("flash"); normalizaConta(); let v = parseMoney($("fValor").value);
   if (avisoValor(v)) { flash.style.color = "var(--bad)"; flash.textContent = avisoValor(v); $("fValor").focus(); return; }
   // Valor muito acima do costume (ex.: 3890 em vez de 38,90): confere antes de lançar.
   const fora = valorForaDoComum(S.data.lancamentos, { tipo: S.tipo, valor: round2(v), categoria: $("fCat").value }, hoje(), $("fValor").value);
@@ -3397,7 +3497,7 @@ $("formLanc").addEventListener("submit", async (e) => {
   const parecido = lancamentoRepetido(S.data.lancamentos.map(comAutor), comAutor(row)), igual = parecido && S.data.lancamentos.find((z) => z.id === parecido.id);
   if (igual) { const r = await confirmaRepetido(igual, false); if (r === "nao") return naoLancouRepetido(); if (r === "voltar") return $("fValor").focus(); }
   const nivelAntes = nivelDoTeto(), ehMeta = S.tipo === "Reserva", metaAntes = ehMeta ? andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()) : null;
-  const combinar = ehMeta && row.forma !== RETIRADA && $("fFixo").checked;
+  const combinar = ehMeta && row.forma !== RETIRADA && row.forma !== JA_TINHA && $("fFixo").checked;
   // O lançamento entra na tela no mesmo toque, já com o id definitivo; o envio acontece por trás.
   // Sem conexão (ou com sinal fraco) ele fica na fila do aparelho; se o banco recusar, ele sai da tela e o aviso explica.
   row.id = crypto.randomUUID();
@@ -3414,13 +3514,14 @@ $("formLanc").addEventListener("submit", async (e) => {
   });
   // Enquanto o envio não termina, editar ou excluir esperam por ele (senão mexeriam em um lançamento que o banco ainda não tem).
   envios.set(row.id, envio); envio.finally(() => envios.delete(row.id));
-  flash.style.color = "var(--good)";
+  flash.style.color = "var(--good)"; vibra();
   const kc = cartaoPorId(row.cartao_id || "");
   flash.textContent = `Lançado: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}${mKey(data) !== S.mes ? " (outro mês)" : ""}.`
     + (kc ? ` ${row.parcelas > 1 ? `Em ${row.parcelas}x no ${kc.nome}: a primeira parcela vem` : `No ${kc.nome}: vem`} na fatura de ${nomeMes(mesDaFatura(kc, data))}.` : "");
   // Aviso na hora, quando este lançamento fez o mês chegar perto do limite ou passar dele.
   const nivelDepois = nivelDoTeto();
   if (nivelDepois > nivelAntes) { const u = usoDoTeto(calcMes(S.data, mKey(hoje()), hoje()), S.prefs.teto), t = textoDoTeto(u); flash.style.color = "var(--warn)"; flash.textContent += ` ${t.titulo} do mês: ${u.pct}% usado. ${t.frase}`; }
+  if (ehMeta && row.forma !== RETIRADA) { const dp = andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()); if (dp?.concluida && !metaAntes?.concluida) comemora(); }
   if (ehMeta) flash.textContent += recadoDaMeta(metaAntes, andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()), row.forma === RETIRADA);
   // A data volta para o padrão (hoje): uma data antiga escolhida para este gasto não passa para o próximo sem a pessoa ver.
   $("fValor").value = ""; $("fDesc").value = ""; $("fParc").value = "1"; $("fData").value = mKey(hoje()) === S.mes ? hoje() : S.mes + "-01"; S.catManual = false; S.formaManual = false; limpaSugestoes();
@@ -3546,7 +3647,7 @@ function editarLancamento(id) {
     $("eFormaWrap").hidden = t === "Receita";
     $("eFormaLbl").textContent = mov ? "Movimento" : "Forma de pagamento";
     $("eCatLbl").textContent = mov ? "Onde guardar" : "Categoria";
-    $("eForma").innerHTML = mov ? opts(MOVS, atual === RETIRADA ? "Retirar" : "Guardar") : opts(FORMAS, atual);
+    $("eForma").innerHTML = mov ? opts(MOVS, movDe(atual)) : opts(FORMAS, atual);
     syncCartao();
   };
   // Cartão e parcelas só aparecem para gasto no cartão de crédito, e quando há cartão cadastrado.
@@ -3808,7 +3909,7 @@ function detalheKpi(tipo) {
       { titulo: "Onde está e as metas", html: `<ul class="itens metas-lista">${nomes.map((k, i) => { const a = andamentoDaMeta(S.data, k, S.prefs.metas?.[k], hj);
           return `<li><span>${esc(k)}<span class="mini">${a ? (a.concluida ? `Meta de ${brl0(a.alvo)} completa` : `${a.pct}% da meta de ${brl0(a.alvo)}`) : "Sem meta"}</span></span><b>${brl(tem.get(k) || 0)}</b><button class="btn sm" type="button" data-meta-d="${i}">${a ? "Ver meta" : "Criar meta"}</button></li>`; }).join("")}</ul>` },
       { titulo: `Movimentos de ${mes}`, total: sgn(c.res), itens: mov.map((x) => ({ d: ddmm(x.data), t: x.descricao || x.categoria, s: x.categoria, ref: { k: "lanc", id: x.id },
-          tag: x.forma === RETIRADA ? "retirou" : "guardou", v: (x.forma === RETIRADA ? "− " : "+ ") + brl(x.valor), cls: "res" })), vazio: "Nada guardado nem retirado neste mês." }], ["Ver nos lançamentos", "l"]);
+          tag: x.forma === RETIRADA ? "retirou" : x.forma === JA_TINHA ? "já tinha" : "guardou", v: (x.forma === RETIRADA ? "− " : "+ ") + brl(x.valor), cls: "res" })), vazio: "Nada guardado nem retirado neste mês." }], ["Ver nos lançamentos", "l"]);
     $("dlgBody").querySelectorAll("[data-meta-d]").forEach((b) => (b.onclick = () => detalheMeta(nomes[Number(b.dataset.metaD)])));
     return;
   }

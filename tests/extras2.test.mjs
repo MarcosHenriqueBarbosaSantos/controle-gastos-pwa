@@ -95,3 +95,35 @@ test("ajustes da cópia: só entra o que a pessoa ainda não tem", () => {
   assert.deepEqual(ajustesRestauraveis(g, { limites: { Lazer: 1 }, teto: 100, saldoDesde: "2025-01", metas: {} }), { metas: { Viagem: { valor: 1000 } } });
   assert.deepEqual(ajustesRestauraveis(null, {}), {});
 });
+
+import { JA_TINHA, RETIRADA, guardadoPorDestino, andamentoDaMeta, parabensDaMeta } from "../js/calc.js";
+test("já tinha guardado: soma na caixinha, mas não tira do saldo do mês", () => {
+  const st = base([L("2026-10-05", "Salário", 3000, "Receita", { k: "s" }), L("2026-10-06", "Viagem", 800, "Reserva", { forma: JA_TINHA, k: "j" })]);
+  const c = calcMes(st, "2026-10", HOJE);
+  assert.equal(c.res, 0); assert.equal(c.saldo, 3000);
+  assert.deepEqual(guardadoPorDestino(st, "2026-10"), [["Viagem", 800]]);
+  const a = andamentoDaMeta(st, "Viagem", { valor: 2000 }, HOJE);
+  assert.equal(a.guardado, 800); assert.equal(a.noMes, 0); assert.equal(a.ritmo, 0); assert.equal(a.pct, 40);
+  // guardar de verdade depois conta normal, e retirar tira do total
+  const st2 = base([...st.lancamentos, L("2026-10-10", "Viagem", 200, "Reserva", { forma: "", k: "g" }), L("2026-10-12", "Viagem", 100, "Reserva", { forma: RETIRADA, k: "r" })]);
+  const c2 = calcMes(st2, "2026-10", HOJE), a2 = andamentoDaMeta(st2, "Viagem", { valor: 2000 }, HOJE);
+  assert.equal(c2.res, 100); assert.equal(a2.guardado, 900); assert.equal(a2.noMes, 100);
+});
+test("já tinha guardado não gera parabéns de 'você guardou ontem'", () => {
+  const st = base([L("2026-10-09", "Viagem", 1500, "Reserva", { forma: JA_TINHA, k: "j" })]);
+  assert.equal(parabensDaMeta(st, { Viagem: { valor: 2000 } }, "2026-10-10"), null);
+});
+
+import { avaliaConta } from "../js/extras.js";
+test("conta no valor: soma, subtrai, multiplica e divide", () => {
+  assert.equal(avaliaConta("12+8,50"), 20.5);
+  assert.equal(avaliaConta("45x2"), 90);
+  assert.equal(avaliaConta("45 × 2 + 10"), 100);
+  assert.equal(avaliaConta("100/4"), 25);
+  assert.equal(avaliaConta("1.200,50-200"), 1000.5);
+  assert.equal(avaliaConta("10+20*3"), 70);
+  assert.equal(avaliaConta("100÷3"), 33.33);
+});
+test("conta no valor: o que não é conta devolve null", () => {
+  for (const t of ["", "12", "1.234,56", "12+", "+12", "12++3", "abc", "10/0", "5-10", "12+a", "2*3-6", "R$ 15"]) assert.equal(avaliaConta(t), null, t);
+});

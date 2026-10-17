@@ -11,6 +11,8 @@ export const CATS_PADRAO = {
 // Dinheiro guardado usa o tipo "Reserva": a categoria diz onde ele fica e a forma diz o movimento.
 // forma "" = guardou (sai do saldo); forma RETIRADA = retirou (volta para o saldo).
 export const RETIRADA = "Retirada";
+// forma JA_TINHA = dinheiro que a pessoa já tinha guardado antes de usar o app: soma na caixinha, mas não sai do saldo do mês.
+export const JA_TINHA = "Já tinha";
 const sinalRes = (x) => (x.forma === RETIRADA ? -1 : 1);
 export const FORMAS = ["Pix", "Débito", "Dinheiro", "Boleto", "Cartão de crédito"];
 export const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho",
@@ -205,7 +207,7 @@ export function calcMes(st, m, hoje) {
   const vari = sum(desp.filter((x) => !noCartao(x)));          // dia a dia pago fora do cartão
   const comprasCartao = sum(desp.filter(noCartao));            // vai para uma fatura futura
   // Guardado do mês = o que foi guardado menos o que foi retirado (pode ficar negativo).
-  const resIn = sum(it.filter((x) => x.tipo === "Reserva" && x.forma !== RETIRADA));
+  const resIn = sum(it.filter((x) => x.tipo === "Reserva" && x.forma !== RETIRADA && x.forma !== JA_TINHA));
   const resOut = sum(it.filter((x) => x.tipo === "Reserva" && x.forma === RETIRADA));
   const res = round2(resIn - resOut);
   const fx = ocorrencias(st.fixos, m);                          // cada vez que um gasto fixo acontece no mês
@@ -498,7 +500,7 @@ export function guardadoPorDestino(st, m) {
 /** Quanto entrou (menos o que saiu) em um destino, mês a mês: { "2026-09": 300, ... }. */
 function guardadoPorMes(st, destino) {
   const out = {};
-  st.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === destino)
+  st.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === destino && x.forma !== JA_TINHA)
     .forEach((x) => { const k = mKey(x.data); out[k] = round2((out[k] || 0) + sinalRes(x) * Number(x.valor)); });
   return out;
 }
@@ -519,7 +521,9 @@ export function andamentoDaMeta(st, destino, meta, hoje) {
   const alvo = round2(Number(meta?.valor) || 0);
   if (!(alvo > 0)) return null;
   const cur = mKey(hoje), mapa = guardadoPorMes(st, destino), meses = Object.keys(mapa).sort();
-  const guardado = round2(meses.filter((k) => k <= cur).reduce((t, k) => t + mapa[k], 0));
+  // O que a pessoa já tinha antes do app conta no total da meta, mas não no ritmo nem no que foi guardado neste mês.
+  const jaTinha = round2(st.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === destino && x.forma === JA_TINHA && mKey(x.data) <= cur).reduce((t, x) => t + Number(x.valor), 0));
+  const guardado = round2(jaTinha + meses.filter((k) => k <= cur).reduce((t, k) => t + mapa[k], 0));
   const falta = round2(Math.max(0, alvo - guardado)), concluida = falta === 0;
   const pct = Math.max(0, Math.min(100, Math.floor((guardado / alvo) * 100)));
   const marco = [100, 75, 50, 25].find((x) => pct >= x) || 0, noMes = mapa[cur] || 0;
@@ -645,7 +649,7 @@ export function parabensDaMeta(st, metas, hoje) {
     const alvo = round2(Number(meta?.valor) || 0);
     if (!(alvo > 0)) continue;
     const l = st.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === destino && x.data <= ontem);
-    const valor = round2(l.filter((x) => x.data === ontem && x.forma !== RETIRADA).reduce((t, x) => t + Number(x.valor), 0));
+    const valor = round2(l.filter((x) => x.data === ontem && x.forma !== RETIRADA && x.forma !== JA_TINHA).reduce((t, x) => t + Number(x.valor), 0));
     if (!(valor > 0)) continue;
     const guardado = round2(l.reduce((t, x) => t + sinalRes(x) * Number(x.valor), 0));
     const antes = round2(guardado - l.filter((x) => x.data === ontem).reduce((t, x) => t + sinalRes(x) * Number(x.valor), 0));
