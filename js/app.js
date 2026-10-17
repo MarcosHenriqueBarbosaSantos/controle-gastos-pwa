@@ -11,7 +11,7 @@ import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  avaliaConta, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, totalDaLista, divisaoDaLista, totalPorCategoriaDe, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
+  avaliaConta, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, totalDaLista, totalPorCategoria, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
 
@@ -2864,19 +2864,15 @@ function comemora() {
 
 /* ---------- Compras no mercado ---------- */
 const MERC_CHAVE = "cg-mercado";
-const lerMercado = () => { try { const j = JSON.parse(localStorage.getItem(MERC_CHAVE)); return { limite: Number(j?.limite) || 0, itens: Array.isArray(j?.itens) ? j.itens.slice(0, 300) : [], outraCat: Boolean(j?.outraCat), dividir: Boolean(j?.dividir), nomeOutro: String(j?.nomeOutro || "").slice(0, 20) }; } catch { return { limite: 0, itens: [], outraCat: false, dividir: false, nomeOutro: "" }; } };
+const lerMercado = () => { try { const j = JSON.parse(localStorage.getItem(MERC_CHAVE)); return { limite: Number(j?.limite) || 0, itens: Array.isArray(j?.itens) ? j.itens.slice(0, 300) : [], outraCat: Boolean(j?.outraCat) }; } catch { return { limite: 0, itens: [], outraCat: false }; } };
 const gravaMercado = (m) => { try { localStorage.setItem(MERC_CHAVE, JSON.stringify(m)); } catch { /* sem armazenamento: a lista vale só nesta tela */ } };
 function mercado() {
   const m = lerMercado(), catsD = cats("Despesa"), padrao = catsD.includes("Mercado") ? "Mercado" : catsD[0];
-  const nomeOutro = () => (casalAtivo() ? nomeDoOutro() : m.nomeOutro || "Outra pessoa");
   const desenha = () => {
-    const total = totalDaLista(m.itens), cabe = m.limite > 0 ? round2(m.limite - total) : null, dv = divisaoDaLista(m.itens), outro = nomeOutro();
-    const dono = (i, k) => `<span class="mc-dono" role="group" aria-label="De quem é ${esc(i.nome || "o item")}">${[["eu", "Eu"], ["outro", esc(outro)], ["dois", "Os dois"]].map(([v, r]) => `<button type="button" data-dono="${k}" data-v="${v}" aria-pressed="${(i.dono || "dois") === v}">${r}</button>`).join("")}</span>`;
+    const total = totalDaLista(m.itens), cabe = m.limite > 0 ? round2(m.limite - total) : null;
     openDlg(`<h3>Compras no mercado</h3>
       <p class="hint" style="margin:0 0 10px">Some o carrinho enquanto compra. No fim, toque em <b>Confirmar compra</b> e o app lança como Mercado, para você só escolher a forma de pagamento.</p>
       <label class="f">Quanto quero gastar (opcional)<input class="in money" id="mcLimite" inputmode="decimal" placeholder="Ex.: 300,00" value="${m.limite > 0 ? esc(m.limite.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) : ""}"></label>
-      <label class="check" style="margin:10px 0 4px"><input type="checkbox" id="mcDividir" ${m.dividir ? "checked" : ""}> Estou comprando com outra pessoa e queremos separar a conta</label>
-      ${m.dividir && !casalAtivo() ? `<label class="f">Nome da outra pessoa<input class="in" id="mcNomeOutro" maxlength="20" placeholder="Ex.: Ana" value="${esc(m.nomeOutro || "")}"></label>` : ""}
       <form id="mcForm" class="mc-form" autocomplete="off">
         <label class="f mc-nome">Item<input class="in" id="mcNome" maxlength="40" placeholder="Ex.: arroz" enterkeyhint="next"></label>
         <label class="f">Preço (R$)<input class="in money" id="mcPreco" inputmode="decimal" placeholder="0,00" enterkeyhint="done"></label>
@@ -2884,43 +2880,30 @@ function mercado() {
         <button class="btn primary mc-add" type="submit">Adicionar ao carrinho</button>
       </form>
       <div class="mc-total ${cabe !== null && cabe < 0 ? "passou" : ""}"><span>Total do carrinho</span><b>${brl(total)}</b>${cabe === null ? "" : `<small>${cabe >= 0 ? `Ainda cabem ${brl(cabe)}` : `Passou ${brl(-cabe)} do que você queria gastar`}</small>`}</div>
-      ${m.dividir && total > 0 ? `<div class="mc-div"><div><small>Sua parte</small><b>${brl(dv.eu)}</b></div><div><small>Parte de ${esc(outro)}</small><b>${brl(dv.outro)}</b></div>
-        <p class="hint">O que é de cada um fica com ele; o que é dos dois é dividido ao meio. ${dv.dois > 0 ? `Se um pagar tudo no caixa, o outro passa o valor da parte dele.` : ""}</p></div>` : ""}
-      ${m.itens.length ? `<ul class="mc-lista">${m.itens.map((i, k) => `<li><span class="mc-i"><b>${esc(i.nome || "Item")}</b><small>${i.qtd > 1 ? `${String(i.qtd).replace(".", ",")} × ${brl(i.preco)}` : brl(i.preco)}</small></span><b class="mc-v">${brl(totalDaLista([i]))}</b><button class="mc-x" type="button" data-x="${k}" aria-label="Tirar ${esc(i.nome || "item")}">×</button>${m.dividir ? dono(i, k) : ""}${m.outraCat ? `<select class="in mc-cat" data-cat="${k}" aria-label="Categoria de ${esc(i.nome || "item")}">${catsD.map((c) => `<option${c === (i.cat || padrao) ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>` : ""}</li>`).join("")}</ul>` : `<p class="hint">O carrinho está vazio. Digite o item e o preço e toque em Adicionar.</p>`}
+      ${m.itens.length ? `<ul class="mc-lista">${m.itens.map((i, k) => `<li><span class="mc-i"><b>${esc(i.nome || "Item")}</b><small>${i.qtd > 1 ? `${String(i.qtd).replace(".", ",")} × ${brl(i.preco)}` : brl(i.preco)}</small></span><b class="mc-v">${brl(totalDaLista([i]))}</b><button class="mc-x" type="button" data-x="${k}" aria-label="Tirar ${esc(i.nome || "item")}">×</button>${m.outraCat ? `<select class="in mc-cat" data-cat="${k}" aria-label="Categoria de ${esc(i.nome || "item")}">${catsD.map((c) => `<option${c === (i.cat || padrao) ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>` : ""}</li>`).join("")}</ul>` : `<p class="hint">O carrinho está vazio. Digite o item e o preço e toque em Adicionar.</p>`}
       <label class="check" style="margin:8px 0"><input type="checkbox" id="mcOutra" ${m.outraCat ? "checked" : ""}> Tem item de outra categoria (limpeza, higiene...)</label>
-      <div class="actions">${m.dividir ? `<button class="btn primary" type="button" id="mcOk" data-quem="eu"${dv.eu > 0 ? "" : " disabled"}>Lançar a minha parte (${brl(dv.eu)})</button><button class="btn" type="button" id="mcOkTudo"${total > 0 ? "" : " disabled"}>Lançar o total pago por mim</button><button class="btn" type="button" id="mcManda"${total > 0 ? "" : " disabled"}>Mandar a divisão</button>`
-        : `<button class="btn primary" type="button" id="mcOk"${total > 0 ? "" : " disabled"}>Confirmar compra</button>`}${m.itens.length ? `<button class="btn" type="button" id="mcLimpa">Limpar a lista</button>` : ""}<button class="btn" type="button" data-close>Fechar</button></div>`);
+      <div class="actions"><button class="btn primary" type="button" id="mcOk"${total > 0 ? "" : " disabled"}>Confirmar compra</button>${m.itens.length ? `<button class="btn" type="button" id="mcLimpa">Limpar a lista</button>` : ""}<button class="btn" type="button" data-close>Fechar</button></div>`);
     $("mcLimite").addEventListener("change", () => { const v = parseMoney($("mcLimite").value); m.limite = v > 0 && v <= VALOR_MAX ? round2(v) : 0; gravaMercado(m); desenha(); });
-    $("mcDividir").onchange = () => { m.dividir = $("mcDividir").checked; gravaMercado(m); desenha(); };
-    if ($("mcNomeOutro")) $("mcNomeOutro").addEventListener("change", () => { m.nomeOutro = $("mcNomeOutro").value.trim().slice(0, 20); gravaMercado(m); desenha(); });
     $("mcForm").addEventListener("submit", (e) => {
       e.preventDefault();
       const preco = avaliaConta($("mcPreco").value) ?? parseMoney($("mcPreco").value), qtd = parseMoney($("mcQtd").value) || 1;
       if (!(preco > 0) || preco > VALOR_MAX) { toast("Digite o preço do item, por exemplo 5,90."); return $("mcPreco").focus(); }
       if (!(qtd > 0) || qtd > 999) { toast("Digite quantas unidades, por exemplo 2."); return $("mcQtd").focus(); }
-      m.itens.push({ nome: $("mcNome").value.trim(), preco: round2(preco), qtd, cat: padrao, dono: "dois" }); gravaMercado(m); desenha(); $("mcNome").focus();
+      m.itens.push({ nome: $("mcNome").value.trim(), preco: round2(preco), qtd, cat: padrao }); gravaMercado(m); desenha(); $("mcNome").focus();
     });
     $("dlgBody").querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { m.itens.splice(Number(b.dataset.x), 1); gravaMercado(m); desenha(); }));
     $("dlgBody").querySelectorAll("[data-cat]").forEach((s) => (s.onchange = () => { m.itens[Number(s.dataset.cat)].cat = s.value; gravaMercado(m); desenha(); }));
-    $("dlgBody").querySelectorAll("[data-dono]").forEach((b) => (b.onclick = () => { m.itens[Number(b.dataset.dono)].dono = b.dataset.v; gravaMercado(m); desenha(); }));
     $("mcOutra").onchange = () => { m.outraCat = $("mcOutra").checked; gravaMercado(m); desenha(); };
     if ($("mcLimpa")) $("mcLimpa").onclick = () => { m.itens = []; gravaMercado(m); desenha(); };
-    const confirma = (quem) => {
-      const partes = m.outraCat ? totalPorCategoriaDe(m.itens, quem, padrao) : [[padrao, quem === "eu" ? dv.eu : total]], soma = round2(partes.reduce((t, p) => t + p[1], 0)), umaSo = partes.length === 1;
+    $("mcOk").onclick = () => {
+      const partes = m.outraCat ? totalPorCategoria(m.itens, padrao) : [[padrao, total]], soma = round2(partes.reduce((t, p) => t + p[1], 0)), umaSo = partes.length === 1;
       $("dlg").close(); S.tipo = "Despesa"; renderForm();
-      $("fValor").value = soma.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); $("fDesc").value = quem === "eu" && m.dividir ? "Compra no mercado (minha parte)" : "Compra no mercado"; $("fCat").value = umaSo ? partes[0][0] : padrao; S.catManual = true; $("fData").value = hoje();
+      $("fValor").value = soma.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); $("fDesc").value = "Compra no mercado"; $("fCat").value = umaSo ? partes[0][0] : padrao; S.catManual = true; $("fData").value = hoje();
       S.divisaoPronta = umaSo ? null : partes; renderForm(); mostraEfeito();
       setTimeout(() => { if (noCelular()) abrirLancar(); else $("fValor").scrollIntoView({ block: "center" });
         const f = $("flash"); f.style.color = "var(--good)";
         f.textContent = umaSo ? `${brl(soma)} no formulário. Escolha a forma de pagamento e toque em Lançar.` : `${brl(soma)} no formulário. Escolha a forma de pagamento e toque em "Dividir em categorias" para separar como você marcou.`; }, 200);
       m.itens = []; gravaMercado(m);   // a lista vai para o lançamento: no próximo mercado, começa vazia
-    };
-    $("mcOk").onclick = () => confirma(m.dividir ? "eu" : null);
-    if ($("mcOkTudo")) $("mcOkTudo").onclick = () => confirma(null);
-    if ($("mcManda")) $("mcManda").onclick = async () => {
-      const lin = (rot, v) => `${rot}: ${brl(v)}`;
-      const texto = `Compra no mercado: ${brl(total)}\n${lin("Minha parte", dv.eu)}\n${lin(`Parte de ${outro}`, dv.outro)}\n(O que é de cada um fica com ele; o que é dos dois foi dividido ao meio.)\n\n${m.itens.map((i) => `${(i.dono || "dois") === "eu" ? "Eu" : i.dono === "outro" ? outro : "Os dois"}: ${i.nome || "Item"} ${brl(totalDaLista([i]))}`).join("\n")}`;
-      try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast("Divisão copiada. Cole no WhatsApp ou onde preferir."); } } catch { /* a pessoa desistiu */ }
     };
   };
   desenha(); setTimeout(() => $("mcNome")?.focus(), 50);

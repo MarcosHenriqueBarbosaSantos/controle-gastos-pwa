@@ -508,27 +508,6 @@ export function totalPorCategoria(itens, padrao = "Mercado") {
   return [...m.entries()].sort((a, b) => b[1] - a[1]);
 }
 
-/** O valor de um item para cada pessoa. dono: "eu", "outro" ou "dois" (item dos dois: dividido pela parte de cada um). */
-export function parteDoItem(i, quem, pctEu = 50) {
-  const v = totalDaLista([i]), dono = i.dono || "dois";
-  if (dono === quem) return v;
-  if (dono !== "dois") return 0;
-  const eu = round2((v * pctEu) / 100);
-  return quem === "eu" ? eu : round2(v - eu);
-}
-/** Quanto fica para cada um (e o que é dos dois), com a conta fechando no centavo. */
-export function divisaoDaLista(itens, pctEu = 50) {
-  const so = (d) => totalDaLista((itens || []).filter((i) => (i.dono || "dois") === d)), dois = so("dois"), meu = so("eu"), dele = so("outro");
-  const euDois = round2((dois * pctEu) / 100);
-  return { eu: round2(meu + euDois), outro: round2(dele + (dois - euDois)), dois, total: round2(meu + dele + dois), soEu: meu, soOutro: dele };
-}
-/** Total por categoria só da parte de uma pessoa ("eu" ou "outro"), ou de tudo (quem = null). */
-export function totalPorCategoriaDe(itens, quem, padrao = "Mercado", pctEu = 50) {
-  const m = new Map();
-  for (const i of itens || []) { const v = quem ? parteDoItem(i, quem, pctEu) : totalDaLista([i]); if (v > 0) m.set(i.cat || padrao, round2((m.get(i.cat || padrao) || 0) + v)); }
-  return [...m.entries()].sort((a, b) => b[1] - a[1]);
-}
-
 /* ======================= minha casa ======================= */
 /** Quanto a casa custa por mês. Tudo que for anual (IPTU, manutenção) é dividido por 12. */
 export function custoDaCasa(d) {

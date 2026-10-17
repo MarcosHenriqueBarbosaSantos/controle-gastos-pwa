@@ -147,17 +147,7 @@ test("mercado: total e divisão por categoria", () => {
   assert.deepEqual(totalPorCategoria(it), [["Mercado", 35.5], ["Limpeza", 20]]);
 });
 
-import { divisaoDaLista, parteDoItem, totalPorCategoriaDe } from "../js/extras.js";
-test("mercado em casal: cada um com o seu, e os itens dos dois divididos ao meio", () => {
-  const it = [{ preco: 30, dono: "eu" }, { preco: 20, dono: "outro" }, { preco: 50, qtd: 1, dono: "dois" }, { preco: 10.01, dono: "dois" }];
-  const d = divisaoDaLista(it);
-  assert.equal(d.total, 110.01); assert.equal(round(d.eu + d.outro), 110.01); assert.equal(d.soEu, 30); assert.equal(d.soOutro, 20); assert.equal(d.dois, 60.01);
-  assert.equal(d.eu, 60.01); assert.equal(d.outro, 50);
-  assert.equal(parteDoItem({ preco: 40 }, "eu"), 20); assert.equal(parteDoItem({ preco: 40, dono: "outro" }, "eu"), 0);
-  assert.deepEqual(totalPorCategoriaDe([{ preco: 10, dono: "eu", cat: "Limpeza" }, { preco: 20, dono: "dois" }], "eu"), [["Limpeza", 10], ["Mercado", 10]]);
-  assert.equal(divisaoDaLista(it, 60).eu, round(30 + round(0.6 * 60.01)));
-});
-function round(x) { return Math.round(x * 100) / 100; }
+
 
 test("custoDaCasa soma tudo, divide o anual por 12 e calcula o peso na renda", async () => {
   const { custoDaCasa, pesoDaCasa, dicaDoDia, DICAS } = await import("../js/extras.js");

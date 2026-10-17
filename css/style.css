@@ -1123,8 +1123,4 @@ table.lanc tr.desliza-d td{background:var(--good-soft)} table.lanc tr.desliza-e 
 .mc-lista .mc-i small{display:block;color:var(--muted);font-size:12.5px} .mc-lista .mc-cat{grid-column:1/-1;min-height:40px}
 .mc-x{width:36px;height:36px;border-radius:50%;border:0;background:var(--sunk);color:var(--ink);font-size:20px;cursor:pointer}
 .ve-partes{display:grid;gap:8px;margin-top:10px} .ve-p{display:grid;grid-template-columns:1fr auto;gap:2px 10px;font-size:14px} .ve-p i{grid-column:1/-1;height:6px;border-radius:99px;background:var(--accent,#1e5fbf)}
-
-.mc-div{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 10px;padding:10px 12px;border:1px solid var(--border);border-radius:14px} .mc-div small{display:block;color:var(--muted);font-size:12.5px} .mc-div b{font-size:20px} .mc-div .hint{grid-column:1/-1;margin:0}
-.mc-dono{grid-column:1/-1;display:flex;gap:6px} .mc-dono button{flex:1;min-height:38px;border-radius:10px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:13px;font-weight:600;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .mc-dono button[aria-pressed="true"]{background:var(--accent,#1e5fbf);color:#fff;border-color:transparent}
-
 .dica-card .dica-t{display:block;margin:4px 0 10px;line-height:1.45;color:var(--ink)} .dica-ac{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:6px} .dica-ac .btn{min-height:44px}
