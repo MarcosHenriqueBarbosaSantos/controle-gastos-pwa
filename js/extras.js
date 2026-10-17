@@ -470,3 +470,134 @@ export function avaliaConta(txt) {
   r = round2(r);
   return Number.isFinite(r) && r > 0 && r < 1e9 ? r : null;
 }
+
+/* ======================= meu veículo =======================
+   O que o carro (ou a moto) custa de verdade: o que sai do bolso todo mês e o que ele perde de valor.
+   Tudo vem dos números que a pessoa digita; o app não busca preço de combustível nem tabela de IPVA. */
+/** @returns {null | {partes:{k:string,nome:string,valor:number,pct:number,bolso:boolean}[], bolso:number, desval:number, total:number, porKm:number|null, porKmBolso:number|null, porDia:number, porAno:number, faltaFinanciamento:number}} */
+export function custoDoVeiculo(d) {
+  const n = (k) => { const v = num(d?.[k]); return Number.isFinite(v) && v > 0 ? v : 0; };
+  const km = n("kmMes"), consumo = n("consumo"), litro = n("precoLitro");
+  const lista = [
+    ["comb", "Combustível", consumo > 0 ? (km / consumo) * litro : 0, true],
+    ["manut", "Manutenção e pneus", n("manutAno") / 12, true],
+    ["ipva", "IPVA", n("ipvaAno") / 12, true],
+    ["seguro", "Seguro", n("seguroAno") / 12, true],
+    ["lic", "Licenciamento", n("licAno") / 12, true],
+    ["outros", "Estacionamento, pedágio e lavagem", n("outrosMes"), true],
+    ["parcela", "Parcela do financiamento", n("parcela"), true],
+    ["desval", "Desvalorização (perde de valor)", (n("valor") * Math.min(n("desvalPct"), 100)) / 100 / 12, false],
+  ].map(([k, nome, v, bolso]) => ({ k, nome, valor: round2(v), bolso })).filter((p) => p.valor > 0);
+  const total = round2(lista.reduce((t, p) => t + p.valor, 0));
+  if (!(total > 0)) return null;
+  const bolso = round2(lista.filter((p) => p.bolso).reduce((t, p) => t + p.valor, 0)), desval = round2(total - bolso);
+  return { partes: lista.map((p) => ({ ...p, pct: Math.round((p.valor / total) * 100) })), bolso, desval, total,
+    porKm: km > 0 ? round2(total / km) : null, porKmBolso: km > 0 ? round2(bolso / km) : null, porDia: round2(total / 30.4), porAno: round2(total * 12),
+    faltaFinanciamento: round2(n("parcela") * Math.round(n("restantes"))) };
+}
+
+/* ======================= mercado (lista de compras) ======================= */
+/** Total da lista: preço × quantidade de cada item. */
+export function totalDaLista(itens) {
+  return round2((itens || []).reduce((t, i) => t + (Number(i.preco) > 0 ? Number(i.preco) * (Number(i.qtd) > 0 ? Number(i.qtd) : 1) : 0), 0));
+}
+/** O total por categoria, do maior para o menor: [["Mercado", 80], ["Limpeza", 20]]. */
+export function totalPorCategoria(itens, padrao = "Mercado") {
+  const m = new Map();
+  for (const i of itens || []) { const v = totalDaLista([i]); if (v > 0) m.set(i.cat || padrao, round2((m.get(i.cat || padrao) || 0) + v)); }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+/** O valor de um item para cada pessoa. dono: "eu", "outro" ou "dois" (item dos dois: dividido pela parte de cada um). */
+export function parteDoItem(i, quem, pctEu = 50) {
+  const v = totalDaLista([i]), dono = i.dono || "dois";
+  if (dono === quem) return v;
+  if (dono !== "dois") return 0;
+  const eu = round2((v * pctEu) / 100);
+  return quem === "eu" ? eu : round2(v - eu);
+}
+/** Quanto fica para cada um (e o que é dos dois), com a conta fechando no centavo. */
+export function divisaoDaLista(itens, pctEu = 50) {
+  const so = (d) => totalDaLista((itens || []).filter((i) => (i.dono || "dois") === d)), dois = so("dois"), meu = so("eu"), dele = so("outro");
+  const euDois = round2((dois * pctEu) / 100);
+  return { eu: round2(meu + euDois), outro: round2(dele + (dois - euDois)), dois, total: round2(meu + dele + dois), soEu: meu, soOutro: dele };
+}
+/** Total por categoria só da parte de uma pessoa ("eu" ou "outro"), ou de tudo (quem = null). */
+export function totalPorCategoriaDe(itens, quem, padrao = "Mercado", pctEu = 50) {
+  const m = new Map();
+  for (const i of itens || []) { const v = quem ? parteDoItem(i, quem, pctEu) : totalDaLista([i]); if (v > 0) m.set(i.cat || padrao, round2((m.get(i.cat || padrao) || 0) + v)); }
+  return [...m.entries()].sort((a, b) => b[1] - a[1]);
+}
+
+/* ======================= minha casa ======================= */
+/** Quanto a casa custa por mês. Tudo que for anual (IPTU, manutenção) é dividido por 12. */
+export function custoDaCasa(d) {
+  const n = (k) => { const v = num(d?.[k]); return Number.isFinite(v) && v > 0 ? v : 0; };
+  const lista = [
+    ["moradia", n("financia") > 0 && !(n("aluguel") > 0) ? "Parcela do financiamento" : "Aluguel", n("aluguel") + n("financia")],
+    ["cond", "Condomínio", n("condominio")],
+    ["iptu", "IPTU", n("iptuAno") / 12],
+    ["luz", "Luz", n("luz")],
+    ["agua", "Água e esgoto", n("agua")],
+    ["gas", "Gás", n("gas")],
+    ["net", "Internet, TV e celular", n("internet")],
+    ["limp", "Limpeza e faxina", n("limpeza")],
+    ["manut", "Manutenção e consertos", n("manutAno") / 12],
+    ["outros", "Outros gastos da casa", n("outrosMes")],
+  ].map(([k, nome, v]) => ({ k, nome, valor: round2(v) })).filter((p) => p.valor > 0);
+  const total = round2(lista.reduce((t, p) => t + p.valor, 0));
+  if (!(total > 0)) return null;
+  const fixos = round2(lista.filter((p) => ["moradia", "cond", "iptu"].includes(p.k)).reduce((t, p) => t + p.valor, 0));
+  const m2 = n("area");
+  return { partes: lista.map((p) => ({ ...p, pct: Math.round((p.valor / total) * 100) })).sort((a, b) => b.valor - a.valor), total, fixos, consumo: round2(total - fixos),
+    porDia: round2(total / 30.4), porAno: round2(total * 12), porM2: m2 > 0 ? round2(total / m2) : null,
+    porPessoa: n("moradores") >= 1 ? round2(total / Math.round(n("moradores"))) : null };
+}
+/** Quanto da renda a casa leva. A regra de bolso mais comum: até 30%. */
+export function pesoDaCasa(total, renda) {
+  if (!(total > 0) || !(renda > 0)) return null;
+  const pct = Math.round((total / renda) * 100);
+  return { pct, nivel: pct <= 30 ? "ok" : pct <= 40 ? "atencao" : "alto", teto30: round2(renda * 0.3) };
+}
+
+/* ======================= dica do dia (aprender a guardar) ======================= */
+export const DICAS = [
+  ["Pague-se primeiro", "Assim que o dinheiro entrar, separe uma parte para a sua caixinha. Depois use o resto. Guardar o que sobra quase nunca funciona, porque quase nunca sobra.", "caixa"],
+  ["Comece pequeno", "R$ 5 por dia viram R$ 150 por mês e R$ 1.800 por ano. O hábito vale mais do que o valor.", "desafio"],
+  ["A regra das 24 horas", "Quer algo que não é urgente? Espere um dia antes de comprar. Boa parte dos desejos passa sozinha.", ""],
+  ["Vá ao mercado com lista", "Compra sem lista costuma custar mais. Monte o carrinho no app e veja o total antes de chegar ao caixa.", "mercado"],
+  ["Compare o preço por quilo", "A embalagem maior nem sempre é a mais barata. Olhe o preço por kg ou por litro na etiqueta.", ""],
+  ["Reserva de emergência primeiro", "Antes de investir, junte o equivalente a 3 meses de gastos. É o que evita dívida quando o imprevisto chega.", "caixa"],
+  ["Conheça o custo da sua casa", "Somar aluguel, luz, água, gás e internet mostra para onde vai o maior pedaço da sua renda.", "casa"],
+  ["Quanto custa o seu carro de verdade", "Combustível é só uma parte. Some IPVA, seguro, manutenção e desvalorização para ver o custo real por mês.", "veiculo"],
+  ["Cuidado com o parcelado", "Parcela pequena esconde o total. Antes de parcelar, multiplique pelo número de parcelas e veja se ainda vale.", "calc"],
+  ["Revise as assinaturas", "Streaming, apps e planos que você não usa saem todo mês sem aviso. Cancele um hoje e guarde a diferença.", ""],
+  ["Dia sem gasto", "Escolha um dia da semana para não gastar nada, só o essencial. O app conta e dá medalha para quem repete.", ""],
+  ["Troque o cartão por um limite", "Defina um limite para a categoria em que você mais gasta. Ver a barra encher ajuda a parar a tempo.", ""],
+  ["Meta com data", "Uma meta com valor e data vira um valor mensal. Por exemplo, R$ 3.000 em 10 meses são R$ 300 por mês.", "caixa"],
+  ["Guarde os aumentos", "Se a renda subiu, mantenha o padrão de vida por uns meses e guarde a diferença.", ""],
+  ["Guarde o troco", "Moedas e notas pequenas somam rápido. No fim da semana, lance o que juntou na caixinha.", "caixa"],
+  ["Pechinche à vista", "Pagar à vista costuma abrir desconto. Pergunte antes de passar no cartão.", ""],
+  ["Gastos pequenos pesam", "Um café de R$ 8 por dia são R$ 240 por mês. Não precisa cortar tudo, só decidir de propósito.", ""],
+  ["Leve comida de casa", "Marmita duas vezes por semana economiza em média o preço de um almoço fora por semana.", ""],
+  ["Planeje a semana do mercado", "Defina as refeições antes de comprar. Sobra menos comida estragada e a conta diminui.", "mercado"],
+  ["Pague a dívida mais cara primeiro", "Cartão rotativo e cheque especial têm os juros mais altos. Quite esses antes de qualquer outra coisa.", "calc"],
+  ["Veja o que mudou no mês", "Olhe a categoria que mais cresceu em relação ao mês passado. É onde está a economia mais fácil.", ""],
+  ["Automatize o hábito", "Marque a conta fixa de guardar dinheiro como lembrete do mês. O que é automático acontece.", "caixa"],
+  ["Juros trabalham a seu favor", "Dinheiro guardado em lugar que rende cresce sozinho. Simule quanto R$ 200 por mês rendem em 5 anos.", "calc"],
+  ["Evite compras por impulso", "Tire os cartões salvos dos sites de compra. Digitar o número dá tempo de pensar.", ""],
+  ["Energia: olhe a conta", "Banho mais curto, aparelhos fora da tomada e lâmpadas LED derrubam a conta de luz sem sacrifício.", "casa"],
+  ["Fale de dinheiro em casa", "Quem divide a vida divide as contas. Combinar quem paga o quê evita brigas.", ""],
+  ["Comemore as metas", "Cada meta batida merece um reconhecimento, mesmo pequeno. Isso mantém a vontade de continuar.", "desafio"],
+  ["Anote tudo por uma semana", "Nada muda sem enxergar. Lance cada gasto por sete dias e veja a surpresa.", ""],
+  ["Venda o que não usa", "Aquilo que está parado em casa pode virar dinheiro para a caixinha. Lance como entrada e guarde.", ""],
+  ["Compre usado quando der", "Livros, ferramentas e móveis usados custam bem menos e duram o mesmo.", ""],
+  ["Dinheiro do 13º e das férias", "Receita extra é a melhor chance de adiantar uma meta. Separe metade antes de gastar.", "calc"],
+  ["Revise o seu mês no fim", "Cinco minutos no fechamento mostram o que funcionou e o que repetir no próximo mês.", ""],
+].map(([titulo, texto, acao]) => ({ titulo, texto, acao }));
+/** Uma dica por dia, sempre a mesma no mesmo dia. */
+export function dicaDoDia(iso) {
+  const d = new Date(`${String(iso).slice(0, 10)}T12:00:00Z`), dias = Math.floor(d.getTime() / 86400000);
+  if (!Number.isFinite(dias)) return DICAS[0];
+  return DICAS[((dias % DICAS.length) + DICAS.length) % DICAS.length];
+}

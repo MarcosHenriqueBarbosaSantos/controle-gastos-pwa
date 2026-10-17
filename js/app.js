@@ -11,7 +11,7 @@ import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  avaliaConta, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
+  avaliaConta, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, totalDaLista, divisaoDaLista, totalPorCategoriaDe, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
 
@@ -52,6 +52,9 @@ const ICO = {
   rumo: "M4 17l5-5 4 3 7-8M15 7h5v5",
   ok: "M5 12.5l4.5 4.5L19 7.5",
   fogo: "M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.2.4-2.2 1-3 .3 1.2 1 2 2 2.3C10.5 8.5 11 5.5 12 3zM7 14a5 5 0 0 0 10 0",
+  carrinho: "M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.1L20 8H6M9 20h.01M17 20h.01",
+  casa: "M3 11l9-8 9 8M5 10v10h14V10M10 20v-6h4v6",
+  carro: "M5 16v3M19 16v3M3 16h18v-4l-2-5H5l-2 5zM3 12h18M7.5 14h.01M16.5 14h.01",
   medalha: "M8 3h8l-1.5 6h-5zM12 21a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 13v3",
   alvo: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01",
   ideia: "M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z",
@@ -816,6 +819,12 @@ function renderKpis(c) {
     <button type="button" data-acao="ler"><span>${ico("qr")}</span>Escanear e importar</button>
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
+  <div class="atalhos" role="group" aria-label="Atalhos">
+    <button type="button" data-atalho="mercado">${ico("carrinho")}Compras no mercado</button>
+    <button type="button" data-atalho="veiculo">${ico("carro")}Meu carro ou moto</button>
+    <button type="button" data-atalho="casa">${ico("casa")}Minha casa</button>
+    <button type="button" data-atalho="ferr">${ico("luz")}Mais ferramentas</button>
+  </div>
   <div class="resumo3 ocultavel">
     <button type="button" data-det="entradas"><small>Entradas</small><b class="pos">${brl0(c.rec)}</b>${guardado ? `<small>${c.res > 0 ? `guardado ${brl0(c.res)}` : ""}</small>` : ""}</button>
     <button type="button" data-det="custo"><small>${c.fase === "futuro" ? "Custo previsto" : atualM ? "Custo até hoje" : "Custo do mês"}</small><b>${brl0(c.custo)}</b><small>com as contas fixas</small></button>
@@ -827,11 +836,12 @@ function renderKpis(c) {
   $("grafSobraSec").innerHTML = (atualM || c.fase === "passado") && sb.livre > 0 ? graficoDaSobra(c) : "";
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
+  $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ mercado, veiculo: meuVeiculo, casa: minhaCasa, ferr: ferramentas })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   $("verSobra").onclick = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
   }
-  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c); renderDesempIni(c); renderConqIni(c); setTimeout(avisaConquistas, 700);
+  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c); renderDesempIni(c); renderConqIni(c); renderDicaIni(c); setTimeout(avisaConquistas, 700);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
   $("kpis").innerHTML = `
    <div class="kpi reserva" data-det="guardado" role="button" tabindex="0">${cab("cofre", "Caixinhas")}<span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
@@ -2179,6 +2189,10 @@ function renderMais(c) {
       linha("cal", "agenda", "Calendário de vencimentos", "O que vence e o que entra em cada dia")])}
     ${grupo("Dividir as contas", [linha("casal", "casal", "Conta de casal", esc(resumoDoCasal()), S.casal?.situacao === "convidado" ? "aviso" : "")])}
     ${grupo("Ferramentas", [
+      linha("mercado", "carrinho", "Compras no mercado", "Some o carrinho enquanto compra e lance em Mercado"),
+      linha("veiculo", "carro", "Meu carro ou moto", "Quanto custa por mês, por dia e por km"),
+      linha("casa", "casa", "Minha casa", "Quanto a casa custa por mês e quanto pesa na renda"),
+      linha("dica", "luz", "Dica do dia para guardar dinheiro", "Um hábito pequeno por dia"),
       linha("desemp", "rumo", "Meu desempenho", "O seu mês em frases, comparado com os outros"),
       linha("ano", "grafico", "Resumo do ano", "Mês a mês, melhor e pior mês e para onde foi o dinheiro"),
       linha("desafio", "alvo", "Desafio de economia", "Guarde um valor por semana e acompanhe"),
@@ -2196,7 +2210,7 @@ function renderMais(c) {
       linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
     const k = b.dataset.mais;
-    const FERR = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+    const FERR = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
     if (FERR[k]) FERR[k](); else if (SUBS.includes(k)) abrirSub(k); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else $(k).click();
   }));
 }
@@ -2524,6 +2538,10 @@ $("btnSugerir").onclick = () => sugerir();
 const opFerr = (id, icone, t, s) => `<button class="mais-item" type="button" id="${id}"><span class="ic-box">${ico(icone)}</span><span class="tx"><b>${t}</b><span>${s}</span></span>${ico("chev")}</button>`;
 function ferramentas() {
   openDlg(`<h3>Ferramentas</h3><div class="caixa-mais">
+    ${opFerr("frMercado", "carrinho", "Compras no mercado", "Some o carrinho enquanto compra e lance em Mercado")}
+    ${opFerr("frVeiculo", "carro", "Meu carro ou moto", "Quanto custa por mês, por dia e por km")}
+    ${opFerr("frCasa", "casa", "Minha casa", "Quanto a casa custa por mês e quanto pesa na renda")}
+    ${opFerr("frDica", "luz", "Dica do dia para guardar dinheiro", "Um hábito pequeno por dia")}
     ${opFerr("frDesemp", "rumo", "Meu desempenho", "O seu mês em frases, comparado com os outros")}
     ${opFerr("frAno", "grafico", "Resumo do ano", "Mês a mês, melhor e pior mês e para onde foi o dinheiro")}
     ${opFerr("frDesafio", "alvo", "Desafio de economia", "Guarde um valor por semana e acompanhe")}
@@ -2535,7 +2553,7 @@ function ferramentas() {
     ${opFerr("frCopia", "baixar", "Cópia de segurança", "Baixe tudo num arquivo e restaure quando precisar")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
   const vai = (id, fn) => ($(id).onclick = () => fn());
-  vai("frDesemp", meuDesempenho); vai("frAno", () => resumoAno()); vai("frDesafio", () => desafioEconomia()); vai("frCalc", () => calculadoras()); vai("frMsg", colarMensagem); vai("frRel", baixarRelatorio); vai("frConq", conquistasTela); vai("frShare", () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes)); vai("frCopia", copiaDeSeguranca);
+  vai("frDesemp", meuDesempenho); vai("frAno", () => resumoAno()); vai("frDesafio", () => desafioEconomia()); vai("frCalc", () => calculadoras()); vai("frMsg", colarMensagem); vai("frRel", baixarRelatorio); vai("frConq", conquistasTela); vai("frMercado", mercado); vai("frVeiculo", meuVeiculo); vai("frCasa", minhaCasa); vai("frDica", dicasTela); vai("frShare", () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes)); vai("frCopia", copiaDeSeguranca);
 }
 $("btnFerramentas").onclick = ferramentas;
 
@@ -2844,6 +2862,167 @@ function comemora() {
   document.body.append(el); setTimeout(() => el.remove(), 1300);
 }
 
+/* ---------- Compras no mercado ---------- */
+const MERC_CHAVE = "cg-mercado";
+const lerMercado = () => { try { const j = JSON.parse(localStorage.getItem(MERC_CHAVE)); return { limite: Number(j?.limite) || 0, itens: Array.isArray(j?.itens) ? j.itens.slice(0, 300) : [], outraCat: Boolean(j?.outraCat), dividir: Boolean(j?.dividir), nomeOutro: String(j?.nomeOutro || "").slice(0, 20) }; } catch { return { limite: 0, itens: [], outraCat: false, dividir: false, nomeOutro: "" }; } };
+const gravaMercado = (m) => { try { localStorage.setItem(MERC_CHAVE, JSON.stringify(m)); } catch { /* sem armazenamento: a lista vale só nesta tela */ } };
+function mercado() {
+  const m = lerMercado(), catsD = cats("Despesa"), padrao = catsD.includes("Mercado") ? "Mercado" : catsD[0];
+  const nomeOutro = () => (casalAtivo() ? nomeDoOutro() : m.nomeOutro || "Outra pessoa");
+  const desenha = () => {
+    const total = totalDaLista(m.itens), cabe = m.limite > 0 ? round2(m.limite - total) : null, dv = divisaoDaLista(m.itens), outro = nomeOutro();
+    const dono = (i, k) => `<span class="mc-dono" role="group" aria-label="De quem é ${esc(i.nome || "o item")}">${[["eu", "Eu"], ["outro", esc(outro)], ["dois", "Os dois"]].map(([v, r]) => `<button type="button" data-dono="${k}" data-v="${v}" aria-pressed="${(i.dono || "dois") === v}">${r}</button>`).join("")}</span>`;
+    openDlg(`<h3>Compras no mercado</h3>
+      <p class="hint" style="margin:0 0 10px">Some o carrinho enquanto compra. No fim, toque em <b>Confirmar compra</b> e o app lança como Mercado, para você só escolher a forma de pagamento.</p>
+      <label class="f">Quanto quero gastar (opcional)<input class="in money" id="mcLimite" inputmode="decimal" placeholder="Ex.: 300,00" value="${m.limite > 0 ? esc(m.limite.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) : ""}"></label>
+      <label class="check" style="margin:10px 0 4px"><input type="checkbox" id="mcDividir" ${m.dividir ? "checked" : ""}> Estou comprando com outra pessoa e queremos separar a conta</label>
+      ${m.dividir && !casalAtivo() ? `<label class="f">Nome da outra pessoa<input class="in" id="mcNomeOutro" maxlength="20" placeholder="Ex.: Ana" value="${esc(m.nomeOutro || "")}"></label>` : ""}
+      <form id="mcForm" class="mc-form" autocomplete="off">
+        <label class="f mc-nome">Item<input class="in" id="mcNome" maxlength="40" placeholder="Ex.: arroz" enterkeyhint="next"></label>
+        <label class="f">Preço (R$)<input class="in money" id="mcPreco" inputmode="decimal" placeholder="0,00" enterkeyhint="done"></label>
+        <label class="f">Quantas unidades<input class="in" id="mcQtd" inputmode="decimal" value="1"></label>
+        <button class="btn primary mc-add" type="submit">Adicionar ao carrinho</button>
+      </form>
+      <div class="mc-total ${cabe !== null && cabe < 0 ? "passou" : ""}"><span>Total do carrinho</span><b>${brl(total)}</b>${cabe === null ? "" : `<small>${cabe >= 0 ? `Ainda cabem ${brl(cabe)}` : `Passou ${brl(-cabe)} do que você queria gastar`}</small>`}</div>
+      ${m.dividir && total > 0 ? `<div class="mc-div"><div><small>Sua parte</small><b>${brl(dv.eu)}</b></div><div><small>Parte de ${esc(outro)}</small><b>${brl(dv.outro)}</b></div>
+        <p class="hint">O que é de cada um fica com ele; o que é dos dois é dividido ao meio. ${dv.dois > 0 ? `Se um pagar tudo no caixa, o outro passa o valor da parte dele.` : ""}</p></div>` : ""}
+      ${m.itens.length ? `<ul class="mc-lista">${m.itens.map((i, k) => `<li><span class="mc-i"><b>${esc(i.nome || "Item")}</b><small>${i.qtd > 1 ? `${String(i.qtd).replace(".", ",")} × ${brl(i.preco)}` : brl(i.preco)}</small></span><b class="mc-v">${brl(totalDaLista([i]))}</b><button class="mc-x" type="button" data-x="${k}" aria-label="Tirar ${esc(i.nome || "item")}">×</button>${m.dividir ? dono(i, k) : ""}${m.outraCat ? `<select class="in mc-cat" data-cat="${k}" aria-label="Categoria de ${esc(i.nome || "item")}">${catsD.map((c) => `<option${c === (i.cat || padrao) ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>` : ""}</li>`).join("")}</ul>` : `<p class="hint">O carrinho está vazio. Digite o item e o preço e toque em Adicionar.</p>`}
+      <label class="check" style="margin:8px 0"><input type="checkbox" id="mcOutra" ${m.outraCat ? "checked" : ""}> Tem item de outra categoria (limpeza, higiene...)</label>
+      <div class="actions">${m.dividir ? `<button class="btn primary" type="button" id="mcOk" data-quem="eu"${dv.eu > 0 ? "" : " disabled"}>Lançar a minha parte (${brl(dv.eu)})</button><button class="btn" type="button" id="mcOkTudo"${total > 0 ? "" : " disabled"}>Lançar o total pago por mim</button><button class="btn" type="button" id="mcManda"${total > 0 ? "" : " disabled"}>Mandar a divisão</button>`
+        : `<button class="btn primary" type="button" id="mcOk"${total > 0 ? "" : " disabled"}>Confirmar compra</button>`}${m.itens.length ? `<button class="btn" type="button" id="mcLimpa">Limpar a lista</button>` : ""}<button class="btn" type="button" data-close>Fechar</button></div>`);
+    $("mcLimite").addEventListener("change", () => { const v = parseMoney($("mcLimite").value); m.limite = v > 0 && v <= VALOR_MAX ? round2(v) : 0; gravaMercado(m); desenha(); });
+    $("mcDividir").onchange = () => { m.dividir = $("mcDividir").checked; gravaMercado(m); desenha(); };
+    if ($("mcNomeOutro")) $("mcNomeOutro").addEventListener("change", () => { m.nomeOutro = $("mcNomeOutro").value.trim().slice(0, 20); gravaMercado(m); desenha(); });
+    $("mcForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const preco = avaliaConta($("mcPreco").value) ?? parseMoney($("mcPreco").value), qtd = parseMoney($("mcQtd").value) || 1;
+      if (!(preco > 0) || preco > VALOR_MAX) { toast("Digite o preço do item, por exemplo 5,90."); return $("mcPreco").focus(); }
+      if (!(qtd > 0) || qtd > 999) { toast("Digite quantas unidades, por exemplo 2."); return $("mcQtd").focus(); }
+      m.itens.push({ nome: $("mcNome").value.trim(), preco: round2(preco), qtd, cat: padrao, dono: "dois" }); gravaMercado(m); desenha(); $("mcNome").focus();
+    });
+    $("dlgBody").querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { m.itens.splice(Number(b.dataset.x), 1); gravaMercado(m); desenha(); }));
+    $("dlgBody").querySelectorAll("[data-cat]").forEach((s) => (s.onchange = () => { m.itens[Number(s.dataset.cat)].cat = s.value; gravaMercado(m); desenha(); }));
+    $("dlgBody").querySelectorAll("[data-dono]").forEach((b) => (b.onclick = () => { m.itens[Number(b.dataset.dono)].dono = b.dataset.v; gravaMercado(m); desenha(); }));
+    $("mcOutra").onchange = () => { m.outraCat = $("mcOutra").checked; gravaMercado(m); desenha(); };
+    if ($("mcLimpa")) $("mcLimpa").onclick = () => { m.itens = []; gravaMercado(m); desenha(); };
+    const confirma = (quem) => {
+      const partes = m.outraCat ? totalPorCategoriaDe(m.itens, quem, padrao) : [[padrao, quem === "eu" ? dv.eu : total]], soma = round2(partes.reduce((t, p) => t + p[1], 0)), umaSo = partes.length === 1;
+      $("dlg").close(); S.tipo = "Despesa"; renderForm();
+      $("fValor").value = soma.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); $("fDesc").value = quem === "eu" && m.dividir ? "Compra no mercado (minha parte)" : "Compra no mercado"; $("fCat").value = umaSo ? partes[0][0] : padrao; S.catManual = true; $("fData").value = hoje();
+      S.divisaoPronta = umaSo ? null : partes; renderForm(); mostraEfeito();
+      setTimeout(() => { if (noCelular()) abrirLancar(); else $("fValor").scrollIntoView({ block: "center" });
+        const f = $("flash"); f.style.color = "var(--good)";
+        f.textContent = umaSo ? `${brl(soma)} no formulário. Escolha a forma de pagamento e toque em Lançar.` : `${brl(soma)} no formulário. Escolha a forma de pagamento e toque em "Dividir em categorias" para separar como você marcou.`; }, 200);
+      m.itens = []; gravaMercado(m);   // a lista vai para o lançamento: no próximo mercado, começa vazia
+    };
+    $("mcOk").onclick = () => confirma(m.dividir ? "eu" : null);
+    if ($("mcOkTudo")) $("mcOkTudo").onclick = () => confirma(null);
+    if ($("mcManda")) $("mcManda").onclick = async () => {
+      const lin = (rot, v) => `${rot}: ${brl(v)}`;
+      const texto = `Compra no mercado: ${brl(total)}\n${lin("Minha parte", dv.eu)}\n${lin(`Parte de ${outro}`, dv.outro)}\n(O que é de cada um fica com ele; o que é dos dois foi dividido ao meio.)\n\n${m.itens.map((i) => `${(i.dono || "dois") === "eu" ? "Eu" : i.dono === "outro" ? outro : "Os dois"}: ${i.nome || "Item"} ${brl(totalDaLista([i]))}`).join("\n")}`;
+      try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast("Divisão copiada. Cole no WhatsApp ou onde preferir."); } } catch { /* a pessoa desistiu */ }
+    };
+  };
+  desenha(); setTimeout(() => $("mcNome")?.focus(), 50);
+}
+
+/* ---------- Meu carro ou moto ---------- */
+const VEIC_CAMPOS = [
+  ["Combustível", [["kmMes", "Quantos km você roda por mês", "1000"], ["consumo", "Quantos km faz com 1 litro", "10"], ["precoLitro", "Preço do litro (R$)", "6,00"]]],
+  ["Gastos do ano", [["ipvaAno", "IPVA (R$ por ano)", "1.200"], ["seguroAno", "Seguro (R$ por ano)", "2.400"], ["licAno", "Licenciamento (R$ por ano)", "180"], ["manutAno", "Manutenção, revisão e pneus (R$ por ano)", "2.000"]]],
+  ["Gastos do mês", [["outrosMes", "Estacionamento, pedágio e lavagem (R$ por mês)", "150"]]],
+  ["Financiamento (deixe em branco se já está quitado)", [["parcela", "Valor da parcela (R$ por mês)", "900"], ["restantes", "Quantas parcelas faltam", "24"]]],
+  ["Valor do veículo", [["valor", "Quanto ele vale hoje (R$)", "50.000"], ["desvalPct", "Quanto perde de valor por ano (%)", "10"]]],
+];
+function meuVeiculo() {
+  const salvo = S.prefs.veiculo || {}, c = calcMes(S.data, mKey(hoje()), hoje());
+  const campo = ([k, rot, ex]) => `<label class="f">${rot}<input class="in${k === "desvalPct" || k === "restantes" ? "" : " money"}" data-k="${k}" inputmode="decimal" placeholder="Ex.: ${ex}" value="${salvo[k] ? esc(String(salvo[k]).replace(".", ",")) : ""}"></label>`;
+  openDlg(`<h3>Meu carro ou moto</h3>
+    <p class="hint" style="margin:0 0 10px">Descubra quanto o seu veículo custa de verdade: por mês, por dia e por km. Preencha o que souber. O que ficar em branco não entra na conta, e o que você digitar fica salvo para a próxima vez.</p>
+    ${VEIC_CAMPOS.map(([t, l]) => `<h4 class="sub-h">${t}</h4><div class="dlg-form">${l.map(campo).join("")}</div>`).join("")}
+    <p class="hint" style="margin:8px 0">Sobre a desvalorização: se não souber, 10% ao ano é um valor comum. Para o seu caso, compare o valor na tabela Fipe hoje e daqui a um tempo.</p>
+    <dl class="calc-res" id="veRes" aria-live="polite"></dl>
+    <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  const le = () => Object.fromEntries([...document.querySelectorAll("#dlgBody [data-k]")].map((i) => [i.dataset.k, nm(i.value)]));
+  const conta = () => {
+    const v = le(), r = custoDoVeiculo(v), host = $("veRes");
+    if (!r) { host.innerHTML = `<p class="hint">Preencha ao menos um gasto para ver o resultado.</p>`; return; }
+    const transp = new Map(catMap(c)).get("Transporte") || 0, pctRenda = c.rec > 0 ? Math.round((r.bolso / c.rec) * 100) : null;
+    host.innerHTML = linhaRes("Custa por mês", brl(r.total), true) + linhaRes("Sai do seu bolso", brl(r.bolso) + " por mês") + (r.desval > 0 ? linhaRes("Perde de valor", brl(r.desval) + " por mês") : "")
+      + linhaRes("Por dia", brl(r.porDia)) + (r.porKm ? linhaRes("Por km rodado", `${brl(r.porKm)}${r.desval > 0 ? ` (${brl(r.porKmBolso)} sem a desvalorização)` : ""}`) : "") + linhaRes("Por ano", brl(r.porAno))
+      + (r.faltaFinanciamento > 0 ? linhaRes("Ainda falta pagar do financiamento", brl(r.faltaFinanciamento)) : "")
+      + `<div class="ve-partes">${r.partes.map((p) => `<div class="ve-p"><span>${esc(p.nome)}</span><b>${brl(p.valor)}</b><i style="width:${Math.max(3, p.pct)}%"></i></div>`).join("")}</div>`
+      + `<p class="hint" style="margin:8px 0 0">${pctRenda !== null ? `O que sai do bolso equivale a <b>${pctRenda}%</b> do que entrou neste mês. ` : ""}${transp > 0 ? `No app, você lançou ${brl(transp)} em Transporte neste mês.` : ""}</p>`;
+  };
+  document.querySelectorAll("#dlgBody [data-k]").forEach((i) => { i.addEventListener("input", conta); i.addEventListener("change", () => { S.prefs.veiculo = le(); salvaPrefs(); }); });
+  conta();
+}
+
+
+/* ---------- Minha casa ---------- */
+const CASA_CAMPOS = [
+  ["Moradia", [["aluguel", "Aluguel (R$ por mês)", "1.500"], ["financia", "Parcela do financiamento da casa (R$ por mês)", "1.200"], ["condominio", "Condomínio (R$ por mês)", "350"], ["iptuAno", "IPTU (R$ por ano)", "1.200"]]],
+  ["Contas do mês", [["luz", "Luz", "150"], ["agua", "Água e esgoto", "90"], ["gas", "Gás", "110"], ["internet", "Internet, TV e celular", "180"], ["limpeza", "Limpeza e faxina", "200"], ["outrosMes", "Outros gastos da casa", "100"]]],
+  ["Consertos", [["manutAno", "Manutenção e consertos (R$ por ano)", "1.000"]]],
+  ["Para comparar (opcional)", [["moradores", "Quantas pessoas moram", "3"], ["area", "Tamanho em m²", "60"]]],
+];
+function minhaCasa() {
+  const salvo = S.prefs.casa || {}, c = calcMes(S.data, mKey(hoje()), hoje());
+  const semMoney = ["moradores", "area"];
+  const campo = ([k, rot, ex]) => `<label class="f">${rot}<input class="in${semMoney.includes(k) ? "" : " money"}" data-k="${k}" inputmode="decimal" placeholder="Ex.: ${ex}" value="${salvo[k] ? esc(String(salvo[k]).replace(".", ",")) : ""}"></label>`;
+  openDlg(`<h3>Minha casa</h3>
+    <p class="hint" style="margin:0 0 10px">Descubra quanto a sua casa custa por mês e quanto isso pesa na sua renda. Preencha o que souber. O que ficar em branco não entra na conta, e o que você digitar fica salvo para a próxima vez.</p>
+    ${CASA_CAMPOS.map(([t, l]) => `<h4 class="sub-h">${t}</h4><div class="dlg-form">${l.map(campo).join("")}</div>`).join("")}
+    <dl class="calc-res" id="caRes" aria-live="polite"></dl>
+    <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  const le = () => Object.fromEntries([...document.querySelectorAll("#dlgBody [data-k]")].map((i) => [i.dataset.k, nm(i.value)]));
+  const conta = () => {
+    const v = le(), r = custoDaCasa(v), host = $("caRes");
+    if (!r) { host.innerHTML = `<p class="hint">Preencha ao menos um gasto para ver o resultado.</p>`; return; }
+    const lancado = [...catMap(c)].filter(([k]) => k === "Moradia" || k === "Contas da casa").reduce((t, [, x]) => t + x, 0), peso = pesoDaCasa(r.total, c.rec);
+    const frase = !peso ? "" : peso.nivel === "ok" ? `Está dentro do que se costuma recomendar (até 30% da renda, ou ${brl(peso.teto30)}).` : peso.nivel === "atencao" ? `Está um pouco acima de 30% da renda (${brl(peso.teto30)}). Vale olhar o que dá para reduzir.` : `Pesa bastante: o comum é até 30% da renda (${brl(peso.teto30)}). Revise as contas de consumo e o que dá para renegociar.`;
+    host.innerHTML = linhaRes("A casa custa por mês", brl(r.total), true) + linhaRes("Fixos (moradia, condomínio, IPTU)", brl(r.fixos)) + linhaRes("Contas e consumo", brl(r.consumo))
+      + linhaRes("Por dia", brl(r.porDia)) + linhaRes("Por ano", brl(r.porAno)) + (r.porPessoa ? linhaRes("Por pessoa", brl(r.porPessoa)) : "") + (r.porM2 ? linhaRes("Por m²", brl(r.porM2)) : "")
+      + `<div class="ve-partes">${r.partes.map((p) => `<div class="ve-p"><span>${esc(p.nome)}</span><b>${brl(p.valor)}</b><i style="width:${Math.max(3, p.pct)}%"></i></div>`).join("")}</div>`
+      + `<p class="hint" style="margin:8px 0 0">${peso ? `Isso equivale a <b>${peso.pct}%</b> do que entrou neste mês. ${frase} ` : ""}${lancado > 0 ? `No app, você lançou ${brl(lancado)} em Moradia e Contas da casa neste mês.` : ""}</p>`;
+  };
+  document.querySelectorAll("#dlgBody [data-k]").forEach((i) => { i.addEventListener("input", conta); i.addEventListener("change", () => { S.prefs.casa = le(); salvaPrefs(); }); });
+  conta();
+}
+
+/* ---------- Dica do dia ---------- */
+const dicasFeitas = () => (Array.isArray(S.prefs.dicasFeitas) ? S.prefs.dicasFeitas : []);
+function abreDaDica(acao) {
+  ({ desafio: desafioEconomia, mercado, casa: minhaCasa, veiculo: meuVeiculo, calc: () => calculadoras(), caixa: () => { $("dlg").close(); S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); } })[acao]?.();
+}
+function marcaDica(feita) {
+  const h = hoje(), l = dicasFeitas().filter((d) => d !== h);
+  S.prefs.dicasFeitas = (feita ? [...l, h] : l).sort().slice(-90); salvaPrefs();
+}
+function renderDicaIni(c) {
+  const host = $("dicaIni");
+  if (!host) return;
+  if (!S.loaded || c.fase === "futuro" || !S.data.lancamentos.length) { host.hidden = true; host.innerHTML = ""; return; }
+  const d = dicaDoDia(hoje()), feita = dicasFeitas().includes(hoje());
+  host.hidden = false;
+  host.innerHTML = `<div class="teto dica-card"><span class="topo"><span class="l">${ico("luz")}Dica do dia</span>${feita ? `<span class="pill good">Feito</span>` : ""}</span>
+    <span class="n"><b>${esc(d.titulo)}</b></span><span class="t dica-t">${esc(d.texto)}</span>
+    <span class="dica-ac">${d.acao ? `<button class="btn" type="button" id="dicaAbre">Ver como fazer</button>` : ""}<button class="btn${feita ? "" : " primary"}" type="button" id="dicaFeita">${feita ? "Desmarcar" : "Já fiz hoje"}</button></span>
+    <button class="link" type="button" id="dicaMais">Ver as dicas dos últimos dias</button></div>`;
+  if ($("dicaAbre")) $("dicaAbre").onclick = () => abreDaDica(d.acao);
+  $("dicaFeita").onclick = () => { marcaDica(!feita); if (!feita) toast("Boa! Um hábito de cada vez leva longe."); renderDicaIni(c); };
+  $("dicaMais").onclick = dicasTela;
+}
+function dicasTela() {
+  const base = new Date(`${hoje()}T12:00:00Z`), dias = [];
+  for (let k = 0; k < 7; k++) { const x = new Date(base.getTime() - k * 86400000), iso = x.toISOString().slice(0, 10); dias.push([iso, dicaDoDia(iso)]); }
+  const feitas = dicasFeitas();
+  openDlg(`<h3>Dicas para guardar dinheiro</h3>
+    <p class="hint" style="margin:0 0 10px">Uma dica nova por dia. Você já marcou <b>${feitas.length}</b> ${feitas.length === 1 ? "dia" : "dias"} em que colocou uma dica em prática.</p>
+    <ul class="conq-lista">${dias.map(([iso, d]) => `<li class="${feitas.includes(iso) ? "feita" : ""}"><span class="medalha">${ico(feitas.includes(iso) ? "medalha" : "luz")}</span><span><b>${esc(d.titulo)}</b><span class="t">${esc(ddmm(iso))}${iso === hoje() ? " (hoje)" : ""}</span><span class="t">${esc(d.texto)}</span></span></li>`).join("")}</ul>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+}
+
 /* ---------- Conquistas ---------- */
 const dadosDeConquistas = () => conquistas(S.data, hoje(), { semGasto: S.prefs.semGasto || [], metas: S.prefs.metas, desafios: S.prefs.desafios });
 const nConq = (c, v) => (c.de >= 1000 ? brl0(v) : String(Math.floor(v)));
@@ -2883,6 +3062,9 @@ function dividirCompra() {
   if (total > VALOR_MAX) { toast(ALTO_DEMAIS); return $("fValor").focus(); }
   const lista = cats("Despesa"), inicial = $("fCat").value;
   let partes = [{ categoria: inicial, valor: "" }, { categoria: lista.find((k) => k !== inicial) || inicial, valor: "" }];
+  // Vindo do Mercado: as categorias e os valores já separados (só vale se a soma for o total que está no campo).
+  const pronta = S.divisaoPronta; S.divisaoPronta = null;
+  if (pronta && round2(pronta.reduce((t, p) => t + p[1], 0)) === round2(total) && pronta.length >= 2) partes = pronta.map(([k, v]) => ({ categoria: lista.includes(k) ? k : inicial, valor: v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) }));
   const leDom = () => { partes = [...document.querySelectorAll("#dvForm .dv-linha")].map((el) => ({ categoria: el.querySelector("select").value, valor: el.querySelector("input").value })); };
   const confere = () => conferirDivisao(total, partes.map((p) => ({ categoria: p.categoria, valor: parseMoney(p.valor) })));
   const resumo = () => {
@@ -2972,7 +3154,7 @@ async function restauraCopia(arquivo) {
 
 /* ---------- Tour da primeira vez ---------- */
 const TOUR = [
-  ["plus", "Lance em segundos", "Toque no + para anotar um gasto. Dá para digitar, falar, ler um comprovante pela câmera, ler um QR code ou colar a mensagem do banco."],
+  ["plus", "Lance em segundos", "Toque no + para anotar um gasto. Dá para digitar, falar, ler um comprovante pela câmera, ler um QR code ou colar a mensagem do banco. No Android, com o app instalado, também dá para compartilhar o comprovante do banco direto para cá."],
   ["saldo", "Veja quanto sobra", "O número grande do início é quanto sobra no mês, já descontando contas fixas e faturas. A cor diz se está tudo bem: verde, laranja ou vermelho."],
   ["cofre", "Guarde para o que importa", "Crie uma caixinha com uma meta e o app calcula quanto guardar por mês. Se quiser um empurrão, tem o desafio de economia."],
 ];

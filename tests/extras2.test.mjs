@@ -127,3 +127,50 @@ test("conta no valor: soma, subtrai, multiplica e divide", () => {
 test("conta no valor: o que não é conta devolve null", () => {
   for (const t of ["", "12", "1.234,56", "12+", "+12", "12++3", "abc", "10/0", "5-10", "12+a", "2*3-6", "R$ 15"]) assert.equal(avaliaConta(t), null, t);
 });
+
+import { custoDoVeiculo, totalDaLista, totalPorCategoria } from "../js/extras.js";
+test("veículo: o que sai do bolso e o que perde de valor", () => {
+  const r = custoDoVeiculo({ valor: 60000, desvalPct: 10, kmMes: 1000, consumo: 10, precoLitro: 6, ipvaAno: 2400, seguroAno: 3600, licAno: 180, manutAno: 2400, outrosMes: 200, parcela: 900, restantes: 20 });
+  const v = (k) => r.partes.find((p) => p.k === k).valor;
+  assert.equal(v("comb"), 600); assert.equal(v("ipva"), 200); assert.equal(v("seguro"), 300); assert.equal(v("lic"), 15); assert.equal(v("manut"), 200);
+  assert.equal(v("desval"), 500); assert.equal(r.bolso, 2415); assert.equal(r.total, 2915); assert.equal(r.desval, 500);
+  assert.equal(r.porKm, 2.92); assert.equal(r.porKmBolso, 2.42); assert.equal(r.faltaFinanciamento, 18000); assert.equal(r.porAno, 34980);
+  assert.equal(r.partes.reduce((t, p) => t + p.pct, 0) >= 99, true);
+});
+test("veículo: sem dados não inventa conta; sem km não dá custo por km", () => {
+  assert.equal(custoDoVeiculo({}), null); assert.equal(custoDoVeiculo(null), null);
+  const r = custoDoVeiculo({ ipvaAno: 1200 }); assert.equal(r.total, 100); assert.equal(r.porKm, null);
+});
+test("mercado: total e divisão por categoria", () => {
+  const it = [{ preco: 10, qtd: 3 }, { preco: 5.5 }, { preco: 20, qtd: 1, cat: "Limpeza" }, { preco: 0 }, { preco: "x" }];
+  assert.equal(totalDaLista(it), 55.5); assert.equal(totalDaLista([]), 0);
+  assert.deepEqual(totalPorCategoria(it), [["Mercado", 35.5], ["Limpeza", 20]]);
+});
+
+import { divisaoDaLista, parteDoItem, totalPorCategoriaDe } from "../js/extras.js";
+test("mercado em casal: cada um com o seu, e os itens dos dois divididos ao meio", () => {
+  const it = [{ preco: 30, dono: "eu" }, { preco: 20, dono: "outro" }, { preco: 50, qtd: 1, dono: "dois" }, { preco: 10.01, dono: "dois" }];
+  const d = divisaoDaLista(it);
+  assert.equal(d.total, 110.01); assert.equal(round(d.eu + d.outro), 110.01); assert.equal(d.soEu, 30); assert.equal(d.soOutro, 20); assert.equal(d.dois, 60.01);
+  assert.equal(d.eu, 60.01); assert.equal(d.outro, 50);
+  assert.equal(parteDoItem({ preco: 40 }, "eu"), 20); assert.equal(parteDoItem({ preco: 40, dono: "outro" }, "eu"), 0);
+  assert.deepEqual(totalPorCategoriaDe([{ preco: 10, dono: "eu", cat: "Limpeza" }, { preco: 20, dono: "dois" }], "eu"), [["Limpeza", 10], ["Mercado", 10]]);
+  assert.equal(divisaoDaLista(it, 60).eu, round(30 + round(0.6 * 60.01)));
+});
+function round(x) { return Math.round(x * 100) / 100; }
+
+test("custoDaCasa soma tudo, divide o anual por 12 e calcula o peso na renda", async () => {
+  const { custoDaCasa, pesoDaCasa, dicaDoDia, DICAS } = await import("../js/extras.js");
+  assert.equal(custoDaCasa({}), null);
+  const r = custoDaCasa({ aluguel: 1500, condominio: 300, iptuAno: 1200, luz: 150, agua: 80, internet: 120, moradores: 2, area: 50 });
+  assert.equal(r.total, 2250); assert.equal(r.fixos, 1900); assert.equal(r.consumo, 350);
+  assert.equal(r.partes[0].k, "moradia"); assert.equal(r.porPessoa, 1125); assert.equal(r.porM2, 45);
+  assert.equal(r.porAno, 27000);
+  assert.deepEqual(pesoDaCasa(2250, 5000), { pct: 45, nivel: "alto", teto30: 1500 });
+  assert.equal(pesoDaCasa(1000, 5000).nivel, "ok"); assert.equal(pesoDaCasa(0, 5000), null);
+  assert.equal(custoDaCasa({ financia: 900 }).partes[0].nome, "Parcela do financiamento");
+  assert.equal(dicaDoDia("2026-10-17").titulo, dicaDoDia("2026-10-17").titulo);
+  assert.notEqual(dicaDoDia("2026-10-17").titulo, dicaDoDia("2026-10-18").titulo);
+  assert.ok(DICAS.length >= 30 && DICAS.every((d) => d.titulo && d.texto));
+  assert.ok(dicaDoDia("lixo"));
+});
