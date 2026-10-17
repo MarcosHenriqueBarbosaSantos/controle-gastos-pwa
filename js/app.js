@@ -11,7 +11,7 @@ import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  avaliaConta, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
+  avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
 
@@ -830,7 +830,7 @@ function renderKpis(c) {
     <button type="button" data-det="custo"><small>${c.fase === "futuro" ? "Custo previsto" : atualM ? "Custo até hoje" : "Custo do mês"}</small><b>${brl0(c.custo)}</b><small>com as contas fixas</small></button>
     ${atualM ? `<button type="button" data-det="custo"><small>Projeção</small><b>${brl0(c.proj)}</b><small class="${est.projSobra < 0 ? "neg" : "pos"}">${est.projSobra < 0 ? `fecha ${brl0(-est.projSobra)} no vermelho` : `sobram ${brl0(est.projSobra)}`}</small></button>`
       : `<button type="button" data-det="saldo"><small>${falta ? "Faltou" : "Sobrou"}</small><b>${brl0(Math.abs(rx.sobra))}</b></button>`}
-    <div class="resumo3-links">${c.fase === "passado" ? `<button type="button" class="link" id="verFech">Fechamento para compartilhar</button>` : ""}<button type="button" class="link" id="verSobra">O que sobra para viver o mês</button><button type="button" class="link" id="entenda">Entenda essa conta</button></div>
+    <div class="resumo3-links">${c.fase === "passado" ? `<button type="button" class="link" id="verFech">Fechamento para compartilhar</button>` : ""}<button type="button" class="link" id="verSobra">O que sobra para viver o mês</button>${c.fase !== "futuro" && S.data.lancamentos.length ? `<button type="button" class="link" id="verRev">${S.prefs.revisoes?.[S.mes] ? "Revisão do mês (feita)" : "Revisão do mês"}</button>` : ""}<button type="button" class="link" id="entenda">Entenda essa conta</button></div>
   </div>`;
   // O gráfico da sobra fica depois dos Próximos vencimentos (que sobem para logo após entradas e saídas).
   $("grafSobraSec").innerHTML = (atualM || c.fase === "passado") && sb.livre > 0 ? graficoDaSobra(c) : "";
@@ -839,6 +839,7 @@ function renderKpis(c) {
   $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ mercado, veiculo: meuVeiculo, casa: minhaCasa, ferr: ferramentas })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
+  if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
   $("verSobra").onclick = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
   }
   renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c); renderDesempIni(c); renderConqIni(c); renderDicaIni(c); setTimeout(avisaConquistas, 700);
@@ -2191,6 +2192,7 @@ function renderMais(c) {
     ${grupo("Ferramentas", [
       linha("mercado", "carrinho", "Lista de mercado", "Anote o que comprar, estime o gasto e lance ao finalizar"),
       linha("veiculo", "carro", "Meu carro ou moto", "Quanto custa por mês, por dia e por km"),
+      linha("revisao", "grafico", "Revisão do mês", "3 passos: como foi, onde ajustar e quanto guardar"),
       linha("casa", "casa", "Minha casa", "Quanto a casa custa por mês e quanto pesa na renda"),
       linha("dica", "luz", "Dica do dia para guardar dinheiro", "Um hábito pequeno por dia"),
       linha("desemp", "rumo", "Meu desempenho", "O seu mês em frases, comparado com os outros"),
@@ -2210,7 +2212,7 @@ function renderMais(c) {
       linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
     const k = b.dataset.mais;
-    const FERR = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+    const FERR = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
     if (FERR[k]) FERR[k](); else if (SUBS.includes(k)) abrirSub(k); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else $(k).click();
   }));
 }
@@ -2540,6 +2542,7 @@ function ferramentas() {
   openDlg(`<h3>Ferramentas</h3><div class="caixa-mais">
     ${opFerr("frMercado", "carrinho", "Lista de mercado", "Anote o que comprar, estime o gasto e lance ao finalizar")}
     ${opFerr("frVeiculo", "carro", "Meu carro ou moto", "Quanto custa por mês, por dia e por km")}
+    ${opFerr("frRevisao", "grafico", "Revisão do mês", "3 passos: como foi, onde ajustar e quanto guardar")}
     ${opFerr("frCasa", "casa", "Minha casa", "Quanto a casa custa por mês e quanto pesa na renda")}
     ${opFerr("frDica", "luz", "Dica do dia para guardar dinheiro", "Um hábito pequeno por dia")}
     ${opFerr("frDesemp", "rumo", "Meu desempenho", "O seu mês em frases, comparado com os outros")}
@@ -2553,7 +2556,7 @@ function ferramentas() {
     ${opFerr("frCopia", "baixar", "Cópia de segurança", "Baixe tudo num arquivo e restaure quando precisar")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
   const vai = (id, fn) => ($(id).onclick = () => fn());
-  vai("frDesemp", meuDesempenho); vai("frAno", () => resumoAno()); vai("frDesafio", () => desafioEconomia()); vai("frCalc", () => calculadoras()); vai("frMsg", colarMensagem); vai("frRel", baixarRelatorio); vai("frConq", conquistasTela); vai("frMercado", mercado); vai("frVeiculo", meuVeiculo); vai("frCasa", minhaCasa); vai("frDica", dicasTela); vai("frShare", () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes)); vai("frCopia", copiaDeSeguranca);
+  vai("frDesemp", meuDesempenho); vai("frAno", () => resumoAno()); vai("frDesafio", () => desafioEconomia()); vai("frCalc", () => calculadoras()); vai("frMsg", colarMensagem); vai("frRel", baixarRelatorio); vai("frConq", conquistasTela); vai("frMercado", mercado); vai("frVeiculo", meuVeiculo); vai("frCasa", minhaCasa); vai("frRevisao", () => revisaoTela()); vai("frDica", dicasTela); vai("frShare", () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes)); vai("frCopia", copiaDeSeguranca);
 }
 $("btnFerramentas").onclick = ferramentas;
 
@@ -3066,6 +3069,55 @@ function minhaCasa() {
       return { rotulo: "A casa custa por mês", valor: brl(r.total), mini: [["Por dia", brl(r.porDia)], [r.porPessoa ? "Por pessoa" : "Por ano", r.porPessoa ? brl(r.porPessoa) : brl(r.porAno)], [peso ? "Da renda" : r.porM2 ? "Por m²" : "Fixos", peso ? peso.pct + "%" : r.porM2 ? brl(r.porM2) : brl(r.fixos)]],
         fim: barrasDe(r.partes) + `<p class="hint" style="margin:10px 0 0">${peso ? `Isso equivale a <b>${peso.pct}%</b> do que entrou neste mês. ${frase} ` : ""}${lancado > 0 ? `No app, você lançou ${brl(lancado)} em Moradia e Contas da casa neste mês.` : ""}</p>` };
     } });
+}
+
+/* ---------- Revisão do mês em 3 passos ---------- */
+function revisaoTela(m = S.mes) {
+  const hojeM = mKey(hoje()), mes = m > hojeM ? hojeM : m;
+  const r = revisaoDoMes(S.data, mes, hoje(), S.prefs.limites || {});
+  if (!r) return void toast("Esse mês ainda não começou.");
+  let passo = 1, valorGuardar = r.guardar > 0 ? r.guardar : 20;
+  const antes = nomeMes(addM(mes, -1)).toLowerCase(), esteMes = nomeMes(mes).toLowerCase(), parcial = r.fase === "atual";
+  const desenha = () => {
+    const pontos = [1, 2, 3].map((n) => `<li class="${n === passo ? "atual" : n < passo ? "feito" : ""}" ${n === passo ? 'aria-current="step"' : ""}><span>${n}</span></li>`).join("");
+    let corpo = "";
+    if (passo === 1) {
+      const v = r.variacao;
+      corpo = `<h4 class="rv-t">Como foi ${esc(esteMes)}${parcial ? " (até hoje)" : ""}</h4>
+        <div class="rv-cards"><div><small>Entrou</small><b class="pos">${brl0(r.rec)}</b></div><div><small>Saiu</small><b>${brl0(r.custo)}</b></div><div><small>${r.sobra >= 0 ? "Sobrou" : "Faltou"}</small><b class="${r.sobra >= 0 ? "pos" : "neg"}">${brl0(Math.abs(r.sobra))}</b></div></div>
+        ${v === null ? "" : `<p class="rv-frase">Você gastou <b>${Math.abs(v)}% ${v >= 0 ? "a mais" : "a menos"}</b> do que em ${esc(antes)} (${brl(r.custoAnt)}).</p>`}
+        ${r.top.length ? `<h4 class="sub-h">Para onde foi o dinheiro</h4><div class="ve-partes">${r.top.map((p) => `<div class="ve-p"><span>${esc(p.cat)}</span><b>${brl(p.valor)}</b><i style="width:${Math.max(3, p.pct)}%"></i></div>`).join("")}</div>` : `<p class="hint">Nenhum gasto neste mês.</p>`}`;
+    } else if (passo === 2) {
+      const lim = r.passaram.map((u) => `<li><b>${esc(u.cat)}</b> passou ${brl(u.passou)} do limite de ${brl(u.limite)}.</li>`).join("");
+      const sub = r.subiu.map((x) => `<li><b>${esc(x.cat)}</b> subiu ${brl(x.dif)} (de ${brl(x.antes)} para ${brl(x.agora)}). <button class="link" type="button" data-lim="${esc(x.cat)}" data-v="${Math.ceil(x.antes / 10) * 10}">Pôr limite de ${brl(Math.ceil(x.antes / 10) * 10)}</button></li>`).join("");
+      corpo = `<h4 class="rv-t">Onde dá para ajustar</h4>${lim || sub ? `<ul class="rv-lista">${lim}${sub}</ul><p class="hint">Um limite por categoria avisa antes de passar. Você pode mudar depois em Planejar.</p>` : `<p class="rv-frase">Nada fugiu do controle: nenhuma categoria passou do limite nem subiu muito. Mantenha o ritmo.</p>`}`;
+    } else {
+      corpo = `<h4 class="rv-t">Quanto guardar no próximo mês</h4>
+        <p class="rv-frase">${r.guardar > 0 ? `Pelo que entrou e sobrou, uma boa meta é <b>${brl(r.guardar)}</b> (até 10% do que entrou, ${brl(r.dezPorCento)}).` : `Neste mês não sobrou. Comece pequeno: ${brl(20)} já cria o hábito.`}</p>
+        <label class="f">Valor para guardar (R$)<input class="in money" id="rvValor" inputmode="decimal" value="${esc(valorGuardar.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}"></label>
+        <p class="hint">Guardar primeiro, assim que o dinheiro entrar, funciona melhor do que esperar sobrar.</p>`;
+    }
+    openDlg(`<h3>Revisão do mês</h3>
+      <ol class="rv-passos" aria-label="Passo ${passo} de 3">${pontos}</ol>
+      ${corpo}
+      <div class="actions">${passo > 1 ? `<button class="btn" type="button" id="rvVolta">Voltar</button>` : ""}
+        ${passo < 3 ? `<button class="btn primary" type="button" id="rvProx">Próximo</button>` : `<button class="btn primary" type="button" id="rvGuarda">Guardar ${brl(valorGuardar)} agora</button><button class="btn" type="button" id="rvFim">Concluir sem guardar</button>`}
+        <button class="btn" type="button" data-close>Fechar</button></div>`);
+    if ($("rvVolta")) $("rvVolta").onclick = () => { passo--; desenha(); };
+    if ($("rvProx")) $("rvProx").onclick = () => { passo++; desenha(); };
+    $("dlgBody").querySelectorAll("[data-lim]").forEach((b) => (b.onclick = () => { S.prefs.limites = { ...(S.prefs.limites || {}), [b.dataset.lim]: Number(b.dataset.v) }; salvaPrefs(); b.replaceWith(Object.assign(document.createElement("span"), { textContent: "Limite definido.", className: "pill good" })); }));
+    if ($("rvValor")) $("rvValor").addEventListener("input", () => { const v = parseMoney($("rvValor").value); if (v > 0 && v <= VALOR_MAX) { valorGuardar = round2(v); $("rvGuarda").textContent = `Guardar ${brl(valorGuardar)} agora`; } });
+    const feito = () => { const o = { ...(S.prefs.revisoes || {}), [mes]: true }; S.prefs.revisoes = Object.fromEntries(Object.entries(o).sort().slice(-24)); salvaPrefs(); };
+    if ($("rvFim")) $("rvFim").onclick = () => { feito(); $("dlg").close(); comemora(); toast("Revisão feita. Mês que vem você já começa com um plano."); render(); };
+    if ($("rvGuarda")) $("rvGuarda").onclick = () => {
+      feito(); const dest = cats("Reserva")[0];
+      if (!dest) { $("dlg").close(); return void toast("Crie uma caixinha em Planejar para guardar."); }
+      $("dlg").close(); S.tipo = "Reserva"; renderForm(); $("fCat").value = dest; $("fForma").value = "Guardar"; S.catManual = true; renderForm();
+      $("fValor").value = valorGuardar.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); mostraEfeito();
+      setTimeout(() => { if (noCelular()) abrirLancar(); else $("fValor").scrollIntoView({ block: "center" }); }, 200);
+    };
+  };
+  desenha();
 }
 
 /* ---------- Dica do dia ---------- */
@@ -4284,6 +4336,8 @@ function ajustes() {
     <p class="hint" style="margin:-4px 0 0">Toque no nome para mudar. Remover uma categoria não apaga os lançamentos que já usam ela.</p>
     <div class="aj-sec"><h4>Aparência</h4>
       <label class="f">Tema<select class="in" id="ajTema"><option value="escuro">Escuro</option><option value="claro"${document.documentElement.dataset.tema === "claro" ? " selected" : ""}>Claro</option></select></label>
+      <label class="f">Tamanho da letra<select class="in" id="ajLetra"><option value="">Normal</option><option value="grande"${document.documentElement.dataset.letra === "grande" ? " selected" : ""}>Grande</option><option value="maior"${document.documentElement.dataset.letra === "maior" ? " selected" : ""}>Maior</option></select></label>
+      <label class="check"><input type="checkbox" id="ajContraste" ${document.documentElement.dataset.contraste === "alto" ? "checked" : ""}> Contraste alto (letras mais escuras e bordas mais fortes)</label>
     </div>
     ${S.store?.kind === "supabase" ? `<div class="aj-sec" id="ajSeg" hidden><h4>Segurança</h4>
       <label class="check"><input type="checkbox" id="ajTrava" ${travaId() ? "checked" : ""}> Pedir a digital ou o rosto ao abrir o app</label>
@@ -4362,6 +4416,14 @@ function ajustes() {
     if (claro) document.documentElement.dataset.tema = "claro"; else delete document.documentElement.dataset.tema;
     try { localStorage.setItem("cg-tema", claro ? "claro" : "escuro"); } catch { /* sem armazenamento: vale só agora */ }
     document.querySelector('meta[name="theme-color"]')?.setAttribute("content", claro ? "#0b2545" : "#0a0f16");
+  };
+  $("ajLetra").onchange = (e) => {
+    const v = e.target.value; if (v) document.documentElement.dataset.letra = v; else delete document.documentElement.dataset.letra;
+    try { if (v) localStorage.setItem("cg-letra", v); else localStorage.removeItem("cg-letra"); } catch { /* vale só agora */ }
+  };
+  $("ajContraste").onchange = (e) => {
+    if (e.target.checked) document.documentElement.dataset.contraste = "alto"; else delete document.documentElement.dataset.contraste;
+    try { if (e.target.checked) localStorage.setItem("cg-contraste", "alto"); else localStorage.removeItem("cg-contraste"); } catch { /* vale só agora */ }
   };
   if ($("ajEmail")) ligaAjustesDeAvisos();
 }

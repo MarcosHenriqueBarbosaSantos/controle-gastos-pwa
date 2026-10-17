@@ -1174,3 +1174,21 @@ table.lanc tr.desliza-d td{background:var(--good-soft)} table.lanc tr.desliza-e 
 @media (min-width:700px){.ml-form{grid-template-columns:1fr 120px auto}.ml-form .btn{grid-column:auto}.ml-item{grid-template-columns:44px 1fr 270px 44px}.ml-campos{grid-column:auto;grid-template-columns:100px 1fr}.ml-item .mc-x{order:4}.ml-item .ml-cat{grid-column:2/-1}}
 .ml-resumo small,.rc-topo small,.rc-mini small{color:inherit}
 .check{min-height:44px} .check input{width:22px;height:22px}
+
+/* ---------- acessibilidade: letra maior e contraste alto (Ajustes → Aparência) ---------- */
+html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.25}
+:root[data-contraste="alto"]{--muted:#33445a;--ink-2:#1c2c40;--border:#7d8ba0;--axis:rgba(11,37,69,.6);--series:#0a3a8a}
+:root[data-contraste="alto"]:not([data-tema="claro"]){--muted:#c9d3e0;--ink-2:#e3eaf3;--border:rgba(255,255,255,.4);--axis:rgba(255,255,255,.55);--series:#8fc0ff}
+:root[data-contraste="alto"] .hint,:root[data-contraste="alto"] small{color:var(--ink-2)}
+:root[data-contraste="alto"] a,:root[data-contraste="alto"] .link{text-decoration:underline;text-underline-offset:3px}
+:root[data-contraste="alto"] :focus-visible{outline-width:3px}
+:root[data-contraste="alto"] .btn,:root[data-contraste="alto"] input.in,:root[data-contraste="alto"] select.in{border-color:var(--border)}
+
+/* ---------- revisão do mês ---------- */
+.rv-passos{display:flex;gap:8px;list-style:none;margin:6px 0 14px;padding:0!important} .rv-passos li{flex:1;height:6px;border-radius:99px;background:var(--sunk);position:relative} .rv-passos li span{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.rv-passos li.feito,.rv-passos li.atual{background:var(--series)} .rv-passos li.atual{box-shadow:0 0 0 3px var(--series-soft)}
+.rv-t{font-family:var(--display);font-size:18px;font-weight:700;margin:0 0 10px}
+.rv-cards{display:grid;grid-template-columns:repeat(3,1fr);gap:8px} .rv-cards>div{padding:10px;border:1px solid var(--border);border-radius:14px;min-width:0} .rv-cards small{display:block;color:var(--muted);font-size:12.5px} .rv-cards b{display:block;font-size:16px;overflow-wrap:anywhere} .rv-cards b.neg{color:var(--bad)}
+.rv-frase{margin:12px 0 4px;font-size:15px;line-height:1.5}
+.rv-lista{list-style:none;margin:6px 0 10px;padding:0!important;display:grid;gap:10px} .rv-lista li{padding:12px;border:1px solid var(--border);border-radius:14px;color:var(--ink)!important;line-height:1.5}
+.rv-cards b{white-space:nowrap;font-size:16px}

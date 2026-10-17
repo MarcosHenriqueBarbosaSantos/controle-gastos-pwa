@@ -16,7 +16,9 @@ try {
 } catch (e) { /* sem armazenamento: abre o app normalmente */ }
 </script>
 <script>/* Tema: claro (cara de banco) por padrão; escuro só se a pessoa escolheu em Ajustes. Roda antes de a tela aparecer, para não piscar. */
-try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement.dataset.tema = "claro"; } catch (e) { document.documentElement.dataset.tema = "claro"; }</script>
+try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement.dataset.tema = "claro"; } catch (e) { document.documentElement.dataset.tema = "claro"; }
+/* Acessibilidade: tamanho da letra e contraste alto, escolhidos em Ajustes e guardados neste aparelho. */
+try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "maior") document.documentElement.dataset.letra = L; if (localStorage.getItem("cg-contraste") === "alto") document.documentElement.dataset.contraste = "alto"; } catch (e) { /* nada */ }</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon-192.png">
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">

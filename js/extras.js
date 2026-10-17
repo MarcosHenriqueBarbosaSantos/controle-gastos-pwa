@@ -1,7 +1,7 @@
 // Ferramentas extras do app, todas funções puras (sem tela), testadas em tests/extras.test.mjs:
 // "Meu desempenho" em frases, calculadoras, desafio de economia, resumo do ano, subcategorias,
 // valor em outra moeda, colar a mensagem do banco, CSV e PDF do relatório.
-import { parseMoney, calcMes, addM, mKey, round2, MESES, MES3, catMap, comparaCategorias, primeiroMes, ocorrencias, diasEntre, ultimosMeses, reservaAcumulada, metasEmAndamento, divisaoDoMes } from "./calc.js";
+import { parseMoney, calcMes, addM, mKey, round2, MESES, MES3, catMap, comparaCategorias, usoDosLimites, primeiroMes, ocorrencias, diasEntre, ultimosMeses, reservaAcumulada, metasEmAndamento, divisaoDoMes } from "./calc.js";
 
 const semAcento = (s) => String(s ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 const pad = (n) => String(n).padStart(2, "0");
@@ -649,4 +649,22 @@ export function textoDaLista(itens, precos = {}) {
   if (!l.length) return "";
   const q = (i) => (Number(i.qtd) > 1 ? ` (${String(i.qtd).replace(".", ",")})` : "");
   return `Lista de mercado:\n${l.map((i) => `• ${i.nome || "Item"}${q(i)}`).join("\n")}`;
+}
+
+/* ======================= revisão do mês em 3 passos ======================= */
+/**
+ * Os números da revisão: como foi o mês, onde ajustar e quanto guardar no próximo.
+ * `guardar` é uma sugestão: 10% do que entrou, ou menos se o mês fechou com pouca sobra (nunca negativa).
+ */
+export function revisaoDoMes(st, m, hoje, limites = {}) {
+  const c = calcMes(st, m, hoje);
+  if (c.fase === "futuro") return null;
+  const rec = round2(c.rec), custo = round2(c.custo), sobra = round2(rec - custo);
+  const ant = calcMes(st, addM(m, -1), hoje), custoAnt = round2(ant.custo);
+  const top = catMap(c).slice(0, 4).map(([cat, v]) => ({ cat, valor: v, pct: custo > 0 ? Math.round((v / custo) * 100) : 0 }));
+  const cmp = comparaCategorias(st, c, m), subiu = cmp ? Object.entries(cmp.por).filter(([, x]) => x.dif > 0).sort((x, y) => y[1].dif - x[1].dif).map(([cat, x]) => ({ cat, ...x })) : [];
+  const passaram = usoDosLimites(c, limites).filter((u) => u.passou > 0);
+  const dez = round2(rec * 0.1), guardar = rec > 0 ? Math.max(0, Math.min(dez, sobra > 0 ? sobra : 0)) : 0;
+  return { fase: c.fase, rec, custo, sobra, custoAnt, variacao: custoAnt > 0 ? Math.round(((custo - custoAnt) / custoAnt) * 100) : null,
+    top, subiu: subiu.slice(0, 2), passaram, guardar: Math.floor(guardar / 10) * 10, dezPorCento: Math.round(dez) };
 }

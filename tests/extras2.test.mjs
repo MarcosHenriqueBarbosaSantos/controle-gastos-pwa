@@ -200,3 +200,20 @@ test("juntaLista: vale a mudança mais nova e item apagado não volta", async ()
   assert.ok(volta.itens.some((x) => x.id === "1"));                // editado depois de apagado: volta
   assert.equal(juntaLista(null, null, agora).itens.length, 0);
 });
+
+test("revisaoDoMes: números do mês, o que subiu e a sugestão de guardar", async () => {
+  const { revisaoDoMes } = await import("../js/extras.js");
+  const st = { lancamentos: [
+    { id: "1", tipo: "Receita", categoria: "Salário", valor: 3000, data: "2026-09-05", forma: "" },
+    { id: "2", tipo: "Despesa", categoria: "Mercado", valor: 600, data: "2026-09-10", forma: "Pix" },
+    { id: "3", tipo: "Despesa", categoria: "Lazer", valor: 300, data: "2026-09-12", forma: "Pix" },
+    { id: "4", tipo: "Receita", categoria: "Salário", valor: 3000, data: "2026-08-05", forma: "" },
+    { id: "5", tipo: "Despesa", categoria: "Mercado", valor: 400, data: "2026-08-10", forma: "Pix" } ], fixos: [], cartoes: [], faturas: [], pagos: [] };
+  const r = revisaoDoMes(st, "2026-09", "2026-10-10", { Mercado: 500 });
+  assert.equal(r.rec, 3000); assert.equal(r.custo, 900); assert.equal(r.sobra, 2100); assert.equal(r.custoAnt, 400); assert.equal(r.variacao, 125);
+  assert.equal(r.top[0].cat, "Mercado"); assert.equal(r.subiu[0].cat, "Mercado"); assert.equal(r.subiu[0].dif, 200);
+  assert.equal(r.passaram[0].cat, "Mercado"); assert.equal(r.guardar, 300);
+  assert.equal(revisaoDoMes(st, "2027-01", "2026-10-10"), null);
+  const pobre = revisaoDoMes({ ...st, lancamentos: [{ id: "9", tipo: "Receita", categoria: "Salário", valor: 1000, data: "2026-09-05", forma: "" }, { id: "8", tipo: "Despesa", categoria: "Mercado", valor: 960, data: "2026-09-06", forma: "Pix" }] }, "2026-09", "2026-10-10");
+  assert.equal(pobre.guardar, 40);
+});
