@@ -926,6 +926,11 @@ if (OFERTA.link && OFERTA.preco) {
     const a = e.target.closest("[data-cta]"); if (!a || !ligado || !/hotmart\.com/.test(a.href)) return;
     if (window.fbq) window.fbq("track", "InitiateCheckout"); if (window.gtag) window.gtag("event", "begin_checkout");
   });
+  // Clique em "Experimentar" (demonstração): vira um público para mostrar anúncio só a quem já testou. O aplicativo em si não mede nada.
+  document.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-app]"); if (!a || !ligado) return;
+    if (window.fbq) window.fbq("trackCustom", "TesteDemo"); if (window.gtag) window.gtag("event", "teste_demo");
+  });
   const pergunta = () => {
     if (q("#cookies")) return;
     const d = document.createElement("div"); d.className = "cookies"; d.id = "cookies"; d.setAttribute("role", "dialog"); d.setAttribute("aria-label", "Cookies de medição");
