@@ -854,7 +854,9 @@ picture{display:contents}
 //   lancamento: opcional, o preço de lançamento. Só preencha se a oferta existir de verdade na página de pagamento,
 //               por exemplo "Lançamento: R$ 29,90 no primeiro ano, para as 100 primeiras pessoas."
 //   link:       o endereço da página de pagamento na Hotmart. É ele que liga a venda no site.
-const OFERTA = { preco: "R$ 49,90 por ano", detalhe: "Plano anual. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", lancamentoAte: "", linkLancamento: "", link: "https://pay.hotmart.com/G107911431C" };
+// Black Friday (27/11/2026): depois de criar o cupom de R$ 49 na Hotmart, troque os dois campos abaixo e o site mostra a oferta até a data, sozinho:
+//   lancamento: "Black Friday: R$ 49 no primeiro ano, só até 30/11.", lancamentoAte: "2026-11-30", linkLancamento: "<link do cupom da Hotmart>"
+const OFERTA = { preco: "R$ 69 por ano", detalhe: "Plano anual. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", lancamentoAte: "", linkLancamento: "", link: "https://pay.hotmart.com/G107911431C" };
 // ================= preço de lançamento com data para acabar =================
 // lancamentoAte: último dia da oferta, no formato "2026-10-31". Depois dele, o aviso some e o link volta ao normal sozinho.
 // linkLancamento: o link de pagamento que já abre com o cupom aplicado (a Hotmart mostra esse link na tela do cupom).

@@ -15,7 +15,7 @@ export const SUPORTE_CONTATO = "meugastos@gmail.com";
 // Enquanto estiver vazio, o app não mostra botão de compra. Quem decide se a cobrança vale é o banco
 // (supabase/acesso.sql): com ela desligada, o app funciona para todos como sempre.
 export const LINK_COMPRA = "https://pay.hotmart.com/G107911431C";
-export const PRECO_PLANO = "R$ 49,90 por ano";
+export const PRECO_PLANO = "R$ 69 por ano";
 
 // Loja do Google (opcional). Depois de publicar o app na Play Store, escreva aqui o nome do pacote,
 // o mesmo que está em .well-known/assetlinks.json (ex.: "br.com.meugastos.app").
@@ -27,4 +27,4 @@ export const PLAY_PACOTE = "";
 
 // Número da versão do app (o mesmo de sw.js). Vai junto com os pedidos de melhoria e correção, para saber qual versão estava aberta.
 // Ao mudar a VERSAO em sw.js, mude aqui também: um teste confere se os dois batem.
-export const APP_VERSAO = "69";
+export const APP_VERSAO = "70";
