@@ -11,7 +11,7 @@ import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
+  avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
 
@@ -1619,7 +1619,7 @@ function paneL(c) {
   const host = $("pane-l");
   // A busca fica fora da parte que é redesenhada, para o teclado não fechar enquanto a pessoa digita.
   if (!$("lBusca")) {
-    host.innerHTML = `<div class="busca"><label class="so-leitor" for="lBusca">Buscar lançamento</label>${ico("lupa")}<input class="in" id="lBusca" type="search" placeholder="Buscar em todos os meses" autocomplete="off" enterkeyhint="search" maxlength="60"><button type="button" class="busca-x" id="lBuscaX" aria-label="Limpar a busca" hidden>${ico("x")}</button></div><div class="seg quem-filtro" id="lQuem" role="group" aria-label="De quem são os lançamentos" hidden></div><div id="lLista"></div>`;
+    host.innerHTML = `<div class="busca"><label class="so-leitor" for="lBusca">Buscar lançamento</label>${ico("lupa")}<input class="in" id="lBusca" type="search" placeholder="Buscar em todos os meses" autocomplete="off" enterkeyhint="search" maxlength="60"><button type="button" class="busca-x" id="lBuscaX" aria-label="Limpar a busca" hidden>${ico("x")}</button></div><div class="filtros" id="lFiltros" role="group" aria-label="Filtrar o extrato"></div><div class="seg quem-filtro" id="lQuem" role="group" aria-label="De quem são os lançamentos" hidden></div><div id="lLista"></div>`;
     $("lBusca").value = S.busca || "";
     $("lBusca").addEventListener("input", (e) => { S.busca = e.target.value; listaL(calcMes(S.data, S.mes, hoje())); });
     $("lBuscaX").onclick = () => { S.busca = ""; $("lBusca").value = ""; listaL(calcMes(S.data, S.mes, hoje())); $("lBusca").focus(); };
@@ -1636,10 +1636,19 @@ function listaL(c) {
     fq.innerHTML = [["", "Todos"], ["eu", "Meus"], ["outro", nomeDoOutro()]].map(([v, r]) => `<button type="button" data-quem="${v}" aria-pressed="${deQuem === v}">${esc(r)}</button>`).join("");
     fq.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.quem = b.dataset.quem; listaL(calcMes(S.data, S.mes, hoje())); }));
   }
+  // Filtros: por tipo e por categoria, valem para o mês e também para a busca em todos os meses.
+  const filtro = { tipo: S.fTipo || "", categoria: S.fCat || "" }, filtrando = Boolean(filtro.tipo || filtro.categoria);
+  const catsDoExtrato = [...new Set(S.data.lancamentos.map((x) => x.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
+  $("lFiltros").innerHTML = `<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
+    <label class="so-leitor" for="fCatSel">Categoria</label><select class="in" id="fCatSel"><option value="">Todas as categorias</option>${catsDoExtrato.map((c) => `<option${c === filtro.categoria ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>
+    ${filtrando ? `<button class="link" type="button" id="fLimpa">Limpar filtros</button>` : ""}`;
+  $("lFiltros").querySelectorAll("[data-ftipo]").forEach((b) => (b.onclick = () => { S.fTipo = b.dataset.ftipo; listaL(calcMes(S.data, S.mes, hoje())); }));
+  $("fCatSel").onchange = (e) => { S.fCat = e.target.value; listaL(calcMes(S.data, S.mes, hoje())); };
+  if ($("fLimpa")) $("fLimpa").onclick = () => { S.fTipo = ""; S.fCat = ""; listaL(calcMes(S.data, S.mes, hoje())); };
   const cab = `<thead><tr><th>Dia</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="hide-sm">Pagamento</th><th class="num">Valor</th><th></th></tr></thead>`;
   if (q.length >= 2) {
     // Busca: todos os meses, do mais recente para o mais antigo, separados por mês.
-    const r = buscaLancamentos(S.data.lancamentos.filter(doQuem), q);
+    const r = buscaLancamentos(filtraLancamentos(S.data.lancamentos.filter(doQuem), filtro), q);
     if (!r.total) host.innerHTML = `<div class="welcome"><p><b>Nada encontrado para "${esc(q)}".</b> A busca olha a descrição, a categoria, a forma de pagamento e o valor, em todos os meses.</p></div>`;
     else {
       const mes = (x, i) => i && mKey(r.itens[i - 1].data) === mKey(x.data) ? "" : `<tr class="dia"><td colspan="6"><span>${nomeMes(mKey(x.data))} de ${x.data.slice(0, 4)}</span></td></tr>`;
@@ -1651,8 +1660,9 @@ function listaL(c) {
   const auto = c.fr.map((f) => { const d = Number(f.data.slice(8, 10));
     return { auto: true, id: f.id, data: f.data, descricao: f.descricao, categoria: f.categoria, tipo: "Receita", valor: f.valor,
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
-  const it = [...c.it, ...auto].filter(doQuem).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  const it = filtraLancamentos([...c.it, ...auto].filter(doQuem), filtro).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
   if (!it.length && deQuem) { host.innerHTML = `<div class="welcome"><p><b>${deQuem === "eu" ? "Você não lançou nada" : `${esc(nomeDoOutro())} não lançou nada`} em ${nomeMes(S.mes)}.</b></p></div>`; return; }
+  if (!it.length && filtrando) { host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)} com esse filtro.</b> Mude o tipo ou a categoria, ou toque em Limpar filtros.</p></div>`; return; }
   if (!it.length) {
     host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)}.</b> Anote cada gasto no formulário lá em cima assim que ele acontecer. O custo do mês e a projeção se atualizam na hora.</p><p>Usa cartão? Na aba <b>Cartões</b> dá para importar o extrato do banco e lançar todas as compras de uma vez.</p></div>`;
     return;
@@ -2176,24 +2186,72 @@ $("listaVoltar").onclick = () => { if (history.state?.sub) history.back(); else 
 /** As ferramentas, em grupos. A tela Mais (celular) e o botão Ferramentas (computador) leem a mesma lista. */
 const GRUPOS_FERR = [
   { titulo: "No dia a dia", itens: [
-    { id: "mercado", ico: "carrinho", t: "Lista de mercado", s: "Anote o que comprar, estime o gasto e lance ao finalizar" },
-    { id: "veiculo", ico: "carro", t: "Meu carro ou moto", s: "Quanto custa por mês, por dia e por km" },
-    { id: "casa", ico: "casa", t: "Minha casa", s: "Quanto a casa custa por mês e quanto pesa na renda" },
-    { id: "msg", ico: "clipe", t: "Colar mensagem do banco", s: "A notificação ou o SMS vira um lançamento" }] },
+    { id: "mercado", k: "supermercado compras feira carrinho comprar", ico: "carrinho", t: "Lista de mercado", s: "Anote o que comprar, estime o gasto e lance ao finalizar" },
+    { id: "veiculo", k: "gasolina combustivel ipva seguro oficina moto", ico: "carro", t: "Meu carro ou moto", s: "Quanto custa por mês, por dia e por km" },
+    { id: "casa", k: "aluguel condominio luz agua iptu moradia", ico: "casa", t: "Minha casa", s: "Quanto a casa custa por mês e quanto pesa na renda" },
+    { id: "msg", k: "sms notificacao banco colar importar", ico: "clipe", t: "Colar mensagem do banco", s: "A notificação ou o SMS vira um lançamento" }] },
   { titulo: "Guardar e planejar", itens: [
-    { id: "revisao", ico: "grafico", t: "Revisão do mês", s: "3 passos: como foi, onde ajustar e quanto guardar" },
-    { id: "desafio", ico: "alvo", t: "Desafio de economia", s: "Guarde um valor por semana e acompanhe" },
-    { id: "calc", ico: "calc", t: "Calculadoras", s: "Rendimento, parcelas, juros, férias e 13º" },
-    { id: "dica", ico: "luz", t: "Dica do dia", s: "Um hábito pequeno por dia para guardar dinheiro" }] },
+    { id: "revisao", k: "fechar mes balanco resumo", ico: "grafico", t: "Revisão do mês", s: "3 passos: como foi, onde ajustar e quanto guardar" },
+    { id: "desafio", k: "economizar guardar semanal poupar cofrinho", ico: "alvo", t: "Desafio de economia", s: "Guarde um valor por semana e acompanhe" },
+    { id: "calc", k: "ferias decimo terceiro juros parcelas rendimento investir divida simulador", ico: "calc", t: "Calculadoras", s: "Rendimento, parcelas, juros, férias e 13º" },
+    { id: "dica", k: "habito economia ideia", ico: "luz", t: "Dica do dia", s: "Um hábito pequeno por dia para guardar dinheiro" }] },
   { titulo: "Entender e comemorar", itens: [
-    { id: "desemp", ico: "rumo", t: "Meu desempenho", s: "O seu mês em frases, comparado com os outros" },
-    { id: "ano", ico: "grafico", t: "Resumo do ano", s: "Mês a mês, melhor e pior mês e para onde foi o dinheiro" },
-    { id: "conq", ico: "medalha", t: "Conquistas", s: "As medalhas que você já ganhou e as próximas" }] },
+    { id: "desemp", k: "comparar evolucao", ico: "rumo", t: "Meu desempenho", s: "O seu mês em frases, comparado com os outros" },
+    { id: "ano", k: "anual relatorio ano", ico: "grafico", t: "Resumo do ano", s: "Mês a mês, melhor e pior mês e para onde foi o dinheiro" },
+    { id: "conq", k: "medalhas premios", ico: "medalha", t: "Conquistas", s: "As medalhas que você já ganhou e as próximas" }] },
   { titulo: "Levar com você", itens: [
-    { id: "share", ico: "baixar", t: "Compartilhar meu mês", s: "Uma imagem do seu mês, com ou sem os valores" },
-    { id: "btnExport", ico: "baixar", t: "Baixar relatório", s: "Excel, PDF ou CSV" },
-    { id: "copia", ico: "baixar", t: "Cópia de segurança", s: "Baixe tudo num arquivo e restaure quando precisar" }] },
+    { id: "share", k: "imagem compartilhar redes status", ico: "baixar", t: "Compartilhar meu mês", s: "Uma imagem do seu mês, com ou sem os valores" },
+    { id: "btnExport", k: "excel pdf csv planilha exportar baixar", ico: "baixar", t: "Baixar relatório", s: "Excel, PDF ou CSV" },
+    { id: "copia", k: "backup restaurar seguranca", ico: "baixar", t: "Cópia de segurança", s: "Baixe tudo num arquivo e restaure quando precisar" }] },
 ];
+/** Outras telas do app que a busca geral também sabe abrir. */
+const DESTINOS = [
+  { id: "l", t: "Extrato", s: "Todos os lançamentos do mês", k: "lancamentos gastos historico lista" },
+  { id: "f", t: "Contas fixas", s: "Aluguel, internet e o que se repete", k: "assinaturas recorrente mensal boleto" },
+  { id: "r", t: "Entradas fixas", s: "Salário e o que entra todo mês", k: "salario renda receita" },
+  { id: "c", t: "Cartões e faturas", s: "Cadastre o cartão e a fatura se monta sozinha", k: "cartao credito fatura parcelado" },
+  { id: "cal", t: "Calendário de vencimentos", s: "O que vence e o que entra em cada dia", k: "agenda datas vencimento" },
+  { id: "m", t: "Planejar: limites e metas", s: "Limite por categoria, metas e caixinhas", k: "planejar limite teto meta caixinha reserva guardar" },
+  { id: "casal", t: "Conta de casal", s: "Divida as contas com outra pessoa", k: "casal parceiro dividir compartilhar" },
+  { id: "btnAjustes", t: "Ajustes e categorias", s: "Categorias, avisos, tema, letra e a sua conta", k: "configuracoes tema escuro letra contraste notificacao categorias conta senha" },
+  { id: "btnAjuda", t: "Como usar", s: "Respostas para as dúvidas mais comuns", k: "ajuda duvida tutorial suporte" },
+  { id: "btnSugerir", t: "Sugerir melhoria ou correção", s: "Conte o que falta ou o que deu errado", k: "feedback problema erro sugestao" },
+];
+/** Abre uma tela ou ferramenta pelo id: usado pela tela Mais, pelo botão Ferramentas e pela busca geral. */
+function vaiPara(k) {
+  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
+}
+/* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
+function buscaGeral() {
+  const todas = [...GRUPOS_FERR.flatMap((g) => g.itens), ...DESTINOS];
+  const sugeridas = ["mercado", "calc", "l", "m", "f", "btnAjustes"].map((id) => todas.find((x) => x.id === id));
+  const linha = (x) => `<button class="mais-item" type="button" data-go="${x.id}"><span class="ic-box">${ico(x.ico || "lupa")}</span><span class="tx"><b>${esc(x.t)}</b><span>${esc(x.s)}</span></span>${ico("chev")}</button>`;
+  openDlg(`<h3>Buscar</h3>
+    <div class="busca"><label class="so-leitor" for="bgQ">O que você procura?</label>${ico("lupa")}<input class="in" id="bgQ" type="search" placeholder="Ex.: mercado, férias, aluguel, cartão" autocomplete="off" enterkeyhint="search" maxlength="60"></div>
+    <div id="bgRes" aria-live="polite"></div>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  const desenha = () => {
+    const q = $("bgQ").value.trim(), res = $("bgRes");
+    if (!q) res.innerHTML = `<h4 class="ferr-h">Mais procurados</h4><div class="caixa-mais">${sugeridas.map(linha).join("")}</div>`;
+    else {
+      const fs = buscaDeFuncoes(q, todas), ls = q.length >= 2 && S.loaded ? buscaLancamentos(S.data.lancamentos, q, 5) : { itens: [], total: 0 };
+      res.innerHTML = (fs.length ? `<h4 class="ferr-h">Telas e ferramentas</h4><div class="caixa-mais">${fs.map(linha).join("")}</div>` : "")
+        + (ls.total ? `<h4 class="ferr-h">Lançamentos</h4><div class="caixa-mais">${ls.itens.map((x) => `<button class="mais-item" type="button" data-lanc="${esc(x.id)}"><span class="ic-box">${ava(x.categoria, x.tipo)}</span><span class="tx"><b>${esc(x.descricao || x.categoria)}</b><span>${ddmm(x.data)}/${x.data.slice(2, 4)} · ${esc(x.categoria)}</span></span><span class="bg-val">${x.tipo === "Receita" ? "+ " : ""}${brl(x.valor)}</span></button>`).join("")}</div>
+          <button class="btn bg-todos" type="button" id="bgTodos">${ls.total > ls.itens.length ? `Ver os ${ls.total} lançamentos no Extrato` : "Ver no Extrato"}</button>` : "")
+        + (!fs.length && !ls.total ? `<p class="hint" style="margin:12px 2px">Nada encontrado para "${esc(q)}". Tente uma palavra mais curta, como "cartão", "meta" ou o nome de um gasto.</p>` : "");
+    }
+    res.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { const id = b.dataset.go; $("dlg").close(); setTimeout(() => vaiPara(id), 120); }));
+    res.querySelectorAll("[data-lanc]").forEach((b) => (b.onclick = () => { const id = b.dataset.lanc; $("dlg").close(); setTimeout(() => editarLancamento(id), 120); }));
+    if ($("bgTodos")) $("bgTodos").onclick = () => { S.busca = $("bgQ").value.trim(); $("dlg").close(); setTimeout(() => abrirSub("l"), 120); };
+  };
+  $("bgQ").addEventListener("input", desenha); desenha(); $("bgQ").focus();
+}
+$("btnBuscar").onclick = $("btnBuscarM").onclick = buscaGeral;
+document.addEventListener("keydown", (e) => {   // "/" abre a busca, como nos sites de busca (só fora de campos e janelas)
+  if (e.key !== "/" || e.ctrlKey || e.metaKey || e.altKey || $("dlg").open || /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || $("app").hidden) return;
+  e.preventDefault(); buscaGeral();
+});
 /**
  * Tela "Mais" do celular: o que não cabe na barra de baixo, em grupos. Cada linha diz em poucas palavras o que tem lá dentro.
  * No computador ela não existe: os mesmos botões ficam no topo e nas abas.
@@ -2221,9 +2279,7 @@ function renderMais(c) {
       linha("btnSugerir", "ideia", "Sugerir melhoria ou correção", "Conte o que falta ou o que deu errado"),
       linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
-    const k = b.dataset.mais;
-    const FERR = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
-    if (FERR[k]) FERR[k](); else if (SUBS.includes(k)) abrirSub(k); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else $(k).click();
+    vaiPara(b.dataset.mais);
   }));
 }
 /* ================= conta de casal =================
@@ -2551,8 +2607,7 @@ const opFerr = (id, icone, t, s) => `<button class="mais-item" type="button" id=
 function ferramentas() {
   openDlg(`<h3>Ferramentas</h3>${GRUPOS_FERR.map((g) => `<h4 class="ferr-h">${g.titulo}</h4><div class="caixa-mais">${g.itens.map((i) => opFerr("fr_" + i.id, i.ico, i.t, i.s)).join("")}</div>`).join("")}
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
-  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
-  GRUPOS_FERR.forEach((g) => g.itens.forEach((i) => ($("fr_" + i.id).onclick = () => FER[i.id]())));
+  GRUPOS_FERR.forEach((g) => g.itens.forEach((i) => ($("fr_" + i.id).onclick = () => vaiPara(i.id))));
 }
 $("btnFerramentas").onclick = ferramentas;
 

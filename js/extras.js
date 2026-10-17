@@ -668,3 +668,30 @@ export function revisaoDoMes(st, m, hoje, limites = {}) {
   return { fase: c.fase, rec, custo, sobra, custoAnt, variacao: custoAnt > 0 ? Math.round(((custo - custoAnt) / custoAnt) * 100) : null,
     top, subiu: subiu.slice(0, 2), passaram, guardar: Math.floor(guardar / 10) * 10, dezPorCento: Math.round(dez) };
 }
+
+/* ---------- Busca geral: achar uma função do app digitando o que se quer fazer ---------- */
+/**
+ * Procura entre as telas e ferramentas do app. Cada item tem {id, t: título, s: descrição, k: palavras que a pessoa pode digitar}.
+ * Todas as palavras digitadas precisam aparecer em algum lugar do item; título vale mais que descrição e palavras-chave.
+ * Ignora acentos e maiúsculas, e aceita o começo da palavra ("merc" acha "mercado").
+ */
+export function buscaDeFuncoes(q, itens, limite = 8) {
+  const ps = semAcento(q).split(/\s+/).filter(Boolean);
+  if (!ps.length) return [];
+  const pontos = (it) => {
+    const t = semAcento(it.t), s = semAcento(it.s), k = semAcento(it.k);
+    let total = 0;
+    for (const p of ps) {
+      const noTitulo = t.split(/\W+/).some((w) => w.startsWith(p)), t_ = t.includes(p);
+      const p_ = noTitulo ? 4 : t_ ? 3 : k.split(/\s+/).some((w) => w.startsWith(p)) ? 2 : (s.includes(p) || k.includes(p)) ? 1 : 0;
+      if (!p_) return 0;
+      total += p_;
+    }
+    return total;
+  };
+  return itens.map((it, i) => ({ it, i, p: pontos(it) })).filter((x) => x.p > 0).sort((a, b) => b.p - a.p || a.i - b.i).slice(0, limite).map((x) => x.it);
+}
+
+/** Filtros do Extrato: por tipo (Despesa, Receita, Reserva) e por categoria. Vazio = não filtra. */
+export const filtraLancamentos = (lancs, { tipo = "", categoria = "" } = {}) =>
+  lancs.filter((x) => (!tipo || x.tipo === tipo) && (!categoria || x.categoria === categoria));

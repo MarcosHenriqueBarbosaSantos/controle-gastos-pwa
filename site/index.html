@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Meus Gastos: controle de gastos no celular. Veja quanto sobra no mês e quanto dá para gastar por dia, defina um limite e seja avisado antes de cada conta vencer.">
+<meta name="description" content="Meus Gastos: controle de gastos no celular. Veja quanto sobra no mês e quanto dá para gastar por dia, defina um limite, divida a lista de mercado e seja avisado antes de cada conta vencer.">
 <meta property="og:title" content="Meus Gastos">
 <meta property="og:description" content="Veja quanto sobra no mês antes de ele acabar.">
 <meta property="og:type" content="website">
@@ -328,6 +328,7 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
 .barra-app li>svg{margin-block:5px} .barra-app svg{width:24px;height:24px;fill:none;stroke:var(--band);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .barra-app li.meio i{display:grid;place-items:center;width:44px;height:34px;border-radius:10px;background:var(--band)}
 .barra-app li.meio svg{stroke:#fff;stroke-width:2.4;width:20px;height:20px}
+@media(min-width:721px){.barra-app.tres ul{grid-template-columns:repeat(3,minmax(0,1fr))}}
 .barra-app b{font-size:.95rem} .barra-app span{font-size:.86rem;color:var(--ink-2);max-width:22ch}
 @media (max-width:900px){
   .usar{padding-block:40px 30px}
@@ -516,10 +517,18 @@ picture{display:contents}
     <h3>A barra de baixo do app</h3>
     <ul>
       <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg><b>Início</b><span>Quanto está livre, o que vence e o gráfico do mês.</span></li>
-      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg><b>Extrato</b><span>Tudo o que entrou e saiu, dia por dia, com busca.</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg><b>Extrato</b><span>Tudo o que entrou e saiu, dia por dia, com busca e filtros.</span></li>
       <li class="meio"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></i><b>Lançar</b><span>Gasto, entrada ou dinheiro guardado. Por voz ou foto também.</span></li>
       <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg><b>Planejar</b><span>O que sobra, caixinhas, metas e limites.</span></li>
-      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg><b>Mais</b><span>Contas fixas, cartões, calendário, casal e ajustes.</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg><b>Mais</b><span>Ferramentas, contas fixas, cartões, calendário, casal e ajustes.</span></li>
+    </ul>
+  </div>
+  <div class="barra-app tres sobe">
+    <h3>Para achar qualquer coisa, sem procurar</h3>
+    <ul>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg><b>A lupa</b><span>No topo do app. Digite “mercado”, “férias” ou o nome de um gasto e ele leva até a tela ou ao lançamento. No computador, é só apertar a tecla /.</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg><b>Filtros no extrato</b><span>Gastos, entradas ou dinheiro guardado, e uma categoria de cada vez. Valem também para a busca em todos os meses.</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg><b>Mais, em grupos</b><span>As ferramentas ficam separadas em No dia a dia, Guardar e planejar, Entender e comemorar e Levar com você.</span></li>
     </ul>
   </div>
 </div></section>
@@ -682,6 +691,15 @@ picture{display:contents}
     <div class="sobe"><h3>Entra com a digital ou o rosto</h3><p>Ligue o bloqueio em Ajustes e o app abre com a biometria do próprio celular, como o do banco. A digital nunca sai do aparelho.</p></div>
     <div class="sobe d1"><h3>Comprovante junto do gasto</h3><p>Guarde a foto do recibo no lançamento e abra quando precisar. Só você, e quem divide as contas com você, pode ver.</p></div>
     <div class="sobe d2"><h3>O mês fechado em uma imagem</h3><p>No fim do mês, o app monta um resumo com quanto entrou, saiu e sobrou, pronto para compartilhar. Dá para esconder os valores.</p></div>
+    <div class="sobe"><h3>Lista de mercado compartilhada</h3><p>Anote o que falta comprar, e o app estima o gasto pelo que você já gastou lá. No mercado, ajuste o preço, marque o que foi para o carrinho e, ao finalizar, o gasto é lançado. Quem divide as contas vê a mesma lista.</p></div>
+    <div class="sobe d1"><h3>Seis calculadoras</h3><p>Quanto rende guardar todo mês, quanto guardar para chegar a um valor, o custo real de uma compra parcelada, juros compostos, férias e 13º. Cada uma diz a pergunta que responde, e o resultado aparece no topo.</p></div>
+    <div class="sobe d2"><h3>Meu carro ou moto</h3><p>Você digita o que gasta com combustível, seguro, IPVA e manutenção, e o app mostra o custo por mês, por dia e por quilômetro, incluindo quanto o veículo perde de valor.</p></div>
+    <div class="sobe"><h3>Minha casa</h3><p>Aluguel, condomínio, luz, água e o resto da casa somados, e quanto isso pesa na sua renda. Até 30% da renda é considerado tranquilo; acima disso o app avisa.</p></div>
+    <div class="sobe d1"><h3>Revisão do mês em 3 passos</h3><p>Como o mês foi, onde dá para ajustar e quanto guardar no próximo. Leva um minuto e fica salva mês a mês.</p></div>
+    <div class="sobe d2"><h3>Desafio de economia e dica do dia</h3><p>Guarde um valor por semana, marque cada semana cumprida e acompanhe. Todo dia, um hábito pequeno para guardar dinheiro, sem sermão.</p></div>
+    <div class="sobe"><h3>Busca em tudo</h3><p>Uma lupa que acha telas, ferramentas e lançamentos. No extrato, filtros por tipo e por categoria. Você chega ao que quer em dois toques.</p></div>
+    <div class="sobe d1"><h3>Letra maior e alto contraste</h3><p>Em Ajustes, aumente a letra em dois tamanhos e ligue o alto contraste. Os botões têm área de toque grande e nomes para leitores de tela.</p></div>
+    <div class="sobe d2"><h3>Atalho no ícone do app</h3><p>No Android, aperte e segure o ícone do app para abrir direto a Lista de mercado, sem passar pela tela inicial.</p></div>
   </div>
   <div class="larga sobe"><picture><source srcset="img/tela-computador.webp" type="image/webp"><img src="img/tela-computador.png" alt="O app no computador: R$ 810,60 livres para gastar em outubro, os botões rápidos e o resumo do mês" loading="lazy" width="1600" height="825"></picture></div>
 </div></section>
@@ -801,6 +819,7 @@ picture{display:contents}
     <details data-venda hidden><summary>O que acontece se eu não renovar?</summary><p>O app deixa de aceitar lançamentos novos, mas os seus dados continuam guardados. Você ainda entra para baixar tudo em planilha, e eles voltam a aparecer se você renovar. A renovação pode ser cancelada quando você quiser. As regras completas estão nos <a href="termos.html">Termos de uso</a>.</p></details>
     <details><summary>Como excluo a minha conta?</summary><p>Dentro do app, em Ajustes, na parte Sua conta. Você confirma com a senha e a conta é apagada na hora, com todos os registros. Antes, dá para baixar tudo em planilha.</p></details>
     <details><summary>Dá para usar a dois, com a minha esposa ou o meu marido?</summary><p>Dá. Em Conta de casal, você convida a outra pessoa pelo e-mail. Cada um entra com o seu e-mail e a sua senha, e os dois veem e lançam nas mesmas contas, cartões, limites e metas. O app mostra quem lançou cada gasto. <span data-venda hidden>Uma assinatura vale para os dois.</span></p></details>
+    <details><summary>Como acho uma função do app?</summary><p>Toque na lupa, no topo da tela, e digite o que procura: “mercado”, “férias”, “cartão”, “aluguel” ou o nome de um gasto. No computador, a tecla / abre a busca. As ferramentas ficam em <b>Mais</b>, separadas por assunto, e o extrato tem filtros por tipo e categoria.</p></details>
     <details><summary>Preciso instalar alguma coisa?</summary><p>Não é obrigatório: o Meus Gastos abre no navegador. Instalado, ele ganha ícone na tela inicial, abre em tela cheia e envia notificações. A instalação é feita em <a href="#instalar">Instalar</a>, nesta página: um toque no Android e três no iPhone.</p></details>
     <details><summary>Tenho um Xiaomi (ou Redmi, Poco) e não consigo instalar. O que faço?</summary><p>No Xiaomi, instale pelo Chrome, e não pelo navegador que vem no celular. Antes, permita que o Chrome crie <b>atalhos na tela inicial</b>, nas permissões do app. Sem isso, o ícone não aparece. O passo a passo está em <a href="#plat-xiaomi">Instalar › No Xiaomi</a>.</p></details>
     <details><summary>Procurei na loja de aplicativos e não achei. Onde baixo?</summary><p id="faqLoja">Ele não fica na Play Store nem na App Store. A instalação é feita por esta página, pelo próprio navegador do celular, e ocupa muito pouco espaço. Veja em <a href="#instalar">Instalar</a>.</p></details>

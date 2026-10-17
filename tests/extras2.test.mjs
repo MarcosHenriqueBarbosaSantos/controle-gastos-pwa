@@ -217,3 +217,27 @@ test("revisaoDoMes: números do mês, o que subiu e a sugestão de guardar", asy
   const pobre = revisaoDoMes({ ...st, lancamentos: [{ id: "9", tipo: "Receita", categoria: "Salário", valor: 1000, data: "2026-09-05", forma: "" }, { id: "8", tipo: "Despesa", categoria: "Mercado", valor: 960, data: "2026-09-06", forma: "Pix" }] }, "2026-09", "2026-10-10");
   assert.equal(pobre.guardar, 40);
 });
+
+/* ---------- busca geral e filtros do extrato ---------- */
+import { buscaDeFuncoes, filtraLancamentos } from "../js/extras.js";
+const FUNCOES = [
+  { id: "mercado", t: "Lista de mercado", s: "Anote o que comprar", k: "supermercado compras feira" },
+  { id: "veiculo", t: "Meu carro ou moto", s: "Quanto custa por mês", k: "gasolina combustivel ipva" },
+  { id: "calc", t: "Calculadoras", s: "Rendimento, parcelas, juros, férias e 13º", k: "ferias decimo terceiro juros" },
+  { id: "f", t: "Contas fixas", s: "Aluguel, internet e o que se repete", k: "aluguel luz agua" },
+];
+test("busca de funções: ignora acento, aceita começo de palavra e ordena pelo título", () => {
+  assert.deepEqual(buscaDeFuncoes("merc", FUNCOES).map((x) => x.id), ["mercado"]);
+  assert.deepEqual(buscaDeFuncoes("FÉRIAS", FUNCOES).map((x) => x.id), ["calc"]);
+  assert.deepEqual(buscaDeFuncoes("gasolina", FUNCOES).map((x) => x.id), ["veiculo"]);
+  assert.deepEqual(buscaDeFuncoes("conta aluguel", FUNCOES).map((x) => x.id), ["f"]);
+  assert.deepEqual(buscaDeFuncoes("xyz", FUNCOES), []);
+  assert.deepEqual(buscaDeFuncoes("   ", FUNCOES), []);
+});
+test("filtro do extrato: tipo e categoria juntos, vazio não filtra", () => {
+  const l = [{ tipo: "Despesa", categoria: "Mercado" }, { tipo: "Despesa", categoria: "Lazer" }, { tipo: "Receita", categoria: "Salário" }];
+  assert.equal(filtraLancamentos(l).length, 3);
+  assert.equal(filtraLancamentos(l, { tipo: "Despesa" }).length, 2);
+  assert.equal(filtraLancamentos(l, { tipo: "Despesa", categoria: "Lazer" }).length, 1);
+  assert.equal(filtraLancamentos(l, { categoria: "Salário" })[0].tipo, "Receita");
+});

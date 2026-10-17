@@ -1207,3 +1207,9 @@ html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.2
 .calc-topo .calc-res div:not(.forte){font-size:14px;padding-top:6px;border-top:1px solid rgba(255,255,255,.2)}
 .calc-topo .calc-res dd{font-weight:700}
 .rc-campos .check.wide{grid-column:1/-1}
+
+/* ---------- busca geral e filtros do extrato ---------- */
+.filtros{display:grid;gap:8px;margin:0 0 12px} .filtros .seg{width:100%} .filtros .seg button{flex:1;min-height:40px} .filtros select.in{min-height:44px} .filtros .link{justify-self:start;min-height:44px}
+.bg-val{font-weight:700;font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums} .bg-todos{width:100%;margin-top:10px;min-height:46px}
+#dlg .busca{margin-bottom:6px}
+@media (min-width:700px){.filtros{grid-template-columns:auto minmax(180px,260px) auto;align-items:center}.filtros .seg{width:auto}}
