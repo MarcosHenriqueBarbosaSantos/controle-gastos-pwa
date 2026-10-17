@@ -27,4 +27,4 @@ export const PLAY_PACOTE = "";
 
 // Número da versão do app (o mesmo de sw.js). Vai junto com os pedidos de melhoria e correção, para saber qual versão estava aberta.
 // Ao mudar a VERSAO em sw.js, mude aqui também: um teste confere se os dois batem.
-export const APP_VERSAO = "64";
+export const APP_VERSAO = "65";

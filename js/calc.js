@@ -920,7 +920,7 @@ export function lembreteDoDia(st, hoje, { semGasto = [], anotouHoje = false, des
 
 /* ===================== Conta de casal ===================== */
 /** O que passa a ser um só para os dois quando as contas são divididas. O resto (avisos, tema, quadros do início) continua de cada um. */
-export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos", "fotos"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos
+export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos", "fotos", "listaMercado", "precosMercado"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos
 
 /** Só as chaves que são dos dois. */
 export function comumDoCasal(prefs) {

@@ -580,3 +580,73 @@ export function dicaDoDia(iso) {
   if (!Number.isFinite(dias)) return DICAS[0];
   return DICAS[((dias % DICAS.length) + DICAS.length) % DICAS.length];
 }
+
+/* ======================= lista de mercado (compartilhada) ======================= */
+/** O nome do item sem acento, caixa ou espaço sobrando: "  Arroz  " e "arroz" são o mesmo item. */
+export const chaveDoItem = (nome) => String(nome || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 40);
+
+/** O preço que vale para o item: o que a pessoa digitou, senão o último que ela pagou nesse item. */
+export function precoDoItem(i, precos = {}) {
+  const p = Number(i?.preco);
+  if (p > 0) return { valor: p, de: "digitado" };
+  const k = Number(precos?.[chaveDoItem(i?.nome)]);
+  return k > 0 ? { valor: k, de: "ultimo" } : { valor: 0, de: "nenhum" };
+}
+/**
+ * Estimativa da compra: itens com preço somam; os sem preço ficam de fora e são contados.
+ * Sem nenhum preço, a referência é a compra média que a pessoa já lançou (ticketMedio).
+ */
+export function estimativaDaLista(itens, precos = {}, ticketMedio = 0) {
+  const l = (itens || []).filter((i) => i && !i.apagado);
+  let estimado = 0, noCarrinho = 0, semPreco = 0, pegos = 0, faltaPegar = 0;
+  for (const i of l) {
+    const q = Number(i.qtd) > 0 ? Number(i.qtd) : 1, p = precoDoItem(i, precos).valor;
+    if (!(p > 0)) semPreco++;
+    estimado += p * q;
+    if (i.pego) { noCarrinho += p * q; pegos++; } else faltaPegar += p * q;
+  }
+  const t = round2(estimado);
+  return { total: l.length, pegos, semPreco, estimado: t, noCarrinho: round2(noCarrinho), faltaPegar: round2(faltaPegar),
+    pelaMedia: t === 0 && ticketMedio > 0 ? round2(ticketMedio) : 0 };
+}
+/** A compra média e o gasto por mês no mercado, pelos lançamentos dos últimos `dias` dias. */
+export function ticketMedioMercado(lancs, hojeISO, categoria = "Mercado", dias = 120) {
+  const fim = new Date(`${hojeISO}T12:00:00Z`).getTime(), ini = fim - dias * 86400000;
+  const v = (lancs || []).filter((x) => x.tipo === "Despesa" && x.categoria === categoria && Number(x.valor) > 0 && (() => { const t = new Date(`${String(x.data).slice(0, 10)}T12:00:00Z`).getTime(); return t >= ini && t <= fim; })());
+  if (!v.length) return { media: 0, n: 0, porMes: 0 };
+  const soma = v.reduce((t, x) => t + Number(x.valor), 0);
+  return { media: round2(soma / v.length), n: v.length, porMes: round2((soma / dias) * 30.4) };
+}
+/**
+ * Junta duas versões da lista (a daqui e a da outra pessoa). Cada item tem `t` (a hora da última mudança):
+ * vale a mudança mais nova. Quem apagou um item deixa um aviso em `apagados` para ele não voltar.
+ */
+export function juntaLista(a, b, agora = Date.now()) {
+  const sete = agora - 7 * 86400000, mapa = new Map(), mortos = new Map();
+  for (const x of [...(a?.apagados || []), ...(b?.apagados || [])]) if (x?.id && x.t > sete && x.t >= (mortos.get(x.id) || 0)) mortos.set(x.id, x.t);
+  for (const x of [...(a?.itens || []), ...(b?.itens || [])]) {
+    if (!x?.id) continue;
+    const o = mapa.get(x.id);
+    if (!o || (x.t || 0) >= (o.t || 0)) mapa.set(x.id, x);
+  }
+  const itens = [...mapa.values()].filter((x) => !(mortos.has(x.id) && mortos.get(x.id) >= (x.t || 0))).slice(0, 300);
+  return { itens, apagados: [...mortos].map(([id, t]) => ({ id, t })).slice(-200), limite: Number(b?.limite) >= 0 && (b?.tl || 0) > (a?.tl || 0) ? Number(b.limite) : Number(a?.limite) || 0, tl: Math.max(a?.tl || 0, b?.tl || 0) };
+}
+/** O que vira lançamento: o total dos itens no carrinho, por categoria (do maior para o menor). */
+export function compraDoCarrinho(itens, precos = {}, padrao = "Mercado") {
+  const m = new Map(); let total = 0;
+  for (const i of itens || []) {
+    if (!i?.pego) continue;
+    const v = round2(precoDoItem(i, precos).valor * (Number(i.qtd) > 0 ? Number(i.qtd) : 1));
+    if (!(v > 0)) continue;
+    total += v; m.set(i.cat || padrao, round2((m.get(i.cat || padrao) || 0) + v));
+  }
+  return { total: round2(total), partes: [...m.entries()].sort((x, y) => y[1] - x[1]) };
+}
+/** O texto para mandar a lista por mensagem. */
+export function textoDaLista(itens, precos = {}) {
+  const l = (itens || []).filter((i) => i && !i.pego);
+  if (!l.length) return "";
+  const q = (i) => (Number(i.qtd) > 1 ? ` (${String(i.qtd).replace(".", ",")})` : "");
+  return `Lista de mercado:\n${l.map((i) => `• ${i.nome || "Item"}${q(i)}`).join("\n")}`;
+}

@@ -164,3 +164,39 @@ test("custoDaCasa soma tudo, divide o anual por 12 e calcula o peso na renda", a
   assert.ok(DICAS.length >= 30 && DICAS.every((d) => d.titulo && d.texto));
   assert.ok(dicaDoDia("lixo"));
 });
+
+test("lista de mercado: estimativa, preço lembrado, média dos lançamentos e carrinho", async () => {
+  const { chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, compraDoCarrinho, textoDaLista } = await import("../js/extras.js");
+  assert.equal(chaveDoItem("  Açúcar  Refinado "), "acucar refinado");
+  const precos = { arroz: 25 };
+  const it = [{ id: "1", nome: "Arroz", qtd: 2 }, { id: "2", nome: "Leite", qtd: 1, preco: 5 }, { id: "3", nome: "Feijão", qtd: 1 }];
+  assert.deepEqual(precoDoItem(it[0], precos), { valor: 25, de: "ultimo" }); assert.equal(precoDoItem(it[2], precos).de, "nenhum");
+  const e = estimativaDaLista(it, precos, 300);
+  assert.equal(e.estimado, 55); assert.equal(e.semPreco, 1); assert.equal(e.pelaMedia, 0); assert.equal(e.total, 3);
+  const e0 = estimativaDaLista([{ id: "9", nome: "Pão" }], {}, 300);
+  assert.equal(e0.estimado, 0); assert.equal(e0.pelaMedia, 300);
+  it[1].pego = true; it[0].pego = true;
+  const e2 = estimativaDaLista(it, precos); assert.equal(e2.noCarrinho, 55); assert.equal(e2.pegos, 2); assert.equal(e2.faltaPegar, 0);
+  const l = [{ tipo: "Despesa", categoria: "Mercado", valor: 200, data: "2026-10-01" }, { tipo: "Despesa", categoria: "Mercado", valor: 100, data: "2026-09-15" },
+    { tipo: "Despesa", categoria: "Lazer", valor: 999, data: "2026-10-01" }, { tipo: "Despesa", categoria: "Mercado", valor: 50, data: "2025-01-01" }];
+  const t = ticketMedioMercado(l, "2026-10-10"); assert.equal(t.media, 150); assert.equal(t.n, 2); assert.ok(t.porMes > 0);
+  assert.deepEqual(ticketMedioMercado([], "2026-10-10"), { media: 0, n: 0, porMes: 0 });
+  it[1].cat = "Limpeza"; it[1].preco = 10;
+  assert.deepEqual(compraDoCarrinho(it, precos), { total: 60, partes: [["Mercado", 50], ["Limpeza", 10]] });
+  assert.equal(textoDaLista(it), "Lista de mercado:\n• Feijão");
+  assert.equal(textoDaLista([]), "");
+});
+
+test("juntaLista: vale a mudança mais nova e item apagado não volta", async () => {
+  const { juntaLista } = await import("../js/extras.js");
+  const agora = 1_000_000_000_000;
+  const a = { itens: [{ id: "1", nome: "Arroz", t: agora - 100 }, { id: "2", nome: "Leite", pego: true, t: agora - 10 }], apagados: [] };
+  const b = { itens: [{ id: "2", nome: "Leite", pego: false, t: agora - 50 }, { id: "3", nome: "Pão", t: agora - 5 }, { id: "1", nome: "Arroz", t: agora - 200 }], apagados: [{ id: "1", t: agora - 20 }] };
+  const j = juntaLista(a, b, agora);
+  assert.deepEqual(j.itens.map((x) => x.id).sort(), ["2", "3"]);   // 1 foi apagado depois da última mudança
+  assert.equal(j.itens.find((x) => x.id === "2").pego, true);      // a marca mais nova ganha
+  assert.equal(j.apagados.length, 1);
+  const volta = juntaLista({ itens: [{ id: "1", nome: "Arroz", t: agora }] , apagados: []}, b, agora);
+  assert.ok(volta.itens.some((x) => x.id === "1"));                // editado depois de apagado: volta
+  assert.equal(juntaLista(null, null, agora).itens.length, 0);
+});
