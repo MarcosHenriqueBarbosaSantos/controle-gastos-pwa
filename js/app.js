@@ -54,6 +54,9 @@ const ICO = {
   fogo: "M12 3c1 3 4 4.5 4 8.5a4 4 0 0 1-8 0c0-1.2.4-2.2 1-3 .3 1.2 1 2 2 2.3C10.5 8.5 11 5.5 12 3zM7 14a5 5 0 0 0 10 0",
   carrinho: "M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.1L20 8H6M9 20h.01M17 20h.01",
   casa: "M3 11l9-8 9 8M5 10v10h14V10M10 20v-6h4v6",
+  calc: "M6 3h12v18H6zM9 7h6M9 12h.01M12 12h.01M15 12h.01M9 16h.01M12 16h.01M15 16h.01",
+  sol: "M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4",
+  presente: "M4 11h16v9H4zM3 7h18v4H3zM12 7v13M12 7c-2 0-4-1-4-3s3-2 4 3c1-5 4-5 4-3s-2 3-4 3",
   carro: "M5 16v3M19 16v3M3 16h18v-4l-2-5H5l-2 5zM3 12h18M7.5 14h.01M16.5 14h.01",
   medalha: "M8 3h8l-1.5 6h-5zM12 21a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 13v3",
   alvo: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01",
@@ -2170,6 +2173,27 @@ function abrirSub(tab) {
 }
 $("listaVoltar").onclick = () => { if (history.state?.sub) history.back(); else { S.view = "mais"; render(); scrollTo(0, 0); } };
 
+/** As ferramentas, em grupos. A tela Mais (celular) e o botão Ferramentas (computador) leem a mesma lista. */
+const GRUPOS_FERR = [
+  { titulo: "No dia a dia", itens: [
+    { id: "mercado", ico: "carrinho", t: "Lista de mercado", s: "Anote o que comprar, estime o gasto e lance ao finalizar" },
+    { id: "veiculo", ico: "carro", t: "Meu carro ou moto", s: "Quanto custa por mês, por dia e por km" },
+    { id: "casa", ico: "casa", t: "Minha casa", s: "Quanto a casa custa por mês e quanto pesa na renda" },
+    { id: "msg", ico: "clipe", t: "Colar mensagem do banco", s: "A notificação ou o SMS vira um lançamento" }] },
+  { titulo: "Guardar e planejar", itens: [
+    { id: "revisao", ico: "grafico", t: "Revisão do mês", s: "3 passos: como foi, onde ajustar e quanto guardar" },
+    { id: "desafio", ico: "alvo", t: "Desafio de economia", s: "Guarde um valor por semana e acompanhe" },
+    { id: "calc", ico: "calc", t: "Calculadoras", s: "Rendimento, parcelas, juros, férias e 13º" },
+    { id: "dica", ico: "luz", t: "Dica do dia", s: "Um hábito pequeno por dia para guardar dinheiro" }] },
+  { titulo: "Entender e comemorar", itens: [
+    { id: "desemp", ico: "rumo", t: "Meu desempenho", s: "O seu mês em frases, comparado com os outros" },
+    { id: "ano", ico: "grafico", t: "Resumo do ano", s: "Mês a mês, melhor e pior mês e para onde foi o dinheiro" },
+    { id: "conq", ico: "medalha", t: "Conquistas", s: "As medalhas que você já ganhou e as próximas" }] },
+  { titulo: "Levar com você", itens: [
+    { id: "share", ico: "baixar", t: "Compartilhar meu mês", s: "Uma imagem do seu mês, com ou sem os valores" },
+    { id: "btnExport", ico: "baixar", t: "Baixar relatório", s: "Excel, PDF ou CSV" },
+    { id: "copia", ico: "baixar", t: "Cópia de segurança", s: "Baixe tudo num arquivo e restaure quando precisar" }] },
+];
 /**
  * Tela "Mais" do celular: o que não cabe na barra de baixo, em grupos. Cada linha diz em poucas palavras o que tem lá dentro.
  * No computador ela não existe: os mesmos botões ficam no topo e nas abas.
@@ -2189,23 +2213,9 @@ function renderMais(c) {
       linha("c", "cartao", "Cartões e faturas", cartoes.length ? `${n(cartoes.length, "cartão", "cartões")}${c.fatT ? `, ${brl(c.fatT)} em faturas neste mês` : ""}` : "Cadastre o cartão e a fatura se monta sozinha", "card"),
       linha("cal", "agenda", "Calendário de vencimentos", "O que vence e o que entra em cada dia")])}
     ${grupo("Dividir as contas", [linha("casal", "casal", "Conta de casal", esc(resumoDoCasal()), S.casal?.situacao === "convidado" ? "aviso" : "")])}
-    ${grupo("Ferramentas", [
-      linha("mercado", "carrinho", "Lista de mercado", "Anote o que comprar, estime o gasto e lance ao finalizar"),
-      linha("veiculo", "carro", "Meu carro ou moto", "Quanto custa por mês, por dia e por km"),
-      linha("revisao", "grafico", "Revisão do mês", "3 passos: como foi, onde ajustar e quanto guardar"),
-      linha("casa", "casa", "Minha casa", "Quanto a casa custa por mês e quanto pesa na renda"),
-      linha("dica", "luz", "Dica do dia para guardar dinheiro", "Um hábito pequeno por dia"),
-      linha("desemp", "rumo", "Meu desempenho", "O seu mês em frases, comparado com os outros"),
-      linha("ano", "grafico", "Resumo do ano", "Mês a mês, melhor e pior mês e para onde foi o dinheiro"),
-      linha("desafio", "alvo", "Desafio de economia", "Guarde um valor por semana e acompanhe"),
-      linha("calc", "luz", "Calculadoras", "Rendimento, parcelas com juros, férias e 13º"),
-      linha("msg", "clipe", "Colar mensagem do banco", "A notificação ou o SMS vira um lançamento"),
-      linha("share", "baixar", "Compartilhar meu mês", "Uma imagem do seu mês, com ou sem os valores"),
-      linha("conq", "medalha", "Conquistas", "As medalhas que você já ganhou e as próximas"),
-      linha("btnExport", "baixar", "Baixar relatório", "Excel, PDF ou CSV"),
-      linha("copia", "baixar", "Cópia de segurança", "Baixe tudo num arquivo e restaure quando precisar"),
-      appInstalado() ? "" : linha("btnInstall", "instalar", "Instalar o app no celular", "Ícone na tela inicial, abre em tela cheia e funciona sem internet")])}
+    ${GRUPOS_FERR.map((g) => grupo(g.titulo, g.itens.map((i) => linha(i.id, i.ico, i.t, i.s)))).join("")}
     ${grupo("Ajustes e ajuda", [
+      appInstalado() ? "" : linha("btnInstall", "instalar", "Instalar o app no celular", "Ícone na tela inicial, abre em tela cheia e funciona sem internet"),
       linha("btnAjustes", "ajustes", "Ajustes e categorias", naDemo ? "Categorias, tema e saldo" : "Categorias, avisos, tema e a sua conta"),
       linha("btnAjuda", "ajuda", "Como usar", "Respostas para as dúvidas mais comuns"),
       linha("btnSugerir", "ideia", "Sugerir melhoria ou correção", "Conte o que falta ou o que deu errado"),
@@ -2539,24 +2549,10 @@ $("btnSugerir").onclick = () => sugerir();
    As contas ficam em js/extras.js (testadas); aqui só estão as telas. */
 const opFerr = (id, icone, t, s) => `<button class="mais-item" type="button" id="${id}"><span class="ic-box">${ico(icone)}</span><span class="tx"><b>${t}</b><span>${s}</span></span>${ico("chev")}</button>`;
 function ferramentas() {
-  openDlg(`<h3>Ferramentas</h3><div class="caixa-mais">
-    ${opFerr("frMercado", "carrinho", "Lista de mercado", "Anote o que comprar, estime o gasto e lance ao finalizar")}
-    ${opFerr("frVeiculo", "carro", "Meu carro ou moto", "Quanto custa por mês, por dia e por km")}
-    ${opFerr("frRevisao", "grafico", "Revisão do mês", "3 passos: como foi, onde ajustar e quanto guardar")}
-    ${opFerr("frCasa", "casa", "Minha casa", "Quanto a casa custa por mês e quanto pesa na renda")}
-    ${opFerr("frDica", "luz", "Dica do dia para guardar dinheiro", "Um hábito pequeno por dia")}
-    ${opFerr("frDesemp", "rumo", "Meu desempenho", "O seu mês em frases, comparado com os outros")}
-    ${opFerr("frAno", "grafico", "Resumo do ano", "Mês a mês, melhor e pior mês e para onde foi o dinheiro")}
-    ${opFerr("frDesafio", "alvo", "Desafio de economia", "Guarde um valor por semana e acompanhe")}
-    ${opFerr("frCalc", "luz", "Calculadoras", "Rendimento, parcelas com juros, férias e 13º")}
-    ${opFerr("frMsg", "clipe", "Colar mensagem do banco", "Cole a notificação ou o SMS e o lançamento vem preenchido")}
-    ${opFerr("frShare", "baixar", "Compartilhar meu mês", "Uma imagem do seu mês, com ou sem os valores")}
-    ${opFerr("frConq", "medalha", "Conquistas", "As medalhas que você já ganhou e as próximas")}
-    ${opFerr("frRel", "baixar", "Baixar relatório", "Excel, PDF ou CSV")}
-    ${opFerr("frCopia", "baixar", "Cópia de segurança", "Baixe tudo num arquivo e restaure quando precisar")}</div>
+  openDlg(`<h3>Ferramentas</h3>${GRUPOS_FERR.map((g) => `<h4 class="ferr-h">${g.titulo}</h4><div class="caixa-mais">${g.itens.map((i) => opFerr("fr_" + i.id, i.ico, i.t, i.s)).join("")}</div>`).join("")}
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
-  const vai = (id, fn) => ($(id).onclick = () => fn());
-  vai("frDesemp", meuDesempenho); vai("frAno", () => resumoAno()); vai("frDesafio", () => desafioEconomia()); vai("frCalc", () => calculadoras()); vai("frMsg", colarMensagem); vai("frRel", baixarRelatorio); vai("frConq", conquistasTela); vai("frMercado", mercado); vai("frVeiculo", meuVeiculo); vai("frCasa", minhaCasa); vai("frRevisao", () => revisaoTela()); vai("frDica", dicasTela); vai("frShare", () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes)); vai("frCopia", copiaDeSeguranca);
+  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  GRUPOS_FERR.forEach((g) => g.itens.forEach((i) => ($("fr_" + i.id).onclick = () => FER[i.id]())));
 }
 $("btnFerramentas").onclick = ferramentas;
 
@@ -2603,39 +2599,49 @@ function resumoAno(ano = S.mes.slice(0, 4)) {
 const nm = (v) => { const n = parseMoney(String(v ?? "").replace("%", "")); return Number.isFinite(n) ? n : 0; };
 const linhaRes = (rot, v, forte = false) => `<div${forte ? ' class="forte"' : ""}><dt>${rot}</dt><dd>${v}</dd></div>`;
 const CALCS = [
-  { id: "rende", titulo: "Quanto rende guardar todo mês", campos: [["porMes", "Guardar por mês (R$)", "m", "200"], ["inicial", "Já tenho guardado (R$, opcional)", "m", ""], ["meses", "Por quantos meses", "n", "24"], ["taxa", "Taxa ao ano (%)", "n", "10"]],
+  { id: "rende", ico: "sobe", curto: "Rendimento", pergunta: "Quanto rende guardar todo mês?", titulo: "Quanto rende guardar todo mês", campos: [["porMes", "Guardar por mês (R$)", "m", "200"], ["inicial", "Já tenho guardado (R$, opcional)", "m", ""], ["meses", "Por quantos meses", "n", "24"], ["taxa", "Taxa ao ano (%)", "n", "10"]],
     nota: "É só a conta da taxa que você digitou, para simular. Não é promessa de ganho nem indicação de investimento.",
     calc: (v) => { const r = rendimentoDeGuardar({ porMes: v.porMes, inicial: v.inicial, meses: v.meses, taxaAnual: v.taxa }); return r && linhaRes("Você terá", brl(r.total), true) + linhaRes("Você guardou", brl(r.aportado)) + linhaRes("Rendeu", brl(r.rendimento)); } },
-  { id: "quanto", titulo: "Quanto guardar por mês para chegar lá", campos: [["alvo", "Quanto quer juntar (R$)", "m", "6000"], ["meses", "Em quantos meses", "n", "12"], ["inicial", "Já tenho guardado (R$, opcional)", "m", ""], ["taxa", "Taxa ao ano (%, pode deixar 0)", "n", "0"]],
+  { id: "quanto", ico: "alvo", curto: "Quanto guardar", pergunta: "Quanto guardar por mês para juntar um valor?", titulo: "Quanto guardar por mês para chegar lá", campos: [["alvo", "Quanto quer juntar (R$)", "m", "6000"], ["meses", "Em quantos meses", "n", "12"], ["inicial", "Já tenho guardado (R$, opcional)", "m", ""], ["taxa", "Taxa ao ano (%, pode deixar 0)", "n", "0"]],
     nota: "Com taxa 0, a conta é só o que falta dividido pelos meses.",
     calc: (v) => { const r = quantoGuardarPorMes({ alvo: v.alvo, meses: v.meses, inicial: v.inicial, taxaAnual: v.taxa }); return r && (r.jaBasta ? linhaRes("Resultado", "O que você já tem basta", true) : linhaRes("Guarde por mês", brl(r.porMes), true)); } },
-  { id: "parcela", titulo: "Parcelado com juros: quanto custa", campos: [["valor", "Valor da compra (R$)", "m", "1000"], ["parcelas", "Número de parcelas", "n", "10"], ["taxa", "Juros ao mês (%)", "n", "2"]],
+  { id: "parcela", ico: "cartao", curto: "Parcelado com juros", pergunta: "Quanto custa de verdade uma compra parcelada?", titulo: "Parcelado com juros: quanto custa", campos: [["valor", "Valor da compra (R$)", "m", "1000"], ["parcelas", "Número de parcelas", "n", "10"], ["taxa", "Juros ao mês (%)", "n", "2"]],
     nota: "Parcelas iguais. A taxa de juros está no contrato ou na simulação da loja.",
     calc: (v) => { const r = parcelaComJuros({ valor: v.valor, parcelas: v.parcelas, taxaMes: v.taxa }); return r && linhaRes("Cada parcela", brl(r.parcela), true) + linhaRes("Total pago", brl(r.total)) + linhaRes("Só de juros", brl(r.juros)); } },
-  { id: "juros", titulo: "Juros compostos (dívida ou dinheiro parado)", campos: [["capital", "Valor (R$)", "m", "1000"], ["taxa", "Taxa ao mês (%)", "n", "3"], ["meses", "Meses", "n", "12"]],
+  { id: "juros", ico: "grafico", curto: "Juros compostos", pergunta: "Quanto uma dívida ou um valor parado cresce?", titulo: "Juros compostos (dívida ou dinheiro parado)", campos: [["capital", "Valor (R$)", "m", "1000"], ["taxa", "Taxa ao mês (%)", "n", "3"], ["meses", "Meses", "n", "12"]],
     nota: "Mostra como uma dívida cresce quando fica sem pagar, ou quanto o dinheiro vira com aquela taxa.",
     calc: (v) => { const r = jurosCompostos({ capital: v.capital, taxaMes: v.taxa, meses: v.meses }); return r && linhaRes("Vira", brl(r.montante), true) + linhaRes("Só de juros", brl(r.juros)); } },
-  { id: "ferias", titulo: "Férias (valor bruto)", campos: [["salario", "Salário (R$)", "m", "3000"], ["dias", "Dias de férias", "n", "30"], ["vender", "Vender 10 dias (abono)", "c", ""]],
+  { id: "ferias", ico: "sol", curto: "Férias", pergunta: "Quanto recebo de férias? (bruto)", titulo: "Férias (valor bruto)", campos: [["salario", "Salário (R$)", "m", "3000"], ["dias", "Dias de férias", "n", "30"], ["vender", "Vender 10 dias (abono)", "c", ""]],
     nota: "Valor bruto, antes de INSS e imposto de renda. O valor líquido depende dos seus descontos.",
     calc: (v) => { const r = ferias({ salario: v.salario, dias: v.dias, vender: v.vender }); return r && linhaRes("Total bruto", brl(r.total), true) + linhaRes(`${r.dias} dias de descanso`, brl(r.base)) + linhaRes("Um terço a mais", brl(r.terco)) + (r.abono ? linhaRes("10 dias vendidos (com o terço)", brl(r.abono)) : ""); } },
-  { id: "decimo", titulo: "13º salário (valor bruto)", campos: [["salario", "Salário (R$)", "m", "3000"], ["meses", "Meses trabalhados no ano", "n", "12"]],
+  { id: "decimo", ico: "presente", curto: "13º salário", pergunta: "Quanto recebo de 13º? (bruto)", titulo: "13º salário (valor bruto)", campos: [["salario", "Salário (R$)", "m", "3000"], ["meses", "Meses trabalhados no ano", "n", "12"]],
     nota: "Valor bruto, antes de INSS e imposto de renda. Pago em duas parcelas.",
     calc: (v) => { const r = decimoTerceiro({ salario: v.salario, meses: v.meses }); return r && linhaRes("Total bruto", brl(r.total), true) + linhaRes("1ª parcela (até 30/11)", brl(r.primeira)) + linhaRes("2ª parcela (até 20/12)", brl(r.segunda)); } },
 ];
-function calculadoras(id = "rende") {
-  const c = CALCS.find((x) => x.id === id) || CALCS[0], campo = ([k, rot, t, pad_]) => t === "c"
+function calculadoras(id = null) {
+  const c = CALCS.find((x) => x.id === id);
+  if (!c) { // porta de entrada: todas as calculadoras à vista, cada uma com a pergunta que responde
+    openDlg(`<h3>Calculadoras</h3>
+      <p class="hint" style="margin:0 0 12px">Escolha o que você quer descobrir. É uma simulação: nada do que você digita aqui é guardado.</p>
+      <div class="calc-grade">${CALCS.map((x) => `<button type="button" class="calc-card" data-calc="${x.id}"><span class="ic-box">${ico(x.ico)}</span><b>${x.curto}</b><span>${x.pergunta}</span></button>`).join("")}</div>
+      <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+    document.querySelectorAll("[data-calc]").forEach((b) => (b.onclick = () => calculadoras(b.dataset.calc)));
+    return;
+  }
+  const campo = ([k, rot, t, pad_]) => t === "c"
     ? `<label class="check wide"><input type="checkbox" data-k="${k}"> ${rot}</label>`
     : `<label class="f">${rot}<input class="in${t === "m" ? " money" : ""}" data-k="${k}" inputmode="decimal" value="${pad_}"></label>`;
-  openDlg(`<h3>Calculadoras</h3>
-    <label class="f wide" style="margin-bottom:10px">O que você quer calcular?<select class="in" id="calcSel">${CALCS.map((x) => `<option value="${x.id}"${x.id === c.id ? " selected" : ""}>${x.titulo}</option>`).join("")}</select></label>
-    <div class="dlg-form" id="calcCampos">${c.campos.map(campo).join("")}</div>
-    <dl class="calc-res" id="calcRes" aria-live="polite"></dl><p class="hint" style="margin:8px 0 0">${c.nota}</p>
-    <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  openDlg(`<button class="link calc-volta" type="button" id="calcVolta">${ico("esq")}Todas as calculadoras</button>
+    <h3 style="margin-top:4px">${c.titulo}</h3>
+    <div class="rc-card calc-topo" aria-live="polite"><dl class="calc-res" id="calcRes"></dl></div>
+    <div class="rc-campos" id="calcCampos">${c.campos.map(campo).join("")}</div>
+    <p class="hint" style="margin:12px 0 0">${c.nota}</p>
+    <div class="actions"><button class="btn" type="button" id="calcOutra">Outra calculadora</button><button class="btn primary" type="button" data-close>Fechar</button></div>`);
   const le = () => Object.fromEntries([...document.querySelectorAll("#calcCampos [data-k]")].map((i) => [i.dataset.k, i.type === "checkbox" ? i.checked : nm(i.value)]));
-  const conta = () => { const html = c.calc(le()); $("calcRes").innerHTML = html || `<p class="hint">Preencha os campos com números para ver o resultado.</p>`; };
+  const conta = () => { const html = c.calc(le()); $("calcRes").innerHTML = html || `<p class="rc-vazio">Preencha os campos com números para ver o resultado.</p>`; };
   document.querySelectorAll("#calcCampos [data-k]").forEach((i) => i.addEventListener("input", conta));
   document.querySelectorAll("#calcCampos [data-k][type=checkbox]").forEach((i) => i.addEventListener("change", conta));
-  $("calcSel").onchange = (e) => calculadoras(e.target.value);
+  $("calcVolta").onclick = $("calcOutra").onclick = () => calculadoras();
   conta();
 }
 
@@ -5164,9 +5170,18 @@ function guiaFim() {
       <div><span>${soFixos ? "Contas de todo mês" : "Saídas do mês"}</span><b>${brl(saem)}</b></div>
       ${c.rec ? `<div class="tot${c.saldo < 0 ? " neg" : ""}"><span>${c.saldo < 0 ? "Faltam" : "Sobram"} em ${nomeMes(mesAtual())}</span><b>${brl(Math.abs(c.saldo))}</b></div>` : ""}</div>`}
     <p class="gsub">${frase}${!nada && falta ? " O que ficou para depois está na lista Comece por aqui, na tela inicial." : ""}</p>
+    ${nada ? "" : `<h4 class="sub-h">Qual é o seu foco agora?</h4><div class="gfoco" role="group" aria-label="Escolha um foco">
+      <button type="button" data-foco="guardar">${ico("cofre")}Guardar dinheiro</button><button type="button" data-foco="gastos">${ico("grafico")}Controlar os gastos</button>
+      <button type="button" data-foco="dividas">${ico("alvo")}Sair das dívidas</button><button type="button" data-foco="casa">${ico("casa")}Organizar a casa</button></div>`}
     ${suporteHtml()}
     <div class="actions">${temGasto ? `<button class="btn primary" data-close>Ver meu mês</button>` : `<button class="btn primary" type="button" id="gLancar">Lançar meu primeiro gasto</button><button class="btn" data-close>Ver meu mês</button>`}</div></div>`);
   if ($("gLancar")) $("gLancar").onclick = () => { $("dlg").close(); guiaLancar(); };
+  $("dlgBody").querySelectorAll("[data-foco]").forEach((b) => (b.onclick = () => {
+    const f = b.dataset.foco; S.prefs.foco = f; salvaPrefs(); $("dlg").close();
+    const vaiPlanejar = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
+    if (f === "guardar" || f === "gastos") { vaiPlanejar(); toast(f === "guardar" ? "Aqui você cria uma caixinha com meta e data." : "Aqui você define limites por categoria."); }
+    else if (f === "dividas") calculadoras(); else minhaCasa();
+  }));
   $("dlg").addEventListener("close", conviteAvisos, { once: true });
 }
 $("btnAjustes").onclick = ajustes;

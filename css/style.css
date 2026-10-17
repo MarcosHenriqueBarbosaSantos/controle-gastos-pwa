@@ -1192,3 +1192,18 @@ html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.2
 .rv-frase{margin:12px 0 4px;font-size:15px;line-height:1.5}
 .rv-lista{list-style:none;margin:6px 0 10px;padding:0!important;display:grid;gap:10px} .rv-lista li{padding:12px;border:1px solid var(--border);border-radius:14px;color:var(--ink)!important;line-height:1.5}
 .rv-cards b{white-space:nowrap;font-size:16px}
+.gfoco{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 12px} .gfoco button{display:flex;align-items:center;gap:8px;min-height:52px;padding:8px 12px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--ink);font-weight:600;font-size:14px;text-align:left} .gfoco button .ic{flex:none;color:var(--series)}
+
+/* ---------- Calculadoras e Ferramentas: grupos claros, cartões grandes, resultado em destaque ---------- */
+.ferr-h{font-family:var(--display);font-size:13px;font-weight:600;color:var(--muted);margin:16px 2px 8px} .ferr-h:first-of-type{margin-top:4px}
+.calc-grade{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.calc-card{display:grid;align-content:start;gap:4px;text-align:left;min-height:132px;padding:14px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--ink);cursor:pointer}
+.calc-card:active{background:var(--sunk)} .calc-card b{font-size:15px;font-weight:700;margin-top:6px} .calc-card>span:last-child{font-size:12.5px;line-height:1.35;color:var(--muted)}
+.calc-card .ic-box{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;background:var(--series-soft,var(--sunk));color:var(--series,var(--ink))} .calc-card .ic-box .ic{width:22px;height:22px}
+@media (min-width:700px){.calc-grade{grid-template-columns:repeat(3,1fr)}}
+.calc-volta{display:inline-flex;align-items:center;gap:4px;min-height:44px;padding:0;font-weight:600} .calc-volta .ic{width:18px;height:18px}
+.calc-topo{padding:14px 16px} .calc-topo .calc-res{background:none;padding:0;margin:0;min-height:0;gap:6px;color:inherit}
+.calc-topo .calc-res .forte{display:grid;gap:2px;margin-bottom:4px} .calc-topo .calc-res .forte dt{font-size:12.5px;opacity:.85} .calc-topo .calc-res .forte dd{font-size:30px;font-weight:700;letter-spacing:-.02em;line-height:1.1}
+.calc-topo .calc-res div:not(.forte){font-size:14px;padding-top:6px;border-top:1px solid rgba(255,255,255,.2)}
+.calc-topo .calc-res dd{font-weight:700}
+.rc-campos .check.wide{grid-column:1/-1}
