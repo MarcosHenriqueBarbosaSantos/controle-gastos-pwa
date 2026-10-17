@@ -346,11 +346,12 @@ export function usoDoTeto(c, teto) {
  * @param {object} limites  { "Mercado": 800, ... }
  * @returns {{cat:string, gasto:number, limite:number, pct:number, passou:number}[]}
  */
-export function usoDosLimites(c, limites = {}) {
+export function usoDosLimites(c, limites = {}, extras = {}) {
   const gasto = new Map(catMap(c));
   return Object.entries(limites || {}).filter(([, v]) => Number(v) > 0).map(([cat, v]) => {
-    const g = gasto.get(cat) || 0, limite = round2(Number(v));
-    return { cat, gasto: g, limite, pct: Math.round((g / limite) * 100), passou: g > limite ? round2(g - limite) : 0 };
+    // extras: o que sobrou do limite no mês passado (limite com rolagem). Sem ele, a conta é a de sempre.
+    const g = gasto.get(cat) || 0, extra = round2(Number(extras?.[cat]) || 0), limite = round2(Number(v) + extra);
+    return { cat, gasto: g, limite, ...(extra > 0 ? { extra } : {}), pct: Math.round((g / limite) * 100), passou: g > limite ? round2(g - limite) : 0 };
   }).sort((a, b) => b.pct - a.pct);
 }
 

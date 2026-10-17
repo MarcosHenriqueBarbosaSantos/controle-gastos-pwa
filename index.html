@@ -146,6 +146,7 @@ try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement
   <section class="v-inicio" id="venc" aria-label="Próximos vencimentos"></section>
   <section class="v-inicio so-mobile meta-ini" id="metaIni" aria-label="Sua meta" hidden></section>
   <section class="v-inicio" id="desempIni" aria-label="Meu desempenho" hidden></section>
+  <section class="v-inicio" id="conqIni" aria-label="Conquistas" hidden></section>
   <section class="v-inicio v-analise" id="grafSobraSec" aria-label="Sua sobra no mês"></section>
   <section class="v-inicio" id="dia" aria-label="Seu dia" hidden></section>
   <section class="v-inicio v-analise" id="teto" aria-label="Limite de gastos do mês" hidden></section>
@@ -174,7 +175,7 @@ try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement
     <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
     <form id="formLanc" class="fields" autocomplete="off" novalidate>
       <label class="f">Valor (R$)<span class="efeito" id="fEfeito" hidden></span><input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
-      <p class="moeda-fora"><button class="link" id="fMoedaBtn" type="button">Gastei em outra moeda (viagem)</button></p>
+      <p class="moeda-fora"><button class="link" id="fMoedaBtn" type="button">Gastei em outra moeda (viagem)</button><button class="link" id="fDividirBtn" type="button">Dividir em categorias</button></p>
       <label class="f desc">Descrição<input class="in" id="fDesc" placeholder="Ex.: mercado, uber, farmácia" maxlength="80" enterkeyhint="done" aria-describedby="fComoAntes" aria-controls="fSugere"><span class="sugere" id="fSugere" role="group" aria-label="Descrições que você já usou" hidden></span><span class="como-antes" id="fComoAntes" aria-live="polite" hidden></span></label>
       <label class="f"><span id="fCatLbl">Categoria</span><select class="in" id="fCat"></select></label>
       <label class="f" id="fFormaWrap"><span id="fFormaLbl">Forma de pagamento</span><select class="in" id="fForma"></select></label>
@@ -187,7 +188,8 @@ try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement
       </div>
       <div class="fixo-linha" id="fFixoWrap">
         <label class="check"><input type="checkbox" id="fFixo"> <span id="fFixoLbl">Repete sempre (conta fixa)</span></label>
-        <select class="in" id="fRepete" aria-label="Com que frequência repete" hidden><option value="mensal">Todo mês</option><option value="semanal">Toda semana</option></select>
+        <select class="in" id="fRepete" aria-label="Com que frequência repete" hidden><option value="mensal">Todo mês</option><option value="semanal">Toda semana</option><option value="duas">Duas vezes no mês</option></select>
+        <label class="vezes-lbl" id="fDia2Wrap" hidden>No dia<input class="in" id="fDia2" inputmode="numeric" maxlength="2" placeholder="ex.: 20"></label>
         <select class="in" id="fAte" aria-label="Até quando repete" hidden></select>
         <label class="vezes-lbl" id="fVezesWrap" hidden>Quantas vezes?<input class="in" id="fVezes" inputmode="numeric" maxlength="3" placeholder="ex.: 36"></label>
         <p class="hint prazo-dica" id="fPrazoDica" hidden></p>

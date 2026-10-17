@@ -1,7 +1,7 @@
 // Ferramentas extras do app, todas funções puras (sem tela), testadas em tests/extras.test.mjs:
 // "Meu desempenho" em frases, calculadoras, desafio de economia, resumo do ano, subcategorias,
 // valor em outra moeda, colar a mensagem do banco, CSV e PDF do relatório.
-import { calcMes, addM, round2, MESES, MES3, catMap, comparaCategorias, primeiroMes, ocorrencias, diasEntre, ultimosMeses } from "./calc.js";
+import { calcMes, addM, mKey, round2, MESES, MES3, catMap, comparaCategorias, primeiroMes, ocorrencias, diasEntre, ultimosMeses, reservaAcumulada, metasEmAndamento, divisaoDoMes } from "./calc.js";
 
 const semAcento = (s) => String(s ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 const pad = (n) => String(n).padStart(2, "0");
@@ -312,4 +312,136 @@ export function pdfDeLinhas(linhas, { porPagina = 58, tamanho = 8.5 } = {}) {
   const xref = pdf.length;
   pdf += `xref\n0 ${objs.length + 1}\n0000000000 65535 f \n${pos.map((p) => `${String(p).padStart(10, "0")} 00000 n \n`).join("")}trailer\n<< /Size ${objs.length + 1} /Root 1 0 R >>\nstartxref\n${xref}\n%%EOF\n`;
   return Uint8Array.from(pdf, (c) => c.charCodeAt(0) & 255);
+}
+
+/* ======================= conquistas =======================
+   Medalhas que mostram o caminho: quem anota todo dia, guarda dinheiro, fecha o mês no azul e cumpre metas. Nenhuma é cobrança: só celebra. */
+/** O maior número de dias seguidos com anotação (lançamento ou "não gastei nada") em toda a história. */
+export function maiorSequencia(st, semGasto = []) {
+  const dias = [...new Set([...st.lancamentos.map((x) => x.data), ...semGasto])].sort();
+  let melhor = 0, atual = 0, ant = null;
+  for (const d of dias) { atual = ant && diasEntre(ant, d) === 1 ? atual + 1 : 1; melhor = Math.max(melhor, atual); ant = d; }
+  return melhor;
+}
+/** @returns {{id:string, icone:string, titulo:string, texto:string, n:number, de:number, feita:boolean}[]} */
+export function conquistas(st, hoje, { semGasto = [], metas = {}, desafios = {} } = {}) {
+  const cur = mKey(hoje), primeiro = primeiroMes(st);
+  let azuis = 0;
+  for (let k = 1; k <= 24; k++) {
+    const m = addM(cur, -k); if (!primeiro || m < primeiro) break;
+    const c = calcMes(st, m, hoje);
+    if (!(c.rec > 0 || c.custo > 0) || c.saldo < 0) break;
+    azuis++;
+  }
+  const guardado = reservaAcumulada(st, cur), nMetas = metasEmAndamento(st, metas, hoje).filter((a) => a.concluida).length;
+  const feitasDesafio = Math.max(0, ...Object.values(desafios || {}).map((d) => (d.feitas || []).length)), desafioCompleto = Object.values(desafios || {}).some((d) => d.semanas > 0 && (d.feitas || []).length >= d.semanas);
+  const K = (id, icone, titulo, texto, n, de) => ({ id, icone, titulo, texto, n: Math.min(Math.max(0, n), de), de, feita: n >= de });
+  const seq = maiorSequencia(st, semGasto), nL = st.lancamentos.length;
+  return [
+    K("primeiro", "ok", "Primeiro lançamento", "Você anotou o primeiro gasto, entrada ou valor guardado.", nL, 1),
+    K("lanc10", "ok", "10 lançamentos", "Anotar vira hábito. Já são 10 registros.", nL, 10),
+    K("lanc100", "ok", "100 lançamentos", "Cem registros: você enxerga o seu dinheiro de verdade.", nL, 100),
+    K("seq7", "fogo", "7 dias anotando", "Uma semana inteira seguida de anotações.", seq, 7),
+    K("seq30", "fogo", "30 dias anotando", "Um mês seguido. Isso muda o jogo.", seq, 30),
+    K("guardou", "cofre", "Primeiro dinheiro guardado", "Você guardou dinheiro em uma caixinha.", guardado > 0 ? 1 : 0, 1),
+    K("guardou1k", "cofre", "R$ 1.000 guardados", "Mil reais juntos nas suas caixinhas.", guardado, 1000),
+    K("guardou10k", "cofre", "R$ 10.000 guardados", "Dez mil reais juntos. Parabéns pela disciplina!", guardado, 10000),
+    K("meta", "alvo", "Primeira meta concluída", "Você juntou tudo o que queria em uma caixinha.", nMetas, 1),
+    K("azul1", "rumo", "Mês no azul", "Você fechou um mês com sobra.", azuis, 1),
+    K("azul3", "rumo", "3 meses no azul", "Três meses seguidos fechando com sobra.", azuis, 3),
+    K("cartao", "cartao", "Cartão no controle", "Você cadastrou um cartão e a fatura se monta sozinha.", (st.cartoes || []).length, 1),
+    K("fatura", "cartao", "Fatura paga", "Você marcou uma fatura como paga.", (st.faturas || []).filter((f) => f.status === "Paga").length, 1),
+    K("desafio1", "alvo", "Primeira semana do desafio", "Você guardou a primeira semana de um desafio de economia.", feitasDesafio, 1),
+    K("desafioFim", "alvo", "Desafio completo", "Você cumpriu todas as semanas de um desafio.", desafioCompleto ? 1 : 0, 1),
+  ];
+}
+/** As conquistas que a pessoa ganhou e ainda não tinha visto. */
+export const novasConquistas = (lista, vistas = []) => lista.filter((c) => c.feita && !vistas.includes(c.id));
+
+/* ======================= acerto de contas do casal ======================= */
+/** Quem lançou cada parte dos gastos do mês e quem deve passar quanto para ficar igual (por padrão, metade para cada um). */
+export function acertoDoCasal(lancs, m, eu, pctEu = 50) {
+  const d = divisaoDoMes(lancs, m, eu), pct = Math.min(100, Math.max(0, Number(pctEu) || 0));
+  const total = round2(d.eu.total + d.outro.total), deveEu = round2((total * pct) / 100), saldo = round2(d.eu.total - deveEu);
+  return { eu: d.eu.total, outro: d.outro.total, total, pctEu: pct, deveEu, deveOutro: round2(total - deveEu), saldo,
+    quem: saldo > 0.004 ? "outro" : saldo < -0.004 ? "eu" : null, valor: Math.abs(saldo) };
+}
+
+/* ======================= limite com rolagem =======================
+   O que sobrou do limite de uma categoria no mês passado soma ao limite do mês atual (só um mês para trás, sem acumular para sempre). */
+export function rolagemDosLimites(st, m, hoje, limites = {}) {
+  const ant = addM(m, -1), primeiro = primeiroMes(st);
+  if (!primeiro || ant < primeiro) return {};
+  const c = calcMes(st, ant, hoje);
+  if (c.fase !== "passado" || !(c.rec > 0 || c.custo > 0)) return {};
+  const gasto = new Map(catMap(c)), out = {};
+  for (const [cat, v] of Object.entries(limites || {})) {
+    const lim = Number(v); if (!(lim > 0)) continue;
+    const sobra = round2(lim - (gasto.get(cat) || 0));
+    if (sobra > 0) out[cat] = Math.min(sobra, lim);
+  }
+  return out;
+}
+
+/* ======================= dividir uma compra em categorias ======================= */
+/** Confere a divisão: cada parte com categoria e valor, somando exatamente o total. */
+export function conferirDivisao(total, partes) {
+  total = round2(Number(total));
+  const ok = (partes || []).filter((p) => p && p.categoria && Number(p.valor) > 0).map((p) => ({ categoria: String(p.categoria), valor: round2(Number(p.valor)) }));
+  const soma = round2(ok.reduce((t, p) => t + p.valor, 0)), falta = round2(total - soma);
+  return { partes: ok, soma, falta, certo: ok.length >= 2 && total > 0 && Math.abs(falta) < 0.005 };
+}
+
+/* ======================= cópia de segurança =======================
+   Um arquivo com tudo o que a pessoa tem no app. A restauração só traz de volta o que faltar (pelo código de cada registro): nada é apagado nem duplicado. */
+const COLUNAS = {
+  lancamentos: ["id", "data", "descricao", "tipo", "categoria", "forma", "valor", "import_key", "cartao_id", "parcelas"],
+  fixos: ["id", "tipo", "descricao", "categoria", "dia", "valor", "forma", "desde", "ate", "cartao_id", "repete", "dia_semana"],
+  faturas: ["id", "cartao_id", "cartao", "vencimento", "valor", "status", "valor_fixo"],
+  cartoes: ["id", "nome", "fechamento", "vencimento", "ativo"],
+};
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i, DATA = /^\d{4}-\d{2}-\d{2}$/;
+export function montaBackup(dados, prefs, versaoApp, agoraISO) {
+  const pega = (l, cols) => (l || []).map((r) => Object.fromEntries(cols.filter((k) => r[k] !== undefined).map((k) => [k, r[k]])));
+  return { app: "meus-gastos", formato: 1, versaoApp, criadoEm: agoraISO, prefs: prefs || {},
+    dados: { lancamentos: pega(dados.lancamentos, COLUNAS.lancamentos), fixos: pega(dados.fixos, COLUNAS.fixos), faturas: pega(dados.faturas, COLUNAS.faturas), cartoes: pega(dados.cartoes, COLUNAS.cartoes),
+      pagos: (dados.pagos || []).map((p) => ({ fixo_id: p.fixo_id, mes: p.mes })) } };
+}
+/** Lê o arquivo de backup e devolve só o que é válido (o arquivo é de fora: nada entra sem conferir). */
+export function leBackup(texto) {
+  let j; try { j = JSON.parse(texto); } catch { return { ok: false, erro: "O arquivo não é uma cópia do Meus Gastos." }; }
+  if (!j || j.app !== "meus-gastos" || j.formato !== 1 || typeof j.dados !== "object") return { ok: false, erro: "O arquivo não é uma cópia do Meus Gastos." };
+  let descartados = 0;
+  const limpa = (lista, cols, valida) => (Array.isArray(lista) ? lista.slice(0, 100000) : []).flatMap((r) => {
+    if (!r || typeof r !== "object" || !UUID.test(String(r.id || "")) || !valida(r)) { descartados++; return []; }
+    return [Object.fromEntries(cols.filter((k) => r[k] !== undefined && r[k] !== null).map((k) => [k, r[k]]))];
+  });
+  const str = (x, n = 200) => typeof x === "string" && x.length <= n, val = (x) => Number.isFinite(Number(x)) && Number(x) > 0 && Number(x) < 1e9;
+  const dados = {
+    cartoes: limpa(j.dados.cartoes, COLUNAS.cartoes, (r) => str(r.nome, 60) && Number(r.fechamento) >= 1 && Number(r.fechamento) <= 31 && Number(r.vencimento) >= 1 && Number(r.vencimento) <= 31),
+    fixos: limpa(j.dados.fixos, COLUNAS.fixos, (r) => ["Despesa", "Receita"].includes(r.tipo) && str(r.descricao) && str(r.categoria, 60) && val(r.valor) && Number(r.dia) >= 1 && Number(r.dia) <= 31 && DATA.test(String(r.desde))),
+    lancamentos: limpa(j.dados.lancamentos, COLUNAS.lancamentos, (r) => DATA.test(String(r.data)) && ["Despesa", "Receita", "Reserva"].includes(r.tipo) && str(r.categoria, 60) && str(r.descricao ?? "", 200) && str(r.forma ?? "", 40) && val(r.valor)),
+    faturas: limpa(j.dados.faturas, COLUNAS.faturas, (r) => str(r.cartao, 60) && DATA.test(String(r.vencimento)) && val(r.valor) && ["Aberta", "Paga"].includes(r.status)),
+    pagos: (Array.isArray(j.dados.pagos) ? j.dados.pagos : []).filter((p) => p && UUID.test(String(p.fixo_id || "")) && DATA.test(String(p.mes))).map((p) => ({ fixo_id: p.fixo_id, mes: p.mes })),
+  };
+  return { ok: true, dados, descartados, criadoEm: typeof j.criadoEm === "string" ? j.criadoEm.slice(0, 10) : "" };
+}
+/** O que está no arquivo e ainda não está no app, pelo código de cada registro. */
+export function faltaRestaurar(backup, atual) {
+  const ids = (l) => new Set((l || []).map((x) => x.id)), novos = (k) => backup[k].filter((x) => !ids(atual[k]).has(x.id));
+  const chave = (p) => `${p.fixo_id}|${String(p.mes).slice(0, 10)}`, tem = new Set((atual.pagos || []).map(chave));
+  const fixosOk = new Set([...ids(atual.fixos), ...backup.fixos.map((f) => f.id)]);
+  return { cartoes: novos("cartoes"), fixos: novos("fixos"), lancamentos: novos("lancamentos"), faturas: novos("faturas"),
+    pagos: backup.pagos.filter((p) => !tem.has(chave(p)) && fixosOk.has(p.fixo_id)) };
+}
+
+/** Dos ajustes guardados na cópia, só o que a pessoa ainda não tem (nada que já existe é trocado). */
+export function ajustesRestauraveis(guardados, atual = {}) {
+  const g = guardados && typeof guardados === "object" ? guardados : {}, patch = {};
+  const obj = (x) => x && typeof x === "object" && !Array.isArray(x) && JSON.stringify(x).length < 200000;
+  const vazio = (x) => !x || (typeof x === "object" && Object.keys(x).length === 0);
+  for (const k of ["categorias", "limites", "metas", "desafios", "cotacoes"]) if (obj(g[k]) && !vazio(g[k]) && vazio(atual[k])) patch[k] = g[k];
+  for (const k of ["teto", "saldoInicial"]) if (Number.isFinite(g[k]) && g[k] !== 0 && !atual[k]) patch[k] = g[k];
+  if (typeof g.saldoDesde === "string" && /^\d{4}-\d{2}(-\d{2})?$/.test(g.saldoDesde) && !atual.saldoDesde) patch.saldoDesde = g.saldoDesde;
+  return patch;
 }
