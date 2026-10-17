@@ -323,12 +323,20 @@ export function demoSeed(hojeISO) {
   return (uuid) => {
     const [y, m, d] = hojeISO.split("-").map(Number);
     const mes = (k) => { const dt = new Date(y, m - 1 + k, 1); return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, "0")}`; };
-    const cur = mes(0), prev = mes(-1);
+    const cur = mes(0), prev = mes(-1), prev2 = mes(-2);
     // Cartão de exemplo: fecha no dia 1 e vence no dia 8. As faturas são montadas pelas compras.
-    const roxo = { id: uuid(), nome: "Cartão roxo", fechamento: 1, vencimento: 8, ativo: true, created_at: `${prev}-01T12:00:00Z` };
+    const roxo = { id: uuid(), nome: "Cartão roxo", fechamento: 1, vencimento: 8, ativo: true, created_at: `${prev2}-01T12:00:00Z` };
     const L = [], add = (mm, dia, descricao, tipo, categoria, forma, valor, parcelas = 1) =>
       L.push({ id: uuid(), data: `${mm}-${String(dia).padStart(2, "0")}`, descricao, tipo, categoria, forma, valor, import_key: null,
         cartao_id: forma === "Cartão de crédito" ? roxo.id : null, parcelas });
+    // dois meses atrás (completo), para o histórico, o desempenho e o resumo do ano terem o que mostrar
+    add(prev2, 5, "Mercado do mês", "Despesa", "Mercado", "Débito", 655.1);
+    add(prev2, 9, "Uber", "Despesa", "Transporte", "Pix", 52.4);
+    add(prev2, 14, "Jantar fora", "Despesa", "Alimentação", "Cartão de crédito", 118);
+    add(prev2, 21, "Farmácia", "Despesa", "Saúde", "Pix", 39.9);
+    add(prev2, 25, "Cinema", "Despesa", "Lazer", "Cartão de crédito", 64);
+    add(prev2, 28, "Reserva do mês", "Reserva", "Reserva de emergência", "", 300);
+    add(prev2, 28, "Viagem de fim de ano", "Reserva", "Viagem", "", 200);
     // mês anterior (completo)
     add(prev, 20, "Freela de planilha", "Receita", "Renda extra", "", 450);
     add(prev, 3, "Mercado do mês", "Despesa", "Mercado", "Débito", 612.4);
@@ -340,22 +348,23 @@ export function demoSeed(hojeISO) {
     add(prev, 26, "Feira", "Despesa", "Mercado", "Dinheiro", 86);
     add(prev, 28, "Reserva do mês", "Reserva", "Reserva de emergência", "", 300);
     add(prev, 28, "Tesouro Direto", "Reserva", "Investimentos", "", 200);
+    add(prev, 28, "Viagem de fim de ano", "Reserva", "Viagem", "", 250);
     // mês atual (só até hoje)
     const cand = [[1, "Padaria", "Despesa", "Alimentação", "Pix", 18.5],
-      [2, "Mercado do mês", "Despesa", "Mercado", "Débito", 578.2], [3, "Farmácia", "Despesa", "Saúde", "Pix", 42.9], [6, "Reserva do mês", "Reserva", "Reserva de emergência", "", 150], [7, "Gasolina", "Despesa", "Transporte", "Cartão de crédito", 150],
+      [2, "Mercado do mês", "Despesa", "Mercado", "Débito", 578.2], [3, "Farmácia", "Despesa", "Saúde", "Pix", 42.9], [6, "Reserva do mês", "Reserva", "Reserva de emergência", "", 150], [6, "Viagem de fim de ano", "Reserva", "Viagem", "", 100], [7, "Gasolina", "Despesa", "Transporte", "Cartão de crédito", 150],
       [9, "Delivery", "Despesa", "Alimentação", "Cartão de crédito", 62.9], [13, "Presente de aniversário", "Despesa", "Outros", "Pix", 95],
       [16, "Show", "Despesa", "Lazer", "Cartão de crédito", 140], [19, "Uber", "Despesa", "Transporte", "Pix", 27.6],
       [21, "Mercado", "Despesa", "Mercado", "Débito", 134.8], [24, "Cabeleireiro", "Despesa", "Beleza", "Pix", 60]];
     cand.filter((c) => c[0] <= d).forEach((c) => add(cur, ...c));
     const F = [["Aluguel", "Moradia", 10, 1100, "Boleto"], ["Internet", "Contas da casa", 15, 99.9, "Débito"],
       ["Faculdade", "Educação", 20, 349, "Boleto"], ["Celular", "Contas da casa", 12, 55, "Cartão de crédito"]]
-      .map(([descricao, categoria, dia, valor, forma]) => ({ id: uuid(), tipo: "Despesa", descricao, categoria, dia, valor, forma, desde: `${prev}-01`, ate: null,
+      .map(([descricao, categoria, dia, valor, forma]) => ({ id: uuid(), tipo: "Despesa", descricao, categoria, dia, valor, forma, desde: `${prev2}-01`, ate: null,
         cartao_id: forma === "Cartão de crédito" ? roxo.id : null }));
     // Exemplo de gasto semanal: terapia toda quinta-feira, desde o mês anterior.
-    F.push({ id: uuid(), tipo: "Despesa", repete: "semanal", dia_semana: 4, descricao: "Terapia", categoria: "Saúde", dia: 1, valor: 90, forma: "Pix", desde: `${prev}-01`, ate: null });
-    const salario = { id: uuid(), tipo: "Receita", descricao: "Salário", categoria: "Salário", dia: 5, valor: 3900, forma: "", desde: `${prev}-01`, ate: null };
+    F.push({ id: uuid(), tipo: "Despesa", repete: "semanal", dia_semana: 4, descricao: "Terapia", categoria: "Saúde", dia: 1, valor: 90, forma: "Pix", desde: `${prev2}-01`, ate: null });
+    const salario = { id: uuid(), tipo: "Receita", descricao: "Salário", categoria: "Salário", dia: 5, valor: 3900, forma: "", desde: `${prev2}-01`, ate: null };
     const P = [];
-    F.filter((f) => f.repete !== "semanal" && !f.cartao_id).forEach((f) => { P.push({ fixo_id: f.id, mes: `${prev}-01` }); if (f.dia <= d) P.push({ fixo_id: f.id, mes: `${cur}-01` }); });
+    F.filter((f) => f.repete !== "semanal" && !f.cartao_id).forEach((f) => { P.push({ fixo_id: f.id, mes: `${prev2}-01` }); P.push({ fixo_id: f.id, mes: `${prev}-01` }); if (f.dia <= d) P.push({ fixo_id: f.id, mes: `${cur}-01` }); });
     // A fatura que vence neste mês (compras do mês passado) já aparece paga depois do dia 8.
     const C = d >= 8 ? [{ id: uuid(), cartao_id: roxo.id, cartao: roxo.nome, vencimento: `${cur}-08`, valor: 300.9, status: "Paga", valor_fixo: false }] : [];
     return { lancamentos: L, fixos: [...F, salario], pagos: P, faturas: C, cartoes: [roxo] };

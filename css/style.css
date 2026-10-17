@@ -1038,3 +1038,40 @@ textarea.in{min-height:110px;resize:vertical;font:inherit;line-height:1.45}
 .sug-lista li{display:grid;gap:6px;padding:12px;border:1px solid var(--border);border-radius:var(--r);background:var(--surface)}
 .sug-topo{display:flex;align-items:center;gap:8px;flex-wrap:wrap} .sug-topo small{margin-left:auto;color:var(--muted)}
 .sug-lista p{margin:0;font-size:14px;overflow-wrap:anywhere} .sug-resp{padding:8px 10px;border-radius:10px;background:var(--good-soft)}
+
+/* ===== ferramentas: desempenho, resumo do ano, calculadoras, desafio, tour ===== */
+.moeda-fora{grid-column:1/-1;margin:-2px 0 0} .moeda-fora .link{font-size:13px}
+.desemp{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.desemp li{display:flex;gap:10px;align-items:flex-start;font-size:14px;line-height:1.35}
+.desemp .ic-box{width:30px;height:30px;border-radius:10px;flex:none;display:grid;place-items:center;background:var(--sunk);color:var(--muted)} .desemp .ic-box .ic{width:17px;height:17px}
+.desemp li.good .ic-box{background:color-mix(in srgb,var(--good) 16%,transparent);color:var(--good)}
+.desemp li.warn .ic-box{background:color-mix(in srgb,var(--warn) 18%,transparent);color:var(--warn)}
+.desemp-card{gap:10px} .desemp-card .link{justify-self:start}
+.ano-nav{display:flex;justify-content:space-between;margin:0 0 10px}
+.ano-tot{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 8px} .ano-tot div{background:var(--sunk);border-radius:12px;padding:9px 12px}
+.ano-tot dt{font-size:12px;color:var(--muted)} .ano-tot dd{margin:2px 0 0;font-weight:700;font-size:15px}
+.ano-meses,.ano-cats{list-style:none;margin:0;padding:0;display:grid;gap:7px}
+.ano-meses li,.ano-cats li{display:grid;grid-template-columns:38px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:13px}
+.ano-cats li{grid-template-columns:minmax(0,34%) minmax(0,1fr) auto}
+.ano-cats .n{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ano-meses .bs{display:grid;gap:3px} .ano-meses .bs i,.ano-leg i{display:block;height:6px;border-radius:3px;min-width:2px}
+.b-in{background:var(--good)} .b-out{background:var(--accent,#2f6fdb)}
+.ano-cats .bs{height:8px;background:var(--sunk);border-radius:4px;overflow:hidden} .ano-cats .bs i{display:block;height:100%}
+.ano-meses .vv,.ano-cats .vv{font-variant-numeric:tabular-nums;color:var(--ink-2);text-align:right;white-space:nowrap}
+.ano-leg{display:flex;gap:14px;font-size:12px;color:var(--muted);margin:6px 0 0} .ano-leg span{display:flex;align-items:center;gap:6px} .ano-leg i{width:14px}
+.calc-res{display:grid;gap:6px;margin:12px 0 0;padding:12px 14px;background:var(--sunk);border-radius:12px;min-height:44px}
+.calc-res div{display:flex;justify-content:space-between;gap:10px;font-size:14px} .calc-res dd{margin:0;font-weight:600;font-variant-numeric:tabular-nums}
+.calc-res .forte{font-size:16px} .calc-res .forte dd{font-weight:800}
+.desafio{border:1px solid var(--border);border-radius:14px;padding:12px 14px;margin:0 0 12px}
+.d-topo{display:flex;justify-content:space-between;align-items:center;margin:0 0 6px}
+.d-sem{display:grid;grid-template-columns:repeat(auto-fill,minmax(38px,1fr));gap:5px;margin:0 0 10px}
+.d-sem button{height:34px;border-radius:9px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:12.5px;font-variant-numeric:tabular-nums}
+.d-sem button.feita{background:color-mix(in srgb,var(--good) 18%,transparent);border-color:transparent;color:var(--good);font-weight:700}
+.d-sem button.atual{border-color:var(--accent,#2f6fdb);font-weight:700} .d-sem button.atras{border-style:dashed}
+.tour{display:grid;gap:8px;justify-items:center;text-align:center;padding:6px 4px 0}
+.tour-ic{width:64px;height:64px;border-radius:20px;display:grid;place-items:center;background:var(--sunk);color:var(--ink)} .tour-ic .ic{width:30px;height:30px}
+.tour h3{margin:0} .tour-tx{margin:0;color:var(--ink-2);font-size:15px;line-height:1.45;max-width:36ch}
+.tour-pts{display:flex;gap:6px;margin:4px 0} .tour-pts i{width:7px;height:7px;border-radius:50%;background:var(--border)} .tour-pts i.on{background:var(--ink)}
+.tour .actions{justify-content:center}
+.aj-add select{max-width:48%}
+.aj-add:has(select){grid-template-columns:minmax(0,1fr) auto auto}

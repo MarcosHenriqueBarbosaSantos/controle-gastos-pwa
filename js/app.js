@@ -9,6 +9,8 @@ import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comP
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { entendeFala } from "./voz.js";
+import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
+  resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
 
@@ -166,7 +168,9 @@ function ligaNovaCategoria(sel, tipo, sugestao, criada) {
     lbl.parentElement.querySelector(".nova-cat")?.remove();
     const box = document.createElement("div");
     box.className = "nova-cat"; box.style.gridColumn = "1/-1";
+    const paiSel = t === "Despesa" ? cats(t).filter((c) => !c.includes(SEP)) : [];
     box.innerHTML = `<label class="f">${caixa ? "Nome da nova caixinha" : "Nome da nova categoria"}<input class="in" maxlength="40" placeholder="${caixa ? "Ex.: Viagem, Carro, Feitura" : "Ex.: Academia, Pet"}"></label>
+      ${paiSel.length ? `<label class="f">Dentro de (opcional)<select class="in" data-pai><option value="">Nenhuma: categoria própria</option>${paiSel.map((c) => `<option>${esc(c)}</option>`).join("")}</select></label>` : ""}
       <div class="actions"><button class="btn primary sm" type="button" data-nc="ok">${caixa ? "Criar caixinha" : "Criar categoria"}</button><button class="btn sm" type="button" data-nc="nao">Cancelar</button></div>
       <p class="hint" role="status" style="margin:0"></p>`;
     lbl.after(box);
@@ -174,8 +178,9 @@ function ligaNovaCategoria(sel, tipo, sugestao, criada) {
     if (sug && !cats(t).some((c) => norm(c) === norm(sug))) inp.value = sug.slice(0, 40);
     inp.focus(); inp.select();
     const cria = async () => {
-      const nome = inp.value.trim().replace(/\s+/g, " ");
+      let nome = inp.value.trim().replace(/\s+/g, " ");
       if (!nome) { msg.style.color = "var(--bad)"; msg.textContent = "Escreva o nome."; return inp.focus(); }
+      const pai = box.querySelector("[data-pai]")?.value; if (pai) nome = nomeDeSub(pai, nome.replace(/^.*›\s*/, ""));
       const l = cats(t), ja = l.find((c) => norm(c) === norm(nome));
       if (!ja) { S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), [t]: [...l, nome] }; salvaPrefs(); }
       box.remove(); criada(ja || nome, !ja);
@@ -432,7 +437,7 @@ function contaAPartirDaDemo() {
 }
 function startDemo() {
   try { sessionStorage.setItem("cg-modo", "demo"); } catch { /* nada */ }
-  const store = createLocalStore("cg-demo-v8", demoSeed(hoje()));
+  const store = createLocalStore("cg-demo-v9", demoSeed(hoje()));
   startApp(store, "Demonstração");
   showBanner(`Demonstração com dados de exemplo.`,
     [...(S.semLogin ? [] : [["Criar conta", contaAPartirDaDemo]]), ["Recomeçar", () => { store.reset(); startDemo(); }]], "fina");
@@ -489,7 +494,13 @@ async function startApp(store, quem) {
     const daCopia = Boolean(S.data.daCopia);
     const p = await store.loadPrefs().catch(() => null);
     S.prefs = { ...prefsPadrao(), ...(p || {}) };
-    if (!p && store.kind === "local") S.prefs.metas = { "Reserva de emergência": { valor: 3000, ate: "", plano: { valor: 300, dia: 28 } } };   // exemplo da demonstração
+    if (!p && store.kind === "local") {   // exemplo da demonstração: duas metas e um desafio de economia já começado
+      const m0 = mKey(hoje());
+      S.prefs.metas = { "Reserva de emergência": { valor: 3000, ate: "", plano: { valor: 300, dia: 28 } }, Viagem: { valor: 2500, ate: addM(m0, 8) } };
+      const ini = new Date(); ini.setDate(ini.getDate() - 17);
+      const d = criaDesafio({ nome: "Desafio da viagem", caixinha: "Viagem", modo: "crescente", base: 2, semanas: 26, inicio: toISO(ini) });
+      if (d) { d.feitas = [1, 2]; S.prefs.desafios = { demo: d }; }
+    }
     // Conta de casal: com quem as contas são divididas e o que é dos dois (categorias, limites, metas, saldo).
     S.casal = store.casalMeu ? await store.casalMeu().catch((e) => { console.warn("Conta de casal não conferida:", e?.message); return null; }) : null;
     aplicaCasal(); S.carregadoEm = Date.now();
@@ -504,7 +515,8 @@ async function startApp(store, quem) {
     if (S.recuperando) pedirNovaSenha();
     else if (S.compartilhado || S.atalho) aoChegar();
     else if (S.casal?.situacao === "convidado") conviteDeCasal();
-    else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) { S.prefs.boasVindas = true; salvaPrefs(); guiaPasso("renda", true); }
+    else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) { S.prefs.boasVindas = true; salvaPrefs(); tourInicial(() => setTimeout(() => guiaPasso("renda", true), 250)); }
+    else if (store.kind === "local" && !S.semLogin && !S.prefs.tourVisto) tourInicial();
     else conviteAvisos();
   } catch (e) { console.error(e); showBanner("Não foi possível carregar seus dados. Confira a internet e recarregue a página."); }
 }
@@ -808,7 +820,7 @@ function renderKpis(c) {
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   $("verSobra").onclick = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
   }
-  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c);
+  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c); renderDesempIni(c);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
   $("kpis").innerHTML = `
    <div class="kpi reserva" data-det="guardado" role="button" tabindex="0">${cab("cofre", "Caixinhas")}<span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
@@ -2124,7 +2136,12 @@ function renderMais(c) {
       linha("cal", "agenda", "Calendário de vencimentos", "O que vence e o que entra em cada dia")])}
     ${grupo("Dividir as contas", [linha("casal", "casal", "Conta de casal", esc(resumoDoCasal()), S.casal?.situacao === "convidado" ? "aviso" : "")])}
     ${grupo("Ferramentas", [
-      linha("btnExport", "baixar", "Baixar relatório", "Planilha com tudo o que você registrou"),
+      linha("desemp", "rumo", "Meu desempenho", "O seu mês em frases, comparado com os outros"),
+      linha("ano", "grafico", "Resumo do ano", "Mês a mês, melhor e pior mês e para onde foi o dinheiro"),
+      linha("desafio", "alvo", "Desafio de economia", "Guarde um valor por semana e acompanhe"),
+      linha("calc", "luz", "Calculadoras", "Rendimento, parcelas com juros, férias e 13º"),
+      linha("msg", "clipe", "Colar mensagem do banco", "A notificação ou o SMS vira um lançamento"),
+      linha("btnExport", "baixar", "Baixar relatório", "Excel, PDF ou CSV"),
       appInstalado() ? "" : linha("btnInstall", "instalar", "Instalar o app no celular", "Ícone na tela inicial, abre em tela cheia e funciona sem internet")])}
     ${grupo("Ajustes e ajuda", [
       linha("btnAjustes", "ajustes", "Ajustes e categorias", naDemo ? "Categorias, tema e saldo" : "Categorias, avisos, tema e a sua conta"),
@@ -2133,7 +2150,8 @@ function renderMais(c) {
       linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
     const k = b.dataset.mais;
-    if (SUBS.includes(k)) abrirSub(k); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else $(k).click();
+    const FERR = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem };
+    if (FERR[k]) FERR[k](); else if (SUBS.includes(k)) abrirSub(k); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else $(k).click();
   }));
 }
 /* ================= conta de casal =================
@@ -2327,8 +2345,8 @@ function textoDoAcesso() {
 const QUADROS = [["dia", "Seu dia", "O que você gastou hoje e a sequência de dias anotando", ["dia"]], ["teto", "Limite do mês", "Quanto do limite já foi usado", ["teto"]],
   ["metas", "Metas", "As metas do dinheiro guardado", ["metas"]], ["venc", "Próximos vencimentos", "Contas e faturas a pagar", ["venc"]],
   ["kpis", "Guardado, fixos e faturas", "Os quadros com os totais do mês", ["kpis", "insight"]], ["graficos", "Gráficos do mês", "Custo acumulado e gastos por categoria", ["graficos"]],
-  ["evo", "Últimos meses", "Entradas, custo e sobra mês a mês", ["evoPanel"]]];
-const NO_INICIO_CEL = ["dia", "venc"];   // no celular, o resto fica em Planejar → Análise do mês
+  ["evo", "Últimos meses", "Entradas, custo e sobra mês a mês", ["evoPanel"]], ["desemp", "Meu desempenho", "O mês em frases, comparado com os outros", ["desempIni"]]];
+const NO_INICIO_CEL = ["dia", "venc", "desemp"];   // no celular, o resto fica em Planejar → Análise do mês
 function aplicaInicio() {
   const fora = new Set(S.prefs.inicioFora || []);
   QUADROS.forEach(([k, , , ids]) => ids.forEach((id) => $(id)?.classList.toggle("fora", fora.has(k))));
@@ -2369,6 +2387,8 @@ const AJUDA = [
   ["Dá para usar a dois?", `Dá, com a <b>Conta de casal</b> (no celular, em <b>Mais</b>; no computador, em <b>Ajustes</b>). Você convida a outra pessoa pelo e-mail e ela aceita dentro do app, entrando com esse e-mail. Cada um continua com a sua senha. Os dois veem e lançam nas mesmas contas, e o app mostra quem lançou cada gasto. Qualquer um dos dois pode encerrar quando quiser: cada um fica com o que lançou.`],
   ["Onde ficam as contas fixas, os cartões e os ajustes no celular?", `Na barra de baixo: <b>Início</b>, <b>Extrato</b>, o <b>+</b> para lançar, <b>Planejar</b> (limites e metas) e <b>Mais</b>. Em Mais ficam as contas fixas, as entradas fixas, os cartões, o calendário, a conta de casal, o relatório, os ajustes e esta ajuda. No fim do Início, <b>Organizar o início</b> escolhe quais quadros aparecem.`],
   ["Como recebo avisos e instalo no celular?", `Em <b>Ajustes</b> você liga os avisos por e-mail e a notificação no aparelho. Para instalar, use <b>Instalar app</b> (no celular, em <b>Mais</b>); no iPhone, abra pelo Safari, toque em Compartilhar e em Adicionar à Tela de Início.`],
+  ["Como colo a mensagem do banco, uso outra moeda ou crio uma subcategoria?", `<b>Mensagem do banco:</b> em <b>Mais → Colar mensagem do banco</b>, cole a notificação ou o SMS e o lançamento vem preenchido para você conferir. <b>Outra moeda:</b> na tela de lançar, toque em <b>Gastei em outra moeda</b>, digite o valor e a cotação, e o app põe o valor em reais. <b>Subcategoria:</b> ao criar uma categoria, escolha <b>Dentro de</b> (por exemplo, Feira dentro de Mercado). No resumo do ano, as subcategorias somam na categoria de cima.`],
+  ["Como funcionam o desafio de economia, as calculadoras e o resumo do ano?", `Estão em <b>Mais</b>. No <b>desafio de economia</b> você escolhe uma caixinha e um valor por semana; a cada semana, toque em <b>Guardei</b> e o valor entra na caixinha. As <b>calculadoras</b> mostram rendimento, parcelas com juros, férias e 13º (valores brutos). O <b>resumo do ano</b> mostra mês a mês e para onde foi o dinheiro, e dá para baixar em PDF.`],
   ["Como troco a senha ou excluo a minha conta?", `Em <b>Ajustes</b>, na parte <b>Sua conta</b>. Para trocar a senha, você digita a atual e a nova. Excluir a conta apaga para sempre todos os seus registros e pede a senha para confirmar; antes, baixe o relatório se quiser guardar uma cópia. Excluir a conta não cancela a assinatura: o cancelamento é feito na Hotmart.`],
   ["Meus dados ficam seguros? Consigo levar embora?", `Cada conta só enxerga os próprios dados, e essa regra é aplicada no banco de dados. Fotos e PDFs são lidos no seu aparelho e não são enviados. Em <b>Baixar relatório</b> você leva tudo em planilha. Os detalhes estão na <a href="site/privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.`],
 ];
@@ -2441,6 +2461,289 @@ function sugerir(tipo = "melhoria") {
   }).catch(() => {});
 }
 $("btnSugerir").onclick = () => sugerir();
+/* ================= ferramentas =================
+   Meu desempenho, resumo do ano, calculadoras, desafio de economia, mensagem do banco, gasto em outra moeda e o relatório em Excel, PDF ou CSV.
+   As contas ficam em js/extras.js (testadas); aqui só estão as telas. */
+const opFerr = (id, icone, t, s) => `<button class="mais-item" type="button" id="${id}"><span class="ic-box">${ico(icone)}</span><span class="tx"><b>${t}</b><span>${s}</span></span>${ico("chev")}</button>`;
+function ferramentas() {
+  openDlg(`<h3>Ferramentas</h3><div class="caixa-mais">
+    ${opFerr("frDesemp", "rumo", "Meu desempenho", "O seu mês em frases, comparado com os outros")}
+    ${opFerr("frAno", "grafico", "Resumo do ano", "Mês a mês, melhor e pior mês e para onde foi o dinheiro")}
+    ${opFerr("frDesafio", "alvo", "Desafio de economia", "Guarde um valor por semana e acompanhe")}
+    ${opFerr("frCalc", "luz", "Calculadoras", "Rendimento, parcelas com juros, férias e 13º")}
+    ${opFerr("frMsg", "clipe", "Colar mensagem do banco", "Cole a notificação ou o SMS e o lançamento vem preenchido")}
+    ${opFerr("frRel", "baixar", "Baixar relatório", "Excel, PDF ou CSV")}</div>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  const vai = (id, fn) => ($(id).onclick = () => fn());
+  vai("frDesemp", meuDesempenho); vai("frAno", () => resumoAno()); vai("frDesafio", () => desafioEconomia()); vai("frCalc", () => calculadoras()); vai("frMsg", colarMensagem); vai("frRel", baixarRelatorio);
+}
+$("btnFerramentas").onclick = ferramentas;
+
+/* ---------- Meu desempenho ---------- */
+const ICO_TOM = { good: "sobe", warn: "desce", info: "rumo" };
+const desempHtml = (m, max = 5) => {
+  const f = S.loaded ? desempenhoDoMes(S.data, m, hoje()).slice(0, max) : [];
+  return f.length ? `<ul class="desemp">${f.map((x) => `<li class="${x.tom}"><span class="ic-box">${ico(ICO_TOM[x.tom])}</span><span>${esc(x.texto)}</span></li>`).join("")}</ul>` : "";
+};
+function renderDesempIni(c) {
+  const host = $("desempIni"), html = c.fase !== "futuro" ? desempHtml(S.mes, 2) : "";
+  host.hidden = !html; if (!html) { host.innerHTML = ""; return; }
+  host.innerHTML = `<div class="teto desemp-card"><span class="topo"><span class="l">${ico("rumo")}Meu desempenho</span></span>${html}<button class="link" type="button" id="desempVer">Ver tudo</button></div>`;
+  $("desempVer").onclick = meuDesempenho;
+}
+function meuDesempenho() {
+  const html = desempHtml(S.mes, 5);
+  openDlg(`<h3>Meu desempenho em ${nomeMes(S.mes)}</h3>
+    ${html || `<p class="hint">Ainda não há com o que comparar. Depois de um mês inteiro de lançamentos, aqui aparece como o seu mês anda em relação aos anteriores.</p>`}
+    <p class="hint" style="margin:10px 0 0">As comparações usam só o que você lançou no app.</p>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+}
+
+/* ---------- Resumo do ano ---------- */
+function resumoAno(ano = S.mes.slice(0, 4)) {
+  const r = resumoDoAno(S.data, ano, hoje()), com = r.meses.filter((x) => x.tem), maxV = Math.max(1, ...com.map((x) => Math.max(x.rec, x.custo)));
+  const mesNome = (x) => `${nomeMes(x.m)}`;
+  openDlg(`<h3>Resumo de ${ano}</h3>
+    <div class="ano-nav"><button class="btn sm" type="button" id="anoAnt">‹ ${Number(ano) - 1}</button><button class="btn sm" type="button" id="anoProx">${Number(ano) + 1} ›</button></div>
+    ${com.length ? `<dl class="ano-tot"><div><dt>Entrou</dt><dd>${brl(r.rec)}</dd></div><div><dt>Custo</dt><dd>${brl(r.custo)}</dd></div><div><dt>Guardado</dt><dd>${brl(r.guardado)}</dd></div>
+      <div><dt>Sobrou</dt><dd class="${r.sobra < 0 ? "txt-bad" : ""}">${sgn(r.sobra)}</dd></div><div><dt>Custo médio por mês</dt><dd>${brl(r.mediaCusto)}</dd></div></dl>
+      ${r.melhor && r.pior && r.melhor.m !== r.pior.m ? `<p class="hint" style="margin:6px 0 10px">Melhor mês: <b>${mesNome(r.melhor)}</b> (${sgn(r.melhor.sobra)}). Mês mais apertado: <b>${mesNome(r.pior)}</b> (${sgn(r.pior.sobra)}).</p>` : ""}
+      <h4 class="meta-h">Mês a mês</h4><ul class="ano-meses">${com.map((x) => `<li><span class="mm">${MES3[Number(x.m.slice(5)) - 1]}</span>
+        <span class="bs"><i class="b-in" style="width:${(x.rec / maxV) * 100}%"></i><i class="b-out" style="width:${(x.custo / maxV) * 100}%"></i></span><span class="vv ${x.sobra < 0 ? "txt-bad" : ""}">${sgn(x.sobra)}</span></li>`).join("")}</ul>
+      <p class="ano-leg"><span><i class="b-in"></i>entrou</span><span><i class="b-out"></i>custo</span></p>
+      ${r.categorias.length ? `<h4 class="meta-h">Para onde foi o dinheiro</h4><ul class="ano-cats">${r.categorias.map((c) => `<li><span class="n">${esc(c.nome)}</span><span class="bs"><i style="width:${c.pct}%;background:${corCat(c.nome)}"></i></span><span class="vv">${c.pct}% · ${brl0(c.valor)}</span></li>`).join("")}</ul>` : ""}`
+    : `<p class="hint">Não há lançamentos em ${ano}.</p>`}
+    <div class="actions"><button class="btn" type="button" id="anoPdf">Baixar em PDF</button><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  $("anoAnt").onclick = () => resumoAno(String(Number(ano) - 1)); $("anoProx").onclick = () => resumoAno(String(Number(ano) + 1));
+  $("anoPdf").onclick = () => baixaPdf(ano);
+}
+
+/* ---------- Calculadoras ---------- */
+const nm = (v) => { const n = parseMoney(String(v ?? "").replace("%", "")); return Number.isFinite(n) ? n : 0; };
+const linhaRes = (rot, v, forte = false) => `<div${forte ? ' class="forte"' : ""}><dt>${rot}</dt><dd>${v}</dd></div>`;
+const CALCS = [
+  { id: "rende", titulo: "Quanto rende guardar todo mês", campos: [["porMes", "Guardar por mês (R$)", "m", "200"], ["inicial", "Já tenho guardado (R$, opcional)", "m", ""], ["meses", "Por quantos meses", "n", "24"], ["taxa", "Taxa ao ano (%)", "n", "10"]],
+    nota: "É só a conta da taxa que você digitou, para simular. Não é promessa de ganho nem indicação de investimento.",
+    calc: (v) => { const r = rendimentoDeGuardar({ porMes: v.porMes, inicial: v.inicial, meses: v.meses, taxaAnual: v.taxa }); return r && linhaRes("Você terá", brl(r.total), true) + linhaRes("Você guardou", brl(r.aportado)) + linhaRes("Rendeu", brl(r.rendimento)); } },
+  { id: "quanto", titulo: "Quanto guardar por mês para chegar lá", campos: [["alvo", "Quanto quer juntar (R$)", "m", "6000"], ["meses", "Em quantos meses", "n", "12"], ["inicial", "Já tenho guardado (R$, opcional)", "m", ""], ["taxa", "Taxa ao ano (%, pode deixar 0)", "n", "0"]],
+    nota: "Com taxa 0, a conta é só o que falta dividido pelos meses.",
+    calc: (v) => { const r = quantoGuardarPorMes({ alvo: v.alvo, meses: v.meses, inicial: v.inicial, taxaAnual: v.taxa }); return r && (r.jaBasta ? linhaRes("Resultado", "O que você já tem basta", true) : linhaRes("Guarde por mês", brl(r.porMes), true)); } },
+  { id: "parcela", titulo: "Parcelado com juros: quanto custa", campos: [["valor", "Valor da compra (R$)", "m", "1000"], ["parcelas", "Número de parcelas", "n", "10"], ["taxa", "Juros ao mês (%)", "n", "2"]],
+    nota: "Parcelas iguais. A taxa de juros está no contrato ou na simulação da loja.",
+    calc: (v) => { const r = parcelaComJuros({ valor: v.valor, parcelas: v.parcelas, taxaMes: v.taxa }); return r && linhaRes("Cada parcela", brl(r.parcela), true) + linhaRes("Total pago", brl(r.total)) + linhaRes("Só de juros", brl(r.juros)); } },
+  { id: "juros", titulo: "Juros compostos (dívida ou dinheiro parado)", campos: [["capital", "Valor (R$)", "m", "1000"], ["taxa", "Taxa ao mês (%)", "n", "3"], ["meses", "Meses", "n", "12"]],
+    nota: "Mostra como uma dívida cresce quando fica sem pagar, ou quanto o dinheiro vira com aquela taxa.",
+    calc: (v) => { const r = jurosCompostos({ capital: v.capital, taxaMes: v.taxa, meses: v.meses }); return r && linhaRes("Vira", brl(r.montante), true) + linhaRes("Só de juros", brl(r.juros)); } },
+  { id: "ferias", titulo: "Férias (valor bruto)", campos: [["salario", "Salário (R$)", "m", "3000"], ["dias", "Dias de férias", "n", "30"], ["vender", "Vender 10 dias (abono)", "c", ""]],
+    nota: "Valor bruto, antes de INSS e imposto de renda. O valor líquido depende dos seus descontos.",
+    calc: (v) => { const r = ferias({ salario: v.salario, dias: v.dias, vender: v.vender }); return r && linhaRes("Total bruto", brl(r.total), true) + linhaRes(`${r.dias} dias de descanso`, brl(r.base)) + linhaRes("Um terço a mais", brl(r.terco)) + (r.abono ? linhaRes("10 dias vendidos (com o terço)", brl(r.abono)) : ""); } },
+  { id: "decimo", titulo: "13º salário (valor bruto)", campos: [["salario", "Salário (R$)", "m", "3000"], ["meses", "Meses trabalhados no ano", "n", "12"]],
+    nota: "Valor bruto, antes de INSS e imposto de renda. Pago em duas parcelas.",
+    calc: (v) => { const r = decimoTerceiro({ salario: v.salario, meses: v.meses }); return r && linhaRes("Total bruto", brl(r.total), true) + linhaRes("1ª parcela (até 30/11)", brl(r.primeira)) + linhaRes("2ª parcela (até 20/12)", brl(r.segunda)); } },
+];
+function calculadoras(id = "rende") {
+  const c = CALCS.find((x) => x.id === id) || CALCS[0], campo = ([k, rot, t, pad_]) => t === "c"
+    ? `<label class="check wide"><input type="checkbox" data-k="${k}"> ${rot}</label>`
+    : `<label class="f">${rot}<input class="in${t === "m" ? " money" : ""}" data-k="${k}" inputmode="decimal" value="${pad_}"></label>`;
+  openDlg(`<h3>Calculadoras</h3>
+    <label class="f wide" style="margin-bottom:10px">O que você quer calcular?<select class="in" id="calcSel">${CALCS.map((x) => `<option value="${x.id}"${x.id === c.id ? " selected" : ""}>${x.titulo}</option>`).join("")}</select></label>
+    <div class="dlg-form" id="calcCampos">${c.campos.map(campo).join("")}</div>
+    <dl class="calc-res" id="calcRes" aria-live="polite"></dl><p class="hint" style="margin:8px 0 0">${c.nota}</p>
+    <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  const le = () => Object.fromEntries([...document.querySelectorAll("#calcCampos [data-k]")].map((i) => [i.dataset.k, i.type === "checkbox" ? i.checked : nm(i.value)]));
+  const conta = () => { const html = c.calc(le()); $("calcRes").innerHTML = html || `<p class="hint">Preencha os campos com números para ver o resultado.</p>`; };
+  document.querySelectorAll("#calcCampos [data-k]").forEach((i) => i.addEventListener("input", conta));
+  document.querySelectorAll("#calcCampos [data-k][type=checkbox]").forEach((i) => i.addEventListener("change", conta));
+  $("calcSel").onchange = (e) => calculadoras(e.target.value);
+  conta();
+}
+
+/* ---------- Desafio de economia ---------- */
+const desafiosDe = () => (S.prefs.desafios ||= {});
+const nomeCurto = (iso) => ddmm(iso);
+function desafioEconomia() {
+  const ids = Object.keys(desafiosDe());
+  if (!ids.length) return novoDesafio();
+  const hj = hoje();
+  openDlg(`<h3>Desafio de economia</h3>
+    ${ids.map((id) => {
+      const d = desafiosDe()[id], a = andamentoDoDesafio(d, hj);
+      const proxRot = !a.comecou ? `Começa em ${nomeCurto(d.inicio)}` : a.concluido ? "Desafio completo!" : a.proxima > a.atual ? `Adiantar a semana ${a.proxima}: ${brl(a.valorProxima)}` : `Guardei a semana ${a.proxima}: ${brl(a.valorProxima)}`;
+      return `<div class="desafio" data-d="${esc(id)}"><div class="d-topo"><b>${esc(d.nome)}</b><span class="pill ${a.concluido ? "good" : "info"}">${a.pct}%</span></div>
+        <span class="tbar mbar"><i style="width:${a.pct}%"></i></span>
+        <p class="hint" style="margin:6px 0 8px">${brl(a.guardado)} de ${brl(a.total)} em <b>${esc(d.caixinha)}</b>. ${a.comecou ? `Semana ${a.atual} de ${a.semanas}.` : ""}${a.atrasadas.length ? ` ${a.atrasadas.length === 1 ? "1 semana ficou" : a.atrasadas.length + " semanas ficaram"} para trás: sem problema, dá para guardar a qualquer momento.` : ""}</p>
+        <div class="d-sem" role="group" aria-label="Semanas do desafio">${Array.from({ length: a.semanas }, (_, i) => i + 1).map((n) => {
+          const feita = a.feitas.includes(n), cls = feita ? "feita" : n < a.atual ? "atras" : n === a.atual ? "atual" : "";
+          return `<button type="button" class="${cls}" data-sem="${n}" ${feita ? "disabled" : ""} aria-label="Semana ${n}: ${brl(valorDaSemana(d, n))}${feita ? ", guardada" : ""}">${feita ? "✓" : n}</button>`;
+        }).join("")}</div>
+        <div class="actions"><button class="btn primary sm" type="button" data-prox="${a.proxima}" ${a.concluido || !a.comecou ? "disabled" : ""}>${proxRot}</button>
+          ${a.feitas.length ? `<button class="btn sm" type="button" data-desfaz>Desfazer a última</button>` : ""}<button class="link" type="button" data-apaga>Apagar desafio</button></div></div>`;
+    }).join("")}
+    <div class="actions">${ids.length < 5 ? `<button class="btn" type="button" id="dNovo">Novo desafio</button>` : ""}<button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  const dlg = $("dlgBody");
+  dlg.querySelectorAll(".desafio").forEach((box) => {
+    const id = box.dataset.d;
+    box.querySelectorAll("[data-sem]").forEach((b) => (b.onclick = () => marcaSemana(id, Number(b.dataset.sem))));
+    box.querySelector("[data-prox]").onclick = (e) => marcaSemana(id, Number(e.currentTarget.dataset.prox));
+    box.querySelector("[data-desfaz]")?.addEventListener("click", () => desfazSemana(id));
+    box.querySelector("[data-apaga]").onclick = () => apagaDesafio(id);
+  });
+  if ($("dNovo")) $("dNovo").onclick = novoDesafio;
+}
+async function marcaSemana(id, n) {
+  const d = desafiosDe()[id]; if (!d || d.feitas.includes(n)) return;
+  const v = valorDaSemana(d, n), antes = andamentoDaMeta(S.data, d.caixinha, S.prefs.metas?.[d.caixinha], hoje());
+  const row = { id: crypto.randomUUID(), data: hoje(), descricao: `${d.nome}: semana ${n}`, tipo: "Reserva", categoria: d.caixinha, forma: "", valor: v, import_key: null };
+  let novo; const ok = await grava(async () => { [novo] = await S.store.addLancamentos([row]); });
+  if (!ok) return;
+  S.data.lancamentos.push(novo ? { ...novo, valor: Number(novo.valor) } : row);
+  d.feitas = [...d.feitas, n]; d.ids = { ...(d.ids || {}), [n]: novo?.id || row.id }; salvaPrefs();
+  render(); desafioEconomia();
+  toast(`Semana ${n} guardada: ${brl(v)} em ${d.caixinha}.` + recadoDaMeta(antes, andamentoDaMeta(S.data, d.caixinha, S.prefs.metas?.[d.caixinha], hoje()), false));
+}
+async function desfazSemana(id) {
+  const d = desafiosDe()[id]; if (!d?.feitas.length) return;
+  const n = Math.max(...d.feitas), lid = d.ids?.[n];
+  if (lid && S.data.lancamentos.some((x) => x.id === lid)) {
+    const ok = await grava(() => S.store.deleteLancamento(lid)); if (!ok) return;
+    S.data.lancamentos = S.data.lancamentos.filter((x) => x.id !== lid);
+  }
+  d.feitas = d.feitas.filter((x) => x !== n); if (d.ids) delete d.ids[n]; salvaPrefs();
+  render(); desafioEconomia(); toast(`Semana ${n} desfeita: o lançamento saiu da caixinha ${d.caixinha}.`);
+}
+function apagaDesafio(id) {
+  const d = desafiosDe()[id]; if (!d) return;
+  openDlg(`<h3>Apagar o desafio?</h3><p class="hint" style="margin:0 0 12px">O desafio <b>${esc(d.nome)}</b> some desta lista. O dinheiro que você já guardou continua na caixinha ${esc(d.caixinha)}.</p>
+    <div class="actions"><button class="btn" type="button" id="dSim">Apagar desafio</button><button class="btn" type="button" id="dNao">Voltar</button></div>`);
+  $("dNao").onclick = () => desafioEconomia();
+  $("dSim").onclick = () => { const o = { ...desafiosDe() }; delete o[id]; S.prefs.desafios = o; salvaPrefs(); desafioEconomia(); };
+}
+function novoDesafio() {
+  const lista = cats("Reserva");
+  openDlg(`<h3>Novo desafio de economia</h3>
+    <p class="hint" style="margin:0 0 10px">Escolha quanto guardar por semana. No clássico, você guarda 1 real na primeira semana, 2 na segunda, e assim por diante.</p>
+    <form id="dnForm" class="dlg-form" autocomplete="off">
+      <label class="f wide">Nome<input class="in" id="dnNome" maxlength="40" placeholder="Ex.: Viagem de fim de ano"></label>
+      <label class="f wide">Guardar em qual caixinha<select class="in" id="dnCx">${opts(lista)}</select></label>
+      <label class="f wide">Como vai ser<select class="in" id="dnModo">${Object.entries(MODOS_DESAFIO).map(([k, t]) => `<option value="${k}">${t}</option>`).join("")}</select></label>
+      <label class="f">Valor base (R$)<input class="in money" id="dnBase" inputmode="decimal" value="1,00"></label>
+      <label class="f">Quantas semanas<input class="in" id="dnSem" inputmode="numeric" value="52"></label>
+      <label class="f wide">Começa em<input class="in" id="dnIni" type="date" value="${hoje()}"></label>
+      <p class="hint wide meta-conta" id="dnConta" aria-live="polite"></p>
+      <p class="auth-msg err wide" id="dnMsg" role="alert"></p>
+      <div class="actions wide"><button class="btn primary" type="submit">Começar desafio</button><button class="btn" type="button" id="dnVolta">${Object.keys(desafiosDe()).length ? "Voltar" : "Cancelar"}</button></div></form>`);
+  const le = () => ({ nome: $("dnNome").value, caixinha: $("dnCx").value, modo: $("dnModo").value, base: nm($("dnBase").value), semanas: Number($("dnSem").value), inicio: $("dnIni").value });
+  const conta = () => {
+    const d = criaDesafio(le());
+    $("dnConta").innerHTML = d ? `No fim das ${d.semanas} semanas você terá guardado <b>${brl(totalDoDesafio(d))}</b>. ${d.modo === "fixo" ? "" : `A primeira semana é ${brl(valorDaSemana(d, 1))} e a última, ${brl(valorDaSemana(d, d.semanas))}.`}` : "";
+  };
+  ["dnModo", "dnBase", "dnSem", "dnIni", "dnCx"].forEach((i) => $(i).addEventListener("input", conta)); conta();
+  $("dnVolta").onclick = () => (Object.keys(desafiosDe()).length ? desafioEconomia() : $("dlg").close());
+  $("dnForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const d = criaDesafio(le());
+    if (!d) return void ($("dnMsg").textContent = "Confira os campos: o valor precisa ser maior que zero, e o desafio vai de 4 a 104 semanas.");
+    if (d.base > VALOR_MAX) return void ($("dnMsg").textContent = ALTO_DEMAIS);
+    S.prefs.desafios = { ...desafiosDe(), [crypto.randomUUID()]: d }; salvaPrefs(); desafioEconomia();
+    toast("Desafio criado. Toque em Guardei a cada semana para registrar.");
+  });
+}
+
+/* ---------- Colar mensagem do banco ---------- */
+function colarMensagem() {
+  openDlg(`<h3>Colar mensagem do banco</h3>
+    <p class="hint" style="margin:0 0 10px">Copie a notificação ou o SMS do banco e cole aqui. O app preenche o lançamento e você confere antes de lançar. O texto não é guardado nem enviado para lugar nenhum.</p>
+    <form id="cmForm" class="dlg-form" autocomplete="off"><label class="f wide">Mensagem<textarea class="in" id="cmTexto" rows="4" maxlength="600" placeholder="Ex.: Compra aprovada no cartão final 1234 de R$ 32,50 em MERCADO SANTA LUZIA"></textarea></label>
+      <p class="auth-msg err wide" id="cmMsg" role="alert"></p>
+      <div class="actions wide"><button class="btn primary" type="submit">Preencher lançamento</button>${navigator.clipboard?.readText ? `<button class="btn" type="button" id="cmColar">Colar do que copiei</button>` : ""}<button class="btn" type="button" data-close>Cancelar</button></div></form>`);
+  $("cmTexto").focus();
+  if ($("cmColar")) $("cmColar").onclick = async () => { try { $("cmTexto").value = (await navigator.clipboard.readText()).slice(0, 600); } catch { $("cmMsg").textContent = "Não deu para colar sozinho. Toque no campo e use Colar."; } };
+  $("cmForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const txt = $("cmTexto").value.trim(), f = entendeMensagemBanco(txt, hoje());
+    if (!txt) return void ($("cmMsg").textContent = "Cole a mensagem do banco no campo acima.");
+    if (!f.valor) return void ($("cmMsg").textContent = "Não achei um valor em reais (R$) nessa mensagem. Confira o texto ou lance à mão.");
+    $("dlg").close(); S.view = "inicio";
+    setTimeout(() => { if (noCelular()) abrirLancar(); aplicaEntendido(f, txt, "mensagem"); }, 250);
+  });
+}
+
+/* ---------- Gasto em outra moeda (viagem) ---------- */
+function outraMoeda() {
+  const cot = S.prefs.cotacoes || {};
+  openDlg(`<h3>Gasto em outra moeda</h3>
+    <p class="hint" style="margin:0 0 10px">Digite o valor de fora e quantos reais vale 1 da moeda (a cotação do dia, do app do banco ou da casa de câmbio). O app converte e põe o valor em reais no lançamento.</p>
+    <form id="omForm" class="dlg-form" autocomplete="off">
+      <label class="f wide">Moeda<select class="in" id="omMoeda">${MOEDAS.map((m) => `<option value="${m.cod}">${m.nome} (${m.simbolo})</option>`).join("")}</select></label>
+      <label class="f">Valor na moeda de fora<input class="in money" id="omValor" inputmode="decimal" placeholder="0,00"></label>
+      <label class="f">Cotação (R$ por 1)<input class="in money" id="omCot" inputmode="decimal" placeholder="Ex.: 5,40"></label>
+      <p class="hint wide meta-conta" id="omRes" aria-live="polite"></p>
+      <p class="auth-msg err wide" id="omMsg" role="alert"></p>
+      <div class="actions wide"><button class="btn primary" type="submit">Usar este valor</button><button class="btn" type="button" data-close>Cancelar</button></div></form>`);
+  const poeCot = () => { const c = cot[$("omMoeda").value]; $("omCot").value = c ? Number(c).toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : ""; conta(); };
+  const conta = () => { const r = valorEmReais(nm($("omValor").value), nm($("omCot").value)); $("omRes").innerHTML = r ? `${textoDaMoeda($("omMoeda").value, nm($("omValor").value))} = <b>${brl(r)}</b>` : ""; };
+  $("omMoeda").onchange = poeCot; $("omValor").addEventListener("input", conta); $("omCot").addEventListener("input", conta); poeCot(); $("omValor").focus();
+  $("omForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const cod = $("omMoeda").value, vf = nm($("omValor").value), ct = nm($("omCot").value), r = valorEmReais(vf, ct);
+    if (!r || r > VALOR_MAX) return void ($("omMsg").textContent = "Digite o valor e a cotação, com números maiores que zero.");
+    S.prefs.cotacoes = { ...cot, [cod]: ct }; salvaPrefs();
+    $("dlg").close();
+    $("fValor").value = r.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+    const nota = `(${textoDaMoeda(cod, vf)})`, d = $("fDesc").value.trim();
+    if (!d.includes(nota)) $("fDesc").value = (d ? d + " " : "") + nota;
+    renderForm(); $("fValor").focus();
+    toast(`${textoDaMoeda(cod, vf)} = ${brl(r)}. Confira e lance.`);
+  });
+}
+$("fMoedaBtn").onclick = outraMoeda;
+
+/* ---------- Relatório: Excel, PDF ou CSV ---------- */
+function baixaArquivo(nome, blob) {
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = nome; document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+function baixaPdf(ano) { baixaArquivo(`meus-gastos-${ano}.pdf`, new Blob([pdfDeLinhas(relatorioEmLinhas(S.data, ano, hoje()))], { type: "application/pdf" })); }
+function baixaCsv(ano) { baixaArquivo(`meus-gastos-${ano}.csv`, new Blob([csvDoAno(S.data, ano, hoje())], { type: "text/csv;charset=utf-8" })); }
+async function baixaExcel(btn) {
+  if (btn) btn.disabled = true;
+  try { await carregaXLSX(); } catch { /* cai na mensagem abaixo */ } finally { if (btn) btn.disabled = false; }
+  if (typeof XLSX === "undefined") return showBanner("Não foi possível gerar a planilha do Excel. Confira a internet e tente de novo, ou baixe em PDF ou CSV.");
+  const wb = buildWorkbook(XLSX, S.data, S.mes.slice(0, 4), calcMes, hoje());
+  XLSX.writeFile(wb, `meus-gastos-relatorio-${S.mes.slice(0, 4)}.xlsx`);
+}
+function baixarRelatorio() {
+  const ano = S.mes.slice(0, 4);
+  openDlg(`<h3>Baixar relatório de ${ano}</h3><p class="hint" style="margin:0 0 12px">Escolha o formato. O arquivo é feito aqui no aparelho.</p>
+    <div class="caixa-mais">${opFerr("rlXlsx", "baixar", "Planilha do Excel", "Lançamentos, contas fixas, faturas e o resumo de cada mês")}
+      ${opFerr("rlPdf", "baixar", "PDF", "Resumo do ano, para onde foi o dinheiro e a lista de lançamentos")}
+      ${opFerr("rlCsv", "baixar", "CSV", "Lista simples dos lançamentos, abre no Excel e no Google Planilhas")}</div>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  $("rlXlsx").onclick = () => baixaExcel($("rlXlsx")); $("rlPdf").onclick = () => baixaPdf(ano); $("rlCsv").onclick = () => baixaCsv(ano);
+}
+
+/* ---------- Tour da primeira vez ---------- */
+const TOUR = [
+  ["plus", "Lance em segundos", "Toque no + para anotar um gasto. Dá para digitar, falar, ler um comprovante pela câmera, ler um QR code ou colar a mensagem do banco."],
+  ["saldo", "Veja quanto sobra", "O número grande do início é quanto sobra no mês, já descontando contas fixas e faturas. A cor diz se está tudo bem: verde, laranja ou vermelho."],
+  ["cofre", "Guarde para o que importa", "Crie uma caixinha com uma meta e o app calcula quanto guardar por mês. Se quiser um empurrão, tem o desafio de economia."],
+];
+function tourInicial(depois) {
+  S.prefs.tourVisto = true; salvaPrefs();
+  let i = 0, fim = false;
+  const fechou = () => { if (fim) return; fim = true; $("dlg").removeEventListener("close", fechou); depois?.(); };
+  const passo = () => {
+    const [icone, titulo, texto] = TOUR[i], ultimo = i === TOUR.length - 1;
+    openDlg(`<div class="tour"><span class="tour-ic">${ico(icone === "plus" ? "mais" : icone)}</span><p class="guia-etapa">${i + 1} de ${TOUR.length}</p><h3>${titulo}</h3><p class="tour-tx">${texto}</p>
+      <div class="tour-pts" aria-hidden="true">${TOUR.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>
+      <div class="actions">${i ? `<button class="btn" type="button" id="tVolta">Voltar</button>` : `<button class="btn" type="button" data-close>Pular</button>`}<button class="btn primary" type="button" id="tProx">${ultimo ? "Começar" : "Próximo"}</button></div></div>`);
+    if ($("tVolta")) $("tVolta").onclick = () => { i--; passo(); };
+    $("tProx").onclick = () => { if (ultimo) $("dlg").close(); else { i++; passo(); } };
+  };
+  passo();
+  $("dlg").addEventListener("close", fechou);
+}
+
 /* ================= gráfico da sobra dia a dia (como nos apps de investimento) =================
    A linha cheia é quanto restava da sobra no fim de cada dia; a tracejada clara é o ritmo ideal (gastar por igual até o dia 31);
    a tracejada colorida, a partir de hoje, é a previsão de onde o mês termina. */
@@ -2670,11 +2973,13 @@ function escanearEImportar() {
   openDlg(`<h3>Escanear e importar</h3><p class="hint" style="margin:0 0 12px">O app lê no próprio aparelho e mostra tudo para você conferir antes de lançar.</p>
     <div class="caixa-mais">${op("esQr", "qr", "Ler QR code", "Pix, cupom fiscal (nota) ou código de barras do boleto")}
       ${op("esFoto", "camera", "Foto ou PDF de comprovante", "Pix, boleto, maquininha, fatura ou holerite")}
-      ${op("esExtrato", "subir", "Importar extrato do cartão", "o arquivo que o banco exporta: CSV, OFX ou Excel")}</div>
+      ${op("esExtrato", "subir", "Importar extrato do cartão", "o arquivo que o banco exporta: CSV, OFX ou Excel")}
+      ${op("esMsg", "clipe", "Colar mensagem do banco", "a notificação ou o SMS de uma compra, Pix ou pagamento")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
   $("esQr").onclick = () => { $("dlg").close(); setTimeout(() => { abrirLancar(); abrirQr(); }, 200); };
   $("esFoto").onclick = () => { $("dlg").close(); setTimeout(() => abrirLeitor(), 200); };
   $("esExtrato").onclick = () => { $("dlg").close(); setTimeout(() => abrirExtrato(), 200); };
+  $("esMsg").onclick = () => colarMensagem();
 }
 function acaoRapida(a) {
   if (a === "cal") return calendario(mKey(hoje()));
@@ -2786,8 +3091,9 @@ function ouvirGasto() {
   try { r.start(); } catch { ouvindo = null; $("vozPainel").hidden = true; $("btnVoz").classList.remove("ativo"); $("btnVoz").querySelector("span").textContent = "Falar"; toast("Não deu para abrir o microfone agora. Tente de novo."); }
 }
 /** Preenche o formulário com o que foi entendido da fala e diz o que entendeu. */
-function aplicaFala(txt) {
-  const f = entendeFala(txt, hoje());
+function aplicaFala(txt) { return aplicaEntendido(entendeFala(txt, hoje()), txt, "fala"); }
+/** Preenche o formulário com o que foi entendido (da fala ou da mensagem do banco) e diz o que entendeu. */
+function aplicaEntendido(f, txt, fonte = "fala") {
   S.tipo = f.tipo; S.catManual = false; S.formaManual = false; limpaSugestoes();
   const quando = f.data || hoje();
   if (mKey(quando) !== S.mes) S.mes = mKey(quando);   // "ontem" no dia 1º é do mês passado
@@ -2812,7 +3118,7 @@ function aplicaFala(txt) {
   const partes = [f.descricao || (f.tipo === "Receita" ? "Entrada" : f.tipo === "Reserva" ? (f.retirada ? "Retirada" : "Guardar") : ""), f.valor ? brl(f.valor) : "",
     f.tipo === "Despesa" ? $("fForma").value + (f.parcelas ? ` em ${f.parcelas}x` : "") : "", ($("fData").value === hoje() ? "hoje" : ddmm($("fData").value))].filter(Boolean);
   const flash = $("flash");
-  if (!f.valor) { flash.style.color = "var(--warn)"; flash.textContent = `Ouvi “${txt}”, mas não entendi o valor. Digite o valor e confira o resto.`; $("fValor").focus(); return; }
+  if (!f.valor) { flash.style.color = "var(--warn)"; flash.textContent = fonte === "mensagem" ? "Li a mensagem, mas não achei o valor. Digite o valor e confira o resto." : `Ouvi “${txt}”, mas não entendi o valor. Digite o valor e confira o resto.`; $("fValor").focus(); return; }
   flash.style.color = "var(--good)"; flash.textContent = `Entendi: ${partes.join(" · ")}. Confira e toque em ${$("fOk").textContent}.`;
   $("fOk").focus();
 }
@@ -3013,13 +3319,7 @@ function carregaXLSX() {
   carregandoXLSX ||= tenta(0).catch((e) => { carregandoXLSX = null; throw e; });
   return carregandoXLSX;
 }
-$("btnExport").onclick = async () => {
-  const btn = $("btnExport"); btn.disabled = true;
-  try { await carregaXLSX(); } catch { /* cai na mensagem abaixo */ } finally { btn.disabled = false; }
-  if (typeof XLSX === "undefined") return showBanner("Não foi possível gerar o relatório. Confira a internet e tente de novo.");
-  const wb = buildWorkbook(XLSX, S.data, S.mes.slice(0, 4), calcMes, hoje());
-  XLSX.writeFile(wb, `meus-gastos-relatorio-${S.mes.slice(0, 4)}.xlsx`);
-};
+$("btnExport").onclick = baixarRelatorio;   // o quadro pergunta o formato: Excel, PDF ou CSV
 function openDlg(html) {
   $("dlgBody").innerHTML = html;
   $("dlgBody").querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => $("dlg").close()));
@@ -3465,7 +3765,7 @@ function ajustes() {
   const ini = Number(S.prefs.saldoInicial) || 0;
   const bloco = (tipo, titulo) => `<div class="aj-sec"><h4>${titulo}</h4><div class="chips">${
     cats(tipo).map((c) => `<span class="chip"><button type="button" class="chip-nome" data-rn="${esc(c)}" data-tipo="${tipo}" aria-label="Mudar o nome de ${esc(c)}">${esc(c)}</button><button type="button" data-rm="${esc(c)}" data-tipo="${tipo}" aria-label="Remover ${esc(c)}">${ico("x")}</button></span>`).join("")}</div>
-    <form class="aj-add" data-add="${tipo}" autocomplete="off"><input class="in" maxlength="30" placeholder="${tipo === "Reserva" ? "Novo destino" : "Nova categoria"}" aria-label="Adicionar em ${titulo.toLowerCase()}"><button class="btn" type="submit">Adicionar</button></form></div>`;
+    <form class="aj-add" data-add="${tipo}" autocomplete="off"><input class="in" maxlength="30" placeholder="${tipo === "Reserva" ? "Novo destino" : "Nova categoria"}" aria-label="Adicionar em ${titulo.toLowerCase()}">${tipo === "Despesa" ? `<select class="in" data-pai aria-label="Dentro de qual categoria (opcional)"><option value="">Categoria própria</option>${cats(tipo).filter((c) => !c.includes(SEP)).map((c) => `<option>${esc(c)}</option>`).join("")}</select>` : ""}<button class="btn" type="submit">Adicionar</button></form></div>`;
   openDlg(`<h3>Ajustes</h3>
     ${bloco("Despesa", "Categorias de gasto")}${bloco("Receita", "Categorias de entrada")}${bloco("Reserva", "Onde você guarda dinheiro")}
     <p class="hint" style="margin:-4px 0 0">Toque no nome para mudar. Remover uma categoria não apaga os lançamentos que já usam ela.</p>
@@ -3521,7 +3821,7 @@ function ajustes() {
   }));
   body.querySelectorAll("[data-add]").forEach((f) => f.addEventListener("submit", async (e) => {
     e.preventDefault();
-    const t = f.dataset.add, nome = f.querySelector("input").value.trim(), l = cats(t);
+    const t = f.dataset.add, pai = f.querySelector("[data-pai]")?.value || "", bruto = f.querySelector("input").value.trim(), nome = pai && bruto ? nomeDeSub(pai, bruto.replace(/^.*›\s*/, "")) : bruto, l = cats(t);
     if (!nome || l.some((c) => norm(c) === norm(nome))) { f.querySelector("input").focus(); return; }
     S.prefs.categorias = { ...S.prefs.categorias, [t]: [...l, nome] };
     await salvaPrefs(); render(); ajustes();
