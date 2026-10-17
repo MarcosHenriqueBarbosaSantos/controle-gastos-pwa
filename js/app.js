@@ -643,7 +643,7 @@ function render() {
 /* ---------- chegar por atalho do ícone ou por "Compartilhar" de outro aplicativo ---------- */
 async function aoChegar() {
   const atalho = S.atalho, compartilhado = S.compartilhado; S.atalho = ""; S.compartilhado = false;
-  if (!compartilhado) { if (atalho === "lancar" || atalho === "qr" || atalho === "voz") abrirLancar(); if (atalho === "qr") abrirQr(); if (atalho === "voz") ouvirGasto(); return; }
+  if (!compartilhado) { if (atalho === "lancar" || atalho === "qr" || atalho === "voz") abrirLancar(); if (atalho === "qr") abrirQr(); if (atalho === "voz") ouvirGasto(); if (atalho === "mercado") mercado(); return; }
   // O arquivo ou o texto compartilhado foi guardado pelo app neste aparelho (sw.js) e é apagado assim que é lido.
   let arquivo = null, texto = "";
   try {
@@ -820,7 +820,7 @@ function renderKpis(c) {
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
   <div class="atalhos" role="group" aria-label="Atalhos">
-    <button type="button" data-atalho="mercado">${ico("carrinho")}Compras no mercado</button>
+    <button type="button" data-atalho="mercado">${ico("carrinho")}Lista de mercado</button>
     <button type="button" data-atalho="veiculo">${ico("carro")}Meu carro ou moto</button>
     <button type="button" data-atalho="casa">${ico("casa")}Minha casa</button>
     <button type="button" data-atalho="ferr">${ico("luz")}Mais ferramentas</button>
@@ -2189,7 +2189,7 @@ function renderMais(c) {
       linha("cal", "agenda", "Calendário de vencimentos", "O que vence e o que entra em cada dia")])}
     ${grupo("Dividir as contas", [linha("casal", "casal", "Conta de casal", esc(resumoDoCasal()), S.casal?.situacao === "convidado" ? "aviso" : "")])}
     ${grupo("Ferramentas", [
-      linha("mercado", "carrinho", "Compras no mercado", "Some o carrinho enquanto compra e lance em Mercado"),
+      linha("mercado", "carrinho", "Lista de mercado", "Anote o que comprar, estime o gasto e lance ao finalizar"),
       linha("veiculo", "carro", "Meu carro ou moto", "Quanto custa por mês, por dia e por km"),
       linha("casa", "casa", "Minha casa", "Quanto a casa custa por mês e quanto pesa na renda"),
       linha("dica", "luz", "Dica do dia para guardar dinheiro", "Um hábito pequeno por dia"),
@@ -2538,7 +2538,7 @@ $("btnSugerir").onclick = () => sugerir();
 const opFerr = (id, icone, t, s) => `<button class="mais-item" type="button" id="${id}"><span class="ic-box">${ico(icone)}</span><span class="tx"><b>${t}</b><span>${s}</span></span>${ico("chev")}</button>`;
 function ferramentas() {
   openDlg(`<h3>Ferramentas</h3><div class="caixa-mais">
-    ${opFerr("frMercado", "carrinho", "Compras no mercado", "Some o carrinho enquanto compra e lance em Mercado")}
+    ${opFerr("frMercado", "carrinho", "Lista de mercado", "Anote o que comprar, estime o gasto e lance ao finalizar")}
     ${opFerr("frVeiculo", "carro", "Meu carro ou moto", "Quanto custa por mês, por dia e por km")}
     ${opFerr("frCasa", "casa", "Minha casa", "Quanto a casa custa por mês e quanto pesa na renda")}
     ${opFerr("frDica", "luz", "Dica do dia para guardar dinheiro", "Um hábito pequeno por dia")}
