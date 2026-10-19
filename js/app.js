@@ -528,7 +528,7 @@ async function startApp(store, quem) {
     else if (S.compartilhado || S.atalho) aoChegar();
     else if (S.casal?.situacao === "convidado") conviteDeCasal();
     else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) { S.prefs.boasVindas = true; salvaPrefs(); tourInicial(() => setTimeout(() => guiaPasso("renda", true), 250)); }
-    else if (store.kind === "local" && !S.semLogin && !S.prefs.tourVisto) tourInicial();
+    else if (store.kind === "local" && !S.prefs.tourVisto) tourInicial(null, TOUR_DEMO);
     else conviteAvisos();
   } catch (e) { console.error(e); showBanner("Não foi possível carregar seus dados. Confira a internet e recarregue a página."); }
 }
@@ -3349,16 +3349,26 @@ const TOUR = [
   ["saldo", "Veja quanto sobra", "O número grande do início é quanto sobra no mês, já descontando contas fixas e faturas. A cor diz se está tudo bem: verde, laranja ou vermelho."],
   ["cofre", "Guarde para o que importa", "Crie uma caixinha com uma meta e o app calcula quanto guardar por mês. Se quiser um empurrão, tem o desafio de economia."],
 ];
-function tourInicial(depois) {
+/** Primeiro ensinamento da demonstração: o que a pessoa está vendo e o que fazer primeiro. O último passo leva a criar a conta. */
+const TOUR_DEMO = [
+  ["pessoa", "Este é um mês de exemplo", "Tudo aqui é de mentira e fica só neste aparelho, então pode mexer à vontade. Para voltar ao começo, toque em Recomeçar, no aviso do topo."],
+  ["saldo", "Veja quanto sobra", "O número grande é quanto ainda dá para gastar no mês, depois das contas fixas e das faturas. Ao lado dele aparece quanto dá por dia."],
+  ["mais", "Lance um gasto em segundos", "Toque em Lançar gasto, ou em Por voz para falar. Anote um café e veja o número do início mudar na hora."],
+  ["calc", "Veja o que vem pela frente", "Mais abaixo, em Próximos vencimentos, ficam as contas e as faturas com a data. Em Planejar estão os limites e as metas, e em Mais, as ferramentas e a busca."],
+  ["cofre", "Gostou? Use com os seus dados", "Crie a sua conta e comece com o mês em branco: o app guia os primeiros passos. Se preferir, continue explorando a demonstração.", ["Criar minha conta", () => contaAPartirDaDemo()]],
+];
+function tourInicial(depois, passos = TOUR) {
   S.prefs.tourVisto = true; salvaPrefs();
+  const TOUR = passos;
   let i = 0, fim = false;
   const fechou = () => { if (fim) return; fim = true; $("dlg").removeEventListener("close", fechou); depois?.(); };
   const passo = () => {
     const [icone, titulo, texto] = TOUR[i], ultimo = i === TOUR.length - 1;
     openDlg(`<div class="tour"><span class="tour-ic">${ico(icone === "plus" ? "mais" : icone)}</span><p class="guia-etapa">${i + 1} de ${TOUR.length}</p><h3>${titulo}</h3><p class="tour-tx">${texto}</p>
       <div class="tour-pts" aria-hidden="true">${TOUR.map((_, k) => `<i class="${k === i ? "on" : ""}"></i>`).join("")}</div>
-      <div class="actions">${i ? `<button class="btn" type="button" id="tVolta">Voltar</button>` : `<button class="btn" type="button" data-close>Pular</button>`}<button class="btn primary" type="button" id="tProx">${ultimo ? "Começar" : "Próximo"}</button></div></div>`);
+      <div class="actions">${i ? `<button class="btn" type="button" id="tVolta">Voltar</button>` : `<button class="btn" type="button" data-close>Pular</button>`}${ultimo && TOUR[i][3] ? `<button class="btn" type="button" id="tExtra">${TOUR[i][3][0]}</button>` : ""}<button class="btn primary" type="button" id="tProx">${ultimo ? (passos === TOUR_DEMO ? "Continuar explorando" : "Começar") : "Próximo"}</button></div></div>`);
     if ($("tVolta")) $("tVolta").onclick = () => { i--; passo(); };
+    if ($("tExtra")) $("tExtra").onclick = () => { const f = TOUR[i][3][1]; $("dlg").close(); f(); };
     $("tProx").onclick = () => { if (ultimo) $("dlg").close(); else { i++; passo(); } };
   };
   passo();
