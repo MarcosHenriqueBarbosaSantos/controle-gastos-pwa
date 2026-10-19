@@ -814,8 +814,9 @@ picture{display:contents}
   <h2 class="sobe" style="margin-top:10px">Antes de começar.</h2>
   <div class="faq">
     <details data-venda hidden><summary>Quanto custa?</summary><p><b data-preco></b>. É um plano anual: você paga uma vez por ano, pela Hotmart, no cartão, Pix ou boleto. A demonstração é grátis e não pede cadastro.</p></details>
+    <details data-venda hidden><summary>Posso parcelar?</summary><p>No cartão de crédito, sim. As opções de parcelas aparecem na página de pagamento, antes de você confirmar. No Pix e no boleto o pagamento é à vista.</p></details>
     <details data-venda hidden><summary>Como recebo o acesso depois de comprar?</summary><p>O acesso é liberado para o e-mail usado na compra, em geral em menos de um minuto depois do pagamento aprovado. Abra o app, crie a sua conta com esse mesmo e-mail e pronto. No boleto, a liberação pode levar até 3 dias úteis.</p></details>
-    <details data-venda hidden><summary>E se eu me arrepender?</summary><p>Você tem 7 dias a partir da compra para pedir o dinheiro de volta, direto pela Hotmart, sem precisar explicar o motivo.</p></details>
+    <details data-venda hidden><summary>Tem garantia? E se eu me arrepender?</summary><p>Você tem 7 dias a partir da compra para pedir o dinheiro de volta, direto pela Hotmart, sem precisar explicar o motivo.</p></details>
     <details data-venda hidden><summary>O que acontece se eu não renovar?</summary><p>O app deixa de aceitar lançamentos novos, mas os seus dados continuam guardados. Você ainda entra para baixar tudo em planilha, e eles voltam a aparecer se você renovar. A renovação pode ser cancelada quando você quiser. As regras completas estão nos <a href="termos.html">Termos de uso</a>.</p></details>
     <details><summary>Como excluo a minha conta?</summary><p>Dentro do app, em Ajustes, na parte Sua conta. Você confirma com a senha e a conta é apagada na hora, com todos os registros. Antes, dá para baixar tudo em planilha.</p></details>
     <details><summary>Dá para usar a dois, com a minha esposa ou o meu marido?</summary><p>Dá. Em Conta de casal, você convida a outra pessoa pelo e-mail. Cada um entra com o seu e-mail e a sua senha, e os dois veem e lançam nas mesmas contas, cartões, limites e metas. O app mostra quem lançou cada gasto. <span data-venda hidden>Uma assinatura vale para os dois.</span></p></details>
@@ -854,9 +855,7 @@ picture{display:contents}
 //   lancamento: opcional, o preço de lançamento. Só preencha se a oferta existir de verdade na página de pagamento,
 //               por exemplo "Lançamento: R$ 29,90 no primeiro ano, para as 100 primeiras pessoas."
 //   link:       o endereço da página de pagamento na Hotmart. É ele que liga a venda no site.
-// Black Friday (27/11/2026): depois de criar o cupom de R$ 49 na Hotmart, troque os dois campos abaixo e o site mostra a oferta até a data, sozinho:
-//   lancamento: "Black Friday: R$ 49 no primeiro ano, só até 30/11.", lancamentoAte: "2026-11-30", linkLancamento: "<link do cupom da Hotmart>"
-const OFERTA = { preco: "R$ 69 por ano", detalhe: "Plano anual. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", lancamentoAte: "", linkLancamento: "", link: "https://pay.hotmart.com/G107911431C" };
+const OFERTA = { preco: "R$ 69 por ano", detalhe: "Plano anual, com 7 dias de garantia e parcelamento no cartão. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", lancamentoAte: "", linkLancamento: "", link: "https://pay.hotmart.com/G107911431C" };
 // ================= preço de lançamento com data para acabar =================
 // lancamentoAte: último dia da oferta, no formato "2026-10-31". Depois dele, o aviso some e o link volta ao normal sozinho.
 // linkLancamento: o link de pagamento que já abre com o cupom aplicado (a Hotmart mostra esse link na tela do cupom).
@@ -881,13 +880,13 @@ qa("[data-app]").forEach((a) => { a.href = APP + a.dataset.app; if (NO_APP) { a.
 
 if (OFERTA.link && OFERTA.preco) {
   qa("[data-cta]").forEach((a) => { a.href = LINK_PAGAMENTO; a.target = "_blank"; a.rel = "noopener"; a.textContent = a.closest(".topo") ? "Comprar" : "Quero o Meus Gastos"; });
-  q("[data-nota]").textContent = "Compra pela página de pagamento da plataforma de vendas.";
+  q("[data-nota]").textContent = "Garantia de 7 dias: se não gostar, o dinheiro volta. Dá para parcelar no cartão.";
   q("[data-oferta-titulo]").textContent = "Comece a enxergar o seu mês hoje.";
   q("[data-oferta-texto]").textContent = "Você cria sua conta, cadastra o que é fixo e passa a acompanhar o mês com previsão e avisos.";
   q("[data-oferta-rot]").textContent = "Meus Gastos";
   q("[data-oferta-preco]").textContent = OFERTA.preco;
   q("[data-oferta-detalhe]").textContent = OFERTA.detalhe || "Acesso ao app no celular e no computador.";
-  q("[data-oferta-rodape]").innerHTML = 'Pagamento pela Hotmart, no cartão, Pix ou boleto. Você tem 7 dias para pedir o dinheiro de volta. Ao comprar, você concorda com os <a href="termos.html">Termos de uso</a>.';
+  q("[data-oferta-rodape]").innerHTML = 'Pagamento pela Hotmart, no cartão (dá para parcelar), Pix ou boleto. Você tem 7 dias para pedir o dinheiro de volta. Ao comprar, você concorda com os <a href="termos.html">Termos de uso</a>.';
   if (OFERTA.lancamento) { const l = q("[data-oferta-lanc]"); l.textContent = OFERTA.lancamento; l.hidden = false; }
   // Quem ainda quer ver antes de comprar continua com a demonstração a um toque, e as perguntas sobre a compra aparecem.
   qa("[data-venda]").forEach((e) => (e.hidden = false));
