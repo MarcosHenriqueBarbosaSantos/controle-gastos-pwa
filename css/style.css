@@ -1234,9 +1234,9 @@ html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.2
 }
 
 /* Meses em chips, logo abaixo das ações rápidas (só no celular; as setas do topo continuam) */
-.meses-chips{display:flex;gap:8px;margin:12px 16px 0;overflow-x:auto;scrollbar-width:none}
+.meses-chips{display:flex;gap:6px;margin:0;overflow-x:auto;scrollbar-width:none}
 .meses-chips::-webkit-scrollbar{display:none}
-.meses-chips button{flex:1 1 0;min-width:max-content;border:1px solid var(--border);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:10px 14px;font-weight:600;font-size:14px;transition:background .15s,color .15s,border-color .15s,transform .08s}
+.meses-chips button{flex:1 1 0;min-width:max-content;border:1px solid var(--border);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:8px 14px;font-weight:600;font-size:14px;transition:background .15s,color .15s,border-color .15s,transform .08s}
 .meses-chips button:hover{background:var(--surface-2)}
 .meses-chips button:active{transform:scale(.98)}
 .meses-chips button[aria-current="true"]{background:var(--series-soft);color:var(--brand);border-color:transparent}
@@ -1259,3 +1259,5 @@ html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.2
 .ic-op .ic{width:24px;height:24px}
 .ic-op:hover{background:var(--surface-2)} .ic-op:active{transform:scale(.96)}
 .ic-op.sel{border-color:var(--series);background:var(--series-soft)}
+
+.meses-chips button.atual{flex:0 0 auto;background:transparent;border-style:dashed;color:var(--series)}

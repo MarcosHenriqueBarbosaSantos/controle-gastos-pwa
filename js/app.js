@@ -635,6 +635,17 @@ function rotuloDia(iso) {
   return `${DIAS3[diaDaSemana(iso)]}, ${iso.slice(8, 10)} de ${nomeMes(iso.slice(0, 7))}`;
 }
 
+/** No celular, o mês fica em chips no topo (anterior, atual e seguinte) no lugar das setas; o computador continua com as setas. */
+function mesesNoTopo(mostrar) {
+  const host = $("mesesTopo"), nav = document.querySelector(".top .monthnav");
+  host.hidden = !mostrar; nav.hidden = mostrar;
+  if (!mostrar) { host.innerHTML = ""; return; }
+  host.innerHTML = [-1, 0, 1].map((k) => { const m = addM(S.mes, k), n = Number(m.slice(5)) - 1, outroAno = m.slice(0, 4) !== S.mes.slice(0, 4);
+    const nome = outroAno ? `${MES3[n]} ${m.slice(0, 4)}` : MESES[n][0].toUpperCase() + MESES[n].slice(1);
+    return `<button type="button" data-mes="${m}"${k === 0 ? ' aria-current="true"' : ""}>${nome}</button>`; }).join("")
+    + (S.mes !== mKey(hoje()) ? `<button type="button" class="atual" data-mes="${mKey(hoje())}">Mês atual</button>` : "");
+  host.querySelectorAll("[data-mes]").forEach((b) => (b.onclick = () => { S.mes = b.dataset.mes; render(); }));
+}
 /* ================= render ================= */
 function render() {
   const [y, mo] = S.mes.split("-").map(Number);
@@ -642,6 +653,7 @@ function render() {
   const naMais = S.view === "mais", sub = S.view === "listas" && SUBS.includes(S.tab);
   $("mesTitulo").textContent = naMais ? "Mais" : `${MESES[mo - 1]} ${y}`;
   $("hoje").hidden = naMais || S.mes === mKey(hoje());
+  mesesNoTopo(!naMais && noCelular());
   const c = calcMes(S.data, S.mes, hoje());
   // No celular aparece uma tela por vez; a barra de baixo mostra onde a pessoa está.
   // Barra de baixo: Início · Extrato · + · Planejar (limites e metas) · Mais. Contas fixas, entradas e cartões abrem a partir de Mais.
@@ -839,9 +851,6 @@ function renderKpis(c) {
     <button type="button" data-acao="ler"><span>${ico("qr")}</span>Escanear e importar</button>
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
-  <div class="meses-chips" role="group" aria-label="Escolher o mês">${[-1, 0, 1].map((k) => { const m = addM(S.mes, k), n = Number(m.slice(5)) - 1, outroAno = m.slice(0, 4) !== S.mes.slice(0, 4);
-    const nome = outroAno ? `${MES3[n]} ${m.slice(0, 4)}` : MESES[n][0].toUpperCase() + MESES[n].slice(1);
-    return `<button type="button" data-mes="${m}"${k === 0 ? ' aria-current="true"' : ""}>${nome}</button>`; }).join("")}</div>
   <div class="atalhos" role="group" aria-label="Atalhos">
     <button type="button" data-atalho="mercado">${ico("carrinho")}Lista de mercado</button>
     <button type="button" data-atalho="veiculo">${ico("carro")}Meu carro ou moto</button>
@@ -859,7 +868,6 @@ function renderKpis(c) {
   $("grafSobraSec").innerHTML = (atualM || c.fase === "passado") && sb.livre > 0 ? graficoDaSobra(c) : "";
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
-  $("resumo").querySelectorAll("[data-mes]").forEach((b) => (b.onclick = () => { S.mes = b.dataset.mes; render(); }));
   $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ mercado, veiculo: meuVeiculo, casa: minhaCasa, ferr: ferramentas })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
