@@ -855,6 +855,7 @@ function renderKpis(c) {
     <button type="button" data-acao="ler"><span>${ico("qr")}</span>Escanear e importar</button>
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
+  ${htmlMercadoIni()}
   <nav class="ir-para" aria-label="Ir para">
     <button type="button" data-atalho="ext">${ico("saldo")}<span>Extrato</span></button>
     <button type="button" data-atalho="plan">${ico("grafico")}<span>Planejar</span></button>
@@ -869,6 +870,7 @@ function renderKpis(c) {
   $("grafSobraSec").innerHTML = (atualM || c.fase === "passado") && sb.livre > 0 ? graficoDaSobra(c) : "";
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
+  ligaMercadoIni();
   $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), ferr: ferramentas })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
@@ -3065,6 +3067,33 @@ function comemora() {
   document.body.append(el); setTimeout(() => el.remove(), 1300);
 }
 
+/** Lista de mercado no Início: anota o item na hora e, no mercado, é só abrir a lista e colocar os valores. */
+function htmlMercadoIni() {
+  const l = listaDe(), falta = l.itens.filter((x) => !x.pego), precos = S.prefs.precosMercado || {};
+  const e = estimativaDaLista(l.itens, precos, 0), nCar = l.itens.length - falta.length;
+  const res = !l.itens.length ? "Anote o que falta. No mercado, é só colocar os valores."
+    : `${falta.length} ${falta.length === 1 ? "item para pegar" : "itens para pegar"}${nCar ? ` · ${nCar} no carrinho` : ""}${e.estimado > 0 ? ` · estimativa ${brl(e.estimado)}` : ""}`;
+  return `<section class="merc-ini" aria-label="Lista de mercado">
+    <div class="merc-topo"><span class="l">${ico("carrinho")}<b>Lista de mercado</b></span><button class="btn sm" type="button" id="mercAbrir">${l.itens.length ? "Abrir a lista" : "Criar a lista"}</button></div>
+    <p class="merc-res">${res}</p>
+    ${falta.length ? `<ul class="merc-chips" aria-label="O que falta pegar">${falta.slice(0, 6).map((x) => `<li>${esc(x.nome || "Item")}</li>`).join("")}${falta.length > 6 ? `<li class="mais">+${falta.length - 6}</li>` : ""}</ul>` : ""}
+    <form id="mercForm" class="merc-add" autocomplete="off"><input class="in" id="mercNome" maxlength="40" placeholder="Anotar item (ex.: arroz)" aria-label="Anotar item na lista de mercado" enterkeyhint="done">
+      <button type="submit" aria-label="Adicionar à lista">${ico("mais")}</button></form></section>`;
+}
+function ligaMercadoIni() {
+  if (!$("mercForm")) return;
+  $("mercAbrir").onclick = mercado;
+  $("mercForm").addEventListener("submit", (ev) => {
+    ev.preventDefault();
+    const nome = $("mercNome").value.trim();
+    if (!nome) return $("mercNome").focus();
+    const l = listaDe(); if (l.itens.length >= 300) return void toast("A lista chegou a 300 itens. Finalize ou limpe antes de adicionar mais.");
+    l.itens.push({ id: crypto.randomUUID(), nome: nome.slice(0, 40), qtd: 1, preco: 0, pego: false, t: Date.now() });
+    gravaLista(l); render();
+    toast(`${nome.slice(0, 40)} anotado na lista de mercado.`);
+    setTimeout(() => $("mercNome")?.focus(), 0);
+  });
+}
 /* ---------- Compras no mercado ---------- */
 const MERC_CHAVE = "cg-mercado";   // só para trazer a lista que a pessoa montou nas versões anteriores
 const listaDe = () => {

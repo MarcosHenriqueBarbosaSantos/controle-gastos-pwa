@@ -1374,3 +1374,18 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .proj-nums .pos{color:var(--good)} .proj-nums .neg{color:var(--bad)}
 .proj-nota{margin:8px 6px 0;font-size:13px;color:var(--ink-2)}
 @media (prefers-reduced-motion:reduce){.proj-trilho i,.ir-para button{transition:none}}
+
+/* Início: lista de mercado à vista, com anotação rápida */
+.merc-ini{margin:12px 16px 0;padding:14px;background:var(--surface);border:1px solid var(--border);border-radius:18px;box-shadow:var(--shadow-sm);display:grid;gap:10px}
+.merc-topo{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.merc-topo .l{display:inline-flex;align-items:center;gap:8px;font-size:15px}
+.merc-topo .ic{width:22px;height:22px;color:var(--series)}
+.merc-topo .btn{min-height:44px}
+.merc-res{margin:0;font-size:13.5px;color:var(--ink-2)}
+.merc-chips{list-style:none;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:6px}
+.merc-chips li{padding:6px 12px;border-radius:999px;background:var(--series-soft);color:var(--ink);font-size:13.5px;font-weight:600}
+.merc-chips li.mais{background:var(--sunk);color:var(--ink-2)}
+.merc-add{display:flex;gap:8px}
+.merc-add .in{flex:1;min-width:0;min-height:48px}
+.merc-add button{flex:none;width:48px;height:48px;border-radius:14px;border:0;background:var(--btn);color:#fff;display:grid;place-items:center;cursor:pointer}
+.merc-add button .ic{width:22px;height:22px}
