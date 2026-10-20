@@ -5559,7 +5559,7 @@ function conferirExtrato(ext, nomeArquivo) {
       ext.estornos.length ? `${plural(ext.estornos.length, "estorno", "estornos")} (${brl(soma(ext.estornos))})` : "",
       ext.saldos?.length ? `o saldo da fatura anterior, ${brl(soma(ext.saldos))} (já foi contado no mês em que aquela fatura venceu)` : ""].filter(Boolean).join(" e ");
     openDlg(`<div class="ext"><h3>Fatura do cartão</h3>
-      <p class="hint" style="margin:0 0 12px;font-size:13px">O app entendeu que ${esc(nomeArquivo)} é uma <b>fatura de cartão de crédito</b>: ${plural(est.itens.length, "compra", "compras")}. Confira e lance tudo de uma vez. Era o extrato da conta (Pix e débito)? <button class="link" type="button" id="extOutro">Escolher outro arquivo</button></p>
+      <p class="hint" style="margin:0 0 12px;font-size:13px"><b>${plural(est.itens.length, "compra", "compras")}</b> em ${esc(nomeArquivo)}. Não é a fatura do cartão? <button class="link" type="button" id="extOutro">Escolher outro arquivo</button></p>
       <form id="extForm" autocomplete="off">
       <div class="dlg-form">
         <label class="f">Cartão<select class="in" id="extCartao">${ativos.map((c) => `<option value="${esc(c.id)}"${c.id === k.id ? " selected" : ""}>${esc(c.nome)}</option>`).join("")}</select></label>
@@ -5658,10 +5658,11 @@ function conferirConta(fonte, nomeArquivo) {
     const listaVis = () => mesesVis.length < 2 ? `<ul class="ext-lista">${vis.map((it) => linha(it)).join("")}</ul>`
       : `<p class="hint" style="margin:0 0 6px">${mesesVis.length} meses no arquivo. Toque num mês para ver os movimentos ou marque o mês inteiro.</p>` + mesesVis.map((m) => `<details class="mes-bloco"><summary><input type="checkbox" data-mes="${m}" aria-label="Marcar ${nomeMes(m)} de ${m.slice(0, 4)} inteiro"><span class="mes-nome"><b>${nomeMes(m)} de ${m.slice(0, 4)}</b><span class="hint" data-mes-res="${m}"></span></span></summary><ul class="ext-lista">${vis.filter((it) => it.data.startsWith(m)).map((it) => linha(it)).join("")}</ul></details>`).join("");
     openDlg(`<div class="ext"><h3>Extrato da conta</h3>
-      <p class="hint" style="margin:0 0 10px;font-size:13px">O app entendeu que ${esc(nomeArquivo)} é o <b>extrato da conta</b>: ${plural(itens.length, "movimento", "movimentos")}, de ${ddmm(conta.periodo.de)} a ${ddmm(conta.periodo.ate)}. Entram nos gastos e nas entradas do mês, não na fatura. Era a fatura do cartão? <button class="link" type="button" id="extOutro">Escolher outro arquivo</button></p>
+      <p class="hint" style="margin:0 0 10px;font-size:13px"><b>${plural(itens.length, "movimento", "movimentos")}</b> de ${ddmm(conta.periodo.de)} a ${ddmm(conta.periodo.ate)} em ${esc(nomeArquivo)}. Não é o extrato da conta? <button class="link" type="button" id="extOutro">Escolher outro arquivo</button></p>
       <form id="ctForm">
-      <label class="f wide">Seu nome no banco (opcional)<input class="in" id="ctNome" maxlength="60" autocomplete="off" value="${esc(est.meuNome)}" placeholder="Ex.: Maria da Silva"></label>
-      <p class="hint" style="margin:4px 0 8px">Com o seu nome, as transferências entre as suas próprias contas não são contadas como entrada nem como gasto.</p>
+      <details class="manual ct-nome" style="margin:0 0 10px"><summary>${est.meuNome ? "Seu nome: " + esc(est.meuNome) : "Passa dinheiro entre as suas contas? Diga o seu nome"}</summary>
+        <label class="f wide" style="margin-top:8px">Seu nome completo, como no banco (opcional)<input class="in" id="ctNome" maxlength="60" autocomplete="off" value="${esc(est.meuNome)}" placeholder="Ex.: Maria da Silva"></label>
+        <p class="hint" style="margin:4px 0 0">Com o seu nome, o dinheiro que você passa entre as suas próprias contas não conta como entrada nem como gasto.</p></details>
       ${vis.length ? `<div class="ext-topo"><b id="ctSoma"></b><button class="link" type="button" id="ctTodas"></button></div>
       ${listaVis()}` : `<div class="empty" style="margin-top:12px">Todos os movimentos desse arquivo já foram importados antes.</div>`}
       ${vis.some((it) => it.estado === "fixa") ? `<p class="hint" style="margin:8px 0 0">${plural(vis.filter((it) => it.estado === "fixa").length, "movimento é o pagamento de uma conta fixa que você já cadastrou", "movimentos são pagamentos de contas fixas que você já cadastrou")}. Eles começam desmarcados para o gasto não contar duas vezes, e a conta fixa é marcada como paga ao lançar.</p>` : ""}
