@@ -1262,3 +1262,15 @@ html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.2
 
 .meses-chips button.atual{flex:0 0 auto;background:transparent;border-style:dashed;color:var(--series)}
 .ext-lista .v.pos{color:var(--good)}
+
+/* Cartões: apagar (ícone), compras da fatura com X e deslizar, e a lista que desliza */
+.cartoes .acts{display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.cartoes .del.icone{width:36px;height:36px;padding:0;display:grid;place-items:center;border-radius:10px}
+.cartoes li,.itens li[data-ic]{touch-action:pan-y}
+.desliza-apaga{background:var(--bad-soft)!important;transition:none}
+.itens li.com-x{grid-template-columns:auto minmax(0,1fr) auto 32px}
+.itens li.com-x b{align-self:center}
+.item-x{width:32px;height:32px;border-radius:50%;border:0;background:transparent;color:var(--muted);display:grid;place-items:center;align-self:center;transition:background .15s,color .15s}
+.item-x:hover,.item-x:focus-visible{background:var(--bad-soft);color:var(--bad)}
+.item-x .ic{width:16px;height:16px}
+.itens li.toca:focus-visible{outline:2px solid var(--series);outline-offset:-2px}

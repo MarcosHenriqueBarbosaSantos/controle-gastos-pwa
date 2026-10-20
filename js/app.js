@@ -4,14 +4,14 @@ import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
-  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA } from "./calc.js";
+  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
+  avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
 import { pareceConta, leConta } from "./conta.js";
@@ -1828,10 +1828,10 @@ function paneC(c) {
   const semCartao = semCartaoNoMes(S.data, S.mes);
   const linhaCartao = (k) => {
     const prox = futuras.find((x) => x.cartao_id === k.id), off = k.ativo === false;
-    return `<li class="${off ? "off" : ""}">${ava("", "Cartao")}<span class="oque"><b>${esc(k.nome)}${off ? ` <span class="tag">desativado</span>` : ""}</b>
+    return `<li class="${off ? "off" : ""}" data-kid="${esc(k.id)}">${ava("", "Cartao")}<span class="oque"><b>${esc(k.nome)}${off ? ` <span class="tag">desativado</span>` : ""}</b>
       <span>Fecha dia ${pad(k.fechamento)} · vence dia ${pad(k.vencimento)}${prox ? ` · próxima fatura ${brl(prox.valor)} em ${ddmm(prox.vencimento)}` : ""}</span></span>
       <span class="acts"><button class="act" type="button" data-ked="${esc(k.id)}">Editar</button>${off ? `<button class="act" type="button" data-kon="${esc(k.id)}">Reativar</button>`
-        : `<button class="del" type="button" data-kdel="${esc(k.id)}" title="${usados.has(k.id) ? "Sai da lista de novas compras; as faturas continuam" : "Remove o cartão"}">${usados.has(k.id) ? "Desativar" : "Remover"}</button>`}</span></li>`;
+        : usados.has(k.id) ? `<button class="act" type="button" data-koff="${esc(k.id)}" title="Sai da lista de novas compras; as faturas continuam">Desativar</button>` : ""}<button class="del icone" type="button" data-kapaga="${esc(k.id)}" aria-label="Apagar o cartão ${esc(k.nome)}" title="Apagar o cartão">${ico("lixo")}</button></span></li>`;
   };
   const linhaFatura = (x, i) => {
     const venc = ddmmaa(x.vencimento), paga = x.status === "Paga";
@@ -1853,7 +1853,7 @@ function paneC(c) {
      <button class="btn primary" type="submit">Adicionar cartão</button>
      ${soltos.length ? `<label class="check"><input type="checkbox" id="kLigar" ${cartoes.length ? "" : "checked"}> Usar este cartão nas ${soltos.length} ${soltos.length === 1 ? "compra no cartão que já lancei" : "compras no cartão que já lancei"} sem cartão escolhido</label>` : ""}
    </form>
-   <h3 class="sub-h">Faturas de ${nomeMes(S.mes)} <button class="btn sm ler" type="button" id="lerFatura">${ico("camera")}Ler fatura</button><button class="btn sm ler" type="button" id="impExtrato">${ico("subir")}Importar extrato</button></h3>
+   <h3 class="sub-h">Faturas de ${nomeMes(S.mes)} <button class="btn sm ler" type="button" id="lerFatura">${ico("camera")}Ler fatura</button><button class="btn sm ler" type="button" id="impExtrato">${ico("subir")}Importar extrato</button><button class="btn sm ler" type="button" id="expCartao">${ico("baixar")}Exportar</button></h3>
    ${vis.length ? `<div class="tbl"><table class="cards"><thead><tr><th>Vence</th><th>Cartão</th><th class="hide-sm">Origem</th><th class="num">Fatura</th><th>Situação</th><th></th></tr></thead><tbody>${vis.map(linhaFatura).join("")}</tbody>
      <tfoot><tr><td class="d"></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} de meses anteriores</span>` : ""}</td></tr></tfoot></table></div>`
      : `<div class="empty">Nenhuma fatura com vencimento em ${nomeMes(S.mes)}.</div>`}
@@ -1878,6 +1878,7 @@ function paneC(c) {
   host.querySelectorAll("[data-fat]").forEach((b) => (b.onclick = () => editarFatura(vis[Number(b.dataset.fat)])));
   $("lerFatura").onclick = () => abrirLeitor("fatura");
   $("impExtrato").onclick = abrirExtrato;
+  $("expCartao").onclick = () => exportarCartao("", "fatura");
   host.querySelectorAll("[data-cdel]").forEach((b) => armDelete(b, async () => {
     const id = b.dataset.cdel;
     if (await grava(() => S.store.deleteFatura(id))) { S.data.faturas = S.data.faturas.filter((z) => z.id !== id); render(); }
@@ -1886,13 +1887,13 @@ function paneC(c) {
   host.querySelectorAll("[data-kon]").forEach((b) => (b.onclick = async () => {
     const k = cartaoPorId(b.dataset.kon); if (k && await grava(() => S.store.updateCartao(k.id, { ativo: true }))) k.ativo = true; render();
   }));
-  host.querySelectorAll("[data-kdel]").forEach((b) => armDelete(b, async () => {
-    const k = cartaoPorId(b.dataset.kdel); if (!k) return;
-    // Cartão com compras não é apagado: sai da lista de novas compras e as faturas dele continuam valendo.
-    if (usados.has(k.id)) { if (await grava(() => S.store.updateCartao(k.id, { ativo: false }))) k.ativo = false; }
-    else if (await grava(() => S.store.deleteCartao(k.id))) { S.data.cartoes = S.data.cartoes.filter((z) => z.id !== k.id); S.data.faturas = S.data.faturas.filter((z) => z.cartao_id !== k.id); }
+  // Desativar: o cartão sai da lista de novas compras e as faturas dele continuam valendo. Apagar tira o cartão (e, se a pessoa quiser, as compras).
+  host.querySelectorAll("[data-koff]").forEach((b) => (b.onclick = async () => {
+    const k = cartaoPorId(b.dataset.koff); if (k && await grava(() => S.store.updateCartao(k.id, { ativo: false }))) k.ativo = false;
     render();
   }));
+  host.querySelectorAll("[data-kapaga]").forEach((b) => (b.onclick = () => apagarCartao(b.dataset.kapaga)));
+  ligaDeslizarLinha(host, "ul.cartoes li[data-kid]", (el) => apagarCartao(el.dataset.kid));
   $("formK").addEventListener("submit", async (e) => {
     e.preventDefault();
     const nome = $("kNome").value.trim(), dia = (id) => Math.min(31, Math.max(1, Math.round(Number($(id).value)) || 0));
@@ -2916,14 +2917,35 @@ async function repeteLancamento(x) {
   vibra(); render();
   toastDesfazer(`Lançado de novo: ${row.descricao || row.categoria} · ${brl(row.valor)}, hoje.`, async () => { if (await apagaLancamento(g.id)) render(); });
 }
-async function apagaComDesfazer(id) {
+/** Apaga um lançamento com "Desfazer". `depois` roda depois de apagar e depois de desfazer (a tela que está aberta se atualiza). */
+async function apagaComDesfazer(id, depois) {
   const x = lancPorId(id); if (!x) return;
   const { enviando, pendente, comprovante, user_id, ...copia } = x;
   if (!(await apagaLancamento(id))) return;
-  vibra(); render();
+  vibra(); render(); depois?.();
   toastDesfazer(`Apagado: ${x.descricao || x.categoria} · ${brl(x.valor)}.`, async () => {
-    let novo; if (await grava(async () => { [novo] = await S.store.addLancamentos([copia]); })) { const g = novo || copia; S.data.lancamentos.push({ ...g, valor: Number(g.valor) }); render(); }
+    let novo; if (await grava(async () => { [novo] = await S.store.addLancamentos([copia]); })) { const g = novo || copia; S.data.lancamentos.push({ ...g, valor: Number(g.valor) }); render(); depois?.(); }
   });
+}
+/** Deslizar uma linha para a esquerda apaga (a tela decide o que fazer). Vale para qualquer lista: `seletor` diz quais linhas deslizam. */
+function ligaDeslizarLinha(host, seletor, aoApagar) {
+  host._desliza = { seletor, aoApagar };
+  if (host.dataset.deslizaL) return; host.dataset.deslizaL = "1";
+  let li = null, x0 = 0, y0 = 0, dx = 0, trava = false;
+  const solta = () => { const el = li; li = null; dx = 0; trava = false; if (el) { el.style.transform = ""; el.classList.remove("desliza-apaga"); } return el; };
+  host.addEventListener("touchstart", (e) => {
+    const c = host._desliza; li = c && e.touches.length === 1 && !e.target.closest("button, a, input, select") ? e.target.closest(c.seletor) : null;
+    if (li) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; trava = false; }
+  }, { passive: true });
+  host.addEventListener("touchmove", (e) => {
+    if (!li) return;
+    const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+    if (!trava) { if (Math.abs(my) > 12 && Math.abs(my) > Math.abs(mx)) { li = null; return; } if (mx < -12 && Math.abs(mx) > Math.abs(my) * 1.5) trava = true; else return; }
+    dx = Math.max(-140, Math.min(0, mx)); li.style.transform = `translateX(${dx}px)`; li.classList.add("desliza-apaga");
+    if (e.cancelable) e.preventDefault();
+  }, { passive: false });
+  host.addEventListener("touchend", () => { const d = dx, foi = trava, el = solta(); if (el && foi && d < -90) { fimDeslizar = Date.now(); host._desliza.aoApagar(el); } });
+  host.addEventListener("touchcancel", solta);
 }
 let fimDeslizar = 0;
 /** Na lista do celular: deslizar para a direita repete o lançamento e para a esquerda apaga (com desfazer). */
@@ -3691,16 +3713,21 @@ document.body.classList.toggle("ocultar", valoresOcultos());
 /** "Escanear e importar": tudo o que traz gastos de fora, num lugar só. */
 function escanearEImportar() {
   const op = (id, icone, t, s) => `<button class="mais-item" type="button" id="${id}"><span class="ic-box">${ico(icone)}</span><span class="tx"><b>${t}</b><span>${s}</span></span>${ico("chev")}</button>`;
-  openDlg(`<h3>Escanear e importar</h3><p class="hint" style="margin:0 0 12px">O app lê no próprio aparelho e mostra tudo para você conferir antes de lançar.</p>
+  openDlg(`<h3>Escanear, importar e exportar</h3><p class="hint" style="margin:0 0 12px">O app lê no próprio aparelho e mostra tudo para você conferir antes de lançar.</p>
     <div class="caixa-mais">${op("esQr", "qr", "Ler QR code", "Pix, cupom fiscal (nota) ou código de barras do boleto")}
       ${op("esFoto", "camera", "Foto ou PDF de comprovante", "Pix, boleto, maquininha, fatura ou holerite")}
       ${op("esExtrato", "subir", "Importar extrato", "da fatura do cartão ou da conta: CSV, OFX ou Excel")}
       ${op("esMsg", "clipe", "Colar mensagem do banco", "a notificação ou o SMS de uma compra, Pix ou pagamento")}</div>
+    <h4 class="ferr-h" style="margin:16px 0 6px">Exportar</h4>
+    <div class="caixa-mais">${op("esExpMes", "baixar", "Extrato do mês", `${nomeMes(S.mes)} de ${S.mes.slice(0, 4)}, em Excel, PDF ou CSV`)}
+      ${op("esExpCartao", "baixar", "Cartão", "A fatura do mês ou todas as compras, em Excel, PDF ou CSV")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
   $("esQr").onclick = () => { $("dlg").close(); setTimeout(() => { abrirLancar(); abrirQr(); }, 200); };
   $("esFoto").onclick = () => { $("dlg").close(); setTimeout(() => abrirLeitor(), 200); };
   $("esExtrato").onclick = () => { $("dlg").close(); setTimeout(() => abrirExtrato(), 200); };
   $("esMsg").onclick = () => colarMensagem();
+  $("esExpMes").onclick = () => exportarExtratoMes(escanearEImportar);
+  $("esExpCartao").onclick = () => exportarCartao("", "fatura", escanearEImportar);
 }
 function acaoRapida(a) {
   if (a === "cal") return calendario(mKey(hoje()));
@@ -4198,17 +4225,30 @@ function editarFatura(x) {
     return;
   }
   const k = cartaoPorId(x.cartao_id), per = k ? periodoDaFatura(k, mKey(x.vencimento)) : null;
+  // Compra: toque abre a edição, o X (ou deslizar para a esquerda) apaga com Desfazer. Conta fixa no cartão se edita em Contas fixas.
+  const linhaItem = (i) => (i.origem === "compra"
+    ? `<li class="toca com-x" data-ic="${esc(i.id)}" tabindex="0" role="button" aria-label="Editar ${esc(i.descricao)}"><span class="d">${ddmm(i.data)}</span><span>${esc(i.descricao)}${i.de > 1 ? ` <span class="tag">${i.parcela}/${i.de}</span>` : ""}<span class="mini">toque para editar · deslize para apagar</span></span><b>${brl(i.valor)}</b><button class="item-x" type="button" data-xc="${esc(i.id)}" aria-label="Apagar ${esc(i.descricao)}">${ico("x")}</button></li>`
+    : `<li class="com-x"><span class="d">${ddmm(i.data)}</span><span>${esc(i.descricao)} <span class="tag">fixo</span><span class="mini">é uma conta fixa: edite em Contas fixas</span></span><b>${brl(i.valor)}</b><span></span></li>`);
   openDlg(`<h3>Fatura ${esc(x.cartao)}</h3>
     <p class="hint" style="margin:0">Vence em ${ddmmaa(x.vencimento)}${per ? ` · compras de ${ddmm(per.de)} a ${ddmm(per.ate)}` : ""}</p>
-    <ul class="itens">${x.itens.map((i) => `<li><span class="d">${ddmm(i.data)}</span><span>${esc(i.descricao)}${i.de > 1 ? ` <span class="tag">${i.parcela}/${i.de}</span>` : ""}${i.origem === "fixo" ? ` <span class="tag">fixo</span>` : ""}</span><b>${brl(i.valor)}</b></li>`).join("")
-      || `<li><span></span><span style="color:var(--muted)">Nenhuma compra lançada nesta fatura.</span><b></b></li>`}
-      <li class="tot"><span></span><span>Soma das compras</span><b>${brl(x.calculado)}</b></li></ul>
+    <ul class="itens">${x.itens.map(linhaItem).join("")
+      || `<li class="com-x"><span></span><span style="color:var(--muted)">Nenhuma compra lançada nesta fatura.</span><b></b><span></span></li>`}
+      <li class="tot com-x"><span></span><span>Soma das compras</span><b>${brl(x.calculado)}</b><span></span></li></ul>
     <form id="edForm" class="dlg-form" autocomplete="off">
       <label class="f">Valor da fatura (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${valorTxt(x.valor)}"></label>
       ${situacao}
       <p class="hint wide" style="margin:0">O banco cobrou outro valor (juros, anuidade, alguma compra que faltou lançar)? Corrija o valor acima: ele passa a valer no lugar da soma.${x.valor_fixo ? ` <button class="link" type="button" id="eVoltar">Voltar ao valor calculado</button>` : ""}</p>
       <p class="auth-msg err wide" id="edMsg"></p>
       <div class="actions wide"><button class="btn primary" type="submit">Salvar</button><button class="btn" type="button" data-close>Fechar</button></div></form>`);
+  // Depois de apagar ou editar uma compra, a fatura abre de novo com o valor novo (ou fecha, se não sobrou compra).
+  const refaz = () => { const nova = faturasDoMes(S.data, mKey(x.vencimento)).find((f) => f.auto && f.cartao_id === x.cartao_id); if (nova) editarFatura(nova); else $("dlg").close(); };
+  $("dlgBody").querySelectorAll("[data-xc]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); apagaComDesfazer(b.dataset.xc, refaz); }));
+  const editaItem = (id) => { editarLancamento(id); $("dlg").addEventListener("close", () => { if (!$("dlg").open) setTimeout(refaz, 0); }, { once: true }); };
+  $("dlgBody").querySelectorAll("[data-ic]").forEach((li) => {
+    li.onclick = (e) => { if (!e.target.closest("button") && Date.now() - fimDeslizar > 400) editaItem(li.dataset.ic); };
+    li.onkeydown = (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === li) { e.preventDefault(); editaItem(li.dataset.ic); } };
+  });
+  ligaDeslizarLinha($("dlgBody"), "ul.itens li[data-ic]", (el) => apagaComDesfazer(el.dataset.ic, refaz));
   const salvar = async (valor, status) => {
     const fixo = Math.abs(valor - x.calculado) >= 0.005;
     // Sem compras e sem valor corrigido não sobra nada para guardar: o registro guarda o último valor válido.
@@ -4226,6 +4266,99 @@ function editarFatura(x) {
     if (!(x.calculado > 0)) { $("edMsg").textContent = "Esta fatura não tem compras lançadas, então não há valor calculado para voltar."; return; }
     salvar(x.calculado, $("eSt").value);
   };
+}
+/* ---------- Apagar um cartão ---------- */
+/** Mostra o que depende do cartão e deixa escolher: apagar tudo, só o cartão (as compras ficam sem cartão) ou baixar antes. */
+function apagarCartao(id) {
+  const k = cartaoPorId(id); if (!k) return;
+  const d = dependentesDoCartao(S.data, id), tem = d.compras.length + d.fixos.length > 0, plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
+  const resumo = tem ? `Este cartão tem <b>${plural(d.compras.length, "compra lançada", "compras lançadas")}</b>${d.total ? ` (${brl(d.total)})` : ""}${d.fixos.length ? ` e <b>${plural(d.fixos.length, "conta fixa cobrada", "contas fixas cobradas")}</b> nele` : ""}.` : "Nenhuma compra nem conta fixa está ligada a este cartão.";
+  openDlg(`<h3>Apagar ${esc(k.nome)}?</h3>
+    <p style="margin:0 0 8px;color:var(--ink-2)">${resumo}</p>
+    <p class="hint" style="margin:0 0 12px">Apagar não dá para desfazer.${tem ? " Se quiser guardar uma cópia, baixe antes." : ""}</p>
+    <div class="caixa-mais">${tem ? `${opFerr("apTudo", "lixo", "Apagar o cartão e tudo dele", `${plural(d.compras.length, "compra", "compras")}${d.fixos.length ? ` e ${plural(d.fixos.length, "conta fixa", "contas fixas")}` : ""} também saem do app`)}
+      ${opFerr("apSo", "lixo", "Apagar só o cartão", "As compras ficam no extrato, sem cartão escolhido (não entram em nenhuma fatura)")}
+      ${opFerr("apBaixar", "baixar", "Baixar as compras antes", "Em Excel, PDF ou CSV")}` : opFerr("apSo", "lixo", "Apagar o cartão", "Ele some da lista de cartões")}</div>
+    <div class="actions"><button class="btn" type="button" data-close>Cancelar</button></div>`);
+  const aposApagar = (msg) => { $("dlg").close(); render(); toast(msg); };
+  $("apSo").onclick = async () => {
+    if (!(await grava(() => S.store.deleteCartao(id)))) return;
+    // Como no banco: as compras ficam sem cartão e os registros de fatura daquele cartão somem.
+    S.data.cartoes = S.data.cartoes.filter((z) => z.id !== id); S.data.faturas = S.data.faturas.filter((z) => z.cartao_id !== id);
+    [...S.data.lancamentos, ...S.data.fixos].forEach((x) => { if (x.cartao_id === id) x.cartao_id = null; });
+    aposApagar(`${k.nome} apagado.${tem ? " As compras continuam no extrato, sem cartão escolhido." : ""}`);
+  };
+  if ($("apTudo")) $("apTudo").onclick = async () => {
+    $("apTudo").disabled = true;
+    const ok = await grava(async () => {
+      for (let i = 0; i < d.compras.length; i += 10) await Promise.all(d.compras.slice(i, i + 10).map((x) => S.store.deleteLancamento(x.id)));
+      for (const f of d.fixos) await S.store.deleteFixo(f.id);
+      await S.store.deleteCartao(id);
+    });
+    if (!ok) { $("apTudo").disabled = false; return; }
+    d.compras.forEach((x) => { if (x.comprovante) Promise.resolve(S.store.apagaComprovante?.(x.comprovante)).catch(() => { /* nada */ }); });
+    const fixosIds = new Set(d.fixos.map((f) => f.id)), comprasIds = new Set(d.compras.map((x) => x.id));
+    S.data.lancamentos = S.data.lancamentos.filter((x) => !comprasIds.has(x.id)); S.data.fixos = S.data.fixos.filter((f) => !fixosIds.has(f.id));
+    S.data.pagos = (S.data.pagos || []).filter((p) => !fixosIds.has(p.fixo_id));
+    S.data.cartoes = S.data.cartoes.filter((z) => z.id !== id); S.data.faturas = S.data.faturas.filter((z) => z.cartao_id !== id);
+    aposApagar(`${k.nome} apagado, com ${plural(d.compras.length, "compra", "compras")}${d.fixos.length ? ` e ${plural(d.fixos.length, "conta fixa", "contas fixas")}` : ""}.`);
+  };
+  if ($("apBaixar")) $("apBaixar").onclick = () => exportarCartao(id, "todas", () => apagarCartao(id));
+}
+
+/* ---------- Exportar o extrato do mês e o cartão (Excel, PDF ou CSV) ---------- */
+const slug = (s) => norm(s).replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "cartao";
+/** Planilha do Excel com uma aba: cabeçalho, linhas e as colunas indicadas como número com duas casas. */
+async function baixaTabelaExcel(btn, arquivo, aba, cab, linhas, numericas = []) {
+  if (btn) btn.disabled = true;
+  try { await carregaXLSX(); } catch { /* cai na mensagem abaixo */ } finally { if (btn) btn.disabled = false; }
+  if (typeof XLSX === "undefined") return showBanner("Não foi possível gerar a planilha do Excel. Confira a internet e tente de novo, ou baixe em PDF ou CSV.");
+  const ws = XLSX.utils.aoa_to_sheet([cab, ...linhas]);
+  ws["!cols"] = cab.map((c) => ({ wch: /descri/i.test(c) ? 36 : /categoria/i.test(c) ? 22 : /forma/i.test(c) ? 20 : 14 }));
+  linhas.forEach((_l, r) => numericas.forEach((c) => { const cel = ws[XLSX.utils.encode_cell({ r: r + 1, c })]; if (cel && typeof cel.v === "number") cel.z = "#,##0.00"; }));
+  const wb = XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb, ws, aba.slice(0, 31)); XLSX.writeFile(wb, arquivo);
+}
+const opcoesDeArquivo = (sx, sp, sc) => `<div class="caixa-mais">${opFerr("exX", "baixar", "Planilha do Excel", sx)}${opFerr("exP", "baixar", "PDF", sp)}${opFerr("exC", "baixar", "CSV", sc)}</div>`;
+/** O extrato do mês que está na tela: lançamentos, contas fixas e as faturas que vencem nele. */
+function exportarExtratoMes(voltar) {
+  const m = S.mes, linhas = linhasDoMes(S.data, m), nome = `${nomeMes(m)} de ${m.slice(0, 4)}`;
+  openDlg(`<h3>Extrato de ${nome}</h3>
+    <p class="hint" style="margin:0 0 12px">${linhas.length ? `${linhas.length} ${linhas.length === 1 ? "linha" : "linhas"}: lançamentos, contas fixas e as faturas que vencem no mês.` : "Este mês ainda não tem lançamentos."} O arquivo é feito aqui no aparelho. Para outro mês, troque o mês na tela antes.</p>
+    ${opcoesDeArquivo("Uma aba com todas as linhas, valores como número", "Resumo do mês, lançamentos e faturas", "Lista simples, abre no Excel e no Google Planilhas")}
+    <div class="actions">${voltar ? `<button class="btn" type="button" id="exVolta">Voltar</button>` : ""}<button class="btn" type="button" data-close>Fechar</button></div>`);
+  if (voltar) $("exVolta").onclick = voltar;
+  $("exC").onclick = () => baixaArquivo(`meus-gastos-extrato-${m}.csv`, new Blob([csvDoMes(S.data, m)], { type: "text/csv;charset=utf-8" }));
+  $("exP").onclick = () => baixaArquivo(`meus-gastos-extrato-${m}.pdf`, new Blob([pdfDeLinhas(extratoDoMesEmLinhas(S.data, m, hoje()))], { type: "application/pdf" }));
+  $("exX").onclick = () => baixaTabelaExcel($("exX"), `meus-gastos-extrato-${m}.xlsx`, nome, CAB_EXTRATO, linhas.map((x) => [ddmmaaaa(x.data), x.tipo, x.categoria, x.descricao, x.forma, x.valor, x.origem]), [5]);
+}
+/** As compras de um cartão: as da fatura que vence no mês da tela, ou todas as compras lançadas nele. */
+function exportarCartao(idInicial = "", escopo = "fatura", voltar) {
+  const cartoes = S.data.cartoes;
+  if (!cartoes.length) {
+    openDlg(`<h3>Exportar cartão</h3><p class="hint" style="margin:0 0 12px">Você ainda não cadastrou nenhum cartão.</p>
+      <div class="actions"><button class="btn primary" type="button" id="exCad">Cadastrar cartão</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+    $("exCad").onclick = () => { $("dlg").close(); S.view = "listas"; S.tab = "c"; render(); };
+    return;
+  }
+  const est = { id: cartoes.some((k) => k.id === idInicial) ? idInicial : (cartoes.find((k) => k.ativo !== false) || cartoes[0]).id, escopo };
+  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
+  const monta = () => {
+    const k = cartaoPorId(est.id), m = est.escopo === "fatura" ? S.mes : "", linhas = linhasDoCartao(S.data, k.id, m), total = round2(linhas.reduce((t, x) => t + x.valor, 0));
+    const rotuloMes = `${nomeMes(S.mes)} de ${S.mes.slice(0, 4)}`, base = `meus-gastos-${slug(k.nome)}-${m || "todas-as-compras"}`;
+    openDlg(`<h3>Exportar cartão</h3>
+      <div class="dlg-form"><label class="f">Cartão<select class="in" id="exCartao">${cartoes.map((c) => `<option value="${esc(c.id)}"${c.id === k.id ? " selected" : ""}>${esc(c.nome)}${c.ativo === false ? " (desativado)" : ""}</option>`).join("")}</select></label>
+        <label class="f">O que baixar<select class="in" id="exEscopo"><option value="fatura"${est.escopo === "fatura" ? " selected" : ""}>Fatura que vence em ${rotuloMes}</option><option value="todas"${est.escopo === "todas" ? " selected" : ""}>Todas as compras do cartão</option></select></label></div>
+      <p class="hint" style="margin:8px 0 12px">${linhas.length ? `${plural(linhas.length, "item", "itens")}, ${brl(total)}.` : est.escopo === "fatura" ? "Esse cartão não tem compras na fatura deste mês." : "Esse cartão ainda não tem compras lançadas."} Para outra fatura, troque o mês na tela antes.</p>
+      ${opcoesDeArquivo("Uma aba com as compras e o total", "As compras e o total", "Lista simples, abre no Excel e no Google Planilhas")}
+      <div class="actions">${voltar ? `<button class="btn" type="button" id="exVolta">Voltar</button>` : ""}<button class="btn" type="button" data-close>Fechar</button></div>`);
+    if (voltar) $("exVolta").onclick = voltar;
+    $("exCartao").onchange = (e) => { est.id = e.target.value; monta(); };
+    $("exEscopo").onchange = (e) => { est.escopo = e.target.value; monta(); };
+    $("exC").onclick = () => baixaArquivo(`${base}.csv`, new Blob([csvDoCartao(S.data, k.id, m)], { type: "text/csv;charset=utf-8" }));
+    $("exP").onclick = () => baixaArquivo(`${base}.pdf`, new Blob([pdfDeLinhas(cartaoEmLinhas(S.data, k.id, k.nome, m, hoje()))], { type: "application/pdf" }));
+    $("exX").onclick = () => baixaTabelaExcel($("exX"), `${base}.xlsx`, k.nome, CAB_CARTAO, [...linhas.map((x) => [ddmmaaaa(x.data), x.descricao, x.categoria, x.parcela, x.valor, x.origem]), ["", "Total", "", "", total, ""]], [4]);
+  };
+  monta();
 }
 function editarCartao(id) {
   const k = cartaoPorId(id); if (!k) return;
