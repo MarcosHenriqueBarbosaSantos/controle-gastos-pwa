@@ -13,7 +13,8 @@ import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJu
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
-import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves } from "./extrato.js";
+import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
+import { pareceConta, leConta } from "./conta.js";
 
 const $ = (id) => document.getElementById(id);
 const NS = "http://www.w3.org/2000/svg";
@@ -3693,7 +3694,7 @@ function escanearEImportar() {
   openDlg(`<h3>Escanear e importar</h3><p class="hint" style="margin:0 0 12px">O app lê no próprio aparelho e mostra tudo para você conferir antes de lançar.</p>
     <div class="caixa-mais">${op("esQr", "qr", "Ler QR code", "Pix, cupom fiscal (nota) ou código de barras do boleto")}
       ${op("esFoto", "camera", "Foto ou PDF de comprovante", "Pix, boleto, maquininha, fatura ou holerite")}
-      ${op("esExtrato", "subir", "Importar extrato do cartão", "o arquivo que o banco exporta: CSV, OFX ou Excel")}
+      ${op("esExtrato", "subir", "Importar extrato", "da fatura do cartão ou da conta: CSV, OFX ou Excel")}
       ${op("esMsg", "clipe", "Colar mensagem do banco", "a notificação ou o SMS de uma compra, Pix ou pagamento")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
   $("esQr").onclick = () => { $("dlg").close(); setTimeout(() => { abrirLancar(); abrirQr(); }, 200); };
@@ -4789,8 +4790,8 @@ async function ligaCameraDoQr(vez, msg) {
 }
 /** Explica o que é o extrato e abre a escolha do arquivo. */
 function abrirExtrato() {
-  openDlg(`<h3>Importar extrato do cartão</h3>
-    <p class="hint" style="margin:0 0 10px;font-size:13px">Em vez de digitar compra por compra, traga o arquivo que o banco exporta. O app lança todas as compras no cartão e a fatura é montada sozinha.</p>
+  openDlg(`<h3>Importar extrato</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">Em vez de digitar um por um, traga o arquivo que o banco exporta. Serve para a <b>fatura do cartão</b> (as compras entram no cartão e a fatura é montada sozinha) e para o <b>extrato da conta</b> (Pix, débito e entradas).</p>
     <ul class="dicas"><li>No app ou no site do banco, abra a fatura do cartão e procure exportar ou enviar por e-mail em <b>CSV</b>, <b>OFX</b> ou <b>Excel</b>.</li><li>Você confere a lista e as categorias antes de lançar.</li><li>Pode importar de novo quando a fatura tiver compras novas: o que já entrou não é repetido.</li><li>O arquivo é lido no seu aparelho; só as compras que você lançar são salvas na sua conta.</li></ul>
     <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="extEscolher">${ico("subir")}Escolher o arquivo</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
   $("extEscolher").onclick = () => $("extratoIn").click();
@@ -4978,17 +4979,24 @@ function conferirLeitura(r, texto, previa) {
 $("extratoIn").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) importarExtrato(f); });
 
 async function importarExtrato(arquivo) {
-  let ext = null;
+  let ext = null, fonteConta = null;
   try {
     if (ehPlanilha(arquivo)) {
       try { await carregaXLSX(); } catch { /* cai na mensagem abaixo */ }
       if (typeof XLSX === "undefined") return showBanner("Não foi possível abrir o leitor de Excel. Confira a internet e tente de novo.");
       const wb = XLSX.read(await arquivo.arrayBuffer(), { type: "array" });
+      const folhas = wb.SheetNames.map((n) => XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null }));
+      const daConta = folhas.find((l) => pareceConta(l));
       // Fica com a aba que tem mais compras.
-      ext = wb.SheetNames.map((n) => leExtrato({ linhas: XLSX.utils.sheet_to_json(wb.Sheets[n], { header: 1, raw: true, defval: null }), hoje: hoje(), nome: arquivo.name }))
-        .sort((a, b) => b.compras.length - a.compras.length)[0];
-    } else ext = leExtrato({ texto: decodifica(new Uint8Array(await arquivo.arrayBuffer())), hoje: hoje(), nome: arquivo.name });
+      if (daConta) fonteConta = { linhas: daConta };
+      else ext = folhas.map((linhas) => leExtrato({ linhas, hoje: hoje(), nome: arquivo.name })).sort((a, b) => b.compras.length - a.compras.length)[0];
+    } else {
+      const texto = decodifica(new Uint8Array(await arquivo.arrayBuffer()));
+      // O extrato da conta (Pix, débito, entradas) tem o sinal ao contrário do cartão: lê à parte, para não virar compra de cartão.
+      if (pareceConta(separaCsv(texto))) fonteConta = { texto }; else ext = leExtrato({ texto, hoje: hoje(), nome: arquivo.name });
+    }
   } catch (e) { console.error(e); }
+  if (fonteConta) return conferirConta(fonteConta, arquivo.name || "extrato");
   if (!ext || !ext.compras.length) {
     return openDlg(`<h3>Não achei compras nesse arquivo</h3>
       <p style="color:var(--ink-2);margin:0 0 14px">O arquivo precisa ter, em cada linha, a data, a descrição e o valor da compra. No app ou no site do banco, abra a fatura do cartão e procure a opção de exportar ou enviar por e-mail em <b>CSV</b>, <b>OFX</b> ou <b>Excel</b>. Fatura em PDF ou foto vai pelo botão Ler fatura.</p>
@@ -5054,7 +5062,8 @@ function conferirExtrato(ext, nomeArquivo) {
     const ligado = (it) => (it.marcado === null ? it.estado === "nova" : it.marcado);
     const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, soma = (l) => round2(l.reduce((t, x) => t + x.valor, 0));
     const fora = [ext.pagamentos.length ? `${plural(ext.pagamentos.length, "pagamento de fatura", "pagamentos de fatura")} (${brl(soma(ext.pagamentos))})` : "",
-      ext.estornos.length ? `${plural(ext.estornos.length, "estorno", "estornos")} (${brl(soma(ext.estornos))})` : ""].filter(Boolean).join(" e ");
+      ext.estornos.length ? `${plural(ext.estornos.length, "estorno", "estornos")} (${brl(soma(ext.estornos))})` : "",
+      ext.saldos?.length ? `o saldo da fatura anterior, ${brl(soma(ext.saldos))} (já foi contado no mês em que aquela fatura venceu)` : ""].filter(Boolean).join(" e ");
     openDlg(`<div class="ext"><h3>Importar extrato do cartão</h3>
       <p class="hint" style="margin:0 0 12px;font-size:13px">Achei <b>${plural(est.itens.length, "compra", "compras")}</b> em ${esc(nomeArquivo)}. Confira, ajuste as categorias e lance tudo de uma vez.</p>
       <form id="extForm" autocomplete="off">
@@ -5112,6 +5121,77 @@ function conferirExtrato(ext, nomeArquivo) {
       $("dlg").close(); fecharLancar(); render();
       const f = faturasDoMes(S.data, m).find((x) => x.auto && x.cartao_id === k.id);
       toastOuFlash(`${plural(novos.length, "compra lançada", "compras lançadas")} no ${k.nome}.${f ? ` Fatura de ${nomeMes(m)}: ${brl(f.valor)}${f.valor_fixo ? ` (valor corrigido à mão; a soma das compras é ${brl(f.calculado)})` : ""}.` : ""}`);
+    });
+  };
+  monta();
+}
+
+/**
+ * Extrato da conta (Pix, débito e entradas): lista os movimentos para conferir e lança tudo de uma vez.
+ * Ficam de fora, com o motivo, o pagamento da fatura do cartão, o Pix pago no crédito e (se a pessoa disser o nome dela)
+ * as transferências entre contas dela. Quem quiser pode incluir qualquer um deles mesmo assim.
+ */
+function conferirConta(fonte, nomeArquivo) {
+  const catD = cats("Despesa"), catR = cats("Receita"), est = { meuNome: S.prefs.meuNome || "", marcados: new Map(), cats: new Map() };
+  // Categoria: primeiro o que a pessoa já usou para a mesma descrição; depois o palpite pelo nome.
+  const historico = new Map();
+  [...S.data.lancamentos].sort((a, b) => a.data.localeCompare(b.data)).forEach((x) => { if (x.descricao && x.tipo !== "Reserva") historico.set(`${x.tipo}|${norm(x.descricao)}`, x.categoria); });
+  const chaves = new Set(S.data.lancamentos.map((x) => x.import_key).filter(Boolean));
+  const jaTem = (m) => S.data.lancamentos.some((x) => x.tipo === m.tipo && x.data === m.data && Math.abs(Number(x.valor) - m.valor) < 0.005);
+  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
+  const formaDe = (m) => (m.tipo === "Receita" ? "" : m.forma === "Débito" ? "Débito" : m.forma === "Pix" || m.forma === "Transferência" ? "Pix" : /boleto/i.test(m.original) ? "Boleto" : "Débito");
+  const monta = () => {
+    const conta = leConta({ ...fonte, hoje: hoje(), meuNome: est.meuNome });
+    const itens = conta.movimentos.map((m) => {
+      const lista = m.tipo === "Receita" ? catR : catD, c = historico.get(`${m.tipo}|${norm(m.descricao)}`) || m.categoria;
+      return { ...m, cat: est.cats.get(m.chave) || (lista.includes(c) ? c : lista.includes("Outros") ? "Outros" : lista[0]), estado: chaves.has(m.chave) ? "importada" : m.ignorar ? "fora" : jaTem(m) ? "parecida" : "nova" };
+    });
+    if (!itens.length) return openDlg(`<h3>Não achei movimentos nesse arquivo</h3><p style="color:var(--ink-2);margin:0 0 14px">O arquivo precisa ter data, valor e descrição em cada linha.</p><div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+    const ligado = (it) => (est.marcados.has(it.chave) ? est.marcados.get(it.chave) : it.estado === "nova");
+    const vis = itens.filter((it) => it.estado === "nova" || it.estado === "parecida"), fora = itens.filter((it) => it.estado === "fora"), antigas = itens.filter((it) => it.estado === "importada").length;
+    const linha = (it, extra = "") => `<li class="${it.estado}">
+        <input type="checkbox" data-k="${esc(it.chave)}" ${ligado(it) ? "checked" : ""} aria-label="${it.tipo === "Receita" ? "Lançar entrada" : "Lançar gasto"}: ${esc(it.descricao)}">
+        <span class="oque"><b>${esc(it.descricao)}${it.forma ? ` <span class="tag">${esc(it.forma)}</span>` : ""}</b>
+          <span>${ddmm(it.data)}${it.estado === "parecida" ? ` · <em>parece já estar lançado</em>` : ""}${extra}</span></span>
+        <b class="v ${it.tipo === "Receita" ? "pos" : ""}">${it.tipo === "Receita" ? "+ " : ""}${brl(it.valor)}</b>
+        <select class="in" data-c="${esc(it.chave)}" aria-label="Categoria de ${esc(it.descricao)}">${opts(it.tipo === "Receita" ? catR : catD, it.cat)}</select></li>`;
+    openDlg(`<div class="ext"><h3>Importar extrato da conta</h3>
+      <p class="hint" style="margin:0 0 10px;font-size:13px">Achei <b>${plural(itens.length, "movimento", "movimentos")}</b> em ${esc(nomeArquivo)}, de ${ddmm(conta.periodo.de)} a ${ddmm(conta.periodo.ate)}. Confira, ajuste as categorias e lance tudo de uma vez.</p>
+      <form id="ctForm">
+      <label class="f wide">Seu nome no banco (opcional)<input class="in" id="ctNome" maxlength="60" autocomplete="off" value="${esc(est.meuNome)}" placeholder="Ex.: Maria da Silva"></label>
+      <p class="hint" style="margin:4px 0 8px">Com o seu nome, as transferências entre as suas próprias contas não são contadas como entrada nem como gasto.</p>
+      ${vis.length ? `<div class="ext-topo"><b id="ctSoma"></b><button class="link" type="button" id="ctTodas"></button></div>
+      <ul class="ext-lista">${vis.map((it) => linha(it)).join("")}</ul>` : `<div class="empty" style="margin-top:12px">Todos os movimentos desse arquivo já foram importados antes.</div>`}
+      ${antigas ? `<p class="hint" style="margin:10px 0 0">${plural(antigas, "movimento já tinha sido importado", "movimentos já tinham sido importados")} antes e ${antigas === 1 ? "ficou" : "ficaram"} de fora.</p>` : ""}
+      ${fora.length ? `<details class="manual" style="margin-top:10px"><summary>${plural(fora.length, "movimento não entra", "movimentos não entram")} (por padrão)</summary>
+        <p class="hint" style="margin:6px 0">Marque se quiser incluir algum mesmo assim.</p><ul class="ext-lista">${fora.map((it) => linha(it, ` · ${esc(it.motivo)}`)).join("")}</ul></details>` : ""}
+      <p class="auth-msg err" id="ctMsg" style="margin:8px 0 0"></p>
+      <div class="actions" style="margin-top:12px">${itens.some((x) => x.estado !== "importada") ? `<button class="btn primary" type="submit" id="ctSalvar">Lançar</button>` : ""}<button class="btn" type="button" data-close>Cancelar</button></div>
+      </form></div>`);
+    $("ctNome").onchange = async (e) => { est.meuNome = e.target.value.trim(); est.marcados.clear(); S.prefs.meuNome = est.meuNome; salvaPrefs(); monta(); };
+    const todos = [...vis, ...fora], conta2 = () => {
+      const sel = todos.filter(ligado), saidas = round2(sel.filter((x) => x.tipo === "Despesa").reduce((t, x) => t + x.valor, 0)), entradas = round2(sel.filter((x) => x.tipo === "Receita").reduce((t, x) => t + x.valor, 0));
+      if ($("ctSoma")) $("ctSoma").textContent = `${plural(sel.length, "marcado", "marcados")} · saídas ${brl(saidas)} · entradas ${brl(entradas)}`;
+      if ($("ctSalvar")) { $("ctSalvar").textContent = sel.length ? `Lançar ${plural(sel.length, "movimento", "movimentos")}` : "Lançar"; $("ctSalvar").disabled = !sel.length; }
+      if ($("ctTodas")) $("ctTodas").textContent = vis.every(ligado) ? "Desmarcar todos" : "Marcar todos";
+    };
+    $("dlgBody").querySelectorAll("[data-k]").forEach((b) => (b.onchange = () => { est.marcados.set(b.dataset.k, b.checked); conta2(); }));
+    $("dlgBody").querySelectorAll("[data-c]").forEach((b) => (b.onchange = () => est.cats.set(b.dataset.c, b.value)));
+    if ($("ctTodas")) $("ctTodas").onclick = () => { const tudo = vis.every(ligado); vis.forEach((it) => est.marcados.set(it.chave, !tudo)); $("dlgBody").querySelectorAll(".ext-lista:first-of-type [data-k]").forEach((b) => (b.checked = !tudo)); conta2(); };
+    conta2();
+    $("ctForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const sel = todos.filter(ligado); if (!sel.length) return;
+      const linhas = sel.map((it) => ({ data: it.data, descricao: it.descricao, tipo: it.tipo, categoria: it.cat, forma: formaDe(it), valor: it.valor, cartao_id: null, parcelas: 1, import_key: it.chave }));
+      $("ctSalvar").disabled = true; $("ctSalvar").textContent = "Lançando…";
+      let novos; const ok = await grava(async () => { novos = await S.store.addLancamentos(linhas); });
+      if (!ok) { $("ctSalvar").disabled = false; conta2(); return; }
+      S.data.lancamentos.push(...novos);
+      const ultimo = sel.map((x) => x.data).sort().pop();
+      S.mes = mKey(ultimo); S.view = "listas"; S.tab = "l";
+      $("dlg").close(); fecharLancar(); render();
+      const s = sel.filter((x) => x.tipo === "Despesa").length, en = sel.length - s;
+      toastOuFlash(`${plural(novos.length, "movimento lançado", "movimentos lançados")}: ${plural(s, "gasto", "gastos")} e ${plural(en, "entrada", "entradas")}.`);
     });
   };
   monta();

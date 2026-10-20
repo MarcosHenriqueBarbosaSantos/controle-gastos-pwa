@@ -1261,3 +1261,4 @@ html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.2
 .ic-op.sel{border-color:var(--series);background:var(--series-soft)}
 
 .meses-chips button.atual{flex:0 0 auto;background:transparent;border-style:dashed;color:var(--series)}
+.ext-lista .v.pos{color:var(--good)}
