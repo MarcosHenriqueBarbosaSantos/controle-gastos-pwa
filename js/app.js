@@ -7,7 +7,8 @@ import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
-import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
+import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
+import { ehExtratoDeContaPdf, leExtratoDeContaPdf } from "./extratopdf.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
@@ -4961,8 +4962,14 @@ async function processaLeitura(arquivo, senha = "", semCodigo = false) {
   try {
     let texto, previa, lido = null;
     if (pdf) {
-      const r = await lerPdf(arquivo, { senha, aoProgredir: anda("Lendo o PDF…") });
+      const r = await lerPdf(arquivo, { senha, aoProgredir: anda("Lendo o PDF…"), parar: (txt) => ehExtratoDeContaPdf(txt.split("\n")) });
       if (vez !== leitura) return;
+      // Extrato da conta em PDF (o do Itaú junta vários meses): lê todas as páginas e vai para a conferência dos movimentos.
+      if (!r.tela) {
+        const ex = leExtratoDeContaPdf(await textoDoPdf(arquivo, { senha, aoProgredir: anda("Lendo o extrato, todas as páginas…") }));
+        if (vez !== leitura) return;
+        return conferirConta({ linhas: ex.linhas, titular: ex.titular }, arquivo.name || "extrato.pdf");
+      }
       texto = r.texto; previa = r.tela.toDataURL("image/jpeg", 0.72);
       // PDF que é só uma foto digitalizada não tem texto dentro: lê a primeira página como imagem.
       if (texto.replace(/\s/g, "").length < 40) ({ texto, leitura: lido } = await lerImagem(r.tela, anda("Esse PDF é uma imagem. Lendo o texto…"), hoje()));
@@ -5272,7 +5279,7 @@ function conferirExtrato(ext, nomeArquivo) {
  * as transferências entre contas dela. Quem quiser pode incluir qualquer um deles mesmo assim.
  */
 function conferirConta(fonte, nomeArquivo) {
-  const catD = cats("Despesa"), catR = cats("Receita"), est = { meuNome: S.prefs.meuNome || "", marcados: new Map(), cats: new Map() };
+  const catD = cats("Despesa"), catR = cats("Receita"), est = { meuNome: S.prefs.meuNome || fonte.titular || "", marcados: new Map(), cats: new Map() };
   // Categoria: primeiro o que a pessoa já usou para a mesma descrição; depois o palpite pelo nome.
   const historico = new Map();
   [...S.data.lancamentos].sort((a, b) => a.data.localeCompare(b.data)).forEach((x) => { if (x.descricao && x.tipo !== "Reserva") historico.set(`${x.tipo}|${norm(x.descricao)}`, x.categoria); });
@@ -5295,13 +5302,17 @@ function conferirConta(fonte, nomeArquivo) {
           <span>${ddmm(it.data)}${it.estado === "parecida" ? ` · <em>parece já estar lançado</em>` : ""}${extra}</span></span>
         <b class="v ${it.tipo === "Receita" ? "pos" : ""}">${it.tipo === "Receita" ? "+ " : ""}${brl(it.valor)}</b>
         <select class="in" data-c="${esc(it.chave)}" aria-label="Categoria de ${esc(it.descricao)}">${opts(it.tipo === "Receita" ? catR : catD, it.cat)}</select></li>`;
+    // Vários meses no mesmo arquivo (o extrato do Itaú junta 3 ou mais): um bloco por mês, fechado, com o total e uma caixa para marcar o mês inteiro.
+    const mesesVis = [...new Set(vis.map((it) => it.data.slice(0, 7)))].sort().reverse();
+    const listaVis = () => mesesVis.length < 2 ? `<ul class="ext-lista">${vis.map((it) => linha(it)).join("")}</ul>`
+      : `<p class="hint" style="margin:0 0 6px">${mesesVis.length} meses no arquivo. Toque num mês para ver os movimentos ou marque o mês inteiro.</p>` + mesesVis.map((m) => `<details class="mes-bloco"><summary><input type="checkbox" data-mes="${m}" aria-label="Marcar ${nomeMes(m)} de ${m.slice(0, 4)} inteiro"><span class="mes-nome"><b>${nomeMes(m)} de ${m.slice(0, 4)}</b><span class="hint" data-mes-res="${m}"></span></span></summary><ul class="ext-lista">${vis.filter((it) => it.data.startsWith(m)).map((it) => linha(it)).join("")}</ul></details>`).join("");
     openDlg(`<div class="ext"><h3>Extrato da conta</h3>
       <p class="hint" style="margin:0 0 10px;font-size:13px">O app entendeu que ${esc(nomeArquivo)} é o <b>extrato da conta</b>: ${plural(itens.length, "movimento", "movimentos")}, de ${ddmm(conta.periodo.de)} a ${ddmm(conta.periodo.ate)}. Entram nos gastos e nas entradas do mês, não na fatura. Era a fatura do cartão? <button class="link" type="button" id="extOutro">Escolher outro arquivo</button></p>
       <form id="ctForm">
       <label class="f wide">Seu nome no banco (opcional)<input class="in" id="ctNome" maxlength="60" autocomplete="off" value="${esc(est.meuNome)}" placeholder="Ex.: Maria da Silva"></label>
       <p class="hint" style="margin:4px 0 8px">Com o seu nome, as transferências entre as suas próprias contas não são contadas como entrada nem como gasto.</p>
       ${vis.length ? `<div class="ext-topo"><b id="ctSoma"></b><button class="link" type="button" id="ctTodas"></button></div>
-      <ul class="ext-lista">${vis.map((it) => linha(it)).join("")}</ul>` : `<div class="empty" style="margin-top:12px">Todos os movimentos desse arquivo já foram importados antes.</div>`}
+      ${listaVis()}` : `<div class="empty" style="margin-top:12px">Todos os movimentos desse arquivo já foram importados antes.</div>`}
       ${antigas ? `<p class="hint" style="margin:10px 0 0">${plural(antigas, "movimento já tinha sido importado", "movimentos já tinham sido importados")} antes e ${antigas === 1 ? "ficou" : "ficaram"} de fora.</p>` : ""}
       ${fora.length ? `<details class="manual" style="margin-top:10px"><summary>${plural(fora.length, "movimento não entra", "movimentos não entram")} (por padrão)</summary>
         <p class="hint" style="margin:6px 0">Marque se quiser incluir algum mesmo assim.</p><ul class="ext-lista">${fora.map((it) => linha(it, ` · ${esc(it.motivo)}`)).join("")}</ul></details>` : ""}
@@ -5309,16 +5320,23 @@ function conferirConta(fonte, nomeArquivo) {
       <div class="actions" style="margin-top:12px">${itens.some((x) => x.estado !== "importada") ? `<button class="btn primary" type="submit" id="ctSalvar">Lançar</button>` : ""}<button class="btn" type="button" data-close>Cancelar</button></div>
       </form></div>`);
     $("ctNome").onchange = async (e) => { est.meuNome = e.target.value.trim(); est.marcados.clear(); S.prefs.meuNome = est.meuNome; salvaPrefs(); monta(); };
-    const todos = [...vis, ...fora], conta2 = () => {
+    const todos = [...vis, ...fora], porChave = new Map(todos.map((it) => [it.chave, it])), conta2 = () => {
       const sel = todos.filter(ligado), saidas = round2(sel.filter((x) => x.tipo === "Despesa").reduce((t, x) => t + x.valor, 0)), entradas = round2(sel.filter((x) => x.tipo === "Receita").reduce((t, x) => t + x.valor, 0));
       if ($("ctSoma")) $("ctSoma").textContent = `${plural(sel.length, "marcado", "marcados")} · saídas ${brl(saidas)} · entradas ${brl(entradas)}`;
       if ($("ctSalvar")) { $("ctSalvar").textContent = sel.length ? `Lançar ${plural(sel.length, "movimento", "movimentos")}` : "Lançar"; $("ctSalvar").disabled = !sel.length; }
       if ($("ctTodas")) $("ctTodas").textContent = vis.every(ligado) ? "Desmarcar todos" : "Marcar todos";
+      $("dlgBody").querySelectorAll("[data-k]").forEach((b) => { const it = porChave.get(b.dataset.k); if (it) b.checked = ligado(it); });
+      $("dlgBody").querySelectorAll("[data-mes]").forEach((cb) => {
+        const l = vis.filter((it) => it.data.startsWith(cb.dataset.mes)), s = l.filter(ligado), soma = (tp) => brl(round2(s.filter((x) => x.tipo === tp).reduce((q, x) => q + x.valor, 0)));
+        cb.checked = s.length === l.length; cb.indeterminate = s.length > 0 && s.length < l.length;
+        $("dlgBody").querySelector(`[data-mes-res="${cb.dataset.mes}"]`).textContent = `${s.length} de ${l.length} · saídas ${soma("Despesa")} · entradas ${soma("Receita")}`;
+      });
     };
     $("dlgBody").querySelectorAll("[data-k]").forEach((b) => (b.onchange = () => { est.marcados.set(b.dataset.k, b.checked); conta2(); }));
     $("dlgBody").querySelectorAll("[data-c]").forEach((b) => (b.onchange = () => est.cats.set(b.dataset.c, b.value)));
     if ($("extOutro")) $("extOutro").onclick = () => $("extratoIn").click();
-    if ($("ctTodas")) $("ctTodas").onclick = () => { const tudo = vis.every(ligado); vis.forEach((it) => est.marcados.set(it.chave, !tudo)); $("dlgBody").querySelectorAll(".ext-lista:first-of-type [data-k]").forEach((b) => (b.checked = !tudo)); conta2(); };
+    if ($("ctTodas")) $("ctTodas").onclick = () => { const tudo = vis.every(ligado); vis.forEach((it) => est.marcados.set(it.chave, !tudo)); conta2(); };
+    $("dlgBody").querySelectorAll("[data-mes]").forEach((cb) => (cb.onchange = () => { vis.filter((it) => it.data.startsWith(cb.dataset.mes)).forEach((it) => est.marcados.set(it.chave, cb.checked)); conta2(); }));
     conta2();
     $("ctForm").addEventListener("submit", async (e) => {
       e.preventDefault();
@@ -5332,7 +5350,7 @@ function conferirConta(fonte, nomeArquivo) {
       S.mes = mKey(ultimo); S.view = "listas"; S.tab = "l";
       $("dlg").close(); fecharLancar(); render();
       const s = sel.filter((x) => x.tipo === "Despesa").length, en = sel.length - s;
-      toastOuFlash(`${plural(novos.length, "movimento lançado", "movimentos lançados")}: ${plural(s, "gasto", "gastos")} e ${plural(en, "entrada", "entradas")}.`);
+      const nMeses = new Set(sel.map((x) => x.data.slice(0, 7))).size; toastOuFlash(`${plural(novos.length, "movimento lançado", "movimentos lançados")}: ${plural(s, "gasto", "gastos")} e ${plural(en, "entrada", "entradas")}${nMeses > 1 ? `, em ${nMeses} meses` : ""}.`);
     });
   };
   monta();

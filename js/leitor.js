@@ -401,8 +401,9 @@ async function carregaPdf() {
  * se o PDF for só uma foto digitalizada, para a leitura por imagem).
  * Lança Error("pdf-senha") se o arquivo pede senha, Error("pdf-senha-errada") se a senha não abriu,
  * Error("pdf-invalido") se não é um PDF que dê para abrir e Error("leitor-indisponivel") se a biblioteca não carregou.
+ * `parar(texto)` (opcional): se devolver verdadeiro, a página não é desenhada e `tela` vem nula.
  */
-export async function lerPdf(arquivo, { senha = "", aoProgredir = () => {} } = {}) {
+export async function lerPdf(arquivo, { senha = "", aoProgredir = () => {}, parar = null } = {}) {
   aoProgredir({ etapa: "carregando", pct: 0 });
   const lib = await carregaPdf();
   const tarefa = lib.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()), ...(senha ? { password: senha } : {}) });
@@ -416,12 +417,35 @@ export async function lerPdf(arquivo, { senha = "", aoProgredir = () => {} } = {
       partes.push(linhasDoPdf(tc.items.map((it) => ({ str: it.str, x: it.transform[4], y: it.transform[5], h: it.height }))).join("\n"));
       aoProgredir({ etapa: "lendo", pct: Math.round((i / (n + 1)) * 100) });
     }
+    // `parar` olha o texto das primeiras páginas: se disser que sim (é um extrato da conta, por exemplo), nem desenha a página.
+    if (parar && parar(partes.join("\n"))) return { texto: partes.join("\n"), tela: null, paginas: doc.numPages };
     const pg = await doc.getPage(1), base = pg.getViewport({ scale: 1 });
     const vp = pg.getViewport({ scale: Math.min(2, 2000 / Math.max(base.width, base.height)) });
     const tela = document.createElement("canvas"); tela.width = Math.ceil(vp.width); tela.height = Math.ceil(vp.height);
     await pg.render({ canvas: tela, canvasContext: tela.getContext("2d"), viewport: vp }).promise;
     aoProgredir({ etapa: "lendo", pct: 100 });
     return { texto: partes.join("\n"), tela, paginas: doc.numPages };
+  } finally { tarefa.destroy().catch(() => {}); }
+}
+
+/**
+ * Lê só o texto de um PDF, de todas as páginas (até `maxPaginas`), sem desenhar a página. Serve para extrato da conta, que passa de
+ * 15 páginas quando junta vários meses. Mesmos erros de lerPdf. Devolve as linhas de texto, em ordem.
+ */
+export async function textoDoPdf(arquivo, { senha = "", maxPaginas = 80, aoProgredir = () => {} } = {}) {
+  const lib = await carregaPdf();
+  const tarefa = lib.getDocument({ data: new Uint8Array(await arquivo.arrayBuffer()), ...(senha ? { password: senha } : {}) });
+  let doc;
+  try { doc = await tarefa.promise; }
+  catch (e) { tarefa.destroy().catch(() => {}); throw new Error(e?.name === "PasswordException" ? (senha ? "pdf-senha-errada" : "pdf-senha") : "pdf-invalido"); }
+  try {
+    const n = Math.min(doc.numPages, maxPaginas), linhas = [];
+    for (let i = 1; i <= n; i++) {
+      const pg = await doc.getPage(i), tc = await pg.getTextContent();
+      linhas.push(...linhasDoPdf(tc.items.map((it) => ({ str: it.str, x: it.transform[4], y: it.transform[5], h: it.height }))));
+      aoProgredir({ etapa: "lendo", pct: Math.round((i / n) * 100) });
+    }
+    return linhas;
   } finally { tarefa.destroy().catch(() => {}); }
 }
 

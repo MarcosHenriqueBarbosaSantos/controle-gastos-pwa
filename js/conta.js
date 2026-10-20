@@ -76,13 +76,13 @@ export function leConta({ texto, linhas, hoje, meuNome = "" }) {
   const movimentos = bruto.map((x) => {
     const partes = x.original.split(" - ").map((s) => s.trim()), pre = norm(partes[0]);
     let forma = "", nome = x.original, pessoa = false;
-    if (/^transferencia (enviada|recebida)/.test(pre)) { forma = /pelo pix/.test(pre) ? "Pix" : "Transferência"; nome = partes[1] || x.original; pessoa = !/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}/.test(partes[2] || ""); }
+    if (/^transferencia (enviada|recebida)/.test(pre)) { forma = /pelo pix/.test(pre) ? "Pix" : "Transferência"; nome = partes[1] || x.original; pessoa = !/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|^qr$/i.test(partes[2] || ""); }
     else if (/^compra no debito/.test(pre)) { forma = "Débito"; nome = partes[1] || x.original; }
     let ignorar = false, motivo = anulados.get(x) || "";
     if (motivo) ignorar = true;
     else if (/^pagamento de fatura/.test(pre)) { ignorar = true; motivo = "Pagamento da fatura do cartão: o gasto já está na fatura"; }
     else if (/^(aplicacao|resgate)\b|\brdb\b/.test(pre)) { ignorar = true; motivo = "Movimento de investimento: não é gasto nem entrada"; }
-    else if (meu.length >= 2 && forma && meu.every((p) => norm(nome).includes(p))) { ignorar = true; motivo = "Transferência entre contas suas"; }
+    else if (meu.length >= 2 && forma && (meu.every((p) => norm(nome).includes(p)) || (norm(nome).length >= 5 && norm(meuNome).startsWith(norm(nome))))) { ignorar = true; motivo = "Transferência entre contas suas"; }   // o Itaú corta o nome ("Marcos"): vale o começo do seu nome
     const tipo = x.valor > 0 ? "Receita" : "Despesa", valor = round2(Math.abs(x.valor));
     const limpo = forma === "Débito" ? `Compra no débito em ${arrumaNome(nome)}` : forma ? arrumaNome(nome) : x.original.slice(0, 60);
     const categoria = forma === "Pix" && pessoa && tipo === "Despesa" ? "Outros" : guessCat(nome, tipo);

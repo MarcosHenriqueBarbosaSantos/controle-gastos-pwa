@@ -1274,3 +1274,14 @@ html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.2
 .item-x:hover,.item-x:focus-visible{background:var(--bad-soft);color:var(--bad)}
 .item-x .ic{width:16px;height:16px}
 .itens li.toca:focus-visible{outline:2px solid var(--series);outline-offset:-2px}
+
+/* Extrato da conta com vários meses: um bloco fechado por mês, com o total e a caixa de marcar o mês inteiro */
+.mes-bloco{border:1px solid var(--border);border-radius:14px;background:var(--surface);margin:8px 0;padding:0 10px}
+.mes-bloco>summary{list-style:none;display:flex;align-items:center;gap:12px;cursor:pointer;padding:12px 2px;min-height:48px}
+.mes-bloco>summary::-webkit-details-marker{display:none}
+.mes-bloco>summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+.mes-bloco[open]>summary::after{transform:rotate(-135deg)}
+.mes-bloco input[type=checkbox]{width:22px;height:22px;accent-color:var(--series);flex:none}
+.mes-nome{display:grid;gap:2px;min-width:0}
+.mes-nome .hint{font-size:12px;margin:0}
+.mes-bloco .ext-lista{padding-bottom:10px}
