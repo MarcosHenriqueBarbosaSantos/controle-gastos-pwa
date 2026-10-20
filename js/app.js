@@ -9,6 +9,7 @@ import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comP
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { ehExtratoDeContaPdf, leExtratoDeContaPdf } from "./extratopdf.js";
+import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
@@ -2231,6 +2232,7 @@ const GRUPOS_FERR = [
     { id: "veiculo", k: "gasolina combustivel ipva seguro oficina moto", ico: "carro", t: "Meu carro ou moto", s: "Quanto custa por mês, por dia e por km" },
     { id: "casa", k: "aluguel condominio luz agua iptu moradia", ico: "casa", t: "Minha casa", s: "Quanto a casa custa por mês e quanto pesa na renda" },
     { id: "msg", k: "sms notificacao banco colar importar", ico: "clipe", t: "Colar mensagem do banco", s: "A notificação ou o SMS vira um lançamento" },
+    { id: "arrumar", k: "arrumar limpar corrigir transferencia propria conta categoria lote outros pix cartao", ico: "lupa", t: "Arrumar lançamentos", s: "Tirar transferências entre as suas contas e dar categoria a vários de uma vez" },
     { id: "revisar", k: "revisar conferir categoria outros classificar fila pendente", ico: "lupa", t: "Para revisar",
       get s() { const n = S.loaded ? paraRevisar(S.data, hoje(), { revisados: S.prefs.revisados || [] }).total : 0; return n ? `${n} ${n === 1 ? "lançamento ficou" : "lançamentos ficaram"} em "Outros"` : "Lançamentos sem categoria, para você conferir"; } }] },
   { titulo: "Guardar e planejar", itens: [
@@ -2263,7 +2265,7 @@ const DESTINOS = [
 ];
 /** Abre uma tela ou ferramenta pelo id: usado pela tela Mais, pelo botão Ferramentas e pela busca geral. */
 function vaiPara(k) {
-  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
   if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
 }
 /* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
@@ -2530,6 +2532,8 @@ const QUADROS = [["dia", "Seu dia", "O que você gastou hoje e a sequência de d
   ["evo", "Últimos meses", "Entradas, custo e sobra mês a mês", ["evoPanel"]], ["desemp", "Meu desempenho", "O mês em frases, comparado com os outros", ["desempIni"]],
   ["conq", "Conquistas", "As medalhas ganhas e a próxima", ["conqIni"]]];
 const NO_INICIO_CEL = ["dia", "venc", "desemp", "conq"];   // no celular, o resto fica em Planejar → Análise do mês
+/** "Mais do seu mês" abre sozinho no computador (tem espaço) e fica fechado no celular. */
+if ($("maisDoMes")) $("maisDoMes").open = !noCelular();
 function aplicaInicio() {
   const fora = new Set(S.prefs.inicioFora || []);
   QUADROS.forEach(([k, , , ids]) => ids.forEach((id) => $(id)?.classList.toggle("fora", fora.has(k))));
@@ -2563,7 +2567,7 @@ const AJUDA = [
   ["Tem jeito mais rápido de lançar o que se repete?", `Tem. Em Lançar, os gastos que você mais repete aparecem em <b>Você costuma lançar</b>: um toque preenche tudo e você só confirma. E, ao abrir qualquer lançamento, <b>Lançar de novo hoje</b> cria uma cópia com a data de hoje. A categoria também se ajusta sozinha: o app usa a que você escolheu da última vez para aquele nome.`],
   ["Como vejo se estou melhorando?", `Em <b>Análise do mês</b> (no celular, dentro de <b>Planejar</b>), o quadro <b>Últimos meses</b> mostra o que entrou, o custo e quanto sobrou em cada mês. Em <b>Por categoria</b>, o app diz quando uma categoria está mais alta ou mais baixa do que no mês anterior.`],
   ["Errei um lançamento. Como corrijo?", `No <b>Extrato</b>, toque no lançamento para mudar o valor, a data, a categoria ou para excluir.`],
-  ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Foto ou PDF</b> para o app ler um comprovante, boleto, conta ou holerite. No mesmo lugar, <b>Ler QR code</b> abre a câmera para ler o código do Pix ou do cupom de mercado; também dá para colar o Pix copia e cola. No cupom de mercado, o app busca o valor, a loja e os itens no site da Fazenda (testado com notas de São Paulo; em outros estados pode pedir o valor). Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
+  ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Câmera</b>: ela lê ao vivo o QR code do Pix ou do cupom de mercado e, no mesmo quadro, o botão <b>Foto ou PDF do comprovante</b> lê boleto, conta, fatura ou holerite; também dá para colar o Pix copia e cola. No cupom de mercado, o app busca o valor, a loja e os itens no site da Fazenda (testado com notas de São Paulo; em outros estados pode pedir o valor). Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
   ["Dá para mandar o comprovante direto do aplicativo do banco?", `No Android, com o app instalado: no comprovante, toque em <b>Compartilhar</b> e escolha <b>Meus Gastos</b>. O app abre já lendo o comprovante. Segurando o ícone do app também aparecem os atalhos <b>Lançar gasto</b> e <b>Ler QR code</b>. No iPhone esse caminho não existe: use Lançar → Ler foto ou PDF.`],
   ["E se eu estiver sem internet?", `Pode lançar normalmente. O gasto fica guardado no aparelho, aparece como <b>aguardando internet</b> e é enviado sozinho quando a conexão voltar. Alterar ou excluir o que já estava salvo precisa de conexão.`],
   ["O que é o resumo da semana e o lembrete das 20h?", `No <b>domingo à noite</b> o app manda um resumo: quanto você gastou na semana, onde pesou mais e as contas dos próximos 7 dias. O <b>lembrete das 20h</b> é uma notificação que só aparece nos dias em que você não anotou nada. Os dois se ligam e desligam em <b>Ajustes</b>, na parte Resumo e lembrete.`],
@@ -3347,6 +3351,105 @@ function paraRevisarTela() {
   document.querySelectorAll("#dlgBody [data-ed]").forEach((b) => (b.onclick = () => {
     editarLancamento(b.dataset.ed);
     $("dlg").addEventListener("close", () => { if (!$("dlg").open) setTimeout(paraRevisarTela, 0); }, { once: true });
+  }));
+}
+/* ---------- Arrumar lançamentos: o que já foi lançado e atrapalha as contas ---------- */
+// Três arrumações, cada uma mostrando o que vai mudar antes de mudar: transferências entre as contas da própria pessoa,
+// Pix e débito que entraram como compra de cartão e o que ficou em "Outros" (por nome, de uma vez). Lógica em js/arrumar.js.
+function arrumarTela() {
+  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, ls = S.data.lancamentos, nome = S.prefs.meuNome || "";
+  const a = entreMinhasContas(ls, nome), b = pixComoCartao(ls), c = gruposEmOutros(ls);
+  openDlg(`<h3>Arrumar lançamentos</h3>
+    <p class="hint" style="margin:0 0 12px">Veja o que atrapalha as suas contas e arrume de uma vez. Nada muda sem você confirmar.</p>
+    <div class="caixa-mais">
+      ${opFerr("arA", "pessoa", "Transferências entre as minhas contas", a.itens.length ? `${plural(a.itens.length, "lançamento", "lançamentos")}: entradas ${brl(a.entradas)} e saídas ${brl(a.saidas)} que não são ganho nem gasto` : nome ? "Nenhuma encontrada" : "Diga o seu nome para procurar")}
+      ${opFerr("arB", "cartao", "Pix e débito que entraram como cartão", b.length ? `${plural(b.length, "lançamento", "lançamentos")} que não são compra de cartão` : "Nenhum encontrado")}
+      ${opFerr("arC", "lupa", "Categorias em \"Outros\", por nome", c.length ? `${plural(c.length, "nome se repete", "nomes se repetem")}: escolha a categoria uma vez só` : "Nada repetido em Outros")}</div>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  $("arA").onclick = arrumarMinhasContas; $("arB").onclick = arrumarPixComoCartao; $("arC").onclick = arrumarOutros;
+}
+/** Volta para o menu de arrumar quando a janela atual é fechada pelo botão Voltar. */
+const voltaArrumar = `<button class="btn" type="button" id="arVolta">Voltar</button>`;
+function arrumarMinhasContas() {
+  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, nome = S.prefs.meuNome || "", r = entreMinhasContas(S.data.lancamentos, nome), marcados = new Set(r.itens.map((x) => x.id));
+  const linha = (x) => `<li><input type="checkbox" data-k="${esc(x.id)}" checked aria-label="${esc(x.descricao)}">
+    <span class="oque"><b>${esc(nomeDoLancamento(x.descricao))}</b><span>${ddmm(x.data)} · ${x.tipo === "Receita" ? "entrada" : "gasto"}${x.forma === CARTAO ? " · no cartão" : ""}</span></span>
+    <b class="v ${x.tipo === "Receita" ? "pos" : ""}">${x.tipo === "Receita" ? "+ " : ""}${brl(Number(x.valor))}</b></li>`;
+  openDlg(`<div class="ext"><h3>Entre as minhas contas</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">Quando você passa dinheiro de uma conta sua para outra, o app conta uma entrada e um gasto. Isso não é ganho nem gasto de verdade e faz as contas parecerem maiores.</p>
+    <form id="arNomeForm" class="dlg-form"><label class="f wide">Seu nome completo, como no banco<input class="in" id="arNome" maxlength="60" autocomplete="off" value="${esc(nome)}" placeholder="Ex.: Maria Souza Lima"></label>
+      <button class="btn" type="submit">Procurar</button></form>
+    ${r.itens.length ? `<div class="ext-topo"><b id="arSoma"></b></div><ul class="ext-lista">${r.itens.map(linha).join("")}</ul>
+      <p class="hint" style="margin:8px 0 0">Se o nome for muito comum, olhe a lista: desmarque o que não é seu. Apagar não dá para desfazer; baixe uma cópia antes se quiser.</p>
+      <div class="actions" style="margin-top:12px"><button class="btn" type="button" id="arApaga"></button><button class="btn" type="button" id="arCopia">${ico("baixar")}Baixar cópia</button>${voltaArrumar}</div>`
+      : `<div class="empty" style="margin-top:12px">${nome ? "Não achei transferências entre as suas contas." : "Digite o seu nome para o app procurar."}</div><div class="actions" style="margin-top:12px">${voltaArrumar}</div>`}</div>`);
+  $("arVolta").onclick = arrumarTela;
+  $("arNomeForm").onsubmit = async (e) => { e.preventDefault(); S.prefs.meuNome = $("arNome").value.trim(); await salvaPrefs(); arrumarMinhasContas(); };
+  if (!r.itens.length) return;
+  const sel = () => r.itens.filter((x) => marcados.has(x.id));
+  const conta = () => {
+    const s = sel(), soma = (t) => brl(round2(s.filter((x) => x.tipo === t).reduce((q, x) => q + Number(x.valor), 0)));
+    $("arSoma").textContent = `${plural(s.length, "marcado", "marcados")} · entradas ${soma("Receita")} · saídas ${soma("Despesa")}`;
+    $("arApaga").textContent = s.length ? `Apagar ${plural(s.length, "lançamento", "lançamentos")}` : "Apagar"; $("arApaga").disabled = !s.length; $("arCopia").disabled = !s.length;
+  };
+  document.querySelectorAll("#dlgBody [data-k]").forEach((b) => (b.onchange = () => { b.checked ? marcados.add(b.dataset.k) : marcados.delete(b.dataset.k); conta(); }));
+  $("arCopia").onclick = () => baixaCopiaDeLancamentos(sel(), "transferencias-entre-minhas-contas");
+  armDelete($("arApaga"), async () => {
+    const s = sel(), ids = new Set(s.map((x) => x.id));
+    $("arApaga").disabled = true;
+    const ok = await grava(async () => { for (let i = 0; i < s.length; i += 10) await Promise.all(s.slice(i, i + 10).map((x) => S.store.deleteLancamento(x.id))); });
+    if (!ok) { conta(); return; }
+    S.data.lancamentos = S.data.lancamentos.filter((x) => !ids.has(x.id));
+    render(); arrumarTela(); toast(`${plural(s.length, "lançamento apagado", "lançamentos apagados")}.`);
+  }, "Toque de novo para apagar");
+  conta();
+}
+/** Cópia em CSV (abre no Excel) dos lançamentos que vão mudar. */
+function baixaCopiaDeLancamentos(itens, nome) {
+  const cel = (v) => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const linhas = [["Data", "Tipo", "Descrição", "Categoria", "Forma", "Valor"], ...itens.map((x) => [x.data, x.tipo, x.descricao, x.categoria, x.forma, String(Number(x.valor).toFixed(2)).replace(".", ",")])];
+  baixaArquivo(`${nome}.csv`, new Blob(["﻿" + linhas.map((l) => l.map(cel).join(";")).join("\r\n")], { type: "text/csv;charset=utf-8" }));
+}
+function arrumarPixComoCartao() {
+  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, b = pixComoCartao(S.data.lancamentos);
+  openDlg(`<div class="ext"><h3>Pix e débito lançados como cartão</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">Estes lançamentos vieram do extrato da <b>conta</b> e entraram como compra de cartão. Eles vão para o dia a dia (Pix ou débito), com o nome curto, e saem da fatura.</p>
+    ${b.length ? `<ul class="ext-lista">${b.slice(0, 60).map((x) => `<li><span class="oque" style="grid-column:1 / span 2"><b>${esc(x.descricao)} <span class="tag">${esc(x.forma)}</span></b><span>${ddmm(x.de.data)} · antes: ${esc(String(x.de.descricao).slice(0, 70))}${String(x.de.descricao).length > 70 ? "…" : ""}</span></span><b class="v">${brl(Number(x.de.valor))}</b></li>`).join("")}</ul>
+      ${b.length > 60 ? `<p class="hint">Mostrando 60 de ${b.length}. Todos serão arrumados.</p>` : ""}
+      <div class="actions" style="margin-top:12px"><button class="btn primary" type="button" id="arPixOk">Arrumar ${plural(b.length, "lançamento", "lançamentos")}</button>${voltaArrumar}</div>`
+      : `<div class="empty" style="margin-top:12px">Nenhum lançamento nessa situação.</div><div class="actions" style="margin-top:12px">${voltaArrumar}</div>`}</div>`);
+  $("arVolta").onclick = arrumarTela;
+  if (!$("arPixOk")) return;
+  $("arPixOk").onclick = async () => {
+    $("arPixOk").disabled = true;
+    const ok = await grava(async () => {
+      for (let i = 0; i < b.length; i += 10) await Promise.all(b.slice(i, i + 10).map((x) => S.store.updateLancamento(x.id, { forma: x.forma, descricao: x.descricao, cartao_id: null, parcelas: 1 })));
+    });
+    if (!ok) { $("arPixOk").disabled = false; return; }
+    b.forEach((x) => Object.assign(S.data.lancamentos.find((l) => l.id === x.id) || {}, { forma: x.forma, descricao: x.descricao, cartao_id: null, parcelas: 1 }));
+    render(); arrumarTela(); toast(`${plural(b.length, "lançamento arrumado", "lançamentos arrumados")}.`);
+  };
+}
+function arrumarOutros() {
+  const grupos = gruposEmOutros(S.data.lancamentos), lista = grupos.slice(0, 25);
+  const linha = (g, i) => `<li class="ar-grupo"><span class="oque"><b>${esc(g.nome)}</b><span>${g.n} lançamentos · ${g.tipo === "Receita" ? "entradas" : "gastos"} de ${brl(g.total)}</span></span>
+    <select class="in" data-g="${i}" aria-label="Categoria de ${esc(g.nome)}"><option value="">Escolher…</option>${cats(g.tipo).filter((c) => c !== "Outros").map((c) => `<option>${esc(c)}</option>`).join("")}</select></li>`;
+  openDlg(`<div class="ext"><h3>Categorias em "Outros"</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">Estes nomes aparecem várias vezes em "Outros". Escolha a categoria uma vez e o app muda todos os lançamentos do nome. Dá para desfazer logo depois.</p>
+    ${lista.length ? `<ul class="ext-lista ar-lista">${lista.map(linha).join("")}</ul>${grupos.length > lista.length ? `<p class="hint">Mostrando os ${lista.length} que mais pesam.</p>` : ""}`
+      : `<div class="empty" style="margin-top:12px">Nada repetido em "Outros".</div>`}
+    <div class="actions" style="margin-top:12px">${voltaArrumar}</div></div>`);
+  $("arVolta").onclick = arrumarTela;
+  document.querySelectorAll("#dlgBody [data-g]").forEach((sel) => (sel.onchange = async () => {
+    const g = lista[Number(sel.dataset.g)], nova = sel.value; if (!nova) return;
+    sel.disabled = true;
+    const ok = await grava(async () => { for (let i = 0; i < g.ids.length; i += 10) await Promise.all(g.ids.slice(i, i + 10).map((id) => S.store.updateLancamento(id, { categoria: nova }))); });
+    if (!ok) { sel.disabled = false; sel.value = ""; return; }
+    const poe = (cat) => g.ids.forEach((id) => Object.assign(S.data.lancamentos.find((l) => l.id === id) || {}, { categoria: cat }));
+    poe(nova); render(); arrumarOutros();
+    toastAcao(`${g.nome}: ${g.n} lançamentos em ${nova}.`, "Desfazer", async () => {
+      if (await grava(async () => { for (const id of g.ids) await S.store.updateLancamento(id, { categoria: "Outros" }); })) { poe("Outros"); render(); }
+    }, 9000);
   }));
 }
 /** Avisa das medalhas novas. Na primeira vez que o app olha, só anota o que já estava ganho (sem festa por coisa antiga). */
@@ -4935,7 +5038,7 @@ function abrirExtrato() {
     <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="extEscolher">${ico("subir")}Escolher o arquivo</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
   $("extEscolher").onclick = () => $("extratoIn").click();
 }
-$("btnLer").onclick = () => abrirLeitor();
+$("btnLer").onclick = () => abrirQr();   // uma câmera só: QR code ao vivo e, no mesmo quadro, foto ou PDF do comprovante
 ["lerCamera", "lerGaleria"].forEach((id) => $(id).addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; if (!ehPdf(f) && !/^image\//.test(f.type) && ehExtrato(f)) importarExtrato(f); else processaLeitura(f); }));
 
 /** PDF protegido: pede a senha. Ela só é usada aqui, para abrir o arquivo no aparelho; não é guardada nem enviada. */

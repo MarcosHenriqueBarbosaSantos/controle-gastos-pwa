@@ -150,9 +150,12 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
   <!-- Logo depois de entradas e saídas: o que vence nos próximos dias (é o que mais pede ação no dia a dia). -->
   <section class="v-inicio" id="venc" aria-label="Próximos vencimentos"></section>
   <section class="v-inicio so-mobile meta-ini" id="metaIni" aria-label="Sua meta" hidden></section>
-  <section class="v-inicio" id="desempIni" aria-label="Meu desempenho" hidden></section>
-  <section class="v-inicio" id="dicaIni" aria-label="Dica do dia" hidden></section>
-  <section class="v-inicio" id="conqIni" aria-label="Conquistas" hidden></section>
+  <!-- Desempenho, dica do dia e conquistas ficam juntos e fechados no celular: o Início mostra primeiro o que pede ação. -->
+  <details class="v-inicio mais-do-mes" id="maisDoMes"><summary><span class="tx"><b>Mais do seu mês</b><span>Desempenho, dica do dia e conquistas</span></span></summary>
+    <section id="desempIni" aria-label="Meu desempenho" hidden></section>
+    <section id="dicaIni" aria-label="Dica do dia" hidden></section>
+    <section id="conqIni" aria-label="Conquistas" hidden></section>
+  </details>
   <section class="v-inicio v-analise" id="grafSobraSec" aria-label="Sua sobra no mês"></section>
   <section class="v-inicio" id="dia" aria-label="Seu dia" hidden></section>
   <section class="v-inicio v-analise" id="teto" aria-label="Limite de gastos do mês" hidden></section>
@@ -167,7 +170,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
     <div class="quick-head">
       <h2>Lançar</h2>
       <button class="btn sm ler voz" id="btnVoz" type="button" hidden><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3zM5 11a7 7 0 0 0 14 0M12 18v3"/></svg><span>Falar</span></button>
-      <button class="btn sm ler" id="btnLer" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>Foto ou PDF</button>
+      <button class="btn sm ler" id="btnLer" type="button"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h3l1.5-2h7L17 8h3a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V9a1 1 0 0 1 1-1zM12 16.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7z"/></svg>Câmera</button>
       <button class="voltar-pill so-mobile" id="lancFechar" type="button" aria-label="Voltar sem lançar"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>Voltar</button>
       <div class="seg" role="group" aria-label="Tipo de lançamento" id="tipoSeg">
         <button type="button" data-t="Despesa" aria-pressed="true">Gasto</button>
@@ -181,7 +184,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
     <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
     <form id="formLanc" class="fields" autocomplete="off" novalidate>
       <label class="f">Valor (R$)<span class="efeito" id="fEfeito" hidden></span><input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
-      <p class="moeda-fora"><button class="link" id="fMoedaBtn" type="button">Gastei em outra moeda (viagem)</button><button class="link" id="fDividirBtn" type="button">Dividir em categorias</button><button class="link" id="fContaBtn" type="button">Fazer uma conta</button></p>
+      <details class="moeda-fora mais-op"><summary>Mais opções: outra moeda, dividir, fazer uma conta</summary><p><button class="link" id="fMoedaBtn" type="button">Gastei em outra moeda (viagem)</button><button class="link" id="fDividirBtn" type="button">Dividir em categorias</button><button class="link" id="fContaBtn" type="button">Fazer uma conta</button></p></details>
       <div class="conta-wrap" id="fContaWrap" hidden><div class="conta-ops" role="group" aria-label="Operações"><button type="button" data-op="+" aria-label="Mais">+</button><button type="button" data-op="-" aria-label="Menos">−</button><button type="button" data-op="×" aria-label="Vezes">×</button><button type="button" data-op="÷" aria-label="Dividido por">÷</button><button type="button" data-op="=" aria-label="Calcular" class="igual">=</button></div></div>
       <p class="conta-res" id="fContaRes" aria-live="polite" hidden></p>
       <label class="f desc">Descrição<input class="in" id="fDesc" placeholder="Ex.: mercado, uber, farmácia" maxlength="80" enterkeyhint="done" aria-describedby="fComoAntes" aria-controls="fSugere"><span class="sugere" id="fSugere" role="group" aria-label="Descrições que você já usou" hidden></span><span class="como-antes" id="fComoAntes" aria-live="polite" hidden></span></label>

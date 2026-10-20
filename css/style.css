@@ -1285,3 +1285,25 @@ html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.2
 .mes-nome{display:grid;gap:2px;min-width:0}
 .mes-nome .hint{font-size:12px;margin:0}
 .mes-bloco .ext-lista{padding-bottom:10px}
+
+/* Arrumar lançamentos */
+.ar-lista li{grid-template-columns:minmax(0,1fr) 170px}
+@media (max-width:520px){.ar-lista li{grid-template-columns:1fr}}
+
+/* Início: "Mais do seu mês" junta desempenho, dica do dia e conquistas num bloco que abre e fecha */
+.mais-do-mes{margin:10px 0}
+.mais-do-mes>summary{list-style:none;display:flex;align-items:center;gap:12px;cursor:pointer;min-height:56px;padding:10px 14px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
+.mais-do-mes>summary::-webkit-details-marker{display:none}
+.mais-do-mes>summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);transition:transform .15s}
+.mais-do-mes[open]>summary::after{transform:rotate(-135deg)}
+.mais-do-mes>summary .tx{display:grid;gap:2px}
+.mais-do-mes>summary .tx span{font-size:12.5px;color:var(--muted)}
+.mais-do-mes[open]>summary{margin-bottom:10px}
+.mais-do-mes>section{margin:0 0 10px}
+.mais-do-mes:not(:has(>section:not([hidden]):not(.fora))){display:none!important}
+
+/* Lançar: as opções raras ficam atrás de "Mais opções" */
+details.mais-op{margin:-2px 0 0}
+details.mais-op>summary{cursor:pointer;font-size:13px;color:var(--series);font-weight:600;list-style:none;padding:6px 0}
+details.mais-op>summary::-webkit-details-marker{display:none}
+details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}

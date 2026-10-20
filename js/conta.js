@@ -20,7 +20,16 @@ function numero(v) {
 }
 
 /** "AUTO POSTO SAO FRANCISCO LTDA" → "Auto Posto Sao Francisco". Tira o sufixo de empresa e deixa só a inicial em maiúscula. */
-const arrumaNome = (s) => String(s ?? "").replace(/\s+/g, " ").trim().replace(/[\s,.-]+(ltda|eireli|epp|me|s\/?a|s\.a\.?)\.?$/i, "").toLowerCase().replace(/(^|[\s(\-/])(\p{L})/gu, (_m, a, b) => a + b.toUpperCase()).replace(/ (E|De|Da|Do|Das|Dos) /g, (m) => m.toLowerCase());
+export const arrumaNome = (s) => String(s ?? "").replace(/\s+/g, " ").trim().replace(/[\s,.-]+(ltda|eireli|epp|me|s\/?a|s\.a\.?)\.?$/i, "").toLowerCase().replace(/(^|[\s(\-/])(\p{L})/gu, (_m, a, b) => a + b.toUpperCase()).replace(/ (E|De|Da|Do|Das|Dos) /g, (m) => m.toLowerCase());
+
+/**
+ * O nome é o da própria pessoa? Vale o nome inteiro (todas as palavras de meuNome no texto) ou o começo do nome cortado pelo banco ("Marcos").
+ * Precisa de nome e sobrenome em meuNome, para não tratar qualquer "Maria" como a própria pessoa.
+ */
+export function ehMeuNome(nome, meuNome) {
+  const meu = norm(meuNome).split(" ").filter((p) => p.length > 1), q = norm(nome);
+  return meu.length >= 2 && q.length > 0 && (meu.every((p) => q.includes(p)) || (q.length >= 5 && norm(meuNome).startsWith(q)));
+}
 
 /** Tipos de movimento que só aparecem em extrato de conta: servem para reconhecer o arquivo. */
 const MOVIMENTO = /^(transferencia (enviada|recebida)( pelo pix)?|compra no debito|pagamento de fatura|valor adicionado na conta por cartao de credito|pix)\b/;
@@ -71,7 +80,6 @@ export function leConta({ texto, linhas, hoje, meuNome = "" }) {
     const noCredito = g.some((x) => /cartao de credito|pix no credito/.test(norm(x.original)));
     g.forEach((x) => anulados.set(x, noCredito ? "Pix pago no cartão de crédito: a compra está na fatura do cartão" : "Entrou e saiu na mesma operação"));
   }
-  const meu = norm(meuNome).split(" ").filter((p) => p.length > 1);
   const usados = new Map();
   const movimentos = bruto.map((x) => {
     const partes = x.original.split(" - ").map((s) => s.trim()), pre = norm(partes[0]);
@@ -82,7 +90,7 @@ export function leConta({ texto, linhas, hoje, meuNome = "" }) {
     if (motivo) ignorar = true;
     else if (/^pagamento de fatura/.test(pre)) { ignorar = true; motivo = "Pagamento da fatura do cartão: o gasto já está na fatura"; }
     else if (/^(aplicacao|resgate)\b|\brdb\b/.test(pre)) { ignorar = true; motivo = "Movimento de investimento: não é gasto nem entrada"; }
-    else if (meu.length >= 2 && forma && (meu.every((p) => norm(nome).includes(p)) || (norm(nome).length >= 5 && norm(meuNome).startsWith(norm(nome))))) { ignorar = true; motivo = "Transferência entre contas suas"; }   // o Itaú corta o nome ("Marcos"): vale o começo do seu nome
+    else if (forma && ehMeuNome(nome, meuNome)) { ignorar = true; motivo = "Transferência entre contas suas"; }   // o Itaú corta o nome ("Marcos"): vale o começo do seu nome
     const tipo = x.valor > 0 ? "Receita" : "Despesa", valor = round2(Math.abs(x.valor));
     const limpo = forma === "Débito" ? `Compra no débito em ${arrumaNome(nome)}` : forma ? arrumaNome(nome) : x.original.slice(0, 60);
     const categoria = forma === "Pix" && pessoa && tipo === "Despesa" ? "Outros" : guessCat(nome, tipo);
