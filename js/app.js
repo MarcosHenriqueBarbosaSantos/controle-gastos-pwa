@@ -5709,7 +5709,8 @@ function conferirConta(fonte, nomeArquivo) {
     // O pagamento de uma conta fixa que já está cadastrada não vira gasto novo (contaria duas vezes): a conta fixa é marcada como paga.
     const fixas = movimentosDeContasFixas(conta.movimentos.filter((m) => !chaves.has(m.chave) && !m.ignorar && !jaLancados.has(m.chave)), S.data.fixos, S.data.pagos);
     const itens = conta.movimentos.map((m) => {
-      const lista = m.tipo === "Receita" ? catR : catD, c = historico.get(`${m.tipo}|${norm(m.descricao)}`) || m.categoria;
+      // O que a pessoa já usou para a mesma descrição vale mais, a menos que fosse "Outros": isso é só o que ficou sem categoria, e a sugestão nova sabe mais.
+      const antes = historico.get(`${m.tipo}|${norm(m.descricao)}`), lista = m.tipo === "Receita" ? catR : catD, c = antes && antes !== "Outros" ? antes : m.categoria;
       return { ...m, cat: est.cats.get(m.chave) || (lista.includes(c) ? c : lista.includes("Outros") ? "Outros" : lista[0]), estado: chaves.has(m.chave) ? "importada" : m.ignorar ? "fora" : jaLancados.has(m.chave) ? "parecida" : fixas.has(m.chave) ? "fixa" : "nova", fixa: fixas.get(m.chave) };
     });
     if (!itens.length) return openDlg(`<h3>Não achei movimentos nesse arquivo</h3><p style="color:var(--ink-2);margin:0 0 14px">O arquivo precisa ter data, valor e descrição em cada linha.</p><div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
