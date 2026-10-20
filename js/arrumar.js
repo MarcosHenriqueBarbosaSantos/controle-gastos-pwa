@@ -1,7 +1,7 @@
 // "Arrumar lançamentos": acha, no que já foi lançado, o que atrapalha as contas e propõe o conserto.
 // Funções puras, sem tela e sem banco (testadas em tests/arrumar.test.mjs). A tela fica em app.js.
 
-import { round2, CARTAO } from "./calc.js";
+import { round2, CARTAO, ocorrencias, mKey, addM } from "./calc.js";
 import { norm } from "./excel.js";
 import { ehMeuNome, arrumaNome } from "./conta.js";
 
@@ -99,4 +99,36 @@ export function repetidosDeImportacao(lancamentos) {
     out.push({ chave, tipo: manter.tipo, valor: round2(Number(manter.valor)), data: manter.data, manter, copias, igual: copias.every((c) => nome(c) === nome(manter) || nome(c).includes(nome(manter)) || nome(manter).includes(nome(c))) });
   }
   return out.sort((a, b) => (a.data < b.data ? 1 : -1));
+}
+
+/**
+ * Movimentos do extrato que são o pagamento de uma conta fixa que a pessoa já cadastrou (o aluguel, a parcela do carro, a internet).
+ * Lançar o movimento e deixar a conta fixa contando juntos faria o mesmo gasto aparecer duas vezes: aqui eles são ligados, para o
+ * movimento não virar gasto novo e a conta fixa ser marcada como paga. Vale o mesmo tipo, o mesmo valor (até R$ 0,50 de diferença,
+ * por juros ou arredondamento) e a data com até 7 dias do dia da conta. Cada ocorrência da conta fixa vale por um movimento só.
+ * Contas fixas cobradas no cartão ficam de fora (elas entram pela fatura).
+ * @returns {Map<string, {fixoId:string, mes:string, nome:string, jaPaga:boolean, tipo:string}>} por chave do movimento
+ */
+export function movimentosDeContasFixas(movimentos, fixos, pagos = []) {
+  const pagas = new Set((pagos || []).map((p) => `${p.fixo_id}|${p.mes}`)), achados = new Map();
+  const lista = (movimentos || []).filter((m) => m.tipo === "Receita" || m.tipo === "Despesa");
+  const meses = [...new Set(lista.flatMap((m) => [addM(mKey(m.data), -1), mKey(m.data), addM(mKey(m.data), 1)]))];
+  const pool = meses.flatMap((mm) => [...ocorrencias(fixos || [], mm, "Despesa"), ...ocorrencias(fixos || [], mm, "Receita")]).filter((o) => o.forma !== CARTAO).map((o) => ({ o, usado: false }));
+  const proximidade = (a, b) => { const x = norm(nomeDoLancamento(a)), y = norm(b || ""); return x && y && (x.includes(y) || y.includes(x)) ? 1 : 0; };
+  // Primeiro passam os que têm o nome parecido; depois, os que só batem no valor e na data. Assim um gasto qualquer do mesmo valor não toma a vez da conta certa.
+  const ordem = [...lista].sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+  for (const so_nome of [true, false]) {
+    for (const m of ordem) {
+      if (achados.has(m.chave)) continue;
+      let melhor = null, pontos = -Infinity;
+      for (const p of pool) {
+        if (p.usado || (p.o.tipo || "Despesa") !== m.tipo || Math.abs(Number(p.o.valor) - m.valor) > 0.5) continue;
+        const d = diasEntre(p.o.data, m.data); if (d > 7) continue;
+        const nome = proximidade(m.descricao, p.o.descricao); if (so_nome && !nome) continue;
+        const s = nome * 10 - d; if (s > pontos) { melhor = p; pontos = s; }
+      }
+      if (melhor) { melhor.usado = true; achados.set(m.chave, { fixoId: melhor.o.id, mes: melhor.o.chave, nome: melhor.o.descricao, jaPaga: pagas.has(`${melhor.o.id}|${melhor.o.chave}`), tipo: m.tipo }); }
+    }
+  }
+  return achados;
 }

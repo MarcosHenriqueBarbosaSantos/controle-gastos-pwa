@@ -97,3 +97,31 @@ test("repetidos de importação: acha os em dobro, mantém o mais antigo e diz q
   const shell = r.find((g) => g.valor === 40); assert.equal(shell.manter.id, "1"); assert.deepEqual(shell.copias.map((c) => c.id), ["2"]); assert.equal(shell.igual, true);
   const pessoas = r.find((g) => g.valor === 20); assert.equal(pessoas.igual, false);   // Ana e Bruno: podem ser dois Pix de verdade
 });
+
+import { movimentosDeContasFixas } from "../js/arrumar.js";
+
+const FIXO = (o) => ({ id: "f1", descricao: "Parcela do carro", valor: 1900, categoria: "Parcelas e financiamentos", dia: 24, desde: "2026-01-01", ate: null, forma: "Pix", tipo: "Despesa", ...o });
+
+test("pagamento de conta fixa no extrato: liga ao fixo (para não contar duas vezes) e diz se já estava paga", () => {
+  const mov = [{ chave: "a", tipo: "Despesa", valor: 1900, data: "2026-10-23", descricao: "Banco Veículos" }, { chave: "b", tipo: "Despesa", valor: 35, data: "2026-10-23", descricao: "Padaria" }];
+  const r = movimentosDeContasFixas(mov, [FIXO()], []);
+  assert.equal(r.size, 1); assert.equal(r.get("a").nome, "Parcela do carro"); assert.equal(r.get("a").jaPaga, false); assert.equal(r.get("a").mes, "2026-10-01");
+  assert.equal(movimentosDeContasFixas(mov, [FIXO()], [{ fixo_id: "f1", mes: "2026-10-01" }]).get("a").jaPaga, true);
+});
+
+test("conta fixa: tolera juros pequenos e dias de atraso, mas não valor ou data muito diferentes", () => {
+  const f = [FIXO({ valor: 360, descricao: "Condomínio", dia: 10 })];
+  const um = (valor, data) => movimentosDeContasFixas([{ chave: "x", tipo: "Despesa", valor, data, descricao: "Pix" }], f, []).size;
+  assert.equal(um(360.4, "2026-10-14"), 1);   // 4 dias depois, R$ 0,40 de juros
+  assert.equal(um(375, "2026-10-10"), 0);      // valor diferente
+  assert.equal(um(360, "2026-10-25"), 0);      // longe do dia
+});
+
+test("conta fixa: cada ocorrência vale por um movimento, vale o nome parecido e entrada fixa também é ligada", () => {
+  const f = [FIXO({ id: "luz", valor: 100, descricao: "Conta de luz", dia: 5 }), FIXO({ id: "agua", valor: 100, descricao: "Água", dia: 6 }), FIXO({ id: "sal", valor: 1800, descricao: "Salário", tipo: "Receita", dia: 5 })];
+  const mov = [{ chave: "1", tipo: "Despesa", valor: 100, data: "2026-10-06", descricao: "Transferência enviada pelo Pix - Sabesp Água - 11 - BANCO" }, { chave: "2", tipo: "Despesa", valor: 100, data: "2026-10-05", descricao: "Enel luz" }, { chave: "3", tipo: "Despesa", valor: 100, data: "2026-10-05", descricao: "Outro" }, { chave: "4", tipo: "Receita", valor: 1800, data: "2026-10-05", descricao: "Empresa" }];
+  const r = movimentosDeContasFixas(mov, f, []);
+  assert.equal(r.get("1").nome, "Água"); assert.equal(r.get("2").nome, "Conta de luz"); assert.equal(r.has("3"), false);   // só há duas contas de R$ 100
+  assert.equal(r.get("4").nome, "Salário");
+  assert.equal(movimentosDeContasFixas(mov, [FIXO({ id: "c", valor: 100, descricao: "No cartão", forma: "Cartão de crédito", dia: 5 })], []).size, 0);   // fixo no cartão entra pela fatura
+});

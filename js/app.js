@@ -10,7 +10,7 @@ import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas } from "./extratopdf.js";
 import { paraOndeFoi, nomeDoMes, metaSugerida } from "./paraondefoi.js";
-import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao } from "./arrumar.js";
+import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
@@ -5638,17 +5638,19 @@ function conferirConta(fonte, nomeArquivo) {
     const conta = leConta({ ...fonte, hoje: hoje(), meuNome: est.meuNome });
     const doArquivo = new Set(conta.movimentos.map((m) => m.chave));
     const jaLancados = movimentosJaLancados(conta.movimentos.filter((m) => !chaves.has(m.chave) && !m.ignorar), S.data.lancamentos.filter((x) => !(x.import_key && doArquivo.has(x.import_key))));
+    // O pagamento de uma conta fixa que já está cadastrada não vira gasto novo (contaria duas vezes): a conta fixa é marcada como paga.
+    const fixas = movimentosDeContasFixas(conta.movimentos.filter((m) => !chaves.has(m.chave) && !m.ignorar && !jaLancados.has(m.chave)), S.data.fixos, S.data.pagos);
     const itens = conta.movimentos.map((m) => {
       const lista = m.tipo === "Receita" ? catR : catD, c = historico.get(`${m.tipo}|${norm(m.descricao)}`) || m.categoria;
-      return { ...m, cat: est.cats.get(m.chave) || (lista.includes(c) ? c : lista.includes("Outros") ? "Outros" : lista[0]), estado: chaves.has(m.chave) ? "importada" : m.ignorar ? "fora" : jaLancados.has(m.chave) ? "parecida" : "nova" };
+      return { ...m, cat: est.cats.get(m.chave) || (lista.includes(c) ? c : lista.includes("Outros") ? "Outros" : lista[0]), estado: chaves.has(m.chave) ? "importada" : m.ignorar ? "fora" : jaLancados.has(m.chave) ? "parecida" : fixas.has(m.chave) ? "fixa" : "nova", fixa: fixas.get(m.chave) };
     });
     if (!itens.length) return openDlg(`<h3>Não achei movimentos nesse arquivo</h3><p style="color:var(--ink-2);margin:0 0 14px">O arquivo precisa ter data, valor e descrição em cada linha.</p><div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
     const ligado = (it) => (est.marcados.has(it.chave) ? est.marcados.get(it.chave) : it.estado === "nova");
-    const vis = itens.filter((it) => it.estado === "nova" || it.estado === "parecida"), fora = itens.filter((it) => it.estado === "fora"), antigas = itens.filter((it) => it.estado === "importada").length;
+    const vis = itens.filter((it) => it.estado === "nova" || it.estado === "parecida" || it.estado === "fixa"), fora = itens.filter((it) => it.estado === "fora"), antigas = itens.filter((it) => it.estado === "importada").length;
     const linha = (it, extra = "") => `<li class="${it.estado}">
         <input type="checkbox" data-k="${esc(it.chave)}" ${ligado(it) ? "checked" : ""} aria-label="${it.tipo === "Receita" ? "Lançar entrada" : "Lançar gasto"}: ${esc(it.descricao)}">
         <span class="oque"><b>${esc(it.descricao)}${it.forma ? ` <span class="tag">${esc(it.forma)}</span>` : ""}</b>
-          <span>${ddmm(it.data)}${it.estado === "parecida" ? ` · <em>parece já estar lançado</em>` : ""}${extra}</span></span>
+          <span>${ddmm(it.data)}${it.estado === "parecida" ? ` · <em>parece já estar lançado</em>` : ""}${it.estado === "fixa" ? ` · <em>é a conta fixa ${esc(it.fixa.nome)}${it.fixa.jaPaga ? " (já paga)" : ""}</em>` : ""}${extra}</span></span>
         <b class="v ${it.tipo === "Receita" ? "pos" : ""}">${it.tipo === "Receita" ? "+ " : ""}${brl(it.valor)}</b>
         <select class="in" data-c="${esc(it.chave)}" aria-label="Categoria de ${esc(it.descricao)}">${opts(it.tipo === "Receita" ? catR : catD, it.cat)}</select></li>`;
     // Vários meses no mesmo arquivo (o extrato do Itaú junta 3 ou mais): um bloco por mês, fechado, com o total e uma caixa para marcar o mês inteiro.
@@ -5662,6 +5664,7 @@ function conferirConta(fonte, nomeArquivo) {
       <p class="hint" style="margin:4px 0 8px">Com o seu nome, as transferências entre as suas próprias contas não são contadas como entrada nem como gasto.</p>
       ${vis.length ? `<div class="ext-topo"><b id="ctSoma"></b><button class="link" type="button" id="ctTodas"></button></div>
       ${listaVis()}` : `<div class="empty" style="margin-top:12px">Todos os movimentos desse arquivo já foram importados antes.</div>`}
+      ${vis.some((it) => it.estado === "fixa") ? `<p class="hint" style="margin:8px 0 0">${plural(vis.filter((it) => it.estado === "fixa").length, "movimento é o pagamento de uma conta fixa que você já cadastrou", "movimentos são pagamentos de contas fixas que você já cadastrou")}. Eles começam desmarcados para o gasto não contar duas vezes, e a conta fixa é marcada como paga ao lançar.</p>` : ""}
       ${vis.some((it) => it.estado === "parecida") ? `<p class="hint" style="margin:8px 0 0">${plural(vis.filter((it) => it.estado === "parecida").length, "movimento parece já estar lançado", "movimentos parecem já estar lançados")} e começa${vis.filter((it) => it.estado === "parecida").length === 1 ? "" : "m"} desmarcado${vis.filter((it) => it.estado === "parecida").length === 1 ? "" : "s"}, para não duplicar. Marque se quiser lançar mesmo assim.</p>` : ""}
       ${antigas ? `<p class="hint" style="margin:10px 0 0">${plural(antigas, "movimento já tinha sido importado", "movimentos já tinham sido importados")} antes e ${antigas === 1 ? "ficou" : "ficaram"} de fora.</p>` : ""}
       ${fora.length ? `<details class="manual" style="margin-top:10px"><summary>${plural(fora.length, "movimento não entra", "movimentos não entram")} (por padrão)</summary>
@@ -5670,10 +5673,12 @@ function conferirConta(fonte, nomeArquivo) {
       <div class="actions" style="margin-top:12px">${itens.some((x) => x.estado !== "importada") ? `<button class="btn primary" type="submit" id="ctSalvar">Lançar</button>` : ""}<button class="btn" type="button" data-close>Cancelar</button></div>
       </form></div>`);
     $("ctNome").onchange = async (e) => { est.meuNome = e.target.value.trim(); est.marcados.clear(); S.prefs.meuNome = est.meuNome; salvaPrefs(); monta(); };
+    const paraMarcar = () => vis.filter((it) => it.estado === "fixa" && !ligado(it) && it.tipo === "Despesa" && !it.fixa.jaPaga);
     const todos = [...vis, ...fora], porChave = new Map(todos.map((it) => [it.chave, it])), conta2 = () => {
       const sel = todos.filter(ligado), saidas = round2(sel.filter((x) => x.tipo === "Despesa").reduce((t, x) => t + x.valor, 0)), entradas = round2(sel.filter((x) => x.tipo === "Receita").reduce((t, x) => t + x.valor, 0));
       if ($("ctSoma")) $("ctSoma").textContent = `${plural(sel.length, "marcado", "marcados")} · saídas ${brl(saidas)} · entradas ${brl(entradas)}`;
-      if ($("ctSalvar")) { $("ctSalvar").textContent = sel.length ? `Lançar ${plural(sel.length, "movimento", "movimentos")}` : "Lançar"; $("ctSalvar").disabled = !sel.length; }
+      const marcar = paraMarcar();
+      if ($("ctSalvar")) { $("ctSalvar").textContent = sel.length || marcar.length ? `${sel.length ? `Lançar ${plural(sel.length, "movimento", "movimentos")}` : "Marcar"}${marcar.length ? `${sel.length ? " e marcar " : " "}${plural(marcar.length, "conta fixa", "contas fixas")} como ${marcar.length === 1 ? "paga" : "pagas"}` : ""}` : "Lançar"; $("ctSalvar").disabled = !sel.length && !marcar.length; }
       if ($("ctTodas")) $("ctTodas").textContent = vis.every(ligado) ? "Desmarcar todos" : "Marcar todos";
       $("dlgBody").querySelectorAll("[data-k]").forEach((b) => { const it = porChave.get(b.dataset.k); if (it) b.checked = ligado(it); });
       $("dlgBody").querySelectorAll("[data-mes]").forEach((cb) => {
@@ -5690,17 +5695,18 @@ function conferirConta(fonte, nomeArquivo) {
     conta2();
     $("ctForm").addEventListener("submit", async (e) => {
       e.preventDefault();
-      const sel = todos.filter(ligado); if (!sel.length) return;
+      const sel = todos.filter(ligado), marcar = paraMarcar(); if (!sel.length && !marcar.length) return;
       const linhas = sel.map((it) => ({ data: it.data, descricao: it.descricao, tipo: it.tipo, categoria: it.cat, forma: formaDe(it), valor: it.valor, cartao_id: null, parcelas: 1, import_key: it.chave }));
       $("ctSalvar").disabled = true; $("ctSalvar").textContent = "Lançando…";
-      let novos; const ok = await grava(async () => { novos = await S.store.addLancamentos(linhas); });
+      let novos = []; const ok = await grava(async () => { if (linhas.length) novos = await S.store.addLancamentos(linhas); for (const x of marcar) await S.store.setPago(x.fixa.fixoId, x.fixa.mes, true); });
       if (!ok) { $("ctSalvar").disabled = false; conta2(); return; }
       S.data.lancamentos.push(...novos);
-      const ultimo = sel.map((x) => x.data).sort().pop();
+      marcar.forEach((x) => { if (!S.data.pagos.some((p) => p.fixo_id === x.fixa.fixoId && p.mes === x.fixa.mes)) S.data.pagos.push({ fixo_id: x.fixa.fixoId, mes: x.fixa.mes }); });
+      const ultimo = [...sel, ...marcar].map((x) => x.data).sort().pop();
       S.mes = mKey(ultimo); S.view = "listas"; S.tab = "l";
       $("dlg").close(); fecharLancar(); render();
       const s = sel.filter((x) => x.tipo === "Despesa").length, en = sel.length - s;
-      const nMeses = new Set(sel.map((x) => x.data.slice(0, 7))).size; toastOuFlash(`${plural(novos.length, "movimento lançado", "movimentos lançados")}: ${plural(s, "gasto", "gastos")} e ${plural(en, "entrada", "entradas")}${nMeses > 1 ? `, em ${nMeses} meses` : ""}.`);
+      const nMeses = new Set(sel.map((x) => x.data.slice(0, 7))).size; toastOuFlash(`${plural(novos.length, "movimento lançado", "movimentos lançados")}: ${plural(s, "gasto", "gastos")} e ${plural(en, "entrada", "entradas")}${nMeses > 1 ? `, em ${nMeses} meses` : ""}.${marcar.length ? ` ${plural(marcar.length, "conta fixa marcada como paga", "contas fixas marcadas como pagas")}.` : ""}`);
     });
   };
   monta();
