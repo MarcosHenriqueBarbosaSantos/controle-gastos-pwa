@@ -1,7 +1,7 @@
 // "Para onde foi o dinheiro": responde, em linguagem simples, quanto a pessoa gastou no mês, como foi nos meses anteriores,
 // onde o dinheiro foi, o que pesou ou subiu e o que fazer para melhorar. Funções puras, sem tela (testadas em tests/paraondefoi.test.mjs).
 
-import { calcMes, catMap, ultimosMeses, addM, round2, primeiroMes } from "./calc.js";
+import { calcMes, catMap, ultimosMeses, addM, round2, primeiroMes, mKey } from "./calc.js";
 
 const reais = (v) => `R$ ${Math.abs(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
@@ -99,11 +99,14 @@ export const CATEGORIAS_DA_CASA = ["Moradia", "Contas da casa"];
  *   realista:number, comEconomia:number, passaDaRenda:boolean, categorias:{nome:string, media:number, limite:number, grupo:string}[]}|null}  null sem nenhum mês fechado com gastos
  */
 export function limiteViavel(st, m, hoje, { teto = 0, limites = {} } = {}) {
-  const meses = [];
-  for (let k = 1; k <= 12 && meses.length < 3; k++) {
+  // O primeiro mês de uso, quando a pessoa começou depois do dia 7, é um mês pela metade: não entra na média, se houver outros.
+  const datas = (st.lancamentos || []).map((x) => x.data).sort(), primeiroDia = datas[0] || "", mesPela = primeiroDia && Number(primeiroDia.slice(8, 10)) > 7 ? mKey(primeiroDia) : "";
+  const fechados = [];
+  for (let k = 1; k <= 12 && fechados.length < 4; k++) {
     const mm = addM(m, -k), c = calcMes(st, mm, hoje);
-    if (c.fase === "passado" && c.custo > 0) meses.push({ c, cats: new Map(catMap(c)) });
+    if (c.fase === "passado" && c.custo > 0) fechados.push({ mm, c, cats: new Map(catMap(c)) });
   }
+  const inteiros = fechados.filter((x) => x.mm !== mesPela), meses = (inteiros.length ? inteiros : fechados).slice(0, 3);
   if (!meses.length) return null;
   const n = meses.length, med = (f) => round2(meses.reduce((s, x) => s + f(x), 0) / n);
   const media = med((x) => x.c.custo), fixos = med((x) => x.c.fxCusto + x.c.fatT), dia = round2(Math.max(0, media - fixos)), entra = med((x) => x.c.rec);
@@ -116,5 +119,8 @@ export function limiteViavel(st, m, hoje, { teto = 0, limites = {} } = {}) {
   }
   const nomes = [...CATEGORIAS_DO_CARRO.map((c) => [c, "carro"]), ...CATEGORIAS_DA_CASA.map((c) => [c, "casa"])];
   const categorias = nomes.map(([nome, grupo]) => ({ nome, grupo, media: med((x) => x.cats.get(nome) || 0), limite: Number(limites?.[nome]) || 0 })).filter((x) => x.media > 0);
-  return { n, media, fixos, dia, entra, caso, folga, corte, cortePct, realista, comEconomia, passaDaRenda: entra > 0 && media > entra, categorias };
+  // O mês de agora também conta: a média pode dizer que cabe e o mês aberto já ter passado do limite.
+  const agora = calcMes(st, m, hoje), mesAtual = agora.fase === "atual" ? { gasto: agora.custo, previsto: agora.proj, passa: teto > 0 && agora.proj > teto } : null;
+  const outros = med((x) => x.cats.get("Outros") || 0);
+  return { n, media, fixos, dia, entra, caso, folga, corte, cortePct, realista, comEconomia, passaDaRenda: entra > 0 && media > entra, categorias, mesAtual, outros, outrosPct: media > 0 ? Math.round((outros / media) * 100) : 0 };
 }

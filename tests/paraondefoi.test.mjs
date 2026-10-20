@@ -147,3 +147,21 @@ test("o limite cabe? avisa quando o gasto médio já passa do que entra", () => 
   const st = seisMeses(); st.lancamentos = st.lancamentos.filter((x) => x.tipo !== "Receita"); st.lancamentos.push(...["2026-07", "2026-08", "2026-09"].map((m) => L(`${m}-01`, 2500, "Salário", "Receita")));
   assert.equal(limiteViavel(st, "2026-10", HOJE).passaDaRenda, true);
 });
+
+test("o limite cabe? o mês aberto também conta, e o primeiro mês pela metade fica fora da média", () => {
+  const st = seisMeses();
+  st.lancamentos.push(L("2026-10-05", 3800, "Transporte"), L("2026-10-06", 2000, "Mercado"));   // outubro já em 5.800 (mais a parcela fixa)
+  const r = limiteViavel(st, "2026-10", HOJE, { teto: 3500 });
+  assert.equal(r.caso, "cabe"); assert.equal(r.mesAtual.passa, true);   // a média cabe, mas este mês já passou
+  assert.ok(r.mesAtual.gasto > 3500);
+  // começou a usar no dia 22 de julho: julho não entra na média
+  const parcial = base({ lancamentos: [L("2026-07-22", 9000, "Outros"), L("2026-08-05", 1000, "Mercado"), L("2026-09-05", 1000, "Mercado"), L("2026-08-01", 3000, "Salário", "Receita")] });
+  const p = limiteViavel(parcial, "2026-10", HOJE); assert.equal(p.n, 2); assert.equal(p.media, 1000);
+  // se só houver o mês pela metade, usa ele mesmo
+  assert.equal(limiteViavel(base({ lancamentos: [L("2026-09-25", 500, "Mercado")] }), "2026-10", HOJE).n, 1);
+});
+
+test("o limite cabe? avisa quando boa parte da média está em Outros", () => {
+  const st = base({ lancamentos: ["2026-07", "2026-08", "2026-09"].flatMap((m) => [L(`${m}-05`, 600, "Outros"), L(`${m}-06`, 400, "Mercado")]) });
+  const r = limiteViavel(st, "2026-10", HOJE); assert.equal(r.outros, 600); assert.equal(r.outrosPct, 60);
+});
