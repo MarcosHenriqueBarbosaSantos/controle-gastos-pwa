@@ -15,6 +15,7 @@ import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJu
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
 import { pareceConta, leConta } from "./conta.js";
+import { criaEscuta, mensagemDeErro } from "./escuta.js";
 
 const $ = (id) => document.getElementById(id);
 const NS = "http://www.w3.org/2000/svg";
@@ -2162,6 +2163,7 @@ function abrirLancar() {
 function fecharLancar(viaVoltar = false) {
   if (!document.body.classList.contains("lancando")) return;
   document.body.classList.remove("lancando");
+  try { escuta.cancelar(); } catch { /* a escuta ainda não existe */ }   // sair da tela de lançar fecha o microfone
   try { if (!viaVoltar && history.state?.lanc) history.back(); } catch { /* nada */ }
 }
 /** Depois de salvar: no celular fecha a tela e mostra um aviso; no computador volta o foco para o valor. */
@@ -3810,33 +3812,38 @@ function abrirFechamento(m) {
    O navegador transforma a fala em texto (Chrome no Android e no computador, Safari no iPhone); js/voz.js entende o texto
    e o formulário é preenchido para a pessoa conferir. Nada é lançado sem o toque em "Lançar". */
 const Reconhecedor = window.SpeechRecognition || window.webkitSpeechRecognition;
-let ouvindo = null;
+const escuta = criaEscuta({
+  Reconhecedor,
+  aoMudar: (m) => {
+    if (m.texto) $("vozTexto").textContent = `“${m.texto}”`;
+    else if (m.dica) $("vozTexto").textContent = "Ainda não ouvi nada. Se o microfone não responder, toque em Parar e digite o gasto.";
+  },
+  // Sempre chamada uma vez por escuta, mesmo quando o navegador não avisa que acabou (ver js/escuta.js).
+  aoFinalizar: (r) => {
+    $("vozPainel").hidden = true; $("btnVoz").classList.remove("ativo"); $("btnVoz").querySelector("span").textContent = "Falar";
+    if (r.motivo === "cancelado") return;   // a pessoa saiu da tela: não mexe no formulário
+    if (r.texto) return aplicaFala(r.texto);
+    const msg = mensagemDeErro(r);
+    $("flash").style.color = "var(--warn)"; $("flash").textContent = msg; if (noCelular()) toast(msg);
+  },
+});
 $("btnVoz").hidden = !Reconhecedor;
-$("btnVoz").onclick = () => (ouvindo ? ouvindo.stop() : ouvirGasto());
-$("vozParar").onclick = () => ouvindo?.stop();
+$("btnVoz").onclick = () => (escuta.ativa ? escuta.parar() : ouvirGasto());
+$("vozParar").onclick = () => escuta.parar();
+// Sair do app (ou da tela) fecha o microfone: a escuta não fica ligada em segundo plano.
+// Com 3 segundos de tolerância: alguns celulares mostram uma tela de voz por cima do app, e isso não pode cortar a fala.
+let vozEmSegundoPlano = null;
+document.addEventListener("visibilitychange", () => {
+  clearTimeout(vozEmSegundoPlano);
+  if (document.visibilityState === "hidden" && escuta.ativa) vozEmSegundoPlano = setTimeout(() => escuta.cancelar(), 3000);
+});
+addEventListener("pagehide", () => escuta.cancelar());
 function ouvirGasto() {
   if (!Reconhecedor) return toast("Este navegador não entende fala. No Android, use o Chrome; no iPhone, o Safari.");
-  if (ouvindo) return;
-  const r = new Reconhecedor(); r.lang = "pt-BR"; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
-  let final = "", parcial = "", erro = "";
-  ouvindo = r; $("vozPainel").hidden = false; $("vozTitulo").textContent = "Ouvindo…"; $("vozTexto").textContent = "Fale o gasto, por exemplo: “gastei 32 no mercado no débito”.";
+  if (escuta.ativa) return;
+  $("vozPainel").hidden = false; $("vozTitulo").textContent = "Ouvindo…"; $("vozTexto").textContent = "Fale o gasto, por exemplo: “gastei 32 no mercado no débito”.";
   $("btnVoz").classList.add("ativo"); $("btnVoz").querySelector("span").textContent = "Parar";
-  r.onresult = (e) => {
-    parcial = [...e.results].map((x) => x[0].transcript).join(" ").trim();
-    if ([...e.results].every((x) => x.isFinal)) final = parcial;
-    $("vozTexto").textContent = `“${parcial}”`;
-  };
-  r.onerror = (e) => { erro = e.error || "erro"; };
-  r.onend = () => {
-    ouvindo = null; $("vozPainel").hidden = true; $("btnVoz").classList.remove("ativo"); $("btnVoz").querySelector("span").textContent = "Falar";
-    const txt = final || parcial;
-    if (txt) return aplicaFala(txt);
-    const msg = erro === "not-allowed" || erro === "service-not-allowed" ? "Para lançar por voz, permita o microfone para o Meus Gastos (no aviso do navegador ou nas permissões do app)."
-      : erro === "network" ? "O reconhecimento de fala precisa de internet. Sem conexão, digite o gasto."
-      : erro === "no-speech" || !erro ? "Não ouvi nada. Toque em Falar e diga, por exemplo: “gastei 32 no mercado no débito”." : "Não deu para ouvir agora. Tente de novo ou digite o gasto.";
-    $("flash").style.color = "var(--warn)"; $("flash").textContent = msg; if (noCelular()) toast(msg);
-  };
-  try { r.start(); } catch { ouvindo = null; $("vozPainel").hidden = true; $("btnVoz").classList.remove("ativo"); $("btnVoz").querySelector("span").textContent = "Falar"; toast("Não deu para abrir o microfone agora. Tente de novo."); }
+  escuta.iniciar();   // se não abrir, o aoFinalizar já limpa a tela e dá a mensagem
 }
 /** Preenche o formulário com o que foi entendido da fala e diz o que entendeu. */
 function aplicaFala(txt) { return aplicaEntendido(entendeFala(txt, hoje()), txt, "fala"); }
