@@ -53,3 +53,50 @@ export function gruposEmOutros(lancamentos, { minimo = 2 } = {}) {
   }
   return [...mapa.values()].filter((g) => g.n >= minimo).sort((a, b) => b.total - a.total);
 }
+
+const diasEntre = (a, b) => Math.abs((new Date(a) - new Date(b)) / 86400000);
+
+/**
+ * Entre os movimentos de um arquivo que vai ser importado, quais já estão lançados (de outra importação, de outro formato do mesmo extrato
+ * ou à mão): mesmo tipo, mesmo valor e a data com até 2 dias de diferença. Cada lançamento que já existe vale por um movimento só: dois Pix de
+ * R$ 20 no mesmo dia, com um já lançado, deixam um de fora e um como novo. Vale o mais perto na data.
+ * @param {{chave:string, tipo:string, valor:number, data:string}[]} movimentos  o que veio do arquivo (sem os que já têm a mesma chave)
+ * @param {object[]} lancamentos  o que já está no app (sem os que têm a chave de um movimento deste arquivo)
+ * @returns {Set<string>} as chaves dos movimentos que parecem já lançados
+ */
+export function movimentosJaLancados(movimentos, lancamentos, { dias = 2 } = {}) {
+  const pool = (lancamentos || []).filter((x) => x.tipo === "Receita" || x.tipo === "Despesa").map((x) => ({ x, usado: false }));
+  const achados = new Set();
+  for (const m of [...(movimentos || [])].sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0))) {
+    let melhor = null, dist = Infinity;
+    for (const p of pool) {
+      if (p.usado || p.x.tipo !== m.tipo || Math.abs(Number(p.x.valor) - m.valor) >= 0.005) continue;
+      const d = diasEntre(p.x.data, m.data); if (d <= dias && d < dist) { melhor = p; dist = d; }
+    }
+    if (melhor) { melhor.usado = true; achados.add(m.chave); }
+  }
+  return achados;
+}
+
+/**
+ * Lançamentos que ficaram em dobro por importar o mesmo extrato de dois jeitos (CSV e PDF, ou dois arquivos que se cruzam): mesmo tipo,
+ * valor e dia, com mais de um deles vindo de importação. `igual` marca o que tem o mesmo nome (a cópia quase certa); o resto pode ser
+ * dois gastos de verdade iguais, e quem decide é a pessoa.
+ * @returns {{chave:string, tipo:string, valor:number, data:string, manter:object, copias:object[], igual:boolean}[]}
+ */
+export function repetidosDeImportacao(lancamentos) {
+  const grupos = new Map();
+  for (const x of lancamentos || []) {
+    if ((x.tipo !== "Receita" && x.tipo !== "Despesa") || !x.import_key) continue;
+    const k = `${x.tipo}|${x.data}|${round2(Number(x.valor))}`;
+    grupos.set(k, [...(grupos.get(k) || []), x]);
+  }
+  const out = [];
+  for (const [chave, l] of grupos) {
+    if (l.length < 2) continue;
+    const ord = [...l].sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")) || String(a.id).localeCompare(String(b.id)));
+    const [manter, ...copias] = ord, nome = (x) => norm(nomeDoLancamento(x.descricao));
+    out.push({ chave, tipo: manter.tipo, valor: round2(Number(manter.valor)), data: manter.data, manter, copias, igual: copias.every((c) => nome(c) === nome(manter) || nome(c).includes(nome(manter)) || nome(manter).includes(nome(c))) });
+  }
+  return out.sort((a, b) => (a.data < b.data ? 1 : -1));
+}

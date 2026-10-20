@@ -10,14 +10,14 @@ import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas } from "./extratopdf.js";
 import { paraOndeFoi, nomeDoMes, metaSugerida } from "./paraondefoi.js";
-import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento } from "./arrumar.js";
+import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
-import { pareceConta, leConta } from "./conta.js";
+import { pareceConta, leConta, arrumaNome } from "./conta.js";
 import { criaEscuta, mensagemDeErro } from "./escuta.js";
 
 const $ = (id) => document.getElementById(id);
@@ -3557,18 +3557,50 @@ function paraRevisarTela() {
 // Pix e débito que entraram como compra de cartão e o que ficou em "Outros" (por nome, de uma vez). Lógica em js/arrumar.js.
 function arrumarTela() {
   const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, ls = S.data.lancamentos, nome = S.prefs.meuNome || "";
-  const a = entreMinhasContas(ls, nome), b = pixComoCartao(ls), c = gruposEmOutros(ls);
+  const a = entreMinhasContas(ls, nome), b = pixComoCartao(ls), c = gruposEmOutros(ls), d = repetidosDeImportacao(ls), nCopias = d.reduce((s, g) => s + g.copias.length, 0);
   openDlg(`<h3>Arrumar lançamentos</h3>
     <p class="hint" style="margin:0 0 12px">Veja o que atrapalha as suas contas e arrume de uma vez. Nada muda sem você confirmar.</p>
     <div class="caixa-mais">
       ${opFerr("arA", "pessoa", "Transferências entre as minhas contas", a.itens.length ? `${plural(a.itens.length, "lançamento", "lançamentos")}: entradas ${brl(a.entradas)} e saídas ${brl(a.saidas)} que não são ganho nem gasto` : nome ? "Nenhuma encontrada" : "Diga o seu nome para procurar")}
       ${opFerr("arB", "cartao", "Pix e débito que entraram como cartão", b.length ? `${plural(b.length, "lançamento", "lançamentos")} que não são compra de cartão` : "Nenhum encontrado")}
       ${opFerr("arC", "lupa", "Categorias em \"Outros\", por nome", c.length ? `${plural(c.length, "nome se repete", "nomes se repetem")}: escolha a categoria uma vez só` : "Nada repetido em Outros")}</div>
+      ${opFerr("arD", "lixo", "Lançamentos em dobro", nCopias ? `${plural(nCopias, "cópia", "cópias")} de importação com o mesmo valor e dia` : "Nenhum em dobro")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
-  $("arA").onclick = arrumarMinhasContas; $("arB").onclick = arrumarPixComoCartao; $("arC").onclick = arrumarOutros;
+  $("arA").onclick = arrumarMinhasContas; $("arB").onclick = arrumarPixComoCartao; $("arC").onclick = arrumarOutros; $("arD").onclick = arrumarRepetidos;
 }
 /** Volta para o menu de arrumar quando a janela atual é fechada pelo botão Voltar. */
 const voltaArrumar = `<button class="btn" type="button" id="arVolta">Voltar</button>`;
+function arrumarRepetidos() {
+  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, grupos = repetidosDeImportacao(S.data.lancamentos);
+  const marcados = new Set(grupos.filter((g) => g.igual).flatMap((g) => g.copias.map((c) => c.id)));
+  const linha = (g) => g.copias.map((c) => `<li><input type="checkbox" data-k="${esc(c.id)}"${marcados.has(c.id) ? " checked" : ""} aria-label="Apagar a cópia: ${esc(nomeDoLancamento(c.descricao))}">
+    <span class="oque"><b>${esc(arrumaNome(nomeDoLancamento(c.descricao)) || "Sem nome")}</b><span>${ddmm(g.data)} · fica: ${esc(arrumaNome(nomeDoLancamento(g.manter.descricao)) || "Sem nome")}${g.igual ? "" : " · nomes diferentes, confira"}</span></span>
+    <b class="v">${brl(g.valor)}</b></li>`).join("");
+  openDlg(`<div class="ext"><h3>Lançamentos em dobro</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">Estes lançamentos vieram de importação, têm o mesmo valor e o mesmo dia, e um deles fica. O que tem o mesmo nome já vem marcado para apagar; o que tem nome diferente pode ser um gasto de verdade, então confira.</p>
+    ${grupos.length ? `<div class="ext-topo"><b id="arRepSoma"></b></div><ul class="ext-lista">${grupos.map(linha).join("")}</ul>
+      <p class="hint" style="margin:8px 0 0">Apagar não dá para desfazer; baixe uma cópia antes se quiser.</p>
+      <div class="actions" style="margin-top:12px"><button class="btn" type="button" id="arRepApaga"></button><button class="btn" type="button" id="arRepCopia">${ico("baixar")}Baixar cópia</button>${voltaArrumar}</div>`
+      : `<div class="empty" style="margin-top:12px">Não achei lançamentos em dobro.</div><div class="actions" style="margin-top:12px">${voltaArrumar}</div>`}</div>`);
+  $("arVolta").onclick = arrumarTela;
+  if (!grupos.length) return;
+  const todos = grupos.flatMap((g) => g.copias), sel = () => todos.filter((x) => marcados.has(x.id));
+  const conta = () => {
+    const s = sel(); $("arRepSoma").textContent = `${plural(s.length, "marcado", "marcados")} · ${brl(round2(s.reduce((t, x) => t + Number(x.valor), 0)))}`;
+    $("arRepApaga").textContent = s.length ? `Apagar ${plural(s.length, "cópia", "cópias")}` : "Apagar"; $("arRepApaga").disabled = !s.length; $("arRepCopia").disabled = !s.length;
+  };
+  document.querySelectorAll("#dlgBody [data-k]").forEach((b) => (b.onchange = () => { b.checked ? marcados.add(b.dataset.k) : marcados.delete(b.dataset.k); conta(); }));
+  $("arRepCopia").onclick = () => baixaCopiaDeLancamentos(sel(), "lancamentos-em-dobro");
+  armDelete($("arRepApaga"), async () => {
+    const s = sel(), ids = new Set(s.map((x) => x.id));
+    $("arRepApaga").disabled = true;
+    const ok = await grava(async () => { for (let i = 0; i < s.length; i += 10) await Promise.all(s.slice(i, i + 10).map((x) => S.store.deleteLancamento(x.id))); });
+    if (!ok) { conta(); return; }
+    S.data.lancamentos = S.data.lancamentos.filter((x) => !ids.has(x.id));
+    render(); arrumarTela(); toast(`${plural(s.length, "cópia apagada", "cópias apagadas")}.`);
+  }, "Toque de novo para apagar");
+  conta();
+}
 function arrumarMinhasContas() {
   const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, nome = S.prefs.meuNome || "", r = entreMinhasContas(S.data.lancamentos, nome), marcados = new Set(r.itens.map((x) => x.id));
   const linha = (x) => `<li><input type="checkbox" data-k="${esc(x.id)}" checked aria-label="${esc(x.descricao)}">
@@ -5600,14 +5632,15 @@ function conferirConta(fonte, nomeArquivo) {
   const historico = new Map();
   [...S.data.lancamentos].sort((a, b) => a.data.localeCompare(b.data)).forEach((x) => { if (x.descricao && x.tipo !== "Reserva") historico.set(`${x.tipo}|${norm(x.descricao)}`, x.categoria); });
   const chaves = new Set(S.data.lancamentos.map((x) => x.import_key).filter(Boolean));
-  const jaTem = (m) => S.data.lancamentos.some((x) => x.tipo === m.tipo && x.data === m.data && Math.abs(Number(x.valor) - m.valor) < 0.005);
   const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
   const formaDe = (m) => (m.tipo === "Receita" ? "" : m.forma === "Débito" ? "Débito" : m.forma === "Pix" || m.forma === "Transferência" ? "Pix" : /boleto/i.test(m.original) ? "Boleto" : "Débito");
   const monta = () => {
     const conta = leConta({ ...fonte, hoje: hoje(), meuNome: est.meuNome });
+    const doArquivo = new Set(conta.movimentos.map((m) => m.chave));
+    const jaLancados = movimentosJaLancados(conta.movimentos.filter((m) => !chaves.has(m.chave) && !m.ignorar), S.data.lancamentos.filter((x) => !(x.import_key && doArquivo.has(x.import_key))));
     const itens = conta.movimentos.map((m) => {
       const lista = m.tipo === "Receita" ? catR : catD, c = historico.get(`${m.tipo}|${norm(m.descricao)}`) || m.categoria;
-      return { ...m, cat: est.cats.get(m.chave) || (lista.includes(c) ? c : lista.includes("Outros") ? "Outros" : lista[0]), estado: chaves.has(m.chave) ? "importada" : m.ignorar ? "fora" : jaTem(m) ? "parecida" : "nova" };
+      return { ...m, cat: est.cats.get(m.chave) || (lista.includes(c) ? c : lista.includes("Outros") ? "Outros" : lista[0]), estado: chaves.has(m.chave) ? "importada" : m.ignorar ? "fora" : jaLancados.has(m.chave) ? "parecida" : "nova" };
     });
     if (!itens.length) return openDlg(`<h3>Não achei movimentos nesse arquivo</h3><p style="color:var(--ink-2);margin:0 0 14px">O arquivo precisa ter data, valor e descrição em cada linha.</p><div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
     const ligado = (it) => (est.marcados.has(it.chave) ? est.marcados.get(it.chave) : it.estado === "nova");
@@ -5629,6 +5662,7 @@ function conferirConta(fonte, nomeArquivo) {
       <p class="hint" style="margin:4px 0 8px">Com o seu nome, as transferências entre as suas próprias contas não são contadas como entrada nem como gasto.</p>
       ${vis.length ? `<div class="ext-topo"><b id="ctSoma"></b><button class="link" type="button" id="ctTodas"></button></div>
       ${listaVis()}` : `<div class="empty" style="margin-top:12px">Todos os movimentos desse arquivo já foram importados antes.</div>`}
+      ${vis.some((it) => it.estado === "parecida") ? `<p class="hint" style="margin:8px 0 0">${plural(vis.filter((it) => it.estado === "parecida").length, "movimento parece já estar lançado", "movimentos parecem já estar lançados")} e começa${vis.filter((it) => it.estado === "parecida").length === 1 ? "" : "m"} desmarcado${vis.filter((it) => it.estado === "parecida").length === 1 ? "" : "s"}, para não duplicar. Marque se quiser lançar mesmo assim.</p>` : ""}
       ${antigas ? `<p class="hint" style="margin:10px 0 0">${plural(antigas, "movimento já tinha sido importado", "movimentos já tinham sido importados")} antes e ${antigas === 1 ? "ficou" : "ficaram"} de fora.</p>` : ""}
       ${fora.length ? `<details class="manual" style="margin-top:10px"><summary>${plural(fora.length, "movimento não entra", "movimentos não entram")} (por padrão)</summary>
         <p class="hint" style="margin:6px 0">Marque se quiser incluir algum mesmo assim.</p><ul class="ext-lista">${fora.map((it) => linha(it, ` · ${esc(it.motivo)}`)).join("")}</ul></details>` : ""}

@@ -64,3 +64,36 @@ test("o que ficou em Outros, junto por nome e do que mais pesa para o que menos 
   assert.equal(g[0].ids.length, 3);
   assert.equal(gruposEmOutros(ls, { minimo: 1 }).length, 3);
 });
+
+import { movimentosJaLancados, repetidosDeImportacao } from "../js/arrumar.js";
+
+test("importar de novo: o que já está lançado (mesmo valor e data parecida) fica de fora, um para um", () => {
+  const ja = [L({ tipo: "Despesa", valor: 20, data: "2026-10-05", descricao: "Posto" })];
+  const mov = [{ chave: "a", tipo: "Despesa", valor: 20, data: "2026-10-05" }, { chave: "b", tipo: "Despesa", valor: 20, data: "2026-10-05" }, { chave: "c", tipo: "Despesa", valor: 35, data: "2026-10-05" }];
+  const r = movimentosJaLancados(mov, ja);
+  assert.equal(r.size, 1); assert.ok(r.has("a") || r.has("b")); assert.equal(r.has("c"), false);   // o 2º Pix de R$ 20 é novo de verdade
+  // PDF e CSV do mesmo extrato podem diferir um ou dois dias na data
+  assert.equal(movimentosJaLancados([{ chave: "d", tipo: "Despesa", valor: 20, data: "2026-10-07" }], ja).size, 1);
+  assert.equal(movimentosJaLancados([{ chave: "d", tipo: "Despesa", valor: 20, data: "2026-10-09" }], ja).size, 0);   // longe demais
+  assert.equal(movimentosJaLancados([{ chave: "e", tipo: "Receita", valor: 20, data: "2026-10-05" }], ja).size, 0);   // tipo diferente
+});
+
+test("importar de novo: vale o lançamento mais perto na data e cada um só uma vez", () => {
+  const ja = [L({ valor: 10, data: "2026-10-01" }), L({ valor: 10, data: "2026-10-03" })];
+  const r = movimentosJaLancados([{ chave: "x", tipo: "Despesa", valor: 10, data: "2026-10-03" }, { chave: "y", tipo: "Despesa", valor: 10, data: "2026-10-03" }, { chave: "z", tipo: "Despesa", valor: 10, data: "2026-10-03" }], ja);
+  assert.equal(r.size, 2);   // dois lançamentos existentes cobrem dois movimentos; o terceiro é novo
+});
+
+test("repetidos de importação: acha os em dobro, mantém o mais antigo e diz quais têm o mesmo nome", () => {
+  const ls = [
+    L({ id: "1", valor: 40, data: "2026-10-05", descricao: "Posto Shell", import_key: "nu-a", created_at: "2026-10-10T10:00:00Z" }),
+    L({ id: "2", valor: 40, data: "2026-10-05", descricao: "Transferência enviada pelo Pix - POSTO SHELL LTDA - 11.111.111/0001-11 - BANCO", import_key: "pdf-b", created_at: "2026-10-12T10:00:00Z" }),
+    L({ id: "3", valor: 20, data: "2026-10-06", descricao: "Ana", import_key: "nu-c", created_at: "2026-10-10T10:00:00Z" }),
+    L({ id: "4", valor: 20, data: "2026-10-06", descricao: "Bruno", import_key: "nu-d", created_at: "2026-10-10T10:00:01Z" }),
+    L({ id: "5", valor: 9, data: "2026-10-07", descricao: "Café" }), L({ id: "6", valor: 9, data: "2026-10-07", descricao: "Café" }),   // à mão: não mexe
+  ];
+  const r = repetidosDeImportacao(ls);
+  assert.equal(r.length, 2);
+  const shell = r.find((g) => g.valor === 40); assert.equal(shell.manter.id, "1"); assert.deepEqual(shell.copias.map((c) => c.id), ["2"]); assert.equal(shell.igual, true);
+  const pessoas = r.find((g) => g.valor === 20); assert.equal(pessoas.igual, false);   // Ana e Bruno: podem ser dois Pix de verdade
+});
