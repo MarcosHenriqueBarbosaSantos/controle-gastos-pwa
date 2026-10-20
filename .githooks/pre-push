@@ -1,0 +1,11 @@
+#!/bin/sh
+# Trava de publicação: mandar algo para a main (que publica o site) só passa se npm run validar passar.
+while read local_ref local_sha remote_ref remote_sha; do
+  case "$remote_ref" in
+    refs/heads/main)
+      echo "Validando antes de publicar na main..."
+      npm run --silent validar || { echo "Publicação bloqueada: corrija o que a validação apontou."; exit 1; }
+      ;;
+  esac
+done
+exit 0
