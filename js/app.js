@@ -4,7 +4,7 @@ import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
-  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas } from "./calc.js";
+  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
@@ -73,6 +73,23 @@ const ICO = {
   olhoFechado: "M3 3l18 18M10.6 6.1A10 10 0 0 1 12 6c6 0 9.5 6 9.5 6a17 17 0 0 1-3 3.6M6.6 6.6A17 17 0 0 0 2.5 12S6 18 12 18a9.6 9.6 0 0 0 4.4-1M9.9 9.9a3 3 0 0 0 4.2 4.2",
   olho: "M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12zM12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z",
 };
+// Os desenhos das categorias (a pessoa escolhe um para cada em Ajustes). Os nomes ficam em ICONES_CATEGORIA, no calc.js.
+Object.assign(ICO, {
+  talher: "M6 3v6a2 2 0 0 0 4 0V3M8 11v10M16 21V3c-2.5 2-3 5-3 8h3",
+  raio: "M13 2L4 14h7l-1 8 9-12h-7z",
+  capelo: "M2 9l10-5 10 5-10 5zM6 11v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5",
+  saude: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 8v8M8 12h8",
+  tesoura: "M7 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM7 22a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM9.5 7L20 18M9.5 17L20 6",
+  tv: "M3 7h18v12H3zM8 3l4 4 4-4",
+  musica: "M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0zM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0z",
+  camiseta: "M8 3L3 6l2 4 3-1v12h8V9l3 1 2-4-5-3a4 4 0 0 1-8 0z",
+  aviao: "M3 12l18-8-6 17-3-7z",
+  livro: "M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11",
+  sacola: "M5 8h14l-1 13H6zM9 8V6a3 3 0 0 1 6 0v2",
+  ferramenta: "M15 4a5 5 0 0 0-4.5 6.8L3 18.3 5.7 21l7.5-7.5A5 5 0 0 0 20 9l-3 3-2.5-.5L14 9l3-3z",
+  bola: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18",
+  pontos: "M5 12h.01M12 12h.01M19 12h.01",
+});
 const ico = (n) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="${ICO[n]}"/></svg>`;
 
 /* Cada categoria tem sempre a mesma cor: no gráfico, na lista e nos detalhes. */
@@ -89,7 +106,7 @@ function ava(nome, tipo = "Despesa") {
   if (tipo === "Reserva") return `<span class="ava res">${ico("cofre")}</span>`;
   if (tipo === "Cartao") return `<span class="ava card">${ico("cartao")}</span>`;
   const c = corCat(nome);
-  return `<span class="ava" style="--c:${c};--cs:${suave(c)}" aria-hidden="true">${esc(String(nome || "?").trim().charAt(0).toUpperCase())}</span>`;
+  return `<span class="ava" style="--c:${c};--cs:${suave(c)}" aria-hidden="true">${ico(iconeDaCategoria(nome, S.prefs.iconesCat))}</span>`;
 }
 
 const S = {
@@ -449,7 +466,7 @@ function contaAPartirDaDemo() {
 }
 function startDemo() {
   try { sessionStorage.setItem("cg-modo", "demo"); } catch { /* nada */ }
-  const store = createLocalStore("cg-demo-v9", demoSeed(hoje()));
+  const store = createLocalStore("cg-demo-v10", demoSeed(hoje()));
   startApp(store, "Demonstração");
   showBanner(`Demonstração com dados de exemplo.`,
     [...(S.semLogin ? [] : [["Criar conta", contaAPartirDaDemo]]), ["Recomeçar", () => { store.reset(); startDemo(); }]], "fina");
@@ -822,6 +839,9 @@ function renderKpis(c) {
     <button type="button" data-acao="ler"><span>${ico("qr")}</span>Escanear e importar</button>
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
+  <div class="meses-chips" role="group" aria-label="Escolher o mês">${[-1, 0, 1].map((k) => { const m = addM(S.mes, k), n = Number(m.slice(5)) - 1, outroAno = m.slice(0, 4) !== S.mes.slice(0, 4);
+    const nome = outroAno ? `${MES3[n]} ${m.slice(0, 4)}` : MESES[n][0].toUpperCase() + MESES[n].slice(1);
+    return `<button type="button" data-mes="${m}"${k === 0 ? ' aria-current="true"' : ""}>${nome}</button>`; }).join("")}</div>
   <div class="atalhos" role="group" aria-label="Atalhos">
     <button type="button" data-atalho="mercado">${ico("carrinho")}Lista de mercado</button>
     <button type="button" data-atalho="veiculo">${ico("carro")}Meu carro ou moto</button>
@@ -839,6 +859,7 @@ function renderKpis(c) {
   $("grafSobraSec").innerHTML = (atualM || c.fase === "passado") && sb.livre > 0 ? graficoDaSobra(c) : "";
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
+  $("resumo").querySelectorAll("[data-mes]").forEach((b) => (b.onclick = () => { S.mes = b.dataset.mes; render(); }));
   $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ mercado, veiculo: meuVeiculo, casa: minhaCasa, ferr: ferramentas })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
@@ -1528,6 +1549,13 @@ function renderCusto(c) {
   hit.addEventListener("pointerleave", () => { tip.hidden = true; cross.setAttribute("visibility", "hidden"); });
 }
 
+/** A pílula do limite de uma categoria: quanto ainda cabe, "falta pouco" a partir de 80%, ou quanto passou. */
+function pilulaDoLimite(u) {
+  const e = estadoDoLimite(u);
+  return e.nivel === "estourou" ? ` <span class="tag bad">passou ${brl0(u.passou)}</span>`
+    // Curto, para caber no celular: a cor diz se está folgado (verde) ou se falta pouco (âmbar).
+    : e.nivel === "perto" ? ` <span class="tag warn" title="Falta pouco para o limite"><span class="so-leitor">Falta pouco: </span>cabem ${brl0(e.sobra)}</span>` : ` <span class="tag ok">cabem ${brl0(e.sobra)}</span>`;
+}
 function renderCat(c) {
   const host = $("chCat"); host.innerHTML = "";
   const cats = catMap(c), tot = cats.reduce((s, x) => s + x[1], 0);
@@ -1543,7 +1571,7 @@ function renderCat(c) {
   box.innerHTML = linhas.map(([k, v], i) => {
     const u = lim.get(k);
     return `<button type="button" class="cat-row${u?.passou ? " over" : ""}" data-i="${i}" style="--c:${corCat(k)}" aria-label="${esc(k)}: ${brl0(v)}${u ? ` de ${brl0(u.limite)} de limite` : ""}. Ver os gastos">
-    <span class="nm"><i></i>${esc(k)}${u?.passou ? ` <span class="tag bad">passou ${brl0(u.passou)}</span>` : u?.extra ? ` <span class="tag">+${brl0(u.extra)} do mês passado</span>` : ""}</span><span class="vl">${brl0(v)}<em>${u ? `de ${brl0(u.limite)}` : `${Math.round((v / tot) * 100)}%`}</em></span>
+    <span class="nm"><i></i>${esc(k)}${u ? pilulaDoLimite(u) : ""}${u?.extra && !u.passou ? ` <span class="tag">+${brl0(u.extra)} do mês passado</span>` : ""}</span><span class="vl">${brl0(v)}<em>${u ? `de ${brl0(u.limite)}` : `${Math.round((v / tot) * 100)}%`}</em></span>
     <span class="bar${u ? " lim" : ""}"><i style="width:${Math.max(v ? 2 : 0, u ? Math.min(100, u.pct) : (v / max) * 100).toFixed(1)}%"></i></span>${delta(k)}</button>`; }).join("");
   host.appendChild(box);
   if (cmp && linhas.some(([k]) => cmp.por[k])) { const p = document.createElement("p"); p.className = "hint cmp-nota"; p.textContent = `A comparação é dos gastos do dia a dia com ${nomeMes(cmp.mes)}${cmp.ate ? `, até o dia ${cmp.ate}` : ""}.`; host.appendChild(p); }
@@ -2189,7 +2217,9 @@ const GRUPOS_FERR = [
     { id: "mercado", k: "supermercado compras feira carrinho comprar", ico: "carrinho", t: "Lista de mercado", s: "Anote o que comprar, estime o gasto e lance ao finalizar" },
     { id: "veiculo", k: "gasolina combustivel ipva seguro oficina moto", ico: "carro", t: "Meu carro ou moto", s: "Quanto custa por mês, por dia e por km" },
     { id: "casa", k: "aluguel condominio luz agua iptu moradia", ico: "casa", t: "Minha casa", s: "Quanto a casa custa por mês e quanto pesa na renda" },
-    { id: "msg", k: "sms notificacao banco colar importar", ico: "clipe", t: "Colar mensagem do banco", s: "A notificação ou o SMS vira um lançamento" }] },
+    { id: "msg", k: "sms notificacao banco colar importar", ico: "clipe", t: "Colar mensagem do banco", s: "A notificação ou o SMS vira um lançamento" },
+    { id: "revisar", k: "revisar conferir categoria outros classificar fila pendente", ico: "lupa", t: "Para revisar",
+      get s() { const n = S.loaded ? paraRevisar(S.data, hoje(), { revisados: S.prefs.revisados || [] }).total : 0; return n ? `${n} ${n === 1 ? "lançamento ficou" : "lançamentos ficaram"} em "Outros"` : "Lançamentos sem categoria, para você conferir"; } }] },
   { titulo: "Guardar e planejar", itens: [
     { id: "revisao", k: "fechar mes balanco resumo", ico: "grafico", t: "Revisão do mês", s: "3 passos: como foi, onde ajustar e quanto guardar" },
     { id: "desafio", k: "economizar guardar semanal poupar cofrinho", ico: "alvo", t: "Desafio de economia", s: "Guarde um valor por semana e acompanhe" },
@@ -2220,7 +2250,7 @@ const DESTINOS = [
 ];
 /** Abre uma tela ou ferramenta pelo id: usado pela tela Mais, pelo botão Ferramentas e pela busca geral. */
 function vaiPara(k) {
-  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
   if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
 }
 /* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
@@ -3263,6 +3293,27 @@ function assinaturasTela() {
     toastAcao(`${nome} saiu da lista`, "Desfazer", () => muda(chave, (S.prefs.naoAssinaturas || []).filter((k) => k !== chave)), 6000);
   }));
   document.querySelectorAll("#dlgBody [data-volta]").forEach((b) => (b.onclick = () => muda(b.dataset.volta, ocultas.filter((k) => k !== b.dataset.volta))));
+}
+/* ---------- Para revisar: gastos e entradas que ficaram em "Outros" ---------- */
+function paraRevisarTela() {
+  const r = paraRevisar(S.data, hoje(), { revisados: S.prefs.revisados || [] }), lista = r.itens.slice(0, 40);
+  const linha = (x) => `<li class="assin-linha rev-linha">${ava(x.categoria, x.tipo === "Receita" ? "Receita" : "Despesa")}
+    <button type="button" class="rev-tx" data-ed="${esc(x.id)}" aria-label="${esc(x.descricao || "Sem descrição")}: escolher a categoria"><b>${esc(x.descricao || "Sem descrição")}</b><span class="t">${ddmm(x.data)} · ${esc(x.forma || (x.tipo === "Receita" ? "Entrada" : "Gasto"))} · toque para escolher a categoria</span></button>
+    <span class="assin-val"><b>${x.tipo === "Receita" ? "+ " : ""}${brl(Number(x.valor))}</b><button class="link" type="button" data-ok="${esc(x.id)}">Está certo</button></span></li>`;
+  openDlg(`<h3>Para revisar</h3>
+    ${r.total ? `<div class="assin-resumo"><span class="t">Ficaram em "Outros" nos últimos 60 dias</span><b>${r.total} ${r.total === 1 ? "lançamento" : "lançamentos"}</b><span class="t">${brl(r.soma)} no total. Escolha a categoria certa ou toque em "Está certo".</span></div>
+      <ul class="assin-lista">${lista.map(linha).join("")}</ul>${r.total > lista.length ? `<p class="hint">Mostrando os ${lista.length} mais recentes.</p>` : ""}
+      <div class="actions"><button class="btn" type="button" id="revTodos">Marcar todos como certos</button><button class="btn" type="button" data-close>Fechar</button></div>`
+      : `<p class="hint" style="margin:0 0 10px">Nada para revisar.</p><p class="hint">Aqui aparecem os gastos e as entradas que ficaram em "Outros", como os que vêm do extrato do cartão e da leitura por foto quando o app não acha a categoria.</p>
+      <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`}`);
+  const marca = async (ids) => { S.prefs.revisados = [...new Set([...(S.prefs.revisados || []), ...ids])].slice(-300); await salvaPrefs(); paraRevisarTela(); };
+  document.querySelectorAll("#dlgBody [data-ok]").forEach((b) => (b.onclick = () => marca([b.dataset.ok])));
+  if ($("revTodos")) $("revTodos").onclick = () => marca(r.itens.map((x) => x.id));
+  // Tocar na linha abre a edição; ao salvar ou cancelar, a fila abre de novo.
+  document.querySelectorAll("#dlgBody [data-ed]").forEach((b) => (b.onclick = () => {
+    editarLancamento(b.dataset.ed);
+    $("dlg").addEventListener("close", () => { if (!$("dlg").open) setTimeout(paraRevisarTela, 0); }, { once: true });
+  }));
 }
 /** Avisa das medalhas novas. Na primeira vez que o app olha, só anota o que já estava ganho (sem festa por coisa antiga). */
 function avisaConquistas() {
@@ -4423,13 +4474,29 @@ function renomearCategoria(tipo, antigo, depois = ajustes) {
     toast(igual ? `${antigo} juntou com ${igual}.` : `Nome mudado: ${antigo} agora é ${novo}.`);
   });
 }
+/** A pessoa escolhe o desenho de uma categoria de gasto. "Voltar ao padrão" tira a escolha e volta o que o nome sugere. */
+function escolheDesenho(cat) {
+  const atual = iconeDaCategoria(cat, S.prefs.iconesCat), c = corCat(cat), padrao = iconeDaCategoria(cat, {});
+  openDlg(`<h3>Desenho de ${esc(cat)}</h3>
+    <p class="hint" style="margin:0 0 10px">Aparece ao lado de cada gasto dessa categoria, no Extrato e nas listas.</p>
+    <div class="ic-grid" role="group" aria-label="Desenhos">${ICONES_CATEGORIA.map((i) => `<button type="button" class="ic-op${i === atual ? " sel" : ""}" data-i="${i}" style="--c:${c}" aria-pressed="${i === atual}" aria-label="${i}">${ico(i)}</button>`).join("")}</div>
+    <div class="actions"><button class="btn" type="button" id="icPadrao"${S.prefs.iconesCat?.[cat] ? "" : " disabled"}>Voltar ao padrão</button><button class="btn" type="button" id="icVolta">Cancelar</button></div>`);
+  const grava = async (i) => {
+    const m = { ...(S.prefs.iconesCat || {}) };
+    if (i && i !== padrao) m[cat] = i; else delete m[cat];
+    S.prefs.iconesCat = m; await salvaPrefs(); render(); ajustes();
+  };
+  $("dlgBody").querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => grava(b.dataset.i)));
+  $("icPadrao").onclick = () => grava(null);
+  $("icVolta").onclick = () => ajustes();
+}
 function ajustes() {
   const first = primeiroMes(S.data) || mKey(hoje()), cur = mKey(hoje()), meses = [];
   for (let m = first, i = 0; m <= cur && i < 120; m = addM(m, 1), i++) meses.push(m);
   const desde = S.prefs.saldoDesde && meses.includes(S.prefs.saldoDesde) ? S.prefs.saldoDesde : first;
   const ini = Number(S.prefs.saldoInicial) || 0;
   const bloco = (tipo, titulo) => `<div class="aj-sec"><h4>${titulo}</h4><div class="chips">${
-    cats(tipo).map((c) => `<span class="chip"><button type="button" class="chip-nome" data-rn="${esc(c)}" data-tipo="${tipo}" aria-label="Mudar o nome de ${esc(c)}">${esc(c)}</button><button type="button" data-rm="${esc(c)}" data-tipo="${tipo}" aria-label="Remover ${esc(c)}">${ico("x")}</button></span>`).join("")}</div>
+    cats(tipo).map((c) => `<span class="chip">${tipo === "Despesa" ? `<button type="button" class="chip-ic" data-ic="${esc(c)}" style="--c:${corCat(c)}" aria-label="Trocar o desenho de ${esc(c)}">${ico(iconeDaCategoria(c, S.prefs.iconesCat))}</button>` : ""}<button type="button" class="chip-nome" data-rn="${esc(c)}" data-tipo="${tipo}" aria-label="Mudar o nome de ${esc(c)}">${esc(c)}</button><button type="button" data-rm="${esc(c)}" data-tipo="${tipo}" aria-label="Remover ${esc(c)}">${ico("x")}</button></span>`).join("")}</div>
     <form class="aj-add" data-add="${tipo}" autocomplete="off"><input class="in" maxlength="30" placeholder="${tipo === "Reserva" ? "Novo destino" : "Nova categoria"}" aria-label="Adicionar em ${titulo.toLowerCase()}">${tipo === "Despesa" ? `<select class="in" data-pai aria-label="Dentro de qual categoria (opcional)"><option value="">Categoria própria</option>${cats(tipo).filter((c) => !c.includes(SEP)).map((c) => `<option>${esc(c)}</option>`).join("")}</select>` : ""}<button class="btn" type="submit">Adicionar</button></form></div>`;
   openDlg(`<h3>Ajustes</h3>
     ${bloco("Despesa", "Categorias de gasto")}${bloco("Receita", "Categorias de entrada")}${bloco("Reserva", "Onde você guarda dinheiro")}
@@ -4480,6 +4547,7 @@ function ajustes() {
   const body = $("dlgBody");
   if ($("ajSenha")) { $("ajCasal").onclick = () => abrirCasal(); $("ajSenha").onclick = () => trocarSenha(ajustes); $("ajExcluir").onclick = () => excluirConta(ajustes); }
   body.querySelectorAll("[data-rn]").forEach((b) => (b.onclick = () => renomearCategoria(b.dataset.tipo, b.dataset.rn)));
+  body.querySelectorAll("[data-ic]").forEach((b) => (b.onclick = () => escolheDesenho(b.dataset.ic)));
   body.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = async () => {
     const t = b.dataset.tipo, l = cats(t);
     if (l.length <= 1) return;

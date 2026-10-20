@@ -920,7 +920,7 @@ export function lembreteDoDia(st, hoje, { semGasto = [], anotouHoje = false, des
 
 /* ===================== Conta de casal ===================== */
 /** O que passa a ser um só para os dois quando as contas são divididas. O resto (avisos, tema, quadros do início) continua de cada um. */
-export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos", "naoAssinaturas", "fotos", "listaMercado", "precosMercado"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos; naoAssinaturas: cobranças que alguém disse que não são assinatura
+export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos", "naoAssinaturas", "revisados", "iconesCat", "fotos", "listaMercado", "precosMercado"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos; naoAssinaturas: cobranças que alguém disse que não são assinatura
 
 /** Só as chaves que são dos dois. */
 export function comumDoCasal(prefs) {
@@ -944,6 +944,7 @@ export function juntaPrefsDoCasal(deQuemConvidou = {}, deQuemAceitou = {}) {
   if (a.fotos || b.fotos) out.fotos = { ...(b.fotos || {}), ...(a.fotos || {}) };
   if (a.naoRepetidos || b.naoRepetidos) out.naoRepetidos = [...new Set([...(a.naoRepetidos || []), ...(b.naoRepetidos || [])])];
   if (a.naoAssinaturas || b.naoAssinaturas) out.naoAssinaturas = [...new Set([...(a.naoAssinaturas || []), ...(b.naoAssinaturas || [])])];
+  if (a.revisados || b.revisados) out.revisados = [...new Set([...(b.revisados || []), ...(a.revisados || [])])].slice(-300);
   if (a.semGasto || b.semGasto) out.semGasto = [...new Set([...(a.semGasto || []), ...(b.semGasto || [])])].sort().slice(-90);
   return out;
 }
@@ -1220,4 +1221,50 @@ export function assinaturasDetectadas(st, hojeISO, { ocultas = [] } = {}) {
     itens, ocultas: achadas.filter((a) => ocultas.includes(a.chave)),
     totalMes: round2(itens.reduce((t, a) => t + a.mensal, 0)), totalAno: round2(itens.reduce((t, a) => t + a.anual, 0)),
   };
+}
+
+/* ===================== Limite por categoria: a pílula de "disponível" ===================== */
+/** Como está o limite de uma categoria (um item de usoDosLimites): "ok", "perto" (80% ou mais) ou "estourou". `sobra` é o que ainda cabe. */
+export function estadoDoLimite(u) {
+  return { nivel: u.passou > 0 ? "estourou" : u.pct >= 80 ? "perto" : "ok", sobra: round2(Math.max(0, u.limite - u.gasto)) };
+}
+
+/* ===================== Para revisar ===================== */
+/**
+ * Gastos e entradas dos últimos `dias` dias que ficaram na categoria "Outros" (o que a importação e a leitura por foto
+ * deixam quando não acham a categoria), menos os que a pessoa já marcou como certos. Do mais recente para o mais antigo.
+ */
+export function paraRevisar(st, hojeISO, { revisados = [], dias = 60 } = {}) {
+  const d = new Date(`${hojeISO}T12:00:00`); d.setDate(d.getDate() - dias);
+  const desde = toISO(d), feitos = new Set(revisados);
+  const itens = (st.lancamentos || [])
+    .filter((x) => (x.tipo === "Despesa" || x.tipo === "Receita") && semAcento(x.categoria) === "outros" && x.data >= desde && x.data <= hojeISO && !feitos.has(x.id))
+    .sort((a, b) => b.data.localeCompare(a.data) || Number(b.valor) - Number(a.valor));
+  return { itens, total: itens.length, soma: round2(itens.reduce((t, x) => t + Number(x.valor), 0)) };
+}
+
+/* ===================== O desenho de cada categoria ===================== */
+/** Os desenhos que a pessoa pode escolher para uma categoria de gasto (os nomes são os do mapa de ícones do app). */
+export const ICONES_CATEGORIA = ["carrinho", "talher", "casa", "carro", "raio", "cartao", "capelo", "saude", "tesoura", "tv", "musica", "camiseta",
+  "aviao", "livro", "presente", "sacola", "ferramenta", "bola", "cofre", "pontos"];
+// O desenho padrão vem do nome da categoria. Vale a primeira regra que bater, então as mais específicas vêm antes.
+const REGRAS_ICONE = [
+  ["carrinho", /mercad|feira|supermerc|hortifruti/], ["talher", /aliment|restaur|lanch|comid|delivery|ifood|padaria|cafe/],
+  ["raio", /\bluz\b|energia|agua|internet|telefon|celular|contas da casa|\bgas\b/], ["casa", /morad|alugue|condom|casa|iptu|reform/],
+  ["carro", /transport|uber|gasolin|combust|onibus|metro|veicul|carro|moto|estacion|pedagio/], ["cartao", /parcel|financ|cartao|emprest|divid/],
+  ["capelo", /educ|faculd|escola|curso|mensalid/], ["saude", /saud|farmac|medic|dent|terap|academ/], ["tesoura", /belez|cabel|estet|salao|barbe|unha/],
+  ["musica", /music|spotify|show|festa/], ["tv", /lazer|stream|netflix|cinema|serie|jogo|assinat|diver/], ["camiseta", /roupa|vestu|calcad|tenis/],
+  ["aviao", /viag|hotel|passag|ferias|turism/], ["livro", /livro|leitura/], ["presente", /presente|doac|aniversar/],
+  ["ferramenta", /conserto|oficina|manuten|ferrament/], ["sacola", /compras|shopping|loja/], ["bola", /esport|futebol|quadra/], ["cofre", /poupan|reserva|invest/],
+];
+/**
+ * O desenho de uma categoria: o que a pessoa escolheu (para a categoria ou, numa subcategoria, para a de cima),
+ * ou o que o nome sugere. "Mercado › Feira" herda o carrinho do Mercado. Sem pista, três pontos.
+ * @param {Object<string,string>} escolhidos  { "Mercado": "sacola", ... }
+ */
+export function iconeDaCategoria(nome, escolhidos = {}) {
+  const inteiro = String(nome ?? "").trim(), pai = inteiro.includes("›") ? inteiro.split("›")[0].trim() : inteiro;
+  for (const k of [inteiro, pai]) if (ICONES_CATEGORIA.includes(escolhidos?.[k])) return escolhidos[k];
+  const n = semAcento(inteiro);
+  return REGRAS_ICONE.find(([, re]) => re.test(n))?.[0] || "pontos";
 }

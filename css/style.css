@@ -1232,3 +1232,30 @@ html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.2
   .assin-val{grid-column:1/-1;grid-template-columns:1fr auto;justify-items:start;align-items:baseline;text-align:left}
   .assin-val .t{grid-column:1;grid-row:2} .assin-val b{grid-column:1} .assin-val .link{grid-column:2;grid-row:1/3;justify-self:end}
 }
+
+/* Meses em chips, logo abaixo das ações rápidas (só no celular; as setas do topo continuam) */
+.meses-chips{display:flex;gap:8px;margin:12px 16px 0;overflow-x:auto;scrollbar-width:none}
+.meses-chips::-webkit-scrollbar{display:none}
+.meses-chips button{flex:1 1 0;min-width:max-content;border:1px solid var(--border);background:var(--surface);color:var(--ink-2);border-radius:999px;padding:10px 14px;font-weight:600;font-size:14px;transition:background .15s,color .15s,border-color .15s,transform .08s}
+.meses-chips button:hover{background:var(--surface-2)}
+.meses-chips button:active{transform:scale(.98)}
+.meses-chips button[aria-current="true"]{background:var(--series-soft);color:var(--brand);border-color:transparent}
+@media (min-width:701px){.meses-chips{display:none}}
+/* Pílulas de disponível nas categorias com limite */
+.cat-row .tag.ok{color:var(--good);background:var(--good-soft);border-color:transparent;margin-left:2px}
+.cat-row .tag.warn{color:var(--warn);background:var(--warn-soft);border-color:transparent;margin-left:2px}
+/* Para revisar */
+.rev-linha .rev-tx{border:0;background:none;text-align:left;padding:0;display:grid;gap:2px;min-width:0}
+.rev-linha .rev-tx b{font-size:15px;overflow-wrap:anywhere}
+.rev-linha .rev-tx .t{font-size:13px;color:var(--muted)}
+
+/* Desenho de cada categoria: botão no chip de Ajustes e a grade para escolher */
+.chip-ic{display:grid;place-items:center;width:28px;height:28px;border-radius:9px;border:0;margin-right:4px;background:color-mix(in srgb,var(--c) 16%,transparent);color:var(--c)}
+:root[data-tema="claro"] .chip-ic{color:color-mix(in srgb,var(--c) 58%,#000)}
+.chip-ic .ic{width:16px;height:16px}
+.ic-grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:0 0 12px}
+.ic-op{aspect-ratio:1;min-height:48px;border-radius:14px;border:1px solid var(--border);background:var(--surface);display:grid;place-items:center;color:var(--c);transition:background .15s,border-color .15s,transform .08s}
+:root[data-tema="claro"] .ic-op{color:color-mix(in srgb,var(--c) 58%,#000)}
+.ic-op .ic{width:24px;height:24px}
+.ic-op:hover{background:var(--surface-2)} .ic-op:active{transform:scale(.96)}
+.ic-op.sel{border-color:var(--series);background:var(--series-soft)}

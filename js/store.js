@@ -372,6 +372,7 @@ export function demoSeed(hojeISO) {
     F.filter((f) => f.repete !== "semanal" && !f.cartao_id).forEach((f) => { P.push({ fixo_id: f.id, mes: `${prev2}-01` }); P.push({ fixo_id: f.id, mes: `${prev}-01` }); if (f.dia <= d) P.push({ fixo_id: f.id, mes: `${cur}-01` }); });
     // A fatura que vence neste mês (compras do mês passado) já aparece paga depois do dia 8.
     const C = d >= 8 ? [{ id: uuid(), cartao_id: roxo.id, cartao: roxo.nome, vencimento: `${cur}-08`, valor: 300.9, status: "Paga", valor_fixo: false }] : [];
-    return { lancamentos: L, fixos: [...F, salario], pagos: P, faturas: C, cartoes: [roxo] };
+    return { lancamentos: L, fixos: [...F, salario], pagos: P, faturas: C, cartoes: [roxo],
+      prefs: { limites: { Mercado: 700, Lazer: 150, Transporte: 100, "Alimentação": 60 } } };   // três estados de limite para a demonstração: cabe, falta pouco e passou
   };
 }
