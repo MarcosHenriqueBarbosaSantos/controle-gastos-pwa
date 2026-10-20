@@ -3716,16 +3716,14 @@ document.body.classList.toggle("ocultar", valoresOcultos());
 function escanearEImportar() {
   const op = (id, icone, t, s) => `<button class="mais-item" type="button" id="${id}"><span class="ic-box">${ico(icone)}</span><span class="tx"><b>${t}</b><span>${s}</span></span>${ico("chev")}</button>`;
   openDlg(`<h3>Escanear, importar e exportar</h3><p class="hint" style="margin:0 0 12px">O app lê no próprio aparelho e mostra tudo para você conferir antes de lançar.</p>
-    <div class="caixa-mais">${op("esQr", "qr", "Ler QR code", "Pix, cupom fiscal (nota) ou código de barras do boleto")}
-      ${op("esFoto", "camera", "Foto ou PDF de comprovante", "Pix, boleto, maquininha, fatura ou holerite")}
-      ${op("esExtrato", "subir", "Importar extrato", "da fatura do cartão ou da conta: CSV, OFX ou Excel")}
+    <div class="caixa-mais">${op("esExtrato", "subir", "Importar extrato do banco", "Fatura do cartão ou extrato da conta. O app descobre qual é.")}
+      ${op("esQr", "camera", "Ler com a câmera", "QR code, boleto, nota fiscal, comprovante ou fatura")}
       ${op("esMsg", "clipe", "Colar mensagem do banco", "a notificação ou o SMS de uma compra, Pix ou pagamento")}</div>
     <h4 class="ferr-h" style="margin:16px 0 6px">Exportar</h4>
     <div class="caixa-mais">${op("esExpMes", "baixar", "Extrato do mês", `${nomeMes(S.mes)} de ${S.mes.slice(0, 4)}, em Excel, PDF ou CSV`)}
       ${op("esExpCartao", "baixar", "Cartão", "A fatura do mês ou todas as compras, em Excel, PDF ou CSV")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
   $("esQr").onclick = () => { $("dlg").close(); setTimeout(() => { abrirLancar(); abrirQr(); }, 200); };
-  $("esFoto").onclick = () => { $("dlg").close(); setTimeout(() => abrirLeitor(), 200); };
   $("esExtrato").onclick = () => { $("dlg").close(); setTimeout(() => abrirExtrato(), 200); };
   $("esMsg").onclick = () => colarMensagem();
   $("esExpMes").onclick = () => exportarExtratoMes(escanearEImportar);
@@ -4818,7 +4816,7 @@ function abrirLeitor(preferido = "") {
   openDlg(`<h3>${preferido === "fatura" ? "Ler fatura" : "Ler foto ou PDF"}</h3>
     <p class="hint" style="margin:0 0 10px;font-size:13px">${preferido === "fatura" ? "Fotografe a fatura do cartão ou escolha o PDF que o banco mandou." : "Fotografe ou escolha o arquivo de um comprovante de pagamento, da fatura do cartão ou do holerite."} O app lê o valor e a data e deixa tudo preenchido para você conferir.</p>
     <ul class="dicas"><li>PDF e print de tela leem melhor do que foto de papel.</li><li>Na foto de papel: chegue perto, enquadre só o documento e segure o celular reto por cima dele, com boa luz.</li><li>Em boleto e conta, deixe o código de barras e a fileira de números aparecendo: o valor também está escrito ali.</li><li>Da fatura o app pega só o total e o vencimento; do holerite, o valor líquido.</li><li>A leitura é feita no seu aparelho. O arquivo não é enviado para nenhum servidor.</li></ul>
-    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="lerFoto">${ico("camera")}Tirar foto</button><button class="btn" type="button" id="lerEscolher">${ico("imagem")}Escolher imagem ou PDF</button><button class="btn" type="button" id="lerQr">${ico("qr")}Ler QR code do Pix ou da nota</button><button class="btn" type="button" id="lerExtrato">${ico("subir")}Importar extrato do cartão</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
+    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="lerFoto">${ico("camera")}Tirar foto</button><button class="btn" type="button" id="lerEscolher">${ico("imagem")}Escolher imagem ou PDF</button><button class="btn" type="button" id="lerQr">${ico("qr")}Ler QR code do Pix ou da nota</button><button class="btn" type="button" id="lerExtrato">${ico("subir")}Importar extrato do banco</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
   $("lerFoto").onclick = () => $("lerCamera").click();
   $("lerEscolher").onclick = () => $("lerGaleria").click();
   $("lerQr").onclick = abrirQr;
@@ -4865,19 +4863,19 @@ async function consultaNota(r, texto, previa, seFalhar = null) {
 const QR_NAO_SERVE = "Esse código não é de Pix, de nota fiscal nem de boleto. Aponte para o QR code do pagamento ou do cupom.";
 function abrirQr() {
   const vez = ++leitura;
-  openDlg(`<h3>Ler QR code</h3>
-    <p class="hint" style="margin:0 0 10px;font-size:13px">Aponte a câmera para o QR code do Pix ou do cupom fiscal. O app mostra o que leu para você conferir antes de lançar. ${S.store?.kind === "supabase" ? "O código é lido no aparelho; na nota de mercado, o app busca o valor no site da Fazenda." : "Na demonstração, a nota de mercado vem sem o valor: com a sua conta, o app busca o valor no site da Fazenda."}</p>
+  openDlg(`<h3>Ler com a câmera</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">Aponte para o QR code do Pix ou do cupom fiscal. Para comprovante, boleto, fatura ou holerite, use a foto ou o PDF. O app mostra o que leu para você conferir antes de lançar. ${S.store?.kind === "supabase" ? "O código é lido no aparelho; na nota de mercado, o app busca o valor no site da Fazenda." : "Na demonstração, a nota de mercado vem sem o valor: com a sua conta, o app busca o valor no site da Fazenda."}</p>
     <div class="qr-cam" id="qrCam"><video id="qrVideo" playsinline muted></video><i aria-hidden="true"></i></div>
     <p class="auth-msg" id="qrMsg" role="status">Abrindo a câmera…</p>
     <div class="menu-lista" style="display:grid;gap:8px">
-      <button class="btn" type="button" id="qrImagem">${ico("imagem")}Escolher uma imagem do QR code</button>
+      <button class="btn" type="button" id="qrImagem">${ico("imagem")}Foto ou PDF do comprovante</button>
       <details class="qr-colar"><summary>Colar o código do Pix (copia e cola)</summary>
         <textarea class="in" id="qrTexto" rows="3" spellcheck="false" autocapitalize="none" placeholder="Cole aqui o código que começa com 000201…" aria-label="Código do Pix copia e cola"></textarea>
         <button class="btn" type="button" id="qrUsar">Usar este código</button></details>
       <button class="btn ghost" type="button" data-close>Cancelar</button></div>
     <input type="file" id="qrArquivo" accept="image/*" hidden>`);
   const msg = (t, kind = "") => { if ($("qrMsg")) { $("qrMsg").textContent = t; $("qrMsg").className = "auth-msg " + kind; } };
-  $("qrImagem").onclick = () => $("qrArquivo").click();
+  $("qrImagem").onclick = () => $("lerGaleria").click();   // processaLeitura procura o QR code antes e, se não achar, lê o texto
   $("qrArquivo").onchange = async (e) => {
     const f = e.target.files[0]; e.target.value = ""; if (!f) return;
     msg("Procurando o código na imagem…");
@@ -4930,9 +4928,9 @@ async function ligaCameraDoQr(vez, msg) {
 }
 /** Explica o que é o extrato e abre a escolha do arquivo. */
 function abrirExtrato() {
-  openDlg(`<h3>Importar extrato</h3>
-    <p class="hint" style="margin:0 0 10px;font-size:13px">Em vez de digitar um por um, traga o arquivo que o banco exporta. Serve para a <b>fatura do cartão</b> (as compras entram no cartão e a fatura é montada sozinha) e para o <b>extrato da conta</b> (Pix, débito e entradas).</p>
-    <ul class="dicas"><li>No app ou no site do banco, abra a fatura do cartão e procure exportar ou enviar por e-mail em <b>CSV</b>, <b>OFX</b> ou <b>Excel</b>.</li><li>Você confere a lista e as categorias antes de lançar.</li><li>Pode importar de novo quando a fatura tiver compras novas: o que já entrou não é repetido.</li><li>O arquivo é lido no seu aparelho; só as compras que você lançar são salvas na sua conta.</li></ul>
+  openDlg(`<h3>Importar extrato do banco</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">No app do seu banco, exporte o <b>extrato da conta</b> ou a <b>fatura do cartão</b> (CSV, OFX ou Excel) e escolha o arquivo aqui. O app vê sozinho qual é e mostra tudo para você conferir antes de lançar.</p>
+    <ul class="dicas"><li>Extrato da conta: Pix, débito, boletos e entradas viram gastos e receitas do mês. Compra no crédito fica só na fatura, sem contar duas vezes.</li><li>Fatura do cartão: as compras entram no cartão e a fatura é montada sozinha.</li><li>Importar de novo não repete o que já entrou. O arquivo é lido no seu aparelho.</li></ul>
     <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="extEscolher">${ico("subir")}Escolher o arquivo</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
   $("extEscolher").onclick = () => $("extratoIn").click();
 }
@@ -5119,6 +5117,7 @@ function conferirLeitura(r, texto, previa) {
 $("extratoIn").addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (f) importarExtrato(f); });
 
 async function importarExtrato(arquivo) {
+  if (ehPdf(arquivo) || /^image\//.test(arquivo.type || "")) { try { $("dlg").close(); } catch { /* já fechado */ } return processaLeitura(arquivo); }   // fatura em PDF ou foto: vai para o leitor por foto
   let ext = null, fonteConta = null;
   try {
     if (ehPlanilha(arquivo)) {
@@ -5204,15 +5203,15 @@ function conferirExtrato(ext, nomeArquivo) {
     const fora = [ext.pagamentos.length ? `${plural(ext.pagamentos.length, "pagamento de fatura", "pagamentos de fatura")} (${brl(soma(ext.pagamentos))})` : "",
       ext.estornos.length ? `${plural(ext.estornos.length, "estorno", "estornos")} (${brl(soma(ext.estornos))})` : "",
       ext.saldos?.length ? `o saldo da fatura anterior, ${brl(soma(ext.saldos))} (já foi contado no mês em que aquela fatura venceu)` : ""].filter(Boolean).join(" e ");
-    openDlg(`<div class="ext"><h3>Importar extrato do cartão</h3>
-      <p class="hint" style="margin:0 0 12px;font-size:13px">Achei <b>${plural(est.itens.length, "compra", "compras")}</b> em ${esc(nomeArquivo)}. Confira, ajuste as categorias e lance tudo de uma vez.</p>
+    openDlg(`<div class="ext"><h3>Fatura do cartão</h3>
+      <p class="hint" style="margin:0 0 12px;font-size:13px">O app entendeu que ${esc(nomeArquivo)} é uma <b>fatura de cartão de crédito</b>: ${plural(est.itens.length, "compra", "compras")}. Confira e lance tudo de uma vez. Era o extrato da conta (Pix e débito)? <button class="link" type="button" id="extOutro">Escolher outro arquivo</button></p>
       <form id="extForm" autocomplete="off">
       <div class="dlg-form">
         <label class="f">Cartão<select class="in" id="extCartao">${ativos.map((c) => `<option value="${esc(c.id)}"${c.id === k.id ? " selected" : ""}>${esc(c.nome)}</option>`).join("")}</select></label>
         <label class="f">Fatura<select class="in" id="extMes">${meses.map((m) => `<option value="${m}"${m === est.mes ? " selected" : ""}>vence em ${ddmmaa(vence(m))}</option>`).join("")}<option value="datas"${est.mes === "datas" ? " selected" : ""}>Pela data de cada compra</option></select></label>
       </div>
       ${info.fecha ? `<p class="hint" style="margin:8px 0 0">No arquivo${info.banco ? ` do ${esc(info.banco)}` : ""}: fatura de ${info.inicio ? ddmm(info.inicio) + " a " : ""}${ddmm(info.fecha)}${info.vencimento ? `, vence em ${ddmm(info.vencimento)}` : ""}.</p>` : ""}
-      ${difere ? `<p class="aviso" style="margin:8px 0 0">No cadastro, o ${esc(k.nome)} fecha dia ${pad(k.fechamento)} e vence dia ${pad(k.vencimento)}. Pelo arquivo, a fatura fecha dia ${pad(dFech)}${dVenc ? ` e vence dia ${pad(dVenc)}` : ""}. Se o arquivo é mesmo desse cartão, acerte o cadastro para as próximas faturas caírem no mês certo. <button class="link" type="button" id="extAcerta">Acertar o cartão</button></p>` : ""}
+      ${difere ? `<p class="aviso" style="margin:8px 0 0">No cadastro, o ${esc(k.nome)} ${dFech ? `fecha dia ${pad(k.fechamento)} e ` : ""}vence dia ${pad(k.vencimento)}. Pelo arquivo, ${[dFech ? `a fatura fecha dia ${pad(dFech)}` : "", dVenc ? `vence dia ${pad(dVenc)}` : ""].filter(Boolean).join(" e ")}. Se o arquivo é mesmo desse cartão, acerte o cadastro para as próximas faturas caírem no mês certo. <button class="link" type="button" id="extAcerta">Acertar o cartão</button></p>` : ""}
       <p class="hint" style="margin:8px 0 0">${est.mes === "datas" ? "Cada compra entra na fatura do mês em que foi feita, pelo dia de fechamento do cartão. Use para arquivo com vários meses."
         : `Todas as compras entram na fatura que vence em ${nomeMes(est.mes)}, como no extrato do banco.`}</p>
       ${vis.length ? `<div class="ext-topo"><b id="extSoma"></b><button class="link" type="button" id="extTodas"></button></div>
@@ -5230,6 +5229,7 @@ function conferirExtrato(ext, nomeArquivo) {
       </form></div>`);
     $("extCartao").onchange = (e) => { est.cartao = e.target.value; est.mes = ""; est.itens.forEach((it) => (it.marcado = null)); monta(); };
     $("extMes").onchange = (e) => { est.mes = e.target.value; est.itens.forEach((it) => (it.marcado = null)); monta(); };
+    if ($("extOutro")) $("extOutro").onclick = () => $("extratoIn").click();
     if ($("extAcerta")) $("extAcerta").onclick = async () => {
       const patch = { fechamento: dFech || Number(k.fechamento), vencimento: dVenc || Number(k.vencimento) };
       if (await grava(() => S.store.updateCartao(k.id, patch))) { Object.assign(k, patch); est.mes = ""; est.itens.forEach((it) => (it.marcado = null)); render(); monta(); }
@@ -5295,8 +5295,8 @@ function conferirConta(fonte, nomeArquivo) {
           <span>${ddmm(it.data)}${it.estado === "parecida" ? ` · <em>parece já estar lançado</em>` : ""}${extra}</span></span>
         <b class="v ${it.tipo === "Receita" ? "pos" : ""}">${it.tipo === "Receita" ? "+ " : ""}${brl(it.valor)}</b>
         <select class="in" data-c="${esc(it.chave)}" aria-label="Categoria de ${esc(it.descricao)}">${opts(it.tipo === "Receita" ? catR : catD, it.cat)}</select></li>`;
-    openDlg(`<div class="ext"><h3>Importar extrato da conta</h3>
-      <p class="hint" style="margin:0 0 10px;font-size:13px">Achei <b>${plural(itens.length, "movimento", "movimentos")}</b> em ${esc(nomeArquivo)}, de ${ddmm(conta.periodo.de)} a ${ddmm(conta.periodo.ate)}. Confira, ajuste as categorias e lance tudo de uma vez.</p>
+    openDlg(`<div class="ext"><h3>Extrato da conta</h3>
+      <p class="hint" style="margin:0 0 10px;font-size:13px">O app entendeu que ${esc(nomeArquivo)} é o <b>extrato da conta</b>: ${plural(itens.length, "movimento", "movimentos")}, de ${ddmm(conta.periodo.de)} a ${ddmm(conta.periodo.ate)}. Entram nos gastos e nas entradas do mês, não na fatura. Era a fatura do cartão? <button class="link" type="button" id="extOutro">Escolher outro arquivo</button></p>
       <form id="ctForm">
       <label class="f wide">Seu nome no banco (opcional)<input class="in" id="ctNome" maxlength="60" autocomplete="off" value="${esc(est.meuNome)}" placeholder="Ex.: Maria da Silva"></label>
       <p class="hint" style="margin:4px 0 8px">Com o seu nome, as transferências entre as suas próprias contas não são contadas como entrada nem como gasto.</p>
@@ -5317,6 +5317,7 @@ function conferirConta(fonte, nomeArquivo) {
     };
     $("dlgBody").querySelectorAll("[data-k]").forEach((b) => (b.onchange = () => { est.marcados.set(b.dataset.k, b.checked); conta2(); }));
     $("dlgBody").querySelectorAll("[data-c]").forEach((b) => (b.onchange = () => est.cats.set(b.dataset.c, b.value)));
+    if ($("extOutro")) $("extOutro").onclick = () => $("extratoIn").click();
     if ($("ctTodas")) $("ctTodas").onclick = () => { const tudo = vis.every(ligado); vis.forEach((it) => est.marcados.set(it.chave, !tudo)); $("dlgBody").querySelectorAll(".ext-lista:first-of-type [data-k]").forEach((b) => (b.checked = !tudo)); conta2(); };
     conta2();
     $("ctForm").addEventListener("submit", async (e) => {
