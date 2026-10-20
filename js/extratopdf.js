@@ -58,3 +58,67 @@ export function leExtratoDeContaPdf(linhas) {
   }
   return { linhas: saida, titular: titularDoPdf(linhas), meses: [...meses].sort() };
 }
+
+/* ===== Extrato da conta do Nubank em PDF =====
+ * No PDF do Nubank cada movimento é "tipo + nome - documento - banco" e o valor fica na coluna da direita, que ao virar texto
+ * cai no fim da primeira linha ou até no meio do documento ("17.895.646 39,29 /0001-87"). Por isso o valor é o primeiro número com
+ * vírgula do movimento, e o sinal vem do tipo ("enviada" sai, "recebida" entra) ou do bloco "Total de entradas/saídas" do dia.
+ */
+const MES_NU = { JAN: 1, FEV: 2, MAR: 3, ABR: 4, MAI: 5, JUN: 6, JUL: 7, AGO: 8, SET: 9, OUT: 10, NOV: 11, DEZ: 12 };
+const DINHEIRO = /\d{1,3}(?:\.\d{3})*,\d{2}/;
+const COMECO = /^(transfer[êe]ncia (?:enviada|recebida)(?: pelo pix)?|compra no d[ée]bito|pagamento de fatura|pagamento de boleto|pix no cr[ée]dito|valor adicionado(?: na conta)?(?: por cart[ãa]o de cr[ée]dito)?|estorno|resgate|aplica[çc][ãa]o|saque|dep[óo]sito|reembolso|cashback|rendimento)\s*/i;
+const PARA = /^(total de (?:entradas|sa[ií]das)|saldo\b|extrato gerado|tem alguma d[úu]vida|nu pagamentos|ouvidoria|sac\b|p[áa]gina\b|\d+ de \d+$|valores em)/i;
+const DATA_NU = /^(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\w*\.?\s+(\d{4})\b/i;
+const sinalDoTipo = (t) => (/enviada|compra|pagamento|aplica|saque|cr[ée]dito/i.test(t) ? -1 : /recebida|adicionado|estorno|resgate|dep[óo]sito|reembolso|cashback|rendimento/i.test(t) ? 1 : 0);
+
+/** O PDF é o extrato da conta do Nubank? Vários movimentos de Pix ou débito, cada um com valor. */
+export function ehExtratoNubankPdf(linhas) {
+  const texto = (linhas || []).join("\n");
+  const movs = (texto.match(/(?:^|\n)\s*(?:transfer[êe]ncia (?:enviada|recebida) pelo pix|compra no d[ée]bito)/gi) || []).length;
+  return movs >= 3 && DINHEIRO.test(texto);
+}
+
+/**
+ * Lê as linhas de texto do PDF do Nubank. Devolve no formato do leitor de conta, como leExtratoDeContaPdf.
+ * @returns {{linhas: (string|number)[][], titular: string, meses: string[]}}
+ */
+export function leExtratoNubankPdf(linhas) {
+  const saida = [["Data", "Valor", "Identificador", "Descrição"]], meses = new Set();
+  let data = "", bloco = 0, atual = null;
+  const fecha = () => {
+    if (!atual) return; const r = atual; atual = null;
+    let texto = r.partes.join(" ").replace(/\s+/g, " ").trim();
+    const m = texto.match(DINHEIRO); if (!m || !r.data) return;
+    const valor = Number(m[0].replace(/\./g, "").replace(",", "."));
+    if (!(valor > 0)) return;
+    texto = texto.replace(new RegExp(`(?:R\$\s*)?[-+]?\s*${m[0].replace(/[.]/g, "\.")}`), " ").replace(/(\d)\s+\/(\d{4})/g, "$1/$2").replace(/\s+-\s*$/, "").replace(/\s{2,}/g, " ").trim();
+    const c = texto.match(COMECO); if (!c) return;
+    const tipo = c[0].trim(), resto = texto.slice(c[0].length).replace(/^[-\s]+/, "");
+    const sinal = sinalDoTipo(tipo) || bloco || -1;
+    saida.push([r.data, sinal * valor, "", resto ? `${tipo} - ${resto}` : tipo]); meses.add(r.data.slice(0, 7));
+  };
+  for (const bruta of linhas || []) {
+    const l = String(bruta).trim(); if (!l) continue;
+    const d = l.match(DATA_NU);
+    if (d && MES_NU[d[2].toUpperCase()]) { fecha(); data = `${d[3]}-${String(MES_NU[d[2].toUpperCase()]).padStart(2, "0")}-${d[1].padStart(2, "0")}`; bloco = 0; const resto = l.slice(d[0].length); if (/total de entradas/i.test(resto)) bloco = 1; else if (/total de sa[ií]das/i.test(resto)) bloco = -1; continue; }
+    if (/^total de entradas/i.test(l)) { fecha(); bloco = 1; continue; }
+    if (/^total de sa[ií]das/i.test(l)) { fecha(); bloco = -1; continue; }
+    if (PARA.test(l)) { fecha(); continue; }
+    if (COMECO.test(l)) { fecha(); atual = { data, partes: [l] }; continue; }
+    if (atual) atual.partes.push(l);
+  }
+  fecha();
+  return { linhas: saida, titular: "", meses: [...meses].sort() };
+}
+
+/**
+ * Um PDF com muitas linhas de data e valor (extrato ou fatura) que o app não sabe ler por linha: diz do que parece ser, para a tela
+ * explicar o que fazer em vez de tratar como um comprovante só.
+ * @returns {"fatura"|"extrato"|null}
+ */
+export function documentoDeVariasLinhas(linhas) {
+  const texto = (linhas || []).join("\n"), valores = (texto.match(new RegExp(DINHEIRO.source, "g")) || []).length;
+  const datas = (texto.match(/\b\d{1,2}[\/ ](?:\d{1,2}|jan|fev|mar|abr|mai|jun|jul|ago|set|out|nov|dez)[a-z]*\.?(?:[\/ ]\d{2,4})?\b/gi) || []).length;
+  if (valores < 8 || datas < 5) return null;
+  return /fatura|vencimento|limite|fechamento/i.test(texto) && !/extrato da conta|extrato conta/i.test(texto) ? "fatura" : "extrato";
+}

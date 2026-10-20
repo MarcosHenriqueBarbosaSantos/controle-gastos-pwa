@@ -1,7 +1,7 @@
 // Extrato da conta em PDF (modelo do Itaú, que junta vários meses): as linhas do PDF viram movimentos da conta.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ehExtratoDeContaPdf, leExtratoDeContaPdf, titularDoPdf } from "../js/extratopdf.js";
+import { ehExtratoDeContaPdf, leExtratoDeContaPdf, titularDoPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas } from "../js/extratopdf.js";
 import { leConta } from "../js/conta.js";
 
 // Linhas como o leitor de PDF entrega (texto de cada linha da página). Nomes e valores inventados.
@@ -66,4 +66,49 @@ test("importar o mesmo arquivo de novo gera as mesmas chaves, sem repetir", () =
 
 test("titularDoPdf não confunde o título com o nome", () => {
   assert.equal(titularDoPdf(["extrato conta / lançamentos", "data lançamentos valor"]), "");
+});
+
+// Linhas como o leitor de PDF entrega para o extrato da conta do Nubank (texto do vídeo do usuário, com nomes inventados).
+const NU = [
+  "Extrato da conta", "Período: 01 de Outubro de 2026 a 19 de Outubro de 2026",
+  "19 OUT 2026 Total de saídas - 110,29",
+  "Transferência enviada pelo Pix 99 TECNOLOGIA LTDA - 18.033.552/0001-61 - 15,00",
+  "99PAY IP S.A. (0769) Agência: 1 Conta: 31845594-3",
+  "Transferência enviada pelo Pix UBER DO BRASIL TECNOLOGIA LTDA. - 17.895.646 39,29 /0001-87 - ADYEN DO BRASIL IP LTDA. Agência: 1",
+  "Conta: 160000056-0",
+  "Compra no débito NP *POKEEBAR 39,00",
+  "Transferência enviada pelo Pix Fulano de Tal - •••.119.378-•• - BCO 17,00",
+  "18 OUT 2026 Total de entradas + 50,00",
+  "Transferência recebida pelo Pix Beltrana de Tal - •••.222.333-•• - NU PAGAMENTOS 50,00",
+  "Total de saídas - 20,00",
+  "Pagamento de fatura 20,00",
+  "Nu Pagamentos S.A. - Instituição de Pagamento",
+];
+
+test("extrato da conta do Nubank em PDF: reconhece e separa cada movimento, mesmo com o valor no meio do documento", () => {
+  assert.equal(ehExtratoNubankPdf(NU), true);
+  assert.equal(ehExtratoNubankPdf(PDF), false);   // o do Itaú é outro formato
+  const r = leExtratoNubankPdf(NU);
+  assert.equal(r.linhas.length - 1, 6);
+  const v = r.linhas.slice(1).map((l) => [l[0], l[1]]);
+  assert.deepEqual(v, [["2026-10-19", -15], ["2026-10-19", -39.29], ["2026-10-19", -39], ["2026-10-19", -17], ["2026-10-18", 50], ["2026-10-18", -20]]);
+  assert.match(r.linhas[2][3], /UBER DO BRASIL TECNOLOGIA LTDA\. - 17\.895\.646\/0001-87 - ADYEN/);   // o documento volta inteiro
+  assert.deepEqual(r.meses, ["2026-10"]);
+});
+
+test("o extrato do Nubank em PDF entra no leitor de conta: Pix de loja, Pix de pessoa, débito, entrada e pagamento de fatura de fora", () => {
+  const c = leConta({ linhas: leExtratoNubankPdf(NU).linhas, hoje: "2026-10-20" }), m = (t) => c.movimentos.find((x) => x.original.includes(t));
+  assert.equal(m("UBER").tipo, "Despesa"); assert.equal(m("UBER").pessoa, false);   // tem CNPJ: é empresa
+  assert.equal(m("Fulano").pessoa, true);
+  assert.equal(m("POKEEBAR").forma, "Débito"); assert.equal(m("POKEEBAR").valor, 39);
+  assert.equal(m("Beltrana").tipo, "Receita"); assert.equal(m("Beltrana").valor, 50);
+  assert.equal(m("Pagamento de fatura").ignorar, true);
+});
+
+test("PDF com muitas linhas que o app não lê por linha: diz se parece fatura ou extrato", () => {
+  const fatura = ["Fatura do cartão", "Vencimento 10 OUT 2026", ...Array.from({ length: 10 }, (_, i) => `0${(i % 9) + 1} SET Loja ${i} R$ ${10 + i},90`)];
+  assert.equal(documentoDeVariasLinhas(fatura), "fatura");
+  const extrato = ["Extrato da conta", ...Array.from({ length: 10 }, (_, i) => `0${(i % 9) + 1}/09/2026 Movimento ${i} ${100 + i},00`)];
+  assert.equal(documentoDeVariasLinhas(extrato), "extrato");
+  assert.equal(documentoDeVariasLinhas(["Comprovante", "Valor R$ 50,00", "20/10/2026"]), null);   // comprovante comum: continua indo para a leitura de um só valor
 });

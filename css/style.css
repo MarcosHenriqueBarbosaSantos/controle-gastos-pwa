@@ -1455,3 +1455,11 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .chip-op.mais{border-style:dashed;color:var(--series);background:transparent}
 #fFormaWrap[style*="hidden"]{display:none}
 @media (prefers-reduced-motion:reduce){.chip-op{transition:none}}
+
+/* Início enxuto: a Análise do mês já é a primeira opção de Planejar; não precisa aparecer duas vezes */
+@media (max-width:700px){#irAnalise{display:none}}
+/* Início mais curto: botões dentro de frases não precisam de uma linha inteira, e o anel de categorias fica menor */
+.proj-nota button.ln{min-height:0;display:inline;padding:0 2px;text-decoration:underline;font-weight:700}
+.pof-anel{width:96px;height:96px} .pof-anel::before{inset:14px} .pof-anel b{font-size:12px;max-width:60px}
+.merc-ini{gap:8px;padding:12px 14px}
+@media (max-width:700px){ .venc-cal{margin-top:0} }

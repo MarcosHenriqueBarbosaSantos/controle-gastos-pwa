@@ -8,7 +8,7 @@ import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey,
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
-import { ehExtratoDeContaPdf, leExtratoDeContaPdf } from "./extratopdf.js";
+import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas } from "./extratopdf.js";
 import { paraOndeFoi, nomeDoMes, metaSugerida } from "./paraondefoi.js";
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
@@ -890,7 +890,7 @@ function renderKpis(c) {
     <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
     ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
     <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? `de ${brl(sb.livre)} depois das contas` : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>` : ""}
-    ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
+    ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo && est.nivel !== "estourado" ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
   </div>
   <div class="acoes-rap" role="group" aria-label="Ações rápidas">
     <button type="button" data-acao="lancar"><span class="forte">${ico("mais")}</span>Lançar gasto</button>
@@ -908,7 +908,7 @@ function renderKpis(c) {
     <button type="button" data-atalho="cal">${ico("agenda")}<span>Calendário</span></button>
   </nav>
   <div class="resumo3 proj ocultavel">${projecaoDoMes(c, est, rx, acum)}
-    <div class="resumo3-links">${c.fase === "passado" ? `<button type="button" class="link" id="verFech">Fechamento para compartilhar</button>` : ""}<button type="button" class="link" id="verSobra">O que sobra para viver o mês</button>${c.fase !== "futuro" && S.data.lancamentos.length ? `<button type="button" class="link" id="verRev">${S.prefs.revisoes?.[S.mes] ? "Revisão do mês (feita)" : "Revisão do mês"}</button>` : ""}<button type="button" class="link" id="entenda">Entenda essa conta</button></div>
+    <div class="resumo3-links">${c.fase === "passado" ? `<button type="button" class="link" id="verFech">Fechamento para compartilhar</button>` : ""}<button type="button" class="link" id="entenda">Entenda essa conta</button></div>
   </div>`;
   // O gráfico da sobra fica depois dos Próximos vencimentos (que sobem para logo após entradas e saídas).
   $("grafSobraSec").innerHTML = (atualM || c.fase === "passado") && sb.livre > 0 ? graficoDaSobra(c) : "";
@@ -921,7 +921,7 @@ function renderKpis(c) {
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
-  $("verSobra").onclick = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
+  if ($("verSobra")) $("verSobra").onclick = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
   }
   renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c); renderParaOndeIni(c); renderDesempIni(c); renderConqIni(c); renderDicaIni(c); setTimeout(avisaConquistas, 700);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
@@ -1406,7 +1406,7 @@ function renderVenc() {
   const cab = (dir) => `<div class="sec-head"><h2>Próximos vencimentos</h2><span>${dir}</span></div>${S.loaded ? `<button class="link venc-cal" type="button" id="vencCal">${ico("agenda")}Ver no calendário</button>` : ""}`;
   // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
   const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
-  const alerta = !sd ? "" : `<li class="alerta ${sd.nivel}"><span class="quando ${sd.nivel}">${sd.tipo === "vermelho" ? "no vermelho" : "atenção"}</span>
+  const alerta = true || !sd ? "" : `<li class="alerta ${sd.nivel}"><span class="quando ${sd.nivel}">${sd.tipo === "vermelho" ? "no vermelho" : "atenção"}</span>
       <span class="oque"><b>${sd.tipo === "vermelho" ? `Este mês já está ${brl(sd.valor)} no vermelho` : `No ritmo atual, o mês fecha ${brl(sd.valor)} no vermelho`}</b>
       <span>${sd.tipo === "vermelho" ? "As saídas do mês passaram das entradas." : "Ainda dá tempo de segurar os gastos do dia a dia."}</span></span></li>`;
   // Combinados das metas: aparecem junto, mas não são contas. Não entram no total e nunca ficam atrasados.
@@ -1430,8 +1430,8 @@ function renderVenc() {
     return;
   }
   const cls = (d) => (d < 0 ? "bad" : d <= 7 ? "warn" : "ok");
-  // No topo aparecem só as primeiras (3 no celular, 5 no computador); o resto abre no "Ver todas".
-  const MAX = noCelular() ? 3 : 5, vis = S.vencTodas ? l : l.slice(0, MAX);
+  // No topo aparecem só as primeiras (2 no celular, 5 no computador); o resto abre no "Ver todas".
+  const MAX = noCelular() ? 2 : 5, vis = S.vencTodas ? l : l.slice(0, MAX);
   host.innerHTML = cab(`${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`) +
     `<ul class="venc">${alerta}${vis.map((x, i) => `<li data-u="${cls(x.dias)}">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
@@ -1755,7 +1755,7 @@ function listaL(c) {
   // No celular a lista é separada por dia, com o total gasto em cada um.
   const gastoDoDia = (d) => round2(it.filter((x) => !x.auto && x.tipo === "Despesa" && x.data === d).reduce((t, x) => t + x.valor, 0));
   const dia = (x, i) => i && it[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
-  host.innerHTML = `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar. Deslize para a direita para repetir o lançamento de hoje e para a esquerda para apagar (dá para desfazer).</p><div class="tbl"><table class="lanc">${cab}<tbody>${
+  host.innerHTML = `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p><div class="tbl"><table class="lanc">${cab}<tbody>${
     it.map((x, i) => dia(x, i) + (x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub"><span class="tp">Entrada fixa</span>${esc(x.categoria)}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(x.id)}">Alterar</button></td></tr>`
@@ -3175,7 +3175,7 @@ function htmlMercadoIni() {
     : `${falta.length} ${falta.length === 1 ? "item para pegar" : "itens para pegar"}${nCar ? ` · ${nCar} no carrinho` : ""}${e.estimado > 0 ? ` · estimativa ${brl(e.estimado)}` : ""}`;
   return `<section class="merc-ini" aria-label="Lista de mercado">
     <div class="merc-topo"><span class="l">${ico("carrinho")}<b>Lista de mercado</b></span><button class="btn sm" type="button" id="mercAbrir">${l.itens.length ? "Abrir a lista" : "Criar a lista"}</button></div>
-    <p class="merc-res">${res}</p>
+    ${l.itens.length ? `<p class="merc-res">${res}</p>` : ""}
     ${falta.length ? `<ul class="merc-chips" aria-label="O que falta pegar">${falta.slice(0, 6).map((x) => `<li>${esc(x.nome || "Item")}</li>`).join("")}${falta.length > 6 ? `<li class="mais">+${falta.length - 6}</li>` : ""}</ul>` : ""}
     <form id="mercForm" class="merc-add" autocomplete="off"><input class="in" id="mercNome" maxlength="40" placeholder="Anotar item (ex.: arroz)" aria-label="Anotar item na lista de mercado" enterkeyhint="done">
       <button type="submit" aria-label="Adicionar à lista">${ico("mais")}</button></form></section>`;
@@ -5252,7 +5252,18 @@ function pedirSenhaDoPdf(arquivo, errada) {
   $("pdfSenhaForm").addEventListener("submit", (e) => { e.preventDefault(); const s = $("pdfSenha").value; if (s) processaLeitura(arquivo, s); });
 }
 
-async function processaLeitura(arquivo, senha = "", semCodigo = false) {
+/** O PDF tem muitas linhas (fatura ou extrato) e o app não sabe lê-las uma a uma: diz do que parece ser e o que fazer, em vez de tratar como um comprovante só. */
+function pdfDeVariasLinhas(tipo, arquivo) {
+  const fatura = tipo === "fatura";
+  openDlg(`<h3>Este PDF tem várias linhas</h3>
+    <p style="color:var(--ink-2);margin:0 0 10px">Parece ${fatura ? "uma <b>fatura de cartão</b>" : "um <b>extrato da conta</b>"}, com várias compras ou movimentos. Um comprovante tem um valor só; aqui o app não consegue separar cada linha com segurança.</p>
+    <p class="hint" style="margin:0 0 12px">Para lançar tudo de uma vez, baixe ${fatura ? "a fatura" : "o extrato"} em <b>CSV</b> ou <b>OFX</b> no app do seu banco (procure Exportar ou Enviar por e-mail) e escolha esse arquivo em Importar extrato do banco.</p>
+    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="pdfImportar">${ico("subir")}Importar CSV ou OFX</button>
+      <button class="btn" type="button" id="pdfUnico">Ler só o total como comprovante</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
+  $("pdfImportar").onclick = abrirExtrato;
+  $("pdfUnico").onclick = () => processaLeitura(arquivo, "", false, true);
+}
+async function processaLeitura(arquivo, senha = "", semCodigo = false, comoUnico = false) {
   const vez = ++leitura, pdf = ehPdf(arquivo), preparando = "Preparando o leitor. Na primeira vez demora um pouco mais, porque ele é baixado.";
   openDlg(`<h3>${pdf ? "Lendo o PDF…" : "Lendo a imagem…"}</h3><p class="hint" id="lerEtapa" style="margin:0;font-size:13px">${preparando}</p>
     <div class="barra"><i id="lerBarra"></i></div><div class="actions"><button class="btn" type="button" id="lerCancela">Cancelar</button></div>`);
@@ -5265,13 +5276,15 @@ async function processaLeitura(arquivo, senha = "", semCodigo = false) {
   try {
     let texto, previa, lido = null;
     if (pdf) {
-      const r = await lerPdf(arquivo, { senha, aoProgredir: anda("Lendo o PDF…"), parar: (txt) => ehExtratoDeContaPdf(txt.split("\n")) });
+      const r = await lerPdf(arquivo, { senha, aoProgredir: anda("Lendo o PDF…"), parar: comoUnico ? null : (txt) => { const l = txt.split("\n"); return ehExtratoDeContaPdf(l) || ehExtratoNubankPdf(l) || Boolean(documentoDeVariasLinhas(l)); } });
       if (vez !== leitura) return;
       // Extrato da conta em PDF (o do Itaú junta vários meses): lê todas as páginas e vai para a conferência dos movimentos.
       if (!r.tela) {
-        const ex = leExtratoDeContaPdf(await textoDoPdf(arquivo, { senha, aoProgredir: anda("Lendo o extrato, todas as páginas…") }));
+        const todas = await textoDoPdf(arquivo, { senha, aoProgredir: anda("Lendo o extrato, todas as páginas…") });
         if (vez !== leitura) return;
-        return conferirConta({ linhas: ex.linhas, titular: ex.titular }, arquivo.name || "extrato.pdf");
+        const ex = ehExtratoDeContaPdf(todas) ? leExtratoDeContaPdf(todas) : ehExtratoNubankPdf(todas) ? leExtratoNubankPdf(todas) : null;
+        if (ex && ex.linhas.length > 1) return conferirConta({ linhas: ex.linhas, titular: ex.titular }, arquivo.name || "extrato.pdf");
+        return pdfDeVariasLinhas(documentoDeVariasLinhas(todas) || "extrato", arquivo);
       }
       texto = r.texto; previa = r.tela.toDataURL("image/jpeg", 0.72);
       // PDF que é só uma foto digitalizada não tem texto dentro: lê a primeira página como imagem.
