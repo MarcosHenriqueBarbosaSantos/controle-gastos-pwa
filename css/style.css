@@ -1307,3 +1307,70 @@ details.mais-op{margin:-2px 0 0}
 details.mais-op>summary{cursor:pointer;font-size:13px;color:var(--series);font-weight:600;list-style:none;padding:6px 0}
 details.mais-op>summary::-webkit-details-marker{display:none}
 details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
+
+/* Para onde foi o dinheiro: anel de categorias, barras dos meses e passos. Setas e palavras repetem o que a cor diz. */
+.pof-card .topo{flex-wrap:wrap;gap:8px}
+.pof-pill{display:inline-flex;align-items:center;font-size:12.5px;font-weight:700;padding:5px 10px;border-radius:999px;background:var(--sunk);color:var(--ink-2)}
+.pof-pill.ruim{background:var(--bad-soft);color:var(--bad)} .pof-pill.bom{background:var(--good-soft);color:var(--good)}
+.pof-corpo{display:flex;align-items:center;gap:16px;margin:12px 0 8px}
+.pof-anel{flex:none;width:112px;height:112px;border-radius:50%;display:grid;place-items:center;position:relative;box-shadow:0 0 28px var(--glow)}
+.pof-anel::before{content:"";position:absolute;inset:16px;border-radius:50%;background:var(--surface)}
+.pof-anel b{position:relative;font-size:12.5px;text-align:center;line-height:1.2;max-width:70px;overflow-wrap:anywhere}
+.pof-leg{list-style:none;margin:0;padding:0;display:grid;gap:8px;flex:1;min-width:0}
+.pof-leg li{display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:8px;font-size:13.5px}
+.pof-leg i{width:12px;height:12px;border-radius:4px}
+.pof-leg span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pof-frase{margin:6px 0 12px;font-weight:600;color:var(--ink)}
+.pof-card .btn{width:100%;min-height:46px}
+.pof .pof-resumo{display:grid;gap:6px;margin-bottom:6px}
+.pof-q{font-size:13px;color:var(--muted)} .pof-grande{font-size:34px;line-height:1.1;font-variant-numeric:tabular-nums}
+.pof-linha{font-size:14px;color:var(--ink-2)} .pof .ruim{color:var(--bad)} .pof .bom{color:var(--good)}
+.pof-h{margin:20px 0 8px;font-size:15px}
+.pof-cols{display:grid;grid-template-columns:repeat(auto-fit,minmax(44px,1fr));gap:6px}
+.pof-col{border:1px solid var(--border);background:var(--surface-2);border-radius:14px;padding:8px 4px 6px;display:grid;gap:6px;justify-items:center;min-height:96px;cursor:pointer;color:var(--ink-2)}
+.pof-col.sel{border-color:var(--series);background:var(--series-soft);color:var(--ink)}
+.pof-barras{display:flex;align-items:flex-end;gap:4px;height:60px;width:100%;justify-content:center}
+.pof-barras i{width:10px;border-radius:5px 5px 2px 2px;display:block;transition:height .5s cubic-bezier(.2,.8,.2,1)}
+.pof-leg2 i,.pof-barras .ent{background:var(--entradas)} .pof-leg2 i.gas,.pof-barras .gas{background:var(--series)} .pof-barras .gas.acima{background:var(--bad)}
+.pof-mes{font-size:12px;text-transform:capitalize}
+.pof-leg2{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-size:12.5px;color:var(--muted);margin:8px 0 0}
+.pof-leg2 i{width:10px;height:10px;border-radius:3px;display:inline-block}
+.pof-lista,.pof-leit,.pof-passos{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.pof-lista li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--border);border-radius:14px}
+.pof-nome{display:flex;align-items:center;gap:8px;font-weight:600;min-width:0} .pof-nome i{width:12px;height:12px;border-radius:4px;flex:none}
+.pof-val{display:flex;gap:8px;align-items:baseline} .pof-val small{color:var(--muted)}
+.pof-fio{grid-column:1/-1;height:6px;border-radius:99px;background:var(--sunk);overflow:hidden} .pof-fio em{display:block;height:100%;border-radius:99px;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.pof-dif{grid-column:1/-1;font-size:12.5px;font-weight:600} .pof-dif.ruim{color:var(--bad)} .pof-dif.bom{color:var(--good)}
+.pof-leit li{display:grid;grid-template-columns:auto 1fr;gap:10px;padding:12px;border-radius:14px;border:1px solid var(--border);background:var(--surface-2)}
+.pof-leit li>span:last-child{display:grid;gap:2px} .pof-leit small{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+.pof-leit .pof-sel{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--sunk)}
+.pof-leit .erro{border-color:var(--bad)} .pof-leit .erro .pof-sel{background:var(--bad-soft);color:var(--bad)}
+.pof-leit .ok .pof-sel{background:var(--good-soft);color:var(--good)}
+.pof-passos li{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;padding:12px;border-radius:14px;background:var(--series-soft);border:1px solid var(--border)}
+.pof-passos .pof-n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;font-weight:800;background:var(--series);color:#fff}
+.pof-tx{display:grid;gap:2px} .pof-tx span{color:var(--ink-2);font-size:13.5px}
+.pof-passos .btn{grid-column:2;justify-self:start;min-height:44px}
+@media (prefers-reduced-motion:reduce){.pof-barras i,.pof-fio em{transition:none}}
+
+/* Início: "Ir para" (extrato, planejar, cartões, contas fixas, mais) e "Como o mês vai fechar" */
+.ir-para{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px;margin:12px 16px 0}
+.ir-para button{display:grid;justify-items:center;align-content:center;gap:5px;min-height:64px;padding:8px 2px;border-radius:16px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-size:12.5px;font-weight:600;cursor:pointer;box-shadow:var(--shadow-sm);transition:transform .08s,background .15s}
+.ir-para button:active{transform:scale(.97);background:var(--sunk)}
+.ir-para .ic{width:22px;height:22px;color:var(--series)}
+.ir-para span{line-height:1.15;text-align:center;overflow-wrap:anywhere}
+.resumo3.proj{display:block;padding:14px 14px 10px}
+.proj-topo{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.proj-topo b{font-size:15px}
+.proj-trilho{position:relative;height:16px;border-radius:99px;background:var(--sunk);overflow:visible;margin:4px 0 22px}
+.proj-trilho i{position:absolute;top:0;bottom:0;border-radius:99px;display:block;transition:width .6s cubic-bezier(.2,.8,.2,1)}
+.proj-trilho .gasto{left:0;background:var(--series);box-shadow:0 0 14px var(--glow)}
+.proj-trilho .falta{background:repeating-linear-gradient(135deg,var(--series-soft) 0 6px,transparent 6px 12px);border:1px dashed var(--series);border-radius:0 99px 99px 0}
+.proj-trilho .entra{position:absolute;top:-5px;bottom:-5px;width:3px;background:var(--entradas);border-radius:2px;transform:translateX(-1px)}
+.proj-trilho .entra s{position:absolute;top:100%;left:50%;transform:translateX(-50%);margin-top:3px;text-decoration:none;font-size:11.5px;font-weight:700;color:var(--entradas);white-space:nowrap}
+.proj-nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.proj-nums button{display:grid;gap:1px;align-content:start;border:0;background:none;text-align:left;padding:6px 6px;color:var(--ink);border-radius:10px;min-height:48px}
+.proj-nums button:active{background:var(--sunk)}
+.proj-nums small{font-size:12.5px;color:var(--muted)} .proj-nums b{font-size:clamp(14px,4.2vw,17px);overflow-wrap:anywhere}
+.proj-nums .pos{color:var(--good)} .proj-nums .neg{color:var(--bad)}
+.proj-nota{margin:8px 6px 0;font-size:13px;color:var(--ink-2)}
+@media (prefers-reduced-motion:reduce){.proj-trilho i,.ir-para button{transition:none}}

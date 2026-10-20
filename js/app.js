@@ -9,6 +9,7 @@ import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comP
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { ehExtratoDeContaPdf, leExtratoDeContaPdf } from "./extratopdf.js";
+import { paraOndeFoi, nomeDoMes } from "./paraondefoi.js";
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
@@ -845,9 +846,8 @@ function renderKpis(c) {
       <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
     <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
     ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
-    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? `de ${brl(sb.livre)} depois das contas` : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>${ritmo ? `<span class="ritmo-txt ocultavel ${ritmo.cls}">${ritmo.t}</span>` : ""}` : ""}
+    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? `de ${brl(sb.livre)} depois das contas` : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>` : ""}
     ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
-    ${acum !== c.saldo ? `<span class="n ocultavel">Com os meses anteriores, o saldo acumulado é <b>${sgn(acum)}</b>.</span>` : ""}
   </div>
   <div class="acoes-rap" role="group" aria-label="Ações rápidas">
     <button type="button" data-acao="lancar"><span class="forte">${ico("mais")}</span>Lançar gasto</button>
@@ -855,30 +855,27 @@ function renderKpis(c) {
     <button type="button" data-acao="ler"><span>${ico("qr")}</span>Escanear e importar</button>
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
-  <div class="atalhos" role="group" aria-label="Atalhos">
-    <button type="button" data-atalho="mercado">${ico("carrinho")}Lista de mercado</button>
-    <button type="button" data-atalho="veiculo">${ico("carro")}Meu carro ou moto</button>
-    <button type="button" data-atalho="casa">${ico("casa")}Minha casa</button>
-    <button type="button" data-atalho="ferr">${ico("luz")}Mais ferramentas</button>
-  </div>
-  <div class="resumo3 ocultavel">
-    <button type="button" data-det="entradas"><small>Entradas</small><b class="pos">${brl0(c.rec)}</b>${guardado ? `<small>${c.res > 0 ? `guardado ${brl0(c.res)}` : ""}</small>` : ""}</button>
-    <button type="button" data-det="custo"><small>${c.fase === "futuro" ? "Custo previsto" : atualM ? "Custo até hoje" : "Custo do mês"}</small><b>${brl0(c.custo)}</b><small>com as contas fixas</small></button>
-    ${atualM ? `<button type="button" data-det="custo"><small>Projeção</small><b>${brl0(c.proj)}</b><small class="${est.projSobra < 0 ? "neg" : "pos"}">${est.projSobra < 0 ? `fecha ${brl0(-est.projSobra)} no vermelho` : `sobram ${brl0(est.projSobra)}`}</small></button>`
-      : `<button type="button" data-det="saldo"><small>${falta ? "Faltou" : "Sobrou"}</small><b>${brl0(Math.abs(rx.sobra))}</b></button>`}
+  <nav class="ir-para" aria-label="Ir para">
+    <button type="button" data-atalho="ext">${ico("saldo")}<span>Extrato</span></button>
+    <button type="button" data-atalho="plan">${ico("grafico")}<span>Planejar</span></button>
+    <button type="button" data-atalho="cart">${ico("cartao")}<span>Cartões</span></button>
+    <button type="button" data-atalho="fixas">${ico("fixo")}<span>Contas fixas</span></button>
+    <button type="button" data-atalho="ferr">${ico("ferramenta")}<span>Mais</span></button>
+  </nav>
+  <div class="resumo3 proj ocultavel">${projecaoDoMes(c, est, rx, acum)}
     <div class="resumo3-links">${c.fase === "passado" ? `<button type="button" class="link" id="verFech">Fechamento para compartilhar</button>` : ""}<button type="button" class="link" id="verSobra">O que sobra para viver o mês</button>${c.fase !== "futuro" && S.data.lancamentos.length ? `<button type="button" class="link" id="verRev">${S.prefs.revisoes?.[S.mes] ? "Revisão do mês (feita)" : "Revisão do mês"}</button>` : ""}<button type="button" class="link" id="entenda">Entenda essa conta</button></div>
   </div>`;
   // O gráfico da sobra fica depois dos Próximos vencimentos (que sobem para logo após entradas e saídas).
   $("grafSobraSec").innerHTML = (atualM || c.fase === "passado") && sb.livre > 0 ? graficoDaSobra(c) : "";
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
-  $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ mercado, veiculo: meuVeiculo, casa: minhaCasa, ferr: ferramentas })[b.dataset.atalho]()));
+  $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), ferr: ferramentas })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
   $("verSobra").onclick = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
   }
-  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c); renderDesempIni(c); renderConqIni(c); renderDicaIni(c); setTimeout(avisaConquistas, 700);
+  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c); renderParaOndeIni(c); renderDesempIni(c); renderConqIni(c); renderDicaIni(c); setTimeout(avisaConquistas, 700);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
   $("kpis").innerHTML = `
    <div class="kpi reserva" data-det="guardado" role="button" tabindex="0">${cab("cofre", "Caixinhas")}<span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
@@ -2241,6 +2238,7 @@ const GRUPOS_FERR = [
     { id: "calc", k: "ferias decimo terceiro juros parcelas rendimento investir divida simulador", ico: "calc", t: "Calculadoras", s: "Rendimento, parcelas, juros, férias e 13º" },
     { id: "dica", k: "habito economia ideia", ico: "luz", t: "Dica do dia", s: "Um hábito pequeno por dia para guardar dinheiro" }] },
   { titulo: "Entender e comemorar", itens: [
+    { id: "pof", k: "para onde foi dinheiro gastei categoria mes anterior onde errei melhorar compara", ico: "grafico", t: "Para onde foi o dinheiro", s: "Quanto gastou, o que mudou desde o mês passado e o que fazer" },
     { id: "desemp", k: "comparar evolucao", ico: "rumo", t: "Meu desempenho", s: "O seu mês em frases, comparado com os outros" },
     { id: "ano", k: "anual relatorio ano", ico: "grafico", t: "Resumo do ano", s: "Mês a mês, melhor e pior mês e para onde foi o dinheiro" },
     { id: "assin", k: "assinaturas streaming netflix spotify recorrente mensalidade cobranca renovacao academia aplicativo", ico: "fixo", t: "Assinaturas", s: "O que se repete todo mês e quanto custa por ano" },
@@ -2265,7 +2263,7 @@ const DESTINOS = [
 ];
 /** Abre uma tela ou ferramenta pelo id: usado pela tela Mais, pelo botão Ferramentas e pela busca geral. */
 function vaiPara(k) {
-  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
   if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
 }
 /* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
@@ -2659,6 +2657,78 @@ function ferramentas() {
 }
 $("btnFerramentas").onclick = ferramentas;
 
+/* ---------- Para onde foi o dinheiro: o mês em respostas simples (js/paraondefoi.js) ---------- */
+const corDaCat = (i) => PALETA[i % PALETA.length];
+/** Anel de categorias (conic-gradient): cada fatia é uma categoria, na mesma ordem e cor da lista ao lado. */
+function aneloDasCategorias(r) {
+  let ate = 0;
+  const fatias = r.categorias.map((x, i) => { const ini = ate; ate += x.pct; return `${corDaCat(i)} ${ini}% ${Math.min(100, ate)}%`; });
+  return `<span class="pof-anel" role="img" aria-label="${esc(r.categorias.slice(0, 4).map((x) => `${x.nome} ${x.pct}%`).join(", "))}" style="background:conic-gradient(${fatias.join(",")})"><b>${r.gasto ? brl(r.base) : ""}</b></span>`;
+}
+/** "▲ 12% a mais que setembro": a seta e as palavras dizem o mesmo que a cor, para quem não distingue cores. */
+function pilulaDaDiferenca(r) {
+  if (!r.temAnterior || r.difPct === null) return `<span class="pof-pill neutro">Sem mês anterior para comparar</span>`;
+  const sobe = r.dif > 0, igual = Math.abs(r.dif) < 1;
+  return `<span class="pof-pill ${igual ? "neutro" : sobe ? "ruim" : "bom"}">${igual ? "Igual a" : sobe ? "▲ " + Math.abs(r.difPct) + "% a mais que" : "▼ " + Math.abs(r.difPct) + "% a menos que"} ${esc(nomeDoMes(r.anterior))}</span>`;
+}
+function renderParaOndeIni(c) {
+  const host = $("paraOndeIni"), r = S.loaded && c.fase !== "futuro" ? paraOndeFoi(S.data, S.mes, hoje(), { teto: Number(S.prefs.teto) || 0 }) : null;
+  host.hidden = !r || !(r.base > 0); if (host.hidden) { host.innerHTML = ""; return; }
+  const top = r.categorias.slice(0, 3), cab = r.fase === "atual" ? "Previsão do mês" : "Gasto do mês";
+  host.innerHTML = `<div class="teto pof-card"><span class="topo"><span class="l">${ico("grafico")}Para onde foi seu dinheiro</span>${pilulaDaDiferenca(r)}</span>
+    <div class="pof-corpo">${aneloDasCategorias(r)}
+      <ul class="pof-leg" aria-label="Onde mais gastou">${top.map((x, i) => `<li><i style="background:${corDaCat(i)}" aria-hidden="true"></i><span>${esc(x.nome)}</span><b>${brl(x.valor)}</b></li>`).join("")}</ul></div>
+    <p class="pof-frase">${esc(r.leituras[0]?.titulo || cab)}</p>
+    <button class="btn" type="button" id="pofVer">Ver o porquê e o que fazer</button></div>`;
+  $("pofVer").onclick = () => paraOndeFoiTela(S.mes);
+}
+function paraOndeFoiTela(m) {
+  const r = paraOndeFoi(S.data, m, hoje(), { teto: Number(S.prefs.teto) || 0 }); if (!r) { toast("Esse mês ainda não tem lançamentos."); return; }
+  const maxMes = Math.max(...r.meses.map((x) => Math.max(x.rec, x.custo)), 1), atual = r.fase === "atual";
+  const colunas = r.meses.map((x) => `<button type="button" class="pof-col${x.atual ? " sel" : ""}" data-m="${x.m}" aria-label="${nomeDoMes(x.m)}: gastou ${brl(x.custo)}, entrou ${brl(x.rec)}${x.atual ? " (mês aberto)" : ""}" aria-pressed="${x.atual}">
+      <span class="pof-barras"><i class="ent" style="height:${Math.max(3, Math.round((x.rec / maxMes) * 100))}%"></i><i class="gas ${x.custo > x.rec ? "acima" : ""}" style="height:${Math.max(3, Math.round((x.custo / maxMes) * 100))}%"></i></span><span class="pof-mes">${nomeDoMes(x.m).slice(0, 3)}</span></button>`).join("");
+  const maxCat = Math.max(...r.categorias.map((x) => x.valor), 1);
+  const linhaCat = (x, i) => `<li><span class="pof-nome"><i style="background:${corDaCat(i)}" aria-hidden="true"></i>${esc(x.nome)}${x.junta ? ` <small>(${x.junta} categorias)</small>` : ""}</span>
+      <span class="pof-val"><b>${brl(x.valor)}</b><small>${x.pct}%</small></span>
+      <span class="pof-fio" aria-hidden="true"><em style="width:${Math.max(2, Math.round((x.valor / maxCat) * 100))}%;background:${corDaCat(i)}"></em></span>
+      ${r.temAnterior && x.difPct !== null && Math.abs(x.dif) >= 1 ? `<span class="pof-dif ${x.dif > 0 ? "ruim" : "bom"}">${x.dif > 0 ? "▲ " + brl(x.dif) + " a mais" : "▼ " + brl(-x.dif) + " a menos"} que em ${esc(nomeDoMes(r.anterior))}</span>` : ""}</li>`;
+  const icTom = { erro: "▲", ok: "✓", info: "●" }, nomeTom = { erro: "Atenção", ok: "Bom sinal", info: "Para saber" };
+  openDlg(`<div class="pof"><h3>Para onde foi o dinheiro</h3>
+    <div class="pof-resumo"><span class="pof-q">${atual ? "Previsão para " : "Em "}${esc(nomeDoMes(r.m))}</span><b class="pof-grande">${brl(r.base)}</b>
+      ${pilulaDaDiferenca(r)}<span class="pof-linha">Entrou <b>${brl(r.entra)}</b> · ${r.sobra < 0 ? `faltou <b class="ruim">${brl(-r.sobra)}</b>` : `sobrou <b class="bom">${brl(r.sobra)}</b>`}${atual ? ` · gasto até hoje <b>${brl(r.gasto)}</b>` : ""}</span></div>
+    <h4 class="pof-h">Os últimos meses</h4>
+    <div class="pof-cols" role="group" aria-label="Escolha um mês para ver">${colunas}</div>
+    <p class="pof-leg2"><i class="ent"></i>Entrou <i class="gas"></i>Gastou <small>Toque num mês para ver esse mês.</small></p>
+    <h4 class="pof-h">Para onde foi</h4>
+    <ul class="pof-lista">${r.categorias.map(linhaCat).join("")}</ul>
+    <h4 class="pof-h">Onde errei e o que ajudou</h4>
+    ${r.leituras.length ? `<ul class="pof-leit">${r.leituras.map((x) => `<li class="${x.tom}"><span class="pof-sel" aria-hidden="true">${icTom[x.tom]}</span><span><small>${nomeTom[x.tom]}</small><b>${esc(x.titulo)}</b><span>${esc(x.texto)}</span></span></li>`).join("")}</ul>` : `<p class="hint">Nada fora do normal neste mês.</p>`}
+    <h4 class="pof-h">O que fazer para melhorar</h4>
+    <ol class="pof-passos">${r.passos.map((p, i) => `<li><span class="pof-n">${i + 1}</span><span class="pof-tx"><b>${esc(p.titulo)}</b><span>${esc(p.texto)}</span></span><button class="btn sm" type="button" data-passo="${p.id}">${esc(p.acao)}</button></li>`).join("")}</ol>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div></div>`);
+  document.querySelectorAll("#dlgBody [data-m]").forEach((b) => (b.onclick = () => paraOndeFoiTela(b.dataset.m)));
+  const vai = { arrumar: arrumarTela, cortar: () => abrirSub("m"), limite: () => abrirSub("m"), teto: () => abrirSub("m"), fixas: () => abrirSub("f"), manter: () => abrirSub("m") };
+  document.querySelectorAll("#dlgBody [data-passo]").forEach((b) => (b.onclick = () => { const f = vai[b.dataset.passo]; if (b.dataset.passo === "arrumar") return f(); $("dlg").close(); setTimeout(f, 150); }));
+}
+/** "Como o mês vai fechar": uma barra só (o que já gastou, o que falta gastar pela previsão e onde está a entrada) e três números. */
+function projecaoDoMes(c, est, rx, acum) {
+  const atualM = c.fase === "atual", entra = c.rec, gasto = c.custo, previsto = atualM ? c.proj : c.custo;
+  const topo = Math.max(entra, previsto, gasto, 1), p = (v) => Math.max(0, Math.min(100, (v / topo) * 100));
+  const sobra = round2(entra - previsto), falta = sobra < 0 && entra > 0;
+  const pill = entra > 0 ? `<span class="pof-pill ${falta ? "ruim" : "bom"}">${falta ? "Fecha " + brl0(-sobra) + " no vermelho" : "Sobram " + brl0(sobra)}</span>` : `<span class="pof-pill neutro">Sem entradas lançadas</span>`;
+  const titulo = c.fase === "futuro" ? "Como o mês deve ser" : atualM ? "Como o mês vai fechar" : "Como o mês fechou";
+  const legenda = atualM ? `Gasto até hoje <b>${brl0(gasto)}</b> · previsão <b>${brl0(previsto)}</b>` : `${c.fase === "futuro" ? "Custo previsto" : "Custo do mês"} <b>${brl0(gasto)}</b>`;
+  const trilho = `<div class="proj-trilho" role="img" aria-label="${esc(`${legenda.replace(/<[^>]+>/g, "")}. ${entra > 0 ? "Entradas " + brl0(entra) + "." : ""}`)}">
+      <i class="gasto${atualM ? "" : " fechado"}" style="width:${p(gasto)}%"></i>${atualM && previsto > gasto ? `<i class="falta" style="left:${p(gasto)}%;width:${p(previsto) - p(gasto)}%"></i>` : ""}
+      ${entra > 0 ? `<u class="entra" style="left:${p(entra)}%"><s>entra</s></u>` : ""}</div>`;
+  return `<div class="proj-topo"><b>${titulo}</b>${pill}</div>${trilho}
+    <div class="proj-nums">
+      <button type="button" data-det="entradas"><small>${atualM || c.fase === "futuro" ? "Entra" : "Entrou"}</small><b class="pos">${brl0(entra)}</b></button>
+      <button type="button" data-det="custo"><small>${atualM ? "Gasto até hoje" : c.fase === "futuro" ? "Previsto" : "Gastou"}</small><b>${brl0(gasto)}</b></button>
+      ${atualM ? `<button type="button" data-det="custo"><small>Previsão do mês</small><b>${brl0(previsto)}</b></button>` : `<button type="button" data-det="saldo"><small>${falta ? "Faltou" : "Sobrou"}</small><b class="${falta ? "neg" : "pos"}">${brl0(Math.abs(sobra))}</b></button>`}
+    </div>${c.res > 0 ? `<p class="proj-nota">Guardado no mês: <button type="button" class="ln" data-det="guardado">${brl0(c.res)}</button></p>` : ""}
+    ${acum !== c.saldo ? `<p class="proj-nota">Com os meses anteriores, o saldo acumulado é <b>${sgn(acum)}</b>.</p>` : ""}`;
+}
 /* ---------- Meu desempenho ---------- */
 const ICO_TOM = { good: "sobe", warn: "desce", info: "rumo" };
 const desempHtml = (m, max = 5) => {
