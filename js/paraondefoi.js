@@ -5,6 +5,23 @@ import { calcMes, catMap, ultimosMeses, addM, round2, primeiroMes } from "./calc
 
 const reais = (v) => `R$ ${Math.abs(v).toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+/**
+ * A média do que a pessoa gasta por mês e uma meta que cabe na realidade dela: a média dos últimos 3 meses fechados menos 5%,
+ * arredondada para R$ 50. Só aparece depois de 3 meses fechados com gastos; antes disso não há base para uma meta honesta.
+ * @returns {{media:number, sugestao:number, meses:string[], porCategoria:Record<string,number>}|null}
+ */
+export function metaSugerida(st, m, hoje, { n = 3 } = {}) {
+  const meses = [];
+  for (let k = 1; k <= 12 && meses.length < n; k++) {
+    const mm = addM(m, -k), c = calcMes(st, mm, hoje);
+    if (c.fase === "passado" && c.custo > 0) meses.push({ m: mm, custo: c.custo, cats: new Map(catMap(c)) });
+  }
+  if (meses.length < n) return null;
+  const media = round2(meses.reduce((s, x) => s + x.custo, 0) / n), porCategoria = {};
+  for (const nome of new Set(meses.flatMap((x) => [...x.cats.keys()]))) porCategoria[nome] = round2(meses.reduce((s, x) => s + (x.cats.get(nome) || 0), 0) / n);
+  return { media, sugestao: Math.max(50, Math.round((media * 0.95) / 50) * 50), meses: meses.map((x) => x.m), porCategoria };
+}
+
 export const nomeDoMes = (m) => MESES[Number(m.slice(5, 7)) - 1];
 
 /**
@@ -28,6 +45,8 @@ export function paraOndeFoi(st, m, hoje, { teto = 0 } = {}) {
     const ca = antC.get(nome) || 0, d = round2(valor - ca);
     return { nome, valor, pct: Math.round((valor / total) * 100), ant: ca, dif: d, difPct: ca > 0 ? Math.round((d / ca) * 100) : null };
   });
+  const meta = metaSugerida(st, m, hoje);
+  if (meta) for (const x of todas) { x.media3 = meta.porCategoria[x.nome] || 0; x.acimaDaMedia = x.media3 > 0 && x.valor > x.media3 * 1.15 && x.valor - x.media3 >= 50; }
   const topo = todas.slice(0, 6), resto = todas.slice(6);
   const categorias = resto.length ? [...topo, { nome: "Demais", valor: round2(resto.reduce((t, x) => t + x.valor, 0)), pct: Math.round((resto.reduce((t, x) => t + x.valor, 0) / total) * 100), ant: 0, dif: 0, difPct: null, junta: resto.length }] : topo;
 
@@ -45,6 +64,10 @@ export function paraOndeFoi(st, m, hoje, { teto = 0 } = {}) {
   if (fixosPct >= 50) leituras.push({ tom: "erro", titulo: `As contas fixas levam ${fixosPct}% do que entra`, texto: `São ${reais(c.fxT)} por mês antes de gastar com qualquer outra coisa. É aqui que mais pesa.` });
   else if (todas[0] && todas[0].pct >= 35 && todas[0].nome !== "Outros") leituras.push({ tom: "info", titulo: `${todas[0].nome} é ${todas[0].pct}% do seu gasto`, texto: `${reais(todas[0].valor)} de ${reais(total)}. É a categoria que mais pesa no mês.` });
   if (maiorQueda) leituras.push({ tom: "ok", titulo: `${maiorQueda.nome} caiu ${reais(maiorQueda.dif)}`, texto: `Foram ${reais(maiorQueda.valor)} contra ${reais(maiorQueda.ant)} em ${nomeAnt}. Bom sinal.` });
+  if (meta && c.fase !== "futuro") {
+    const dif = round2(base - meta.media), pct = Math.round((dif / meta.media) * 100);
+    if (Math.abs(pct) >= 10) leituras.push({ tom: dif > 0 ? "erro" : "ok", titulo: dif > 0 ? `Acima da sua média em ${reais(dif)}` : `Abaixo da sua média em ${reais(-dif)}`, texto: `Nos últimos 3 meses você gastou, em média, ${reais(meta.media)} por mês. Este mês: ${reais(base)} (${Math.abs(pct)}% ${dif > 0 ? "a mais" : "a menos"}).` });
+  }
   if (teto > 0 && base > teto) leituras.push({ tom: "erro", titulo: `Passou do limite em ${reais(base - teto)}`, texto: `O limite do mês é ${reais(teto)}.` });
 
   // O que fazer: poucos passos, do que mais ajuda para o que menos ajuda, cada um com o lugar do app onde se resolve.
@@ -57,9 +80,10 @@ export function paraOndeFoi(st, m, hoje, { teto = 0 } = {}) {
   }
   if (maiorAlta) passos.push({ id: "limite", titulo: `Ponha um limite em ${maiorAlta.nome}`, texto: `Tente ficar perto de ${reais(maiorAlta.ant)}, o que você gastou em ${nomeAnt}. O app avisa quando chegar perto.`, acao: "Definir o limite", categoria: maiorAlta.nome, valor: Math.round(maiorAlta.ant) });
   if (fixosPct >= 50 && !passos.some((p) => p.id === "fixas")) passos.push({ id: "fixas", titulo: "Reveja as contas fixas", texto: "Veja se alguma pode cair, ser renegociada ou cancelada. É o gasto que se repete todo mês.", acao: "Ver contas fixas" });
-  if (!(teto > 0) && !maiorAlta) passos.push({ id: "teto", titulo: "Defina um limite para o mês", texto: "Com um limite, o app avisa antes de você passar.", acao: "Definir o limite" });
+  if (!(teto > 0) && meta) passos.push({ id: "teto", titulo: `Use ${reais(meta.sugestao)} como limite do mês`, texto: `É a média dos seus últimos 3 meses (${reais(meta.media)}) menos 5%. O app avisa quando chegar perto.`, acao: "Usar este limite", valor: meta.sugestao });
+  else if (!(teto > 0) && !maiorAlta) passos.push({ id: "teto", titulo: "Defina um limite para o mês", texto: "Com um limite, o app avisa antes de você passar.", acao: "Definir o limite" });
   if (!passos.length) passos.push({ id: "manter", titulo: "Continue assim", texto: "Nada pesou fora do normal. Guarde um pouco do que sobrou para uma caixinha.", acao: "Ver caixinhas" });
 
-  return { m, anterior: ant, temAnterior, fase: c.fase, gasto: c.custo, previsto: c.proj, base, antes, dif, difPct, entra, sobra, categorias, meses,
+  return { meta, m, anterior: ant, temAnterior, fase: c.fase, gasto: c.custo, previsto: c.proj, base, antes, dif, difPct, entra, sobra, categorias, meses,
     leituras: leituras.sort((x, y) => ({ erro: 0, info: 1, ok: 2 })[x.tom] - ({ erro: 0, info: 1, ok: 2 })[y.tom]).slice(0, 4), passos: passos.slice(0, 3), primeiro: primeiroMes(st) };
 }

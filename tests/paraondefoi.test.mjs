@@ -1,7 +1,7 @@
 // "Para onde foi o dinheiro": o mês em respostas simples, comparado com o anterior.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { paraOndeFoi, nomeDoMes } from "../js/paraondefoi.js";
+import { paraOndeFoi, nomeDoMes, metaSugerida } from "../js/paraondefoi.js";
 
 const HOJE = "2026-10-20";
 let n = 0;
@@ -88,4 +88,29 @@ test("buraco pequeno perto do gasto diário: pede o corte por dia", () => {
   for (let d = 1; d <= 20; d++) st.lancamentos.push(L(`2026-10-${String(d).padStart(2, "0")}`, 110, "Mercado"));
   const r = paraOndeFoi(st, "2026-10", HOJE), cortar = r.passos.find((p) => p.id === "cortar");
   assert.ok(cortar); assert.match(cortar.titulo, /a menos por dia/);
+});
+
+function tresMeses(extra = []) {
+  const ls = [];
+  for (const m of ["2026-07", "2026-08", "2026-09"]) { ls.push(L(`${m}-05`, 2000, "Transporte"), L(`${m}-10`, 1000, "Mercado"), L(`${m}-01`, 5000, "Salário", "Receita")); }
+  return base({ lancamentos: [...ls, ...extra] });
+}
+
+test("meta sugerida: só depois de 3 meses fechados, pela média menos 5%, arredondada para R$ 50", () => {
+  const r = metaSugerida(tresMeses(), "2026-10", HOJE);
+  assert.equal(r.media, 3000); assert.equal(r.sugestao, 2850); assert.deepEqual(r.meses, ["2026-09", "2026-08", "2026-07"]);
+  assert.equal(r.porCategoria["Transporte"], 2000); assert.equal(r.porCategoria["Mercado"], 1000);
+  assert.equal(metaSugerida(cenario(), "2026-10", HOJE), null);   // só 1 mês fechado: ainda não há base
+  assert.equal(metaSugerida(base(), "2026-10", HOJE), null);
+});
+
+test("com 3 meses de uso, o mês compara com a média e sugere o limite", () => {
+  const st = tresMeses([L("2026-10-03", 3600, "Transporte"), L("2026-10-04", 1000, "Mercado"), L("2026-10-01", 5000, "Salário", "Receita")]);
+  const r = paraOndeFoi(st, "2026-10", HOJE);
+  assert.ok(r.meta); assert.match(r.leituras.map((x) => x.titulo).join(" | "), /Acima da sua média/);
+  const por = Object.fromEntries(r.categorias.map((x) => [x.nome, x]));
+  assert.equal(por["Transporte"].media3, 2000); assert.equal(por["Transporte"].acimaDaMedia, true); assert.equal(por["Mercado"].acimaDaMedia, false);
+  const passo = r.passos.find((p) => p.id === "teto");
+  if (passo) { assert.equal(passo.valor, 2850); assert.match(passo.titulo, /como limite do mês/); }
+  assert.equal(paraOndeFoi(st, "2026-10", HOJE, { teto: 4000 }).passos.some((p) => p.id === "teto"), false);   // já tem limite: não repete
 });

@@ -9,7 +9,7 @@ import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comP
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { ehExtratoDeContaPdf, leExtratoDeContaPdf } from "./extratopdf.js";
-import { paraOndeFoi, nomeDoMes } from "./paraondefoi.js";
+import { paraOndeFoi, nomeDoMes, metaSugerida } from "./paraondefoi.js";
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
@@ -872,6 +872,7 @@ function renderKpis(c) {
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
   ligaMercadoIni();
+  if ($("usaMetaIni")) $("usaMetaIni").onclick = () => usaMeta(Number($("usaMetaIni").dataset.valor), () => {});
   $("resumo").querySelectorAll("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
   $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), cal: () => calendario(mKey(hoje())) })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
@@ -2688,6 +2689,21 @@ function renderParaOndeIni(c) {
     <button class="btn" type="button" id="pofVer">Ver o porquê e o que fazer</button></div>`;
   $("pofVer").onclick = () => paraOndeFoiTela(S.mes);
 }
+/** A meta pela realidade da pessoa: a média dos últimos 3 meses, ou quanto falta para o app ter base para sugerir. */
+function blocoDaMeta(r) {
+  const teto = Number(S.prefs.teto) || 0;
+  if (r.meta) {
+    const igual = teto === r.meta.sugestao;
+    return `<h4 class="pof-h">Sua meta, pela sua realidade</h4><div class="pof-meta"><p>Nos últimos 3 meses você gastou, em média, <b>${brl(r.meta.media)}</b> por mês. Uma meta que cabe no seu jeito de viver, com 5% de economia: <b>${brl(r.meta.sugestao)}</b>.</p>
+      ${igual ? `<span class="pof-pill bom">Este é o seu limite atual</span>` : `<button class="btn" type="button" data-usa-meta="${r.meta.sugestao}">Usar ${brl(r.meta.sugestao)} como limite do mês</button>${teto > 0 ? `<small>Seu limite atual é ${brl(teto)}.</small>` : ""}`}</div>`;
+  }
+  const fechados = r.meses.filter((x) => x.fase === "passado" && x.custo > 0).length;
+  return `<h4 class="pof-h">Sua meta, pela sua realidade</h4><div class="pof-meta"><p>Depois de <b>3 meses fechados</b> de uso, o app calcula a sua média e sugere uma meta que cabe no seu jeito de viver. Você tem <b>${Math.min(fechados, 3)} de 3</b>.</p>
+    <span class="pof-prog" role="img" aria-label="${Math.min(fechados, 3)} de 3 meses"><i style="width:${Math.min(100, Math.round((Math.min(fechados, 3) / 3) * 100))}%"></i></span></div>`;
+}
+async function usaMeta(valor, depois) {
+  S.prefs.teto = valor; await salvaPrefs(); render(); toast(`Limite do mês: ${brl(valor)}.`); depois();
+}
 function paraOndeFoiTela(m) {
   const r = paraOndeFoi(S.data, m, hoje(), { teto: Number(S.prefs.teto) || 0 }); if (!r) { toast("Esse mês ainda não tem lançamentos."); return; }
   const maxMes = Math.max(...r.meses.map((x) => Math.max(x.rec, x.custo)), 1), atual = r.fase === "atual";
@@ -2696,6 +2712,7 @@ function paraOndeFoiTela(m) {
   const maxCat = Math.max(...r.categorias.map((x) => x.valor), 1);
   const linhaCat = (x) => `<li><span class="pof-nome">${x.nome === "Demais" ? "" : `<button type="button" class="pof-ic" data-ic="${esc(x.nome)}" aria-label="Trocar o desenho de ${esc(x.nome)}">${ava(x.nome)}</button>`}${esc(x.nome)}${x.junta ? ` <small>(${x.junta} categorias)</small>` : ""}</span>
       <span class="pof-val"><b>${brl(x.valor)}</b><small>${x.pct}%</small></span>
+      ${x.media3 > 0 ? `<span class="pof-media">Sua média nos últimos 3 meses: <b>${brl(x.media3)}</b>${x.acimaDaMedia ? ` · <em>acima da média</em>` : ""}</span>` : ""}
       <span class="pof-fio" aria-hidden="true"><em style="width:${Math.max(2, Math.round((x.valor / maxCat) * 100))}%;background:${corDaCat(0, x.nome)}"></em></span>
       ${r.temAnterior && x.difPct !== null && Math.abs(x.dif) >= 1 ? `<span class="pof-dif ${x.dif > 0 ? "ruim" : "bom"}">${x.dif > 0 ? "▲ " + brl(x.dif) + " a mais" : "▼ " + brl(-x.dif) + " a menos"} que em ${esc(nomeDoMes(r.anterior))}</span>` : ""}</li>`;
   const icTom = { erro: "▲", ok: "✓", info: "●" }, nomeTom = { erro: "Atenção", ok: "Bom sinal", info: "Para saber" };
@@ -2707,15 +2724,23 @@ function paraOndeFoiTela(m) {
     <p class="pof-leg2"><i class="ent"></i>Entrou <i class="gas"></i>Gastou <small>Toque num mês para ver esse mês.</small></p>
     <h4 class="pof-h">Para onde foi</h4>
     <p class="hint" style="margin:-4px 0 8px;font-size:12.5px">Toque no desenho de uma categoria para trocar.</p><ul class="pof-lista">${r.categorias.map(linhaCat).join("")}</ul>
+    ${blocoDaMeta(r)}
     <h4 class="pof-h">Onde errei e o que ajudou</h4>
     ${r.leituras.length ? `<ul class="pof-leit">${r.leituras.map((x) => `<li class="${x.tom}"><span class="pof-sel" aria-hidden="true">${icTom[x.tom]}</span><span><small>${nomeTom[x.tom]}</small><b>${esc(x.titulo)}</b><span>${esc(x.texto)}</span></span></li>`).join("")}</ul>` : `<p class="hint">Nada fora do normal neste mês.</p>`}
     <h4 class="pof-h">O que fazer para melhorar</h4>
-    <ol class="pof-passos">${r.passos.map((p, i) => `<li><span class="pof-n">${i + 1}</span><span class="pof-tx"><b>${esc(p.titulo)}</b><span>${esc(p.texto)}</span></span><button class="btn sm" type="button" data-passo="${p.id}">${esc(p.acao)}</button></li>`).join("")}</ol>
+    <ol class="pof-passos">${r.passos.map((p, i) => `<li><span class="pof-n">${i + 1}</span><span class="pof-tx"><b>${esc(p.titulo)}</b><span>${esc(p.texto)}</span></span><button class="btn sm" type="button" data-passo="${p.id}"${p.valor ? ` data-valor="${p.valor}"` : ""}>${esc(p.acao)}</button></li>`).join("")}</ol>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div></div>`);
   document.querySelectorAll("#dlgBody [data-m]").forEach((b) => (b.onclick = () => paraOndeFoiTela(b.dataset.m)));
+  document.querySelectorAll("#dlgBody [data-usa-meta]").forEach((b) => (b.onclick = () => usaMeta(Number(b.dataset.usaMeta), () => paraOndeFoiTela(m))));
   document.querySelectorAll("#dlgBody [data-ic]").forEach((b) => (b.onclick = () => escolheDesenho(b.dataset.ic, () => paraOndeFoiTela(m))));
   const vai = { arrumar: arrumarTela, cortar: () => abrirSub("m"), limite: () => abrirSub("m"), teto: () => abrirSub("m"), fixas: () => abrirSub("f"), manter: () => abrirSub("m") };
-  document.querySelectorAll("#dlgBody [data-passo]").forEach((b) => (b.onclick = () => { const f = vai[b.dataset.passo]; if (b.dataset.passo === "arrumar") return f(); $("dlg").close(); setTimeout(f, 150); }));
+  document.querySelectorAll("#dlgBody [data-passo]").forEach((b) => (b.onclick = async () => { if (b.dataset.passo === "teto" && b.dataset.valor) return usaMeta(Number(b.dataset.valor), () => paraOndeFoiTela(m)); const f = vai[b.dataset.passo]; if (b.dataset.passo === "arrumar") return f(); $("dlg").close(); setTimeout(f, 150); }));
+}
+/** Uma linha com a meta sugerida pela média, quando já há 3 meses fechados e a pessoa ainda não definiu limite. */
+function metaNota(c) {
+  if (!S.loaded || c.fase === "passado" || Number(S.prefs.teto) > 0) return "";
+  const meta = metaSugerida(S.data, S.mes, hoje()); if (!meta) return "";
+  return `<p class="proj-nota">Você gasta em média <b>${brl0(meta.media)}</b> por mês. Meta sugerida: <button type="button" class="ln" id="usaMetaIni" data-valor="${meta.sugestao}">${brl0(meta.sugestao)}, usar</button></p>`;
 }
 /** "Como o mês vai fechar": uma barra só (o que já gastou, o que falta gastar pela previsão e onde está a entrada) e três números. */
 function projecaoDoMes(c, est, rx, acum) {
@@ -2734,6 +2759,7 @@ function projecaoDoMes(c, est, rx, acum) {
       <button type="button" data-det="custo"><small>${atualM ? "Gasto até hoje" : c.fase === "futuro" ? "Previsto" : "Gastou"}</small><b>${brl0(gasto)}</b></button>
       ${atualM ? `<button type="button" data-det="custo"><small>Previsão do mês</small><b>${brl0(previsto)}</b></button>` : `<button type="button" data-det="saldo"><small>${falta ? "Faltou" : "Sobrou"}</small><b class="${falta ? "neg" : "pos"}">${brl0(Math.abs(sobra))}</b></button>`}
     </div>${c.res > 0 ? `<p class="proj-nota">Guardado no mês: <button type="button" class="ln" data-det="guardado">${brl0(c.res)}</button></p>` : ""}
+    ${metaNota(c)}
     ${acum !== c.saldo ? `<p class="proj-nota">Com os meses anteriores, o saldo acumulado é <b>${sgn(acum)}</b>.</p>` : ""}`;
 }
 /* ---------- Acessibilidade: títulos que o leitor de tela reconhece e janelas com nome ---------- */

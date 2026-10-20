@@ -1421,3 +1421,26 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .cart-nome .ava{width:28px;height:28px;flex:none}
 .cart-card b{font-size:20px;font-variant-numeric:tabular-nums}
 .cart-card small{font-size:12.5px;color:var(--muted)}
+
+/* Meta pela realidade da pessoa (Para onde foi) */
+.pof-media{grid-column:1/-1;font-size:12.5px;color:var(--muted)} .pof-media b{color:var(--ink-2)} .pof-media em{font-style:normal;font-weight:700;color:var(--bad)}
+.pof-meta{display:grid;gap:10px;padding:14px;border-radius:16px;background:var(--series-soft);border:1px solid var(--border)}
+.pof-meta p{margin:0;font-size:14px;color:var(--ink)} .pof-meta .btn{min-height:46px} .pof-meta small{color:var(--ink-2)}
+.pof-prog{display:block;height:8px;border-radius:99px;background:var(--sunk);overflow:hidden} .pof-prog i{display:block;height:100%;border-radius:99px;background:var(--series)}
+
+/* Visual de banco: azul-marinho profundo, fundo frio e limpo, sombras suaves tingidas de azul, estados calmos */
+:root[data-tema="claro"]{
+  --bg:#f2f5fa; --surface-2:#f5f8fc; --sunk:#ebf0f7; --border:#d9e1ec; --grid:rgba(11,37,69,.07);
+  --navy:#0b2545; --navy-2:#13315c; --navy-3:#1b4079; --series:#1f5fbf; --series-soft:rgba(31,95,191,.09);
+  --shadow:0 12px 30px rgba(11,37,69,.10); --shadow-sm:0 1px 2px rgba(11,37,69,.05),0 4px 14px rgba(11,37,69,.06);
+}
+:root[data-tema="claro"] .hero.banco{
+  background:radial-gradient(120% 90% at 100% 0%,rgba(74,134,224,.30) 0%,transparent 58%),linear-gradient(165deg,var(--navy) 0%,var(--navy-2) 58%,var(--navy-3) 100%);
+}
+:root[data-tema="claro"] .hbar{background:rgba(255,255,255,.16)}
+.hero.banco .estado b{backdrop-filter:blur(4px)}
+.acoes-rap,.merc-ini,.cart-card,.resumo3,.ir-para button{border-color:var(--border)}
+/* o botão Fechar das janelas ganha um halo da cor do fundo: não deixa texto aparecendo por baixo dele */
+.dlg-x{box-shadow:0 0 0 8px var(--surface),0 4px 14px rgba(11,37,69,.16)}
+/* respiro entre os blocos: cada tela respira do mesmo jeito */
+.v-inicio,.merc-ini,.cart-ini,.ir-para{--respiro:14px}
