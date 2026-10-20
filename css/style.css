@@ -1483,3 +1483,18 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .cs-col span{display:grid;gap:0} .cs-col small{font-size:12px;color:var(--muted)} .cs-col i{font-style:normal;font-weight:700;font-size:clamp(13px,3.9vw,15.5px);overflow-wrap:anywhere}
 .cs-sobra.bom i{color:var(--good)} .cs-sobra.ruim i{color:var(--bad)}
 .cs-col .link{min-height:44px;font-size:12.5px;justify-self:start;padding:0}
+
+/* Janelas: o botão Fechar fica numa barra do alto, com fundo, para não deixar texto aparecendo por baixo dele ao rolar */
+.dlg-barra{position:sticky;top:0;z-index:3;display:flex;justify-content:flex-end;background:var(--surface);margin:-4px -4px 4px;padding:4px 4px 8px}
+.dlg-barra .dlg-x{position:static;float:none;margin:0;box-shadow:var(--shadow-sm)}
+/* Extrato: a categoria fica em "Mais filtros" */
+.lf-mais{margin:6px 0 0} .lf-mais summary{min-height:44px;display:flex;align-items:center}
+.lf-mais .in{width:100%;margin-top:6px}
+
+/* Início mais curto no celular: menos folga entre e dentro dos quadros, sem tirar nada */
+@media (max-width:700px){
+  .resumo3.proj{padding:12px 12px 6px} .proj-topo{margin-bottom:8px} .proj-trilho{margin:2px 0 18px} .proj-nums button{padding:4px 6px}
+  .pof-card .pof-corpo{margin:6px 0 2px;gap:12px} .pof-frase{margin:2px 0 8px}
+  .cart-card{min-height:84px;padding:10px 14px} .merc-ini{margin-top:10px} .cart-ini{margin-top:10px} .ir-para{margin-top:10px}
+  #dia .teto,#venc,#paraOndeIni .teto{padding-top:12px;padding-bottom:12px}
+}

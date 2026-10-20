@@ -1,0 +1,16 @@
+name: Validar
+# Roda a mesma validação do npm run validar em todo envio e em todo pedido de revisão.
+# Em Linux, todos os testes passam (o teste das regras do servidor não precisa de tolerância).
+on:
+  push:
+    branches: [main]
+  pull_request:
+jobs:
+  validar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      - run: npm run validar

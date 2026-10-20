@@ -21,8 +21,8 @@ export function geraRegras(calc) {
   return "// GERADO a partir de js/calc.js por gera-regras.mjs. Não edite: mude o calc.js e gere de novo.\n" + escolhidos.map((b) => b.join("\n")).join("\n") + "\n";
 }
 
-if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split("/").pop())) {
-  const calc = readFileSync(new URL("../../../js/calc.js", import.meta.url), "utf8");
+if (process.argv[1] && import.meta.url.endsWith(process.argv[1].split(/[\\/]/).pop())) {   // roda só quando chamado direto (a barra do Windows é invertida)
+  const calc = readFileSync(new URL("../../../js/calc.js", import.meta.url), "utf8").replace(/\r\n/g, "\n");
   writeFileSync(new URL("./regras.js", import.meta.url), geraRegras(calc));
   console.log("regras.js gerado");
 }

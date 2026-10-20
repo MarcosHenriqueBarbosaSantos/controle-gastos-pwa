@@ -7,7 +7,7 @@ import { cifra, b64u, deB64u, gerarChaves, cabecalhoVapid } from "../supabase/fu
 import { geraRegras } from "../supabase/functions/avisos/gera-regras.mjs";
 
 test("as regras do servidor (regras.js) estão em dia com o calc.js do app", () => {
-  const ler = (p) => readFileSync(new URL(p, import.meta.url), "utf8");
+  const ler = (p) => readFileSync(new URL(p, import.meta.url), "utf8").replace(/\r\n/g, "\n");   // no Windows os arquivos vêm com \r\n; o que importa é o texto
   assert.equal(ler("../supabase/functions/avisos/regras.js"), geraRegras(ler("../js/calc.js")), "rode: node supabase/functions/avisos/gera-regras.mjs");
 });
 

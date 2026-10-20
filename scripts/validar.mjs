@@ -7,7 +7,7 @@ import { fileURLToPath } from "node:url";
 
 const raiz = new URL("../", import.meta.url), le = (p) => readFileSync(new URL(p, raiz), "utf8");
 // Este teste já falhava no Windows antes de tudo (quebra de linha do gera-regras.mjs); no servidor Linux ele passa. É o único tolerado.
-const CONHECIDOS = ["as regras do servidor (regras.js) estão em dia com o calc.js do app"];
+const CONHECIDOS = [];   // nenhum teste é tolerado: o das regras do servidor passou a rodar certo no Windows
 const falhas = [];
 
 // 1. testes

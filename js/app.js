@@ -8,7 +8,7 @@ import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey,
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
-import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas } from "./extratopdf.js";
+import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas, leFaturaPdf } from "./extratopdf.js";
 import { saldosDoCasal } from "./casalvisao.js";
 import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefoi.js";
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas } from "./arrumar.js";
@@ -888,10 +888,12 @@ function renderKpis(c) {
       <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
     </div>
     ${guiaVisivel() ? "" : `<div class="convite-card"><b>Comece em 2 minutos</b><span>São três perguntas: quanto você recebe, as contas de todo mês e o cartão.</span>
-      <button type="button" class="btn primary" id="conviteComecar">Começar agora</button></div>`}`;
+      <button type="button" class="btn primary" id="conviteComecar">Começar agora</button>
+      <button type="button" class="btn" id="conviteExtrato">Já tenho o extrato do banco</button></div>`}`;
     $("grafSobraSec").innerHTML = "";
     $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
     if ($("conviteComecar")) $("conviteComecar").onclick = () => guiaPasso("renda", true);
+    if ($("conviteExtrato")) $("conviteExtrato").onclick = () => abrirExtrato();
   } else {
   $("resumo").innerHTML = `<div class="hero banco est-${est.nivel}">
     <div class="hero-top"><span class="l">${rotulo}</span>
@@ -1735,7 +1737,8 @@ function listaL(c) {
   const filtro = { tipo: S.fTipo || "", categoria: S.fCat || "" }, filtrando = Boolean(filtro.tipo || filtro.categoria);
   const catsDoExtrato = [...new Set(S.data.lancamentos.map((x) => x.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   $("lFiltros").innerHTML = `<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
-    <label class="so-leitor" for="fCatSel">Categoria</label><select class="in" id="fCatSel"><option value="">Todas as categorias</option>${catsDoExtrato.map((c) => `<option${c === filtro.categoria ? " selected" : ""}>${esc(c)}</option>`).join("")}</select>
+    <details class="manual lf-mais"${filtro.categoria ? " open" : ""}><summary>Mais filtros${filtro.categoria ? ": " + esc(filtro.categoria) : ""}</summary>
+    <label class="so-leitor" for="fCatSel">Categoria</label><select class="in" id="fCatSel"><option value="">Todas as categorias</option>${catsDoExtrato.map((c) => `<option${c === filtro.categoria ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></details>
     ${filtrando ? `<button class="link" type="button" id="fLimpa">Limpar filtros</button>` : ""}`;
   $("lFiltros").querySelectorAll("[data-ftipo]").forEach((b) => (b.onclick = () => { S.fTipo = b.dataset.ftipo; listaL(calcMes(S.data, S.mes, hoje())); }));
   $("fCatSel").onchange = (e) => { S.fCat = e.target.value; listaL(calcMes(S.data, S.mes, hoje())); };
@@ -2868,7 +2871,7 @@ function renderCasalIni(c) {
   };
   host.hidden = false;
   host.innerHTML = `<div class="teto casal-card"><span class="topo"><span class="l">${ico("casal")}Contas do casal</span></span>
-    <p class="hint" style="margin:0 0 8px;font-size:13px">O mês de cada um e dos dois juntos. A sobra de cada um não soma o que o outro ganha.</p>
+    <p class="hint" style="margin:0 0 8px;font-size:13px">O mês de cada um e dos dois juntos. A sobra de cada um não soma o que o outro ganha. O Pix entre vocês dois (categoria Casal) não entra em Juntos.</p>
     <div class="cs-grade">${col("eu", "Eu", "eu")}${col("outro", outro, "outro")}${col("juntos", "Juntos", null)}</div></div>`;
   host.querySelectorAll("[data-cs-ver]").forEach((b) => (b.onclick = () => { S.quem = b.dataset.csVer; abrirSub("l"); }));
 }
@@ -5372,7 +5375,12 @@ async function processaLeitura(arquivo, senha = "", semCodigo = false, comoUnico
         if (vez !== leitura) return;
         const ex = ehExtratoDeContaPdf(todas) ? leExtratoDeContaPdf(todas) : ehExtratoNubankPdf(todas) ? leExtratoNubankPdf(todas) : null;
         if (ex && ex.linhas.length > 1) return conferirConta({ linhas: ex.linhas, titular: ex.titular }, arquivo.name || "extrato.pdf");
-        return pdfDeVariasLinhas(documentoDeVariasLinhas(todas) || "extrato", arquivo);
+        const tipo = documentoDeVariasLinhas(todas) || "extrato";
+        if (tipo === "fatura") {   // fatura em PDF: as compras vão para a mesma tela da fatura do cartão
+          const fp = leFaturaPdf(todas, hoje());
+          if (fp.n >= 3) return importarExtrato(new File([fp.csv], (arquivo.name || "fatura").replace(/\.pdf$/i, "") + ".csv", { type: "text/csv" }));
+        }
+        return pdfDeVariasLinhas(tipo, arquivo);
       }
       texto = r.texto; previa = r.tela.toDataURL("image/jpeg", 0.72);
       // PDF que é só uma foto digitalizada não tem texto dentro: lê a primeira página como imagem.

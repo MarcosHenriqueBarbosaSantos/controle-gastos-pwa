@@ -35,3 +35,10 @@ test("um dos dois no vermelho aparece com sobra negativa, mesmo que juntos estej
   const r = saldosDoCasal(s, "2026-10", HOJE, EU, ELA);
   assert.ok(r.outro.sobra < 0); assert.ok(r.eu.sobra > 0);
 });
+
+test("o Pix entre os dois (categoria Casal) não entra em Juntos, mas conta para cada um", () => {
+  const s = st(); s.lancamentos.push(L(EU, "2026-10-09", 500, "Casal"), L(ELA, "2026-10-09", 500, "Casal", "Receita"));
+  const antes = saldosDoCasal(st(), "2026-10", HOJE, EU, ELA), r = saldosDoCasal(s, "2026-10", HOJE, EU, ELA);
+  assert.equal(r.juntos.rec, antes.juntos.rec); assert.equal(r.juntos.gasto, antes.juntos.gasto);   // juntos não mudam
+  assert.equal(r.eu.gasto, antes.eu.gasto + 500); assert.equal(r.outro.rec, antes.outro.rec + 500);   // cada um vê o que passou
+});

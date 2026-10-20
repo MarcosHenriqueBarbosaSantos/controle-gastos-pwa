@@ -112,3 +112,25 @@ test("PDF com muitas linhas que o app não lê por linha: diz se parece fatura o
   assert.equal(documentoDeVariasLinhas(extrato), "extrato");
   assert.equal(documentoDeVariasLinhas(["Comprovante", "Valor R$ 50,00", "20/10/2026"]), null);   // comprovante comum: continua indo para a leitura de um só valor
 });
+
+import { leFaturaPdf } from "../js/extratopdf.js";
+import { leExtrato } from "../js/extrato.js";
+
+test("fatura de cartão em PDF: lê as compras (data no começo, valor no fim) nos dois jeitos de escrever a data", () => {
+  const nu = ["Fatura de outubro", "Vencimento 14 OUT 2026", "06 OUT Rodoanel Pedagio R$ 3,65", "05 OUT Verona R$ 40,00", "02 OUT •••• 1234 Vgsp Group R$ 4,90", "01 OUT Anthropic* Claude Sub - Parcela 1/3 R$ 114,62", "28 SET Pagamento recebido -R$ 400,00", "Total da fatura R$ 163,17"];
+  const r = leFaturaPdf(nu, "2026-10-20");
+  assert.equal(r.n, 5);
+  const e = leExtrato({ texto: r.csv, hoje: "2026-10-20", nome: "fatura.csv" });
+  assert.deepEqual(e.compras.map((x) => x.valor), [3.65, 40, 4.9, 114.62]);
+  assert.equal(e.pagamentos.length, 1);                 // o pagamento não vira compra
+  assert.equal(e.compras[0].data, "2026-10-06");
+  const itau = ["Lançamentos: compras e saques", "06/10 MERCADO X 45,90", "07/10 UBER *TRIP 23,90", "08/10/2026 PAGAMENTO EFETUADO -500,00", "Total desta fatura 69,80"];
+  const e2 = leExtrato({ texto: leFaturaPdf(itau, "2026-10-20").csv, hoje: "2026-10-20", nome: "x.csv" });
+  assert.deepEqual(e2.compras.map((x) => x.valor), [45.9, 23.9]);
+  assert.equal(leFaturaPdf(["Comprovante", "Valor R$ 50,00"], "2026-10-20").n, 0);
+});
+
+test("fatura de cartão em PDF: compra de dezembro lida em janeiro é do ano anterior", () => {
+  const r = leFaturaPdf(["20 DEZ Loja X R$ 10,00", "05 JAN Loja Y R$ 20,00"], "2027-01-10");
+  assert.match(r.csv, /2026-12-20;Loja X;10,00/); assert.match(r.csv, /2027-01-05;Loja Y;20,00/);
+});

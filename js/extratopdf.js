@@ -122,3 +122,33 @@ export function documentoDeVariasLinhas(linhas) {
   if (valores < 8 || datas < 5) return null;
   return /fatura|vencimento|limite|fechamento/i.test(texto) && !/extrato da conta|extrato conta/i.test(texto) ? "fatura" : "extrato";
 }
+
+/**
+ * Fatura de cartão em PDF: cada compra é uma linha que começa pela data ("06 OUT", "06/10" ou "06/10/2026") e termina no valor ("R$ 45,90" ou "45,90").
+ * Devolve um CSV (Data;Descrição;Valor, datas em AAAA-MM-DD) para a mesma tela de importar a fatura do cartão. O sinal "-" do valor (pagamento, estorno) é mantido,
+ * para o leitor da fatura separar compra de pagamento. Linhas de total, limite e resumo não têm data no começo e ficam de fora.
+ * @returns {{csv:string, n:number}}
+ */
+export function leFaturaPdf(linhas, hoje) {
+  const ano = Number(hoje.slice(0, 4)), mesHoje = hoje.slice(0, 7);
+  const iso = (d, m, a) => {
+    let y = a ? (a < 100 ? 2000 + a : a) : ano; const x = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+    if (!a && x.slice(0, 7) > mesHoje) { y -= 1; return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`; }   // compra de dezembro lida em janeiro
+    return x;
+  };
+  const dataNoComeco = [/^(\d{1,2})\s+(JAN|FEV|MAR|ABR|MAI|JUN|JUL|AGO|SET|OUT|NOV|DEZ)\w*\.?(?:\s+(\d{4}))?\s+/i, /^(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?\s+/];
+  const valorNoFim = /(?:R\$\s*)?([-−]\s*)?(\d{1,3}(?:\.\d{3})*,\d{2})\s*$/;
+  const linhasCsv = []; let n = 0;
+  for (const bruta of linhas || []) {
+    const l = String(bruta).replace(/\s+/g, " ").trim();
+    let d = null, m = null;
+    if ((m = l.match(dataNoComeco[0])) && MES_NU[m[2].toUpperCase()]) d = iso(Number(m[1]), MES_NU[m[2].toUpperCase()], m[3] ? Number(m[3]) : 0);
+    else if ((m = l.match(dataNoComeco[1])) && Number(m[2]) >= 1 && Number(m[2]) <= 12 && Number(m[1]) >= 1 && Number(m[1]) <= 31) d = iso(Number(m[1]), Number(m[2]), m[3] ? Number(m[3]) : 0);
+    if (!d) continue;
+    const v = l.slice(m[0].length).match(valorNoFim); if (!v) continue;
+    const descricao = l.slice(m[0].length, m[0].length + v.index).replace(/[•*]{2,}\s*\d{4}\s*/g, "").replace(/\s*R\$\s*$/, "").replace(/;/g, ",").trim();
+    if (!descricao || descricao.length < 2) continue;
+    linhasCsv.push(`${d};${descricao};${v[1] ? "-" : ""}${v[2]}`); n++;
+  }
+  return { csv: ["Data;Descrição;Valor", ...linhasCsv].join("\n"), n };
+}
