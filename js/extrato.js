@@ -78,9 +78,11 @@ export function separaCsv(texto) {
 }
 
 const PAGAMENTO = /pagamento (recebido|efetuado|de fatura|da fatura|fatura)|pagto|pgto|pagamento em|pag fatura|payment|credito de pagamento/;
+// Saldo que sobrou da fatura anterior (rotativo): não é compra nova, já entrou no custo do mês em que aquela fatura venceu.
+const SALDO = /\b(valor|saldo)\b.*\b(mes|fatura)\s+anterior\b|\bsaldo\s+(anterior|restante|devedor)\b/;
 // Do lado das compras, só é pagamento o que diz isso com todas as letras. Do outro lado (dinheiro voltando), basta falar em pagamento.
 const fecha = (it, compra) => ({ ...it, valor: round2(Math.abs(it.valor)),
-  tipo: compra ? (PAGAMENTO.test(norm(it.descricao)) ? "pagamento" : "compra") : /pagamento|pagto|pgto|payment/.test(norm(it.descricao)) ? "pagamento" : "estorno" });
+  tipo: compra ? (PAGAMENTO.test(norm(it.descricao)) ? "pagamento" : SALDO.test(norm(it.descricao)) ? "saldo" : "compra") : /pagamento|pagto|pgto|payment/.test(norm(it.descricao)) ? "pagamento" : "estorno" });
 
 /**
  * Decide o que é compra, o que é pagamento da fatura e o que é estorno.
@@ -167,10 +169,10 @@ export function infoDoOfx(texto) {
  * Data de vencimento escrita no nome do arquivo (o Nubank exporta "Nubank_2026-10-14.ofx", com o dia em que a fatura vence).
  * Só vale se cair até 25 dias depois do fechamento; sem a data de fechamento, não dá para confiar.
  */
-export function vencimentoDoNome(nome, fecha) {
-  const m = String(nome || "").match(/(20\d{2})[-_.](\d{2})[-_.](\d{2})/); if (!m || !fecha) return null;
-  const v = `${m[1]}-${m[2]}-${m[3]}`, dias = (new Date(v) - new Date(fecha)) / 86400000;
-  return valida(Number(m[1]), Number(m[2]), Number(m[3])) && dias > 0 && dias <= 25 ? v : null;
+export function vencimentoDoNome(nome, fecha, ultimaCompra = null) {
+  const m = String(nome || "").match(/(20\d{2})[-_.](\d{2})[-_.](\d{2})/), ref = fecha || ultimaCompra; if (!m || !ref) return null;   // sem o dia do fechamento (CSV), vale a data do nome se vem de 1 a 30 dias depois da última compra
+  const v = `${m[1]}-${m[2]}-${m[3]}`, dias = (new Date(v) - new Date(ref)) / 86400000, limite = fecha ? 25 : 30;
+  return valida(Number(m[1]), Number(m[2]), Number(m[3])) && dias > 0 && dias <= limite ? v : null;
 }
 
 /**
@@ -184,8 +186,9 @@ export function leExtrato({ texto, linhas, hoje, nome = "" }) {
   const de = (t) => itens.filter((i) => i.tipo === t);
   const info = ofx ? infoDoOfx(texto) : { banco: "", inicio: null, fecha: null };
   if (!info.banco) info.banco = BANCOS.find(([re]) => re.test(norm(nome).replace(/[_\-.]+/g, " ")))?.[1] || "";
-  info.vencimento = vencimentoDoNome(nome, info.fecha);
-  return { formato: ofx ? "ofx" : linhas ? "planilha" : "csv", compras: de("compra"), pagamentos: de("pagamento"), estornos: de("estorno"), info };
+  const compras = de("compra"), ultima = compras.reduce((m, i) => (i.data > m ? i.data : m), "") || null;
+  info.vencimento = vencimentoDoNome(nome, info.fecha, ultima);
+  return { formato: ofx ? "ofx" : linhas ? "planilha" : "csv", compras, pagamentos: de("pagamento"), estornos: de("estorno"), saldos: de("saldo"), info };
 }
 
 /**

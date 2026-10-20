@@ -46,6 +46,8 @@ const GUESS = [
   ["ifood", "Despesa", "Alimentação"], ["rappi", "Despesa", "Alimentação"], ["burger", "Despesa", "Alimentação"], ["mc donald", "Despesa", "Alimentação"], ["mcdonald", "Despesa", "Alimentação"],
   ["pizzaria", "Despesa", "Alimentação"], ["churrasc", "Despesa", "Alimentação"], ["cafeteria", "Despesa", "Alimentação"], ["sorvet", "Despesa", "Alimentação"], [" bar ", "Despesa", "Alimentação"], ["restaurant", "Despesa", "Alimentação"],
   ["99app", "Despesa", "Transporte"], ["99 pop", "Despesa", "Transporte"], [" 99", "Despesa", "Transporte"], [" posto ", "Despesa", "Transporte"], [" shell", "Despesa", "Transporte"], ["ipiranga", "Despesa", "Transporte"],
+  ["autoposto", "Despesa", "Transporte"], ["rodoanel", "Despesa", "Transporte"], ["autoban", "Despesa", "Transporte"], ["ecovias", "Despesa", "Transporte"], ["arteris", "Despesa", "Transporte"], ["conectcar", "Despesa", "Transporte"], ["veloe", "Despesa", "Transporte"],
+  ["mercearia", "Despesa", "Mercado"], ["armazem", "Despesa", "Mercado"], ["bebidas", "Despesa", "Alimentação"],
   ["estacionamento", "Despesa", "Transporte"], ["pedagio", "Despesa", "Transporte"], ["sem parar", "Despesa", "Transporte"], [" metro ", "Despesa", "Transporte"], ["passagem", "Despesa", "Transporte"],
   ["drogasil", "Despesa", "Saúde"], ["droga raia", "Despesa", "Saúde"], ["drogaria", "Despesa", "Saúde"], ["pague menos", "Despesa", "Saúde"], ["clinica", "Despesa", "Saúde"], ["laboratorio", "Despesa", "Saúde"],
   ["odonto", "Despesa", "Saúde"], ["hospital", "Despesa", "Saúde"], ["academia", "Despesa", "Saúde"], ["smart fit", "Despesa", "Saúde"],
