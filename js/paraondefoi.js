@@ -31,7 +31,8 @@ export function paraOndeFoi(st, m, hoje, { teto = 0 } = {}) {
   const topo = todas.slice(0, 6), resto = todas.slice(6);
   const categorias = resto.length ? [...topo, { nome: "Demais", valor: round2(resto.reduce((t, x) => t + x.valor, 0)), pct: Math.round((resto.reduce((t, x) => t + x.valor, 0) / total) * 100), ant: 0, dif: 0, difPct: null, junta: resto.length }] : topo;
 
-  const meses = ultimosMeses(st, m, hoje, 6).map((x) => ({ ...x, atual: x.m === m }));
+  // A faixa de meses vai até o mês de hoje (ou o mês escolhido, se for mais novo): olhando um mês antigo, dá para voltar ao atual.
+  const fim = m > hoje.slice(0, 7) ? m : hoje.slice(0, 7), meses = ultimosMeses(st, fim, hoje, 6).map((x) => ({ ...x, atual: x.m === m }));
   const leituras = [], passos = [];
   const outros = todas.find((x) => x.nome === "Outros"), maiorAlta = todas.filter((x) => x.nome !== "Outros" && x.dif >= 50 && x.difPct !== null && x.difPct >= 15).sort((x, y) => y.dif - x.dif)[0];
   const maiorQueda = todas.filter((x) => x.dif <= -50 && x.difPct !== null && x.difPct <= -15).sort((x, y) => x.dif - y.dif)[0];
@@ -49,11 +50,13 @@ export function paraOndeFoi(st, m, hoje, { teto = 0 } = {}) {
   // O que fazer: poucos passos, do que mais ajuda para o que menos ajuda, cada um com o lugar do app onde se resolve.
   if (outros && outros.valor >= 50 && outros.pct >= 15) passos.push({ id: "arrumar", titulo: "Dê categoria ao que está em Outros", texto: `São ${reais(outros.valor)}. Escolha a categoria uma vez por nome e o app muda todos de uma vez.`, acao: "Arrumar lançamentos" });
   if (sobra < 0 && atual) {
-    const dias = Math.max(1, c.n - c.dias), porDia = round2(-sobra / dias);
-    passos.push({ id: "cortar", titulo: `Gaste ${reais(porDia)} a menos por dia`, texto: `Faltam ${dias} ${dias === 1 ? "dia" : "dias"} no mês. Com esse corte, o mês fecha no zero.`, acao: "Ver o que sobra" });
+    const dias = Math.max(1, c.n - c.dias), porDia = round2(-sobra / dias), media = c.dias > 0 ? round2(c.vari / c.dias) : 0;
+    // Só vale pedir corte no dia a dia quando cabe nele; se o buraco é maior do que se gasta por dia, o problema está nas contas fixas e nas faturas.
+    if (media > 0 && porDia <= media * 0.6) passos.push({ id: "cortar", titulo: `Gaste ${reais(porDia)} a menos por dia`, texto: `Faltam ${dias} ${dias === 1 ? "dia" : "dias"} no mês e você gasta cerca de ${reais(media)} por dia. Com esse corte, o mês fecha no zero.`, acao: "Ver o que sobra" });
+    else passos.push({ id: "fixas", titulo: "Cortar o dia a dia não fecha esta conta", texto: `Faltam ${reais(-sobra)} e você gasta cerca de ${reais(media)} por dia fora das contas fixas. O que pesa são as contas fixas e as faturas.`, acao: "Ver contas fixas" });
   }
   if (maiorAlta) passos.push({ id: "limite", titulo: `Ponha um limite em ${maiorAlta.nome}`, texto: `Tente ficar perto de ${reais(maiorAlta.ant)}, o que você gastou em ${nomeAnt}. O app avisa quando chegar perto.`, acao: "Definir o limite", categoria: maiorAlta.nome, valor: Math.round(maiorAlta.ant) });
-  if (fixosPct >= 50) passos.push({ id: "fixas", titulo: "Reveja as contas fixas", texto: "Veja se alguma pode cair, ser renegociada ou cancelada. É o gasto que se repete todo mês.", acao: "Ver contas fixas" });
+  if (fixosPct >= 50 && !passos.some((p) => p.id === "fixas")) passos.push({ id: "fixas", titulo: "Reveja as contas fixas", texto: "Veja se alguma pode cair, ser renegociada ou cancelada. É o gasto que se repete todo mês.", acao: "Ver contas fixas" });
   if (!(teto > 0) && !maiorAlta) passos.push({ id: "teto", titulo: "Defina um limite para o mês", texto: "Com um limite, o app avisa antes de você passar.", acao: "Definir o limite" });
   if (!passos.length) passos.push({ id: "manter", titulo: "Continue assim", texto: "Nada pesou fora do normal. Guarde um pouco do que sobrou para uma caixinha.", acao: "Ver caixinhas" });
 

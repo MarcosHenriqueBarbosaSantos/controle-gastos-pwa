@@ -71,3 +71,21 @@ test("sem mês anterior, não inventa comparação", () => {
 });
 
 test("nome do mês", () => { assert.equal(nomeDoMes("2026-03"), "março"); assert.equal(nomeDoMes("2026-12"), "dezembro"); });
+
+test("olhando um mês antigo, a faixa de meses ainda chega até o mês de hoje", () => {
+  const r = paraOndeFoi(cenario(), "2026-09", HOJE);
+  assert.equal(r.meses.at(-1).m, "2026-10"); assert.equal(r.meses.find((x) => x.atual).m, "2026-09");
+});
+
+test("buraco maior do que se gasta por dia: não pede corte impossível, aponta as contas fixas", () => {
+  const r = paraOndeFoi(cenario(), "2026-10", HOJE);   // o buraco vem da parcela fixa; o dia a dia é pequeno perto dele
+  assert.equal(r.passos.some((p) => p.id === "cortar"), false);
+  const fixas = r.passos.find((p) => p.id === "fixas"); assert.ok(fixas); assert.match(fixas.titulo, /não fecha/);
+});
+
+test("buraco pequeno perto do gasto diário: pede o corte por dia", () => {
+  const st = base({ lancamentos: [L("2026-10-01", 3000, "Salário", "Receita")] });
+  for (let d = 1; d <= 20; d++) st.lancamentos.push(L(`2026-10-${String(d).padStart(2, "0")}`, 110, "Mercado"));
+  const r = paraOndeFoi(st, "2026-10", HOJE), cortar = r.passos.find((p) => p.id === "cortar");
+  assert.ok(cortar); assert.match(cortar.titulo, /a menos por dia/);
+});
