@@ -829,6 +829,14 @@ function chipsDoForm() {
   ["input", "change"].forEach((ev) => form.addEventListener(ev, sync));
   new MutationObserver(sync).observe(form, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
 })();
+/** A dica de como usar o Extrato aparece nas 4 primeiras vezes que a pessoa abre o app e some depois: quem já sabe não precisa dela. */
+function dicaDoExtrato() {
+  try {
+    const n = Number(localStorage.getItem("cg-dica-extrato") || 0);
+    if (!sessionStorage.getItem("cg-dica-extrato-sessao")) { sessionStorage.setItem("cg-dica-extrato-sessao", "1"); localStorage.setItem("cg-dica-extrato", String(n + 1)); return n + 1 <= 4; }
+    return n <= 4;
+  } catch { return true; }
+}
 /** Cartão e parcelas escolhidos no formulário de lançar. Sem cartão cadastrado não devolve nada: o lançamento segue como sempre foi. */
 function cartaoDoForm() {
   const cc = S.tipo === "Despesa" && $("fForma").value === CARTAO && cartoesAtivos().length > 0;
@@ -1755,7 +1763,7 @@ function listaL(c) {
   // No celular a lista é separada por dia, com o total gasto em cada um.
   const gastoDoDia = (d) => round2(it.filter((x) => !x.auto && x.tipo === "Despesa" && x.data === d).reduce((t, x) => t + x.valor, 0));
   const dia = (x, i) => i && it[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
-  host.innerHTML = `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p><div class="tbl"><table class="lanc">${cab}<tbody>${
+  host.innerHTML = `${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
     it.map((x, i) => dia(x, i) + (x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub"><span class="tp">Entrada fixa</span>${esc(x.categoria)}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(x.id)}">Alterar</button></td></tr>`
@@ -2757,7 +2765,7 @@ function paraOndeFoiTela(m) {
       <span class="pof-val"><b>${brl(x.valor)}</b><small>${x.pct}%</small></span>
       ${x.media3 > 0 ? `<span class="pof-media">Sua média nos últimos 3 meses: <b>${brl(x.media3)}</b>${x.acimaDaMedia ? ` · <em>acima da média</em>` : ""}</span>` : ""}
       <span class="pof-fio" aria-hidden="true"><em style="width:${Math.max(2, Math.round((x.valor / maxCat) * 100))}%;background:${corDaCat(0, x.nome)}"></em></span>
-      ${r.temAnterior && x.difPct !== null && Math.abs(x.dif) >= 1 ? `<span class="pof-dif ${x.dif > 0 ? "ruim" : "bom"}">${x.dif > 0 ? "▲ " + brl(x.dif) + " a mais" : "▼ " + brl(-x.dif) + " a menos"} que em ${esc(nomeDoMes(r.anterior))}</span>` : ""}</li>`;
+      ${r.temAnterior && x.difPct !== null && Math.abs(x.dif) >= 1 ? `<span class="pof-dif ${x.nome === "Outros" ? "neutro" : x.dif > 0 ? "ruim" : "bom"}">${x.dif > 0 ? "▲ " + brl(x.dif) + " a mais" : "▼ " + brl(-x.dif) + " a menos"} que em ${esc(nomeDoMes(r.anterior))}</span>` : ""}</li>`;
   const icTom = { erro: "▲", ok: "✓", info: "●" }, nomeTom = { erro: "Atenção", ok: "Bom sinal", info: "Para saber" };
   openDlg(`<div class="pof"><h3>Para onde foi o dinheiro</h3>
     <div class="pof-resumo"><span class="pof-q">${atual ? "Previsão para " : "Em "}${esc(nomeDoMes(r.m))}</span><b class="pof-grande">${brl(r.base)}</b>

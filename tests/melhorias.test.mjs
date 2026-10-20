@@ -72,3 +72,15 @@ test("conta de casal: desenhos e conferidos valem para os dois", () => {
   const muitos = Array.from({ length: 400 }, (_, i) => `id${i}`);
   assert.equal(juntaPrefsDoCasal({ revisados: muitos }, {}).revisados.length, 300);
 });
+
+import { desempenhoDoMes } from "../js/extras.js";
+
+test("meu desempenho: 'Outros' não é comemorado nem lamentado, só vira um chamado para dar categoria", () => {
+  const D = (data, valor, categoria) => ({ id: `d${++n}`, data, valor, categoria, tipo: "Despesa", descricao: categoria, forma: "Pix" });
+  const st = { fixos: [], faturas: [], pagos: [], cartoes: [], lancamentos: [
+    D("2026-09-05", 5000, "Outros"), D("2026-09-06", 300, "Mercado"), { ...D("2026-09-01", 8000, "Salário"), tipo: "Receita" },
+    D("2026-10-05", 800, "Outros"), D("2026-10-06", 500, "Mercado"), { ...D("2026-10-01", 8000, "Salário"), tipo: "Receita" } ] };
+  const textos = desempenhoDoMes(st, "2026-10", "2026-10-20").map((x) => x.texto).join(" | ");
+  assert.doesNotMatch(textos, /menos com Outros|mais com Outros/);
+  assert.match(textos, /Mercado/);
+});

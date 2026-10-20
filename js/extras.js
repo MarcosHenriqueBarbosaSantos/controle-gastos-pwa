@@ -48,7 +48,7 @@ export function desempenhoDoMes(st, m, hoje) {
   // 2. As categorias que mais mudaram no dia a dia.
   const cmp = comparaCategorias(st, c, m);
   if (cmp) {
-    Object.entries(cmp.por).sort((a, b) => Math.abs(b[1].dif) - Math.abs(a[1].dif)).slice(0, 2).forEach(([cat, x]) => {
+    Object.entries(cmp.por).filter(([cat]) => cat !== "Outros").sort((a, b) => Math.abs(b[1].dif) - Math.abs(a[1].dif)).slice(0, 2).forEach(([cat, x]) => {
       const p = pct(x.agora, x.antes), ate = cmp.ate ? `, até o dia ${cmp.ate}` : "";
       if (x.agora === 0) return out.push({ tom: "good", texto: `Você ainda não gastou com ${cat} neste mês. Em ${nomeDoMes(cmp.mes)}${ate}, foram ${moeda(x.antes)}.` });
       out.push(x.dif < 0
@@ -76,8 +76,8 @@ export function desempenhoDoMes(st, m, hoje) {
   // 5. A maior despesa.
   const cat = catMap(c);
   if (cat.length && c.custo > 0) {
-    const [nome, v] = agrupaPorPai(cat)[0];
-    out.push({ tom: "info", texto: `A maior parte do custo vai para ${nome}: ${Math.round((v / c.custo) * 100)}% (${moeda(v)}).` });
+    const [nome, v] = agrupaPorPai(cat)[0], parte = Math.round((v / c.custo) * 100);
+    out.push(nome === "Outros" ? { tom: "warn", texto: `${parte}% do custo (${moeda(v)}) está em Outros, sem categoria. Dê uma categoria a eles para ver para onde o dinheiro vai.` } : { tom: "info", texto: `A maior parte do custo vai para ${nome}: ${parte}% (${moeda(v)}).` });
   }
   return out.slice(0, 5);
 }

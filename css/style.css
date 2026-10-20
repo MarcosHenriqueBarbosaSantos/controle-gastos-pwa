@@ -1463,3 +1463,4 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .pof-anel{width:96px;height:96px} .pof-anel::before{inset:14px} .pof-anel b{font-size:12px;max-width:60px}
 .merc-ini{gap:8px;padding:12px 14px}
 @media (max-width:700px){ .venc-cal{margin-top:0} }
+.pof-dif.neutro{color:var(--muted)}
