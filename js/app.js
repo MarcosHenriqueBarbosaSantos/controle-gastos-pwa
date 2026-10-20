@@ -784,8 +784,51 @@ function renderForm() {
     if (fk.dataset.k !== k) { fk.innerHTML = optsCartao(fk.value); fk.dataset.k = k; }
     $("fParc").innerHTML = optsParcelas(valorDoCampo(), fixo ? 1 : $("fParc").value || 1);
   }
-  mostraEfeito();
+  mostraEfeito(); chipsDoForm();
 }
+/* ---------- Lançar rápido: categoria e forma de pagamento em botões (um toque, sem abrir lista) ---------- */
+// Os seletores continuam sendo a fonte da verdade (o resto do app lê e grava neles); os botões só os acompanham.
+const CHIPS_CAT_MAX = 6;
+/** As categorias que a pessoa mais usa nos últimos 4 meses, para o tipo da tela; completa com as primeiras da lista. */
+function categoriasDeUmToque(lista, tipo) {
+  const corte = addM(mKey(hoje()), -4) + "-01", cont = new Map();
+  S.data.lancamentos.forEach((x) => { if (x.tipo === tipo && x.data >= corte && lista.includes(x.categoria)) cont.set(x.categoria, (cont.get(x.categoria) || 0) + 1); });
+  const top = [...cont.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]);
+  return [...new Set([...top, ...lista])].slice(0, CHIPS_CAT_MAX);
+}
+function desenhaChips(sel, destino, valores, rotuloNova) {
+  const atual = sel.value, ordem = valores.includes(atual) || !atual || atual === NOVA_CAT ? valores : [...valores.slice(0, valores.length - 1), atual];
+  const k = JSON.stringify([ordem, atual, Boolean(rotuloNova)]);
+  if (destino.dataset.k === k) return; destino.dataset.k = k;
+  destino.innerHTML = ordem.map((v) => `<button type="button" class="chip-op" data-v="${esc(v)}" aria-pressed="${v === atual}">${esc(v)}</button>`).join("")
+    + (rotuloNova ? `<button type="button" class="chip-op mais" data-nova="1">${esc(rotuloNova)}</button>` : "");
+}
+function chipsDoForm() {
+  const form = $("formLanc"); if (!form) return;
+  const montar = (sel, id, valores, rotuloNova) => {
+    const label = sel.closest("label"); if (!label) return;
+    let box = $(id);
+    if (!box) { box = document.createElement("div"); box.id = id; box.className = "chips-campo"; box.setAttribute("role", "group"); box.setAttribute("aria-labelledby", label.querySelector("span[id]")?.id || ""); label.insertBefore(box, sel); label.classList.add("com-chips"); }
+    desenhaChips(sel, box, valores, rotuloNova);
+  };
+  const cat = $("fCat"), forma = $("fForma");
+  const listaCat = [...cat.options].map((o) => o.value).filter((v) => v && v !== NOVA_CAT);
+  montar(cat, "fCatChips", categoriasDeUmToque(listaCat, S.tipo), S.tipo === "Reserva" ? "+ Nova caixinha" : "+ Nova categoria");
+  montar(forma, "fFormaChips", [...forma.options].map((o) => o.value).filter(Boolean), "");
+}
+(function ligaChipsDoForm() {
+  const form = $("formLanc"); if (!form) return;
+  let agendado = false;
+  const sync = () => { if (agendado) return; agendado = true; requestAnimationFrame(() => { agendado = false; chipsDoForm(); }); };
+  form.addEventListener("click", (e) => {
+    const b = e.target.closest(".chip-op"); if (!b) return sync();
+    const sel = b.closest("label").querySelector("select");
+    if (b.dataset.nova) sel.value = NOVA_CAT; else sel.value = b.dataset.v;
+    sel.dispatchEvent(new Event("change", { bubbles: true })); sync();
+  });
+  ["input", "change"].forEach((ev) => form.addEventListener(ev, sync));
+  new MutationObserver(sync).observe(form, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
+})();
 /** Cartão e parcelas escolhidos no formulário de lançar. Sem cartão cadastrado não devolve nada: o lançamento segue como sempre foi. */
 function cartaoDoForm() {
   const cc = S.tipo === "Despesa" && $("fForma").value === CARTAO && cartoesAtivos().length > 0;

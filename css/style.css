@@ -1444,3 +1444,14 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .dlg-x{box-shadow:0 0 0 8px var(--surface),0 4px 14px rgba(11,37,69,.16)}
 /* respiro entre os blocos: cada tela respira do mesmo jeito */
 .v-inicio,.merc-ini,.cart-ini,.ir-para{--respiro:14px}
+
+/* Lançar rápido: categoria e forma de pagamento em botões, um toque */
+.f.com-chips{grid-column:1/-1}
+.f.com-chips>select{display:none}
+.chips-campo{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.chip-op{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font-weight:600;font-size:14px;cursor:pointer;transition:background .12s,transform .08s}
+.chip-op:active{transform:scale(.97)}
+.chip-op[aria-pressed="true"]{background:var(--btn);color:#fff;border-color:transparent;box-shadow:var(--shadow-sm)}
+.chip-op.mais{border-style:dashed;color:var(--series);background:transparent}
+#fFormaWrap[style*="hidden"]{display:none}
+@media (prefers-reduced-motion:reduce){.chip-op{transition:none}}
