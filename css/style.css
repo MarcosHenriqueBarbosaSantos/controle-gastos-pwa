@@ -1474,3 +1474,12 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .lim-cats{list-style:none;margin:0;padding:0;display:grid;gap:8px}
 .lim-cats li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:14px;background:var(--sunk)}
 .lim-cats span{display:grid;gap:2px;min-width:0} .lim-cats small{color:var(--muted);font-size:12.5px} .lim-cats em{font-style:normal;font-weight:700;font-size:12.5px;color:var(--good)}
+
+/* Contas do casal: o mês de cada um e dos dois juntos */
+.cs-grade{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.cs-col{display:grid;gap:6px;align-content:start;padding:10px 8px;border-radius:14px;background:var(--sunk);border:1px solid var(--border)}
+.cs-col.juntos{background:var(--series-soft)}
+.cs-nome{font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cs-col span{display:grid;gap:0} .cs-col small{font-size:12px;color:var(--muted)} .cs-col i{font-style:normal;font-weight:700;font-size:clamp(13px,3.9vw,15.5px);overflow-wrap:anywhere}
+.cs-sobra.bom i{color:var(--good)} .cs-sobra.ruim i{color:var(--bad)}
+.cs-col .link{min-height:44px;font-size:12.5px;justify-self:start;padding:0}

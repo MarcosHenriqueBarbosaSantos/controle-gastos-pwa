@@ -125,3 +125,14 @@ test("conta fixa: cada ocorrência vale por um movimento, vale o nome parecido e
   assert.equal(r.get("4").nome, "Salário");
   assert.equal(movimentosDeContasFixas(mov, [FIXO({ id: "c", valor: 100, descricao: "No cartão", forma: "Cartão de crédito", dia: 5 })], []).size, 0);   // fixo no cartão entra pela fatura
 });
+
+import { nomeDoEmail } from "../js/conta.js";
+
+test("o nome da própria pessoa pode vir de vários jeitos e o e-mail dá um palpite", () => {
+  assert.equal(nomeDoEmail("marcos.henrique.b.s@gmail.com"), "Marcos Henrique");
+  assert.equal(nomeDoEmail("maria@gmail.com"), "");   // uma palavra só não basta para chamar de "o seu nome"
+  assert.equal(ehMeuNome("MARCOS HENRIQUE BARBOSA SANTOS", ["Itaú Henrique", "", nomeDoEmail("marcos.henrique.b.s@gmail.com")]), true);   // o nome salvo estava errado
+  assert.equal(ehMeuNome("Ana Souza", ["Itaú Henrique", "Marcos Henrique"]), false);
+  const ls = [L({ descricao: "MARCOS HENRIQUE BARBOSA SANTOS", tipo: "Receita", valor: 20 }), L({ descricao: "Padaria", valor: 9 })];
+  assert.equal(entreMinhasContas(ls, ["Itaú Henrique", "Marcos Henrique"]).itens.length, 1);
+});

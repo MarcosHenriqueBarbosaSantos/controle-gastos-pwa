@@ -27,8 +27,18 @@ export const arrumaNome = (s) => String(s ?? "").replace(/\s+/g, " ").trim().rep
  * Precisa de nome e sobrenome em meuNome, para não tratar qualquer "Maria" como a própria pessoa.
  */
 export function ehMeuNome(nome, meuNome) {
+  if (Array.isArray(meuNome)) return meuNome.some((n) => ehMeuNome(nome, n));   // vários jeitos de dizer o próprio nome: o digitado, o do banco e o do e-mail
   const meu = norm(meuNome).split(" ").filter((p) => p.length > 1), q = norm(nome);
   return meu.length >= 2 && q.length > 0 && (meu.every((p) => q.includes(p)) || (q.length >= 5 && norm(meuNome).startsWith(q)));
+}
+
+/**
+ * O nome que dá para tirar do e-mail ("marcos.henrique.b.s@gmail.com" → "Marcos Henrique"): serve de palpite para reconhecer as transferências
+ * entre as contas da própria pessoa quando ela não disse o nome ou o nome salvo está errado. Só vale com pelo menos duas palavras de 3 letras ou mais.
+ */
+export function nomeDoEmail(email) {
+  const p = String(email || "").split("@")[0].split(/[._\-+0-9]+/).filter((x) => x.length >= 3);
+  return p.length >= 2 ? p.slice(0, 3).map((x) => x[0].toUpperCase() + x.slice(1).toLowerCase()).join(" ") : "";
 }
 
 /** Tipos de movimento que só aparecem em extrato de conta: servem para reconhecer o arquivo. */

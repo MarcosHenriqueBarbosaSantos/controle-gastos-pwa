@@ -9,6 +9,7 @@ import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comP
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas } from "./extratopdf.js";
+import { saldosDoCasal } from "./casalvisao.js";
 import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefoi.js";
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
@@ -17,7 +18,7 @@ import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJu
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
-import { pareceConta, leConta, arrumaNome } from "./conta.js";
+import { pareceConta, leConta, arrumaNome, nomeDoEmail } from "./conta.js";
 import { criaEscuta, mensagemDeErro } from "./escuta.js";
 
 const $ = (id) => document.getElementById(id);
@@ -931,7 +932,7 @@ function renderKpis(c) {
   if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
   if ($("verSobra")) $("verSobra").onclick = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
   }
-  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c); renderParaOndeIni(c); renderDesempIni(c); renderConqIni(c); renderDicaIni(c); setTimeout(avisaConquistas, 700);
+  renderGuia(); renderDia(c); renderTeto(c); renderMetas(c); renderMetaIni(c); renderParaOndeIni(c); renderCasalIni(c); renderDesempIni(c); renderConqIni(c); renderDicaIni(c); setTimeout(avisaConquistas, 700);
   const cab = (icone, nome) => `<span class="l"><span class="kico">${ico(icone)}</span>${nome}<i aria-hidden="true">${ico("chev")}</i></span>`;
   $("kpis").innerHTML = `
    <div class="kpi reserva" data-det="guardado" role="button" tabindex="0">${cab("cofre", "Caixinhas")}<span class="v">${brl(resTotal)}</span><span class="n">${resMes}</span>${resLinhas}</div>
@@ -2851,6 +2852,26 @@ document.addEventListener("click", async (e) => {
   else { S.prefs.limites = { ...(S.prefs.limites || {}), [cat.dataset.usaCat]: Number(cat.dataset.valor) }; await salvaPrefs(); toast(`Limite de ${cat.dataset.usaCat}: ${brl(Number(cat.dataset.valor))}.`); }
   render(); if ($("dlg").open && $("dlgBody").querySelector(".pof")) paraOndeFoiTela(S.mes);
 });
+/* ---------- Conta de casal no Início: o mês de cada um e dos dois juntos (js/casalvisao.js) ---------- */
+function renderCasalIni(c) {
+  const host = $("casalIni"); if (!host) return;
+  if (!S.loaded || !casalAtivo() || c.fase === "futuro") { host.hidden = true; host.innerHTML = ""; return; }
+  const r = saldosDoCasal(S.data, S.mes, hoje(), S.casal.eu, S.casal.outro_id), outro = nomeDoOutro();
+  const col = (k, titulo, quem) => {
+    const x = r[k], falta = x.sobra < 0;
+    return `<div class="cs-col${k === "juntos" ? " juntos" : ""}" role="group" aria-label="${esc(titulo)}">
+      <b class="cs-nome">${esc(titulo)}</b>
+      <span><small>Entra</small><i>${brl0(x.rec)}</i></span>
+      <span><small>${c.fase === "atual" ? "Previsão de gasto" : "Gastou"}</small><i>${brl0(x.custo)}</i></span>
+      <span class="cs-sobra ${falta ? "ruim" : "bom"}"><small>${falta ? "Faltam" : "Sobram"}</small><i>${falta ? "▼ " : "▲ "}${brl0(Math.abs(x.sobra))}</i></span>
+      ${quem !== null ? `<button class="link" type="button" data-cs-ver="${quem}">Ver lançamentos</button>` : ""}</div>`;
+  };
+  host.hidden = false;
+  host.innerHTML = `<div class="teto casal-card"><span class="topo"><span class="l">${ico("casal")}Contas do casal</span></span>
+    <p class="hint" style="margin:0 0 8px;font-size:13px">O mês de cada um e dos dois juntos. A sobra de cada um não soma o que o outro ganha.</p>
+    <div class="cs-grade">${col("eu", "Eu", "eu")}${col("outro", outro, "outro")}${col("juntos", "Juntos", null)}</div></div>`;
+  host.querySelectorAll("[data-cs-ver]").forEach((b) => (b.onclick = () => { S.quem = b.dataset.csVer; abrirSub("l"); }));
+}
 /* ---------- Meu desempenho ---------- */
 const ICO_TOM = { good: "sobe", warn: "desce", info: "rumo" };
 const desempHtml = (m, max = 5) => {
@@ -3592,7 +3613,7 @@ function paraRevisarTela() {
 // Pix e débito que entraram como compra de cartão e o que ficou em "Outros" (por nome, de uma vez). Lógica em js/arrumar.js.
 function arrumarTela() {
   const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, ls = S.data.lancamentos, nome = S.prefs.meuNome || "";
-  const a = entreMinhasContas(ls, nome), b = pixComoCartao(ls), c = gruposEmOutros(ls), d = repetidosDeImportacao(ls), nCopias = d.reduce((s, g) => s + g.copias.length, 0);
+  const a = entreMinhasContas(ls, [nome, nomeDoEmail($("whoName").textContent)].filter(Boolean)), b = pixComoCartao(ls), c = gruposEmOutros(ls), d = repetidosDeImportacao(ls), nCopias = d.reduce((s, g) => s + g.copias.length, 0);
   openDlg(`<h3>Arrumar lançamentos</h3>
     <p class="hint" style="margin:0 0 12px">Veja o que atrapalha as suas contas e arrume de uma vez. Nada muda sem você confirmar.</p>
     <div class="caixa-mais">
@@ -3637,7 +3658,7 @@ function arrumarRepetidos() {
   conta();
 }
 function arrumarMinhasContas() {
-  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, nome = S.prefs.meuNome || "", r = entreMinhasContas(S.data.lancamentos, nome), marcados = new Set(r.itens.map((x) => x.id));
+  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, nome = S.prefs.meuNome || "", r = entreMinhasContas(S.data.lancamentos, [nome, nomeDoEmail($("whoName").textContent)].filter(Boolean)), marcados = new Set(r.itens.map((x) => x.id));
   const linha = (x) => `<li><input type="checkbox" data-k="${esc(x.id)}" checked aria-label="${esc(x.descricao)}">
     <span class="oque"><b>${esc(nomeDoLancamento(x.descricao))}</b><span>${ddmm(x.data)} · ${x.tipo === "Receita" ? "entrada" : "gasto"}${x.forma === CARTAO ? " · no cartão" : ""}</span></span>
     <b class="v ${x.tipo === "Receita" ? "pos" : ""}">${x.tipo === "Receita" ? "+ " : ""}${brl(Number(x.valor))}</b></li>`;
@@ -5670,7 +5691,7 @@ function conferirConta(fonte, nomeArquivo) {
   const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
   const formaDe = (m) => (m.tipo === "Receita" ? "" : m.forma === "Débito" ? "Débito" : m.forma === "Pix" || m.forma === "Transferência" ? "Pix" : /boleto/i.test(m.original) ? "Boleto" : "Débito");
   const monta = () => {
-    const conta = leConta({ ...fonte, hoje: hoje(), meuNome: est.meuNome });
+    const conta = leConta({ ...fonte, hoje: hoje(), meuNome: [est.meuNome, fonte.titular, nomeDoEmail($("whoName").textContent)].filter(Boolean) });
     const doArquivo = new Set(conta.movimentos.map((m) => m.chave));
     const jaLancados = movimentosJaLancados(conta.movimentos.filter((m) => !chaves.has(m.chave) && !m.ignorar), S.data.lancamentos.filter((x) => !(x.import_key && doArquivo.has(x.import_key))));
     // O pagamento de uma conta fixa que já está cadastrada não vira gasto novo (contaria duas vezes): a conta fixa é marcada como paga.
