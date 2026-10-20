@@ -661,7 +661,7 @@ function render() {
   mesesNoTopo(!naMais && noCelular());
   const c = calcMes(S.data, S.mes, hoje());
   // No celular aparece uma tela por vez; a barra de baixo mostra onde a pessoa está.
-  // Barra de baixo: Início · Extrato · + · Planejar (limites e metas) · Mais. Contas fixas, entradas e cartões abrem a partir de Mais.
+  // Barra de baixo: Início · Ferramentas · + · Mercado · Mais. Extrato, Planejar, Cartões e Contas fixas ficam na faixa "Ir para" do Início.
   const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab;
   // Fora do Início, o Voltar do celular precisa de uma entrada no histórico para voltar ao Início (e não fechar o app).
   // Vale também quando a tela mudou por um atalho (gráfico, limite, fatura salva), e não só pela barra de baixo.
@@ -861,7 +861,7 @@ function renderKpis(c) {
     <button type="button" data-atalho="plan">${ico("grafico")}<span>Planejar</span></button>
     <button type="button" data-atalho="cart">${ico("cartao")}<span>Cartões</span></button>
     <button type="button" data-atalho="fixas">${ico("fixo")}<span>Contas fixas</span></button>
-    <button type="button" data-atalho="ferr">${ico("ferramenta")}<span>Mais</span></button>
+    <button type="button" data-atalho="cal">${ico("agenda")}<span>Calendário</span></button>
   </nav>
   <div class="resumo3 proj ocultavel">${projecaoDoMes(c, est, rx, acum)}
     <div class="resumo3-links">${c.fase === "passado" ? `<button type="button" class="link" id="verFech">Fechamento para compartilhar</button>` : ""}<button type="button" class="link" id="verSobra">O que sobra para viver o mês</button>${c.fase !== "futuro" && S.data.lancamentos.length ? `<button type="button" class="link" id="verRev">${S.prefs.revisoes?.[S.mes] ? "Revisão do mês (feita)" : "Revisão do mês"}</button>` : ""}<button type="button" class="link" id="entenda">Entenda essa conta</button></div>
@@ -871,7 +871,7 @@ function renderKpis(c) {
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
   ligaMercadoIni();
-  $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), ferr: ferramentas })[b.dataset.atalho]()));
+  $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), cal: () => calendario(mKey(hoje())) })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
@@ -2195,6 +2195,8 @@ $("bnav").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   const n = b.dataset.nav;
   if (n === "mais") return abrirLancar();
+  if (n === "ferr") return ferramentas();   // calculadoras, carro, casa e as outras ferramentas
+  if (n === "merc") return mercado();       // a lista de mercado abre direto, de qualquer tela
   if (n === "inicio") { if (history.state?.aba || history.state?.sub) { S.paraInicio = true; return history.back(); } S.view = "inicio"; }   // a volta leva ao Início (popstate)
   else {
     if (n === "menu") S.view = "mais"; else { S.view = "listas"; S.tab = n; }
@@ -2572,7 +2574,7 @@ const AJUDA = [
   ["E se eu estiver sem internet?", `Pode lançar normalmente. O gasto fica guardado no aparelho, aparece como <b>aguardando internet</b> e é enviado sozinho quando a conexão voltar. Alterar ou excluir o que já estava salvo precisa de conexão.`],
   ["O que é o resumo da semana e o lembrete das 20h?", `No <b>domingo à noite</b> o app manda um resumo: quanto você gastou na semana, onde pesou mais e as contas dos próximos 7 dias. O <b>lembrete das 20h</b> é uma notificação que só aparece nos dias em que você não anotou nada. Os dois se ligam e desligam em <b>Ajustes</b>, na parte Resumo e lembrete.`],
   ["Dá para usar a dois?", `Dá, com a <b>Conta de casal</b> (no celular, em <b>Mais</b>; no computador, em <b>Ajustes</b>). Você convida a outra pessoa pelo e-mail e ela aceita dentro do app, entrando com esse e-mail. Cada um continua com a sua senha. Os dois veem e lançam nas mesmas contas, e o app mostra quem lançou cada gasto. Qualquer um dos dois pode encerrar quando quiser: cada um fica com o que lançou.`],
-  ["Onde ficam as contas fixas, os cartões e os ajustes no celular?", `Na barra de baixo: <b>Início</b>, <b>Extrato</b>, o <b>+</b> para lançar, <b>Planejar</b> (limites e metas) e <b>Mais</b>. Em Mais ficam as contas fixas, as entradas fixas, os cartões, o calendário, a conta de casal, o relatório, os ajustes e esta ajuda. No fim do Início, <b>Organizar o início</b> escolhe quais quadros aparecem.`],
+  ["Onde ficam as contas fixas, os cartões e os ajustes no celular?", `Na barra de baixo: <b>Início</b>, <b>Ferramentas</b> (calculadoras, carro, casa e outras), o <b>+</b> para lançar, <b>Mercado</b> (a lista de compras) e <b>Mais</b>. No Início, a faixa <b>Ir para</b> leva ao <b>Extrato</b>, ao <b>Planejar</b> (limites e metas), aos <b>Cartões</b>, às <b>Contas fixas</b> e ao <b>Calendário</b>. Em Mais ficam as contas fixas, as entradas fixas, os cartões, o calendário, a conta de casal, o relatório, os ajustes e esta ajuda. No fim do Início, <b>Organizar o início</b> escolhe quais quadros aparecem.`],
   ["Como recebo avisos e instalo no celular?", `Em <b>Ajustes</b> você liga os avisos por e-mail e a notificação no aparelho. Para instalar, use <b>Instalar app</b> (no celular, em <b>Mais</b>); no iPhone, abra pelo Safari, toque em Compartilhar e em Adicionar à Tela de Início.`],
   ["Como colo a mensagem do banco, uso outra moeda ou crio uma subcategoria?", `<b>Mensagem do banco:</b> em <b>Mais → Colar mensagem do banco</b>, cole a notificação ou o SMS e o lançamento vem preenchido para você conferir. <b>Outra moeda:</b> na tela de lançar, toque em <b>Gastei em outra moeda</b>, digite o valor e a cotação, e o app põe o valor em reais. <b>Subcategoria:</b> ao criar uma categoria, escolha <b>Dentro de</b> (por exemplo, Feira dentro de Mercado). No resumo do ano, as subcategorias somam na categoria de cima.`],
   ["Como funcionam o desafio de economia, as calculadoras e o resumo do ano?", `Estão em <b>Mais</b>. No <b>desafio de economia</b> você escolhe uma caixinha e um valor por semana; a cada semana, toque em <b>Guardei</b> e o valor entra na caixinha. As <b>calculadoras</b> mostram rendimento, parcelas com juros, férias e 13º (valores brutos). O <b>resumo do ano</b> mostra mês a mês e para onde foi o dinheiro, e dá para baixar em PDF.`],
@@ -2717,7 +2719,7 @@ function projecaoDoMes(c, est, rx, acum) {
   const atualM = c.fase === "atual", entra = c.rec, gasto = c.custo, previsto = atualM ? c.proj : c.custo;
   const topo = Math.max(entra, previsto, gasto, 1), p = (v) => Math.max(0, Math.min(100, (v / topo) * 100));
   const sobra = round2(entra - previsto), falta = sobra < 0 && entra > 0;
-  const pill = entra > 0 ? `<span class="pof-pill ${falta ? "ruim" : "bom"}">${falta ? "Fecha " + brl0(-sobra) + " no vermelho" : "Sobram " + brl0(sobra)}</span>` : `<span class="pof-pill neutro">Sem entradas lançadas</span>`;
+  const pill = entra > 0 ? `<span class="pof-pill ${falta ? "ruim" : "bom"}">${atualM ? (falta ? "Previsão: fecha " + brl0(-sobra) + " no vermelho" : "Previsão: sobram " + brl0(sobra)) : (falta ? "Fechou " + brl0(-sobra) + " no vermelho" : "Sobraram " + brl0(sobra))}</span>` : `<span class="pof-pill neutro">Sem entradas lançadas</span>`;
   const titulo = c.fase === "futuro" ? "Como o mês deve ser" : atualM ? "Como o mês vai fechar" : "Como o mês fechou";
   const legenda = atualM ? `Gasto até hoje <b>${brl0(gasto)}</b> · previsão <b>${brl0(previsto)}</b>` : `${c.fase === "futuro" ? "Custo previsto" : "Custo do mês"} <b>${brl0(gasto)}</b>`;
   const trilho = `<div class="proj-trilho" role="img" aria-label="${esc(`${legenda.replace(/<[^>]+>/g, "")}. ${entra > 0 ? "Entradas " + brl0(entra) + "." : ""}`)}">
@@ -2731,6 +2733,17 @@ function projecaoDoMes(c, est, rx, acum) {
     </div>${c.res > 0 ? `<p class="proj-nota">Guardado no mês: <button type="button" class="ln" data-det="guardado">${brl0(c.res)}</button></p>` : ""}
     ${acum !== c.saldo ? `<p class="proj-nota">Com os meses anteriores, o saldo acumulado é <b>${sgn(acum)}</b>.</p>` : ""}`;
 }
+/* ---------- Acessibilidade: títulos que o leitor de tela reconhece e janelas com nome ---------- */
+// Os títulos dos quadros do Início são texto comum (span). Aqui eles ganham o papel de título (nível 2), para quem navega por títulos.
+function marcaTitulos() {
+  document.querySelectorAll("#app .teto > .topo > .l, #app .merc-topo > .l, #app .hero-top > .l").forEach((el) => {
+    if (el.getAttribute("role")) return;
+    el.setAttribute("role", "heading"); el.setAttribute("aria-level", el.closest(".hero") ? "1" : "2");
+  });
+}
+let marcaTitulosAgendado = false;
+new MutationObserver(() => { if (marcaTitulosAgendado) return; marcaTitulosAgendado = true; requestAnimationFrame(() => { marcaTitulosAgendado = false; marcaTitulos(); }); })
+  .observe($("app"), { childList: true, subtree: true });
 /* ---------- Meu desempenho ---------- */
 const ICO_TOM = { good: "sobe", warn: "desce", info: "rumo" };
 const desempHtml = (m, max = 5) => {
@@ -4282,6 +4295,7 @@ function carregaXLSX() {
 $("btnExport").onclick = baixarRelatorio;   // o quadro pergunta o formato: Excel, PDF ou CSV
 function openDlg(html) {
   $("dlgBody").innerHTML = html;
+  const tit = $("dlgBody").querySelector("h3"); if (tit) { tit.id = "dlgTitulo"; $("dlg").setAttribute("aria-labelledby", "dlgTitulo"); } else $("dlg").removeAttribute("aria-labelledby");
   $("dlgBody").querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => $("dlg").close()));
   if (!$("dlg").open) {   // trocar o conteúdo de um quadro já aberto não precisa abrir de novo
     $("dlg").showModal(); $("dlg").scrollTop = 0;
