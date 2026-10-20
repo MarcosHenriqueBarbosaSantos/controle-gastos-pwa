@@ -1213,3 +1213,22 @@ html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.2
 .bg-val{font-weight:700;font-size:14px;white-space:nowrap;font-variant-numeric:tabular-nums} .bg-todos{width:100%;margin-top:10px;min-height:46px}
 #dlg .busca{margin-bottom:6px}
 @media (min-width:700px){.filtros{grid-template-columns:auto minmax(180px,260px) auto;align-items:center}.filtros .seg{width:auto}}
+
+/* Assinaturas e cobranças que se repetem */
+.assin-resumo{display:grid;gap:2px;padding:14px 16px;border:1px solid var(--border);border-radius:14px;background:var(--series-soft);margin:0 0 12px}
+.assin-resumo b{font-family:var(--display);font-size:24px;letter-spacing:-.01em}
+.assin-resumo .t,.assin-lista .t{display:block;font-size:13px;color:var(--muted)}
+.assin-lista{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:8px}
+.assin-linha{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--border);border-radius:14px}
+.assin-linha.oculta{grid-template-columns:minmax(0,1fr) auto;opacity:.8}
+.assin-tx{display:grid;gap:2px;min-width:0;justify-items:start}
+.assin-tx b{font-size:15px;overflow-wrap:anywhere}
+.assin-val{display:grid;gap:2px;justify-items:end;text-align:right}
+.assin-val b{font-size:15px;white-space:nowrap}
+.assin-val .link{font-size:12.5px;font-weight:500;color:var(--muted)}
+@media (max-width:480px){
+  .assin-linha{grid-template-columns:auto minmax(0,1fr)}
+  .assin-linha.oculta{grid-template-columns:minmax(0,1fr)}
+  .assin-val{grid-column:1/-1;grid-template-columns:1fr auto;justify-items:start;align-items:baseline;text-align:left}
+  .assin-val .t{grid-column:1;grid-row:2} .assin-val b{grid-column:1} .assin-val .link{grid-column:2;grid-row:1/3;justify-self:end}
+}

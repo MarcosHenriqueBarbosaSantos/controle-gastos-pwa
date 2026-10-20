@@ -4,7 +4,7 @@ import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey,
   categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
-  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada } from "./calc.js";
+  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, ehPdf, interpretaTexto } from "./leitor.js";
@@ -2198,6 +2198,7 @@ const GRUPOS_FERR = [
   { titulo: "Entender e comemorar", itens: [
     { id: "desemp", k: "comparar evolucao", ico: "rumo", t: "Meu desempenho", s: "O seu mês em frases, comparado com os outros" },
     { id: "ano", k: "anual relatorio ano", ico: "grafico", t: "Resumo do ano", s: "Mês a mês, melhor e pior mês e para onde foi o dinheiro" },
+    { id: "assin", k: "assinaturas streaming netflix spotify recorrente mensalidade cobranca renovacao academia aplicativo", ico: "fixo", t: "Assinaturas", s: "O que se repete todo mês e quanto custa por ano" },
     { id: "conq", k: "medalhas premios", ico: "medalha", t: "Conquistas", s: "As medalhas que você já ganhou e as próximas" }] },
   { titulo: "Levar com você", itens: [
     { id: "share", k: "imagem compartilhar redes status", ico: "baixar", t: "Compartilhar meu mês", s: "Uma imagem do seu mês, com ou sem os valores" },
@@ -2219,7 +2220,7 @@ const DESTINOS = [
 ];
 /** Abre uma tela ou ferramenta pelo id: usado pela tela Mais, pelo botão Ferramentas e pela busca geral. */
 function vaiPara(k) {
-  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  const FER = { desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
   if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
 }
 /* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
@@ -3234,6 +3235,34 @@ function conquistasTela() {
     ${ganhas.length ? `<ul class="conq-lista">${ganhas.map(item).join("")}</ul>` : `<p class="hint">Ainda nenhuma. A primeira vem com o primeiro lançamento.</p>`}
     ${falta.length ? `<h4 class="sub-h">Para ganhar</h4><ul class="conq-lista">${falta.map(item).join("")}</ul>` : ""}
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+}
+/* ---------- Assinaturas e cobranças que se repetem ---------- */
+function assinaturasTela() {
+  const ocultas = S.prefs.naoAssinaturas || [], r = assinaturasDetectadas(S.data, hoje(), { ocultas });
+  const cartoes = new Map((S.data.cartoes || []).map((k) => [k.id, k.nome]));
+  const onde = (a) => (cartoes.get(a.cartao_id) ? ` · ${esc(cartoes.get(a.cartao_id))}` : a.forma === CARTAO ? " · no cartão" : a.forma ? ` · ${esc(a.forma)}` : "");
+  const linha = (a) => `<li class="assin-linha">${ava(a.categoria)}
+    <span class="assin-tx"><b>${esc(a.nome)}</b>
+      <span class="t">Todo dia ${a.dia} · ${a.meses} meses seguidos${onde(a)}</span>
+      <span class="t">Próxima por volta de ${ddmm(a.proximo)}</span>
+      ${a.subiu ? `<span class="pill warn">Subiu de ${brl(a.subiu.de)} para ${brl(a.subiu.para)} em ${ddmm(a.subiu.em)}</span>` : ""}
+      ${a.jaFixa ? `<span class="pill info">Já está em Contas fixas</span>` : ""}</span>
+    <span class="assin-val"><b>${brl(a.mensal)}</b><span class="t">${brl0(a.anual)} por ano</span><button class="link" type="button" data-oculta="${esc(a.chave)}">Não é assinatura</button></span></li>`;
+  openDlg(`<h3>Assinaturas</h3>
+    ${r.itens.length ? `<div class="assin-resumo"><span class="t">Você paga cerca de</span><b>${brl(r.totalMes)} por mês</b><span class="t">${brl0(r.totalAno)} por ano em ${r.itens.length} ${r.itens.length === 1 ? "cobrança que se repete" : "cobranças que se repetem"}</span></div>
+      <ul class="assin-lista">${r.itens.map(linha).join("")}</ul>
+      <p class="hint">O app acha cobranças com o mesmo nome, uma por mês, nos últimos 3 meses ou mais. Se uma delas não é assinatura, toque em "Não é assinatura".</p>`
+      : `<p class="hint" style="margin:0 0 10px">Ainda não achei nenhuma assinatura.</p>
+      <p class="hint">Para aparecer aqui, a cobrança precisa ter sido lançada com o mesmo nome (por exemplo, "Netflix") em 3 meses seguidos, uma vez por mês. Importar o extrato do cartão já faz isso por você.</p>`}
+    ${r.ocultas.length ? `<h4 class="sub-h">Que você tirou da lista</h4><ul class="assin-lista">${r.ocultas.map((a) => `<li class="assin-linha oculta"><span class="assin-tx"><b>${esc(a.nome)}</b><span class="t">${brl(a.mensal)} por mês</span></span><span class="assin-val"><button class="link" type="button" data-volta="${esc(a.chave)}">Mostrar de novo</button></span></li>`).join("")}</ul>` : ""}
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  const muda = async (chave, lista) => { S.prefs.naoAssinaturas = lista; await salvaPrefs(); assinaturasTela(); };
+  document.querySelectorAll("#dlgBody [data-oculta]").forEach((b) => (b.onclick = async () => {
+    const chave = b.dataset.oculta, nome = r.itens.find((a) => a.chave === chave)?.nome || "A cobrança";
+    await muda(chave, [...new Set([...ocultas, chave])]);
+    toastAcao(`${nome} saiu da lista`, "Desfazer", () => muda(chave, (S.prefs.naoAssinaturas || []).filter((k) => k !== chave)), 6000);
+  }));
+  document.querySelectorAll("#dlgBody [data-volta]").forEach((b) => (b.onclick = () => muda(b.dataset.volta, ocultas.filter((k) => k !== b.dataset.volta))));
 }
 /** Avisa das medalhas novas. Na primeira vez que o app olha, só anota o que já estava ganho (sem festa por coisa antiga). */
 function avisaConquistas() {

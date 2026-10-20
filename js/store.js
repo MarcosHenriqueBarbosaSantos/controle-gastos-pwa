@@ -356,6 +356,11 @@ export function demoSeed(hojeISO) {
       [16, "Show", "Despesa", "Lazer", "Cartão de crédito", 140], [19, "Uber", "Despesa", "Transporte", "Pix", 27.6],
       [21, "Mercado", "Despesa", "Mercado", "Débito", 134.8], [24, "Cabeleireiro", "Despesa", "Beleza", "Pix", 60]];
     cand.filter((c) => c[0] <= d).forEach((c) => add(cur, ...c));
+    // Duas assinaturas de exemplo (4 meses seguidos, a do streaming com reajuste) para a tela Assinaturas ter o que mostrar.
+    [[mes(-3), 39.9], [prev2, 39.9], [prev, 44.9], [cur, 44.9]].forEach(([mm, streaming]) => {
+      if (mm !== cur || d >= 11) add(mm, 11, "Streaming de séries", "Despesa", "Lazer", "Cartão de crédito", streaming);
+      if (mm !== cur || d >= 6) add(mm, 6, "Música online", "Despesa", "Lazer", "Cartão de crédito", 21.9);
+    });
     const F = [["Aluguel", "Moradia", 10, 1100, "Boleto"], ["Internet", "Contas da casa", 15, 99.9, "Débito"],
       ["Faculdade", "Educação", 20, 349, "Boleto"], ["Celular", "Contas da casa", 12, 55, "Cartão de crédito"]]
       .map(([descricao, categoria, dia, valor, forma]) => ({ id: uuid(), tipo: "Despesa", descricao, categoria, dia, valor, forma, desde: `${prev2}-01`, ate: null,

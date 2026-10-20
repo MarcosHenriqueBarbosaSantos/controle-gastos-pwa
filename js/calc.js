@@ -920,7 +920,7 @@ export function lembreteDoDia(st, hoje, { semGasto = [], anotouHoje = false, des
 
 /* ===================== Conta de casal ===================== */
 /** O que passa a ser um só para os dois quando as contas são divididas. O resto (avisos, tema, quadros do início) continua de cada um. */
-export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos", "fotos", "listaMercado", "precosMercado"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos
+export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos", "naoAssinaturas", "fotos", "listaMercado", "precosMercado"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos; naoAssinaturas: cobranças que alguém disse que não são assinatura
 
 /** Só as chaves que são dos dois. */
 export function comumDoCasal(prefs) {
@@ -943,6 +943,7 @@ export function juntaPrefsDoCasal(deQuemConvidou = {}, deQuemAceitou = {}) {
   if (a.metas || b.metas) out.metas = { ...(b.metas || {}), ...(a.metas || {}) };
   if (a.fotos || b.fotos) out.fotos = { ...(b.fotos || {}), ...(a.fotos || {}) };
   if (a.naoRepetidos || b.naoRepetidos) out.naoRepetidos = [...new Set([...(a.naoRepetidos || []), ...(b.naoRepetidos || [])])];
+  if (a.naoAssinaturas || b.naoAssinaturas) out.naoAssinaturas = [...new Set([...(a.naoAssinaturas || []), ...(b.naoAssinaturas || [])])];
   if (a.semGasto || b.semGasto) out.semGasto = [...new Set([...(a.semGasto || []), ...(b.semGasto || [])])].sort().slice(-90);
   return out;
 }
@@ -1151,4 +1152,72 @@ export function sobraDiaADia(c) {
   for (let d = 1; d <= ate; d++) { acum += porDia[d]; pontos.push({ d, resta: round2(s.livre - acum) }); }
   const projDia = c.fase === "atual" ? round2(c.proj - c.fxCusto - c.fatT) : round2(acum);
   return { n, livre: s.livre, pontos, ideal: [{ d: 0, resta: s.livre }, { d: n, resta: 0 }], fim: c.fase === "atual" ? { d: n, resta: round2(s.livre - projDia) } : null };
+}
+
+/* ===================== Assinaturas e cobranças que se repetem ===================== */
+/** A "chave" de uma descrição: sem acento, sem número e sem pontuação, para "Netflix", "NETFLIX 2" e "netflix." caírem no mesmo grupo. */
+export const chaveDaAssinatura = (d) => semAcento(semParcela(d)).replace(/[^a-z]+/g, " ").trim();
+/** Diferença entre dois dias do mês numa roda de 30 dias (dia 30 e dia 2 ficam a 2 dias um do outro). */
+const difDia = (a, b) => { const d = Math.abs(a - b) % 30; return Math.min(d, 30 - d); };
+const mediana = (v) => { const s = [...v].sort((x, y) => x - y), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+/** Quantos preços diferentes aparecem (valores a menos de 2% um do outro contam como o mesmo): assinatura tem 1 ou 2; conta de consumo tem vários. */
+const degrausDePreco = (v) => [...v].sort((a, b) => a - b).reduce((n, x, i, s) => (i === 0 || x > s[i - 1] * 1.02 ? n + 1 : n), 0);
+
+/**
+ * Cobranças que se repetem sozinhas, achadas nos lançamentos de gasto: o streaming, a academia, o app que renova.
+ * Um grupo só conta como assinatura quando, para a mesma descrição:
+ * - há uma cobrança em cada um dos últimos 3 meses seguidos ou mais, e nunca duas no mesmo mês (o café de todo dia fica de fora);
+ * - a última cobrança é de até 40 dias atrás (quem cancelou sai da lista);
+ * - o valor tem no máximo 2 preços diferentes (3, se são mais de 6 meses) e o período todo varia no máximo 60%: aceita reajuste, não conta que muda todo mês;
+ * - o dia do mês das 3 últimas não anda mais que 6 dias.
+ * Parcelas de compra parcelada não contam. `ocultas` são chaves que a pessoa disse que não são assinatura.
+ * @returns {{itens: object[], ocultas: object[], totalMes: number, totalAno: number}} itens do maior para o menor valor mensal.
+ */
+export function assinaturasDetectadas(st, hojeISO, { ocultas = [] } = {}) {
+  const grupos = new Map();
+  for (const x of st.lancamentos || []) {
+    if (x.tipo !== "Despesa" || !x.descricao || !(Number(x.valor) > 0) || Number(x.parcelas) > 1 || /\(\d+\/\d+\)\s*$/.test(x.descricao)) continue;
+    const k = chaveDaAssinatura(x.descricao);
+    if (k.length < 3) continue;
+    if (!grupos.has(k)) grupos.set(k, []);
+    grupos.get(k).push(x);
+  }
+  const fixos = (st.fixos || []).filter((f) => (f.tipo || "Despesa") === "Despesa" && (!f.ate || f.ate >= hojeISO));
+  const achadas = [];
+  for (const [chave, lista] of grupos) {
+    const porMes = new Map();
+    for (const x of lista) { const m = mKey(x.data); if (!porMes.has(m)) porMes.set(m, []); porMes.get(m).push(x); }
+    if ([...porMes.values()].some((l) => l.length > 1)) continue;   // mais de uma por mês: é hábito, não assinatura
+    const meses = [...porMes.keys()].sort();
+    let ini = meses.length - 1;
+    while (ini > 0 && meses[ini - 1] === addM(meses[ini], -1)) ini--;
+    const seq = meses.slice(ini).map((m) => porMes.get(m)[0]);
+    if (seq.length < 3) continue;
+    const ultima = seq[seq.length - 1], ult3 = seq.slice(-3), valores = seq.map((x) => Number(x.valor));
+    if (diasEntre(ultima.data, hojeISO) > 40 || diasEntre(ultima.data, hojeISO) < 0) continue;
+    if (degrausDePreco(valores) > (seq.length > 6 ? 3 : 2) || Math.max(...valores) - Math.min(...valores) > mediana(valores) * 0.6) continue;
+    const dias = ult3.map((x) => Number(x.data.slice(8, 10)));
+    if (Math.max(...dias.map((d) => difDia(d, dias[0]))) > 6) continue;
+    const dia = Math.round(mediana(dias)), valor = round2(Number(ultima.valor));
+    // Quando subiu: o valor de antes do último reajuste (mais de 2% de diferença), se houve.
+    let subiu = null;
+    for (let i = seq.length - 2; i >= 0; i--) {
+      const antes = Number(seq[i].valor);
+      if (Math.abs(valor - antes) > antes * 0.02) { if (valor > antes) subiu = { de: round2(antes), para: valor, em: seq[i + 1].data }; break; }
+    }
+    // Próxima cobrança: o dia habitual no mês de hoje, ou no seguinte se esse dia já passou.
+    const dataNoMes = (m) => `${m}-${pad(Math.min(dia, dim(m)))}`;
+    const m0 = mKey(hojeISO), proximo = dataNoMes(m0) >= hojeISO ? dataNoMes(m0) : dataNoMes(addM(m0, 1));
+    achadas.push({
+      chave, nome: ultima.descricao.trim(), categoria: ultima.categoria, forma: ultima.forma, cartao_id: ultima.cartao_id || null,
+      valor, mensal: valor, anual: round2(valor * 12), meses: seq.length, desde: seq[0].data, ultima: ultima.data, dia, proximo, subiu,
+      jaFixa: fixos.some((f) => descricaoParecida(f.descricao, ultima.descricao)),
+    });
+  }
+  achadas.sort((a, b) => b.mensal - a.mensal || a.nome.localeCompare(b.nome, "pt-BR"));
+  const itens = achadas.filter((a) => !ocultas.includes(a.chave));
+  return {
+    itens, ocultas: achadas.filter((a) => ocultas.includes(a.chave)),
+    totalMes: round2(itens.reduce((t, a) => t + a.mensal, 0)), totalAno: round2(itens.reduce((t, a) => t + a.anual, 0)),
+  };
 }
