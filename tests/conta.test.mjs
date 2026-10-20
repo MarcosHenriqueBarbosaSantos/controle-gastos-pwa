@@ -53,7 +53,7 @@ test("conta: pagamento da fatura e Pix pago no crédito ficam de fora, com o mot
 
 test("conta: descrição limpa, forma e categoria sugerida", () => {
   const r = leConta({ texto: CONTA, hoje: HOJE }), por = (id) => r.movimentos.find((m) => m.id === id);
-  assert.deepEqual([por("id-2").descricao, por("id-2").forma, por("id-2").pessoa, por("id-2").categoria], ["Maria Exemplo", "Pix", true, "Outros"]);
+  assert.deepEqual([por("id-2").descricao, por("id-2").forma, por("id-2").pessoa, por("id-2").categoria], ["Maria Exemplo", "Pix", true, "Pix para pessoas"]);
   assert.deepEqual([por("id-7").descricao, por("id-7").pessoa], ["Mercearia e Lanchonete Exemplo", false]);   // sem "LTDA", "e" em minúscula
   assert.notEqual(por("id-7").categoria, "Outros");
   assert.deepEqual([por("id-4").descricao, por("id-4").forma], ["Compra no débito em Cidade Exemplo", "Débito"]);

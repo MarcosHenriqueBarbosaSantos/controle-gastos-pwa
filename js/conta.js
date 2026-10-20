@@ -41,6 +41,20 @@ export function nomeDoEmail(email) {
   return p.length >= 2 ? p.slice(0, 3).map((x) => x[0].toUpperCase() + x.slice(1).toLowerCase()).join(" ") : "";
 }
 
+/**
+ * A transferência é para a pessoa com quem divide as contas (a conta de casal)? Vale o primeiro nome igual ao apelido ("Júlia" em "Júlia Gabrielle Ferreira da Silva"),
+ * ou o nome inteiro de duas palavras. `parceiro` pode ser um nome, ou uma lista de jeitos de chamar a mesma pessoa.
+ */
+export function ehParceiro(nome, parceiro) {
+  if (Array.isArray(parceiro)) return parceiro.some((p) => ehParceiro(nome, p));
+  const p = norm(parceiro).split(" ").filter((x) => x.length >= 3), n = norm(nome).split(" ").filter(Boolean);
+  if (!p.length || !n.length) return false;
+  return p.length >= 2 ? p.every((x) => n.includes(x)) : n[0] === p[0];
+}
+
+/** Categorias para dizer, sempre, para onde foi cada real: Pix para uma pessoa, Pix recebido de uma pessoa e o que vai e vem do parceiro. */
+export const CATEGORIA_PIX_PESSOA = { Despesa: "Pix para pessoas", Receita: "Pix de pessoas" }, CATEGORIA_CASAL = "Casal";
+
 /** Tipos de movimento que só aparecem em extrato de conta: servem para reconhecer o arquivo. */
 
 const MOVIMENTO = /^(transferencia (enviada|recebida)( pelo pix)?|compra no debito|pagamento de fatura|valor adicionado na conta por cartao de credito|pix)\b/;
@@ -125,7 +139,7 @@ export function pareceConta(linhas) {
  * @returns {{movimentos: object[], periodo: {de:string, ate:string}|null, resumo: {entradas:number, saidas:number, ignorados:number}}}
  *  Cada movimento: { id, chave, data, tipo ("Despesa"|"Receita"), valor (positivo), descricao, categoria, forma, pessoa, ignorar, motivo, original }
  */
-export function leConta({ texto, linhas, hoje, meuNome = "" }) {
+export function leConta({ texto, linhas, hoje, meuNome = "", parceiro = "" }) {
   const L = linhas || separaCsv(texto), c = colunas(L);
   if (!c) return { movimentos: [], periodo: null, resumo: { entradas: 0, saidas: 0, ignorados: 0 } };
   const bruto = [];
@@ -157,11 +171,15 @@ export function leConta({ texto, linhas, hoje, meuNome = "" }) {
     else if (forma && ehMeuNome(nome, meuNome)) { ignorar = true; motivo = "Transferência entre contas suas"; }   // o Itaú corta o nome ("Marcos"): vale o começo do seu nome
     const tipo = x.valor > 0 ? "Receita" : "Despesa", valor = round2(Math.abs(x.valor));
     const limpo = forma === "Débito" ? (partes[1] ? `Compra no débito em ${arrumaNome(nome)}` : "Compra no débito") : forma ? arrumaNome(nome) : x.original.slice(0, 60);
-    const categoria = forma === "Pix" && pessoa && partes.length > 2 && tipo === "Despesa" ? "Outros" : guessCat(nome, tipo);
+    const parc = Boolean(forma) && Boolean(parceiro) && ehParceiro(nome, parceiro);
+    let categoria = forma && pessoa && partes.length > 2 ? "Outros" : guessCat(nome, tipo);   // uma pessoa (com CPF) não é uma loja: o nome dela não vira "posto" nem "Uber"
+    // Só dá para dizer "é uma pessoa" quando o banco escreve o documento (CPF). O Pix para uma pessoa nunca fica sem categoria: é "Pix para pessoas" (ou "Casal", se é o parceiro).
+    if (parc) categoria = CATEGORIA_CASAL;
+    else if (forma && pessoa && partes.length > 2 && categoria === "Outros") categoria = CATEGORIA_PIX_PESSOA[tipo];
     // A chave não muda se o mesmo arquivo for aberto de novo: o identificador do banco (com o sentido, porque um par divide o mesmo).
     let chave = `nu-${x.id || `${x.data}|${valor}|${norm(x.original)}`}-${tipo === "Receita" ? "e" : "s"}`;
     const n = usados.get(chave) || 0; usados.set(chave, n + 1); if (n) chave += `-${n + 1}`;
-    return { id: x.id, chave, data: x.data, tipo, valor, descricao: limpo || x.original.slice(0, 60), categoria, forma, pessoa, ignorar, motivo, original: x.original };
+    return { id: x.id, chave, data: x.data, tipo, valor, descricao: limpo || x.original.slice(0, 60), categoria, forma, pessoa, parceiro: parc, ignorar, motivo, original: x.original };
   }).sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
   const uteis = movimentos.filter((m) => !m.ignorar), soma = (t) => round2(uteis.filter((m) => m.tipo === t).reduce((s, m) => s + m.valor, 0));
   return { movimentos, periodo: movimentos.length ? { de: movimentos[0].data, ate: movimentos.at(-1).data } : null,

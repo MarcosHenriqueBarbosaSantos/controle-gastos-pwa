@@ -18,7 +18,7 @@ import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJu
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
-import { pareceConta, leConta, arrumaNome, nomeDoEmail } from "./conta.js";
+import { pareceConta, leConta, arrumaNome, nomeDoEmail, CATEGORIA_PIX_PESSOA, CATEGORIA_CASAL } from "./conta.js";
 import { criaEscuta, mensagemDeErro } from "./escuta.js";
 
 const $ = (id) => document.getElementById(id);
@@ -5682,8 +5682,20 @@ function conferirExtrato(ext, nomeArquivo) {
  * Ficam de fora, com o motivo, o pagamento da fatura do cartão, o Pix pago no crédito e (se a pessoa disser o nome dela)
  * as transferências entre contas dela. Quem quiser pode incluir qualquer um deles mesmo assim.
  */
+/** As categorias do tipo, mais as que o leitor do extrato sugere e a pessoa ainda não tem (Pix para pessoas, Casal): aparecem na escolha e entram na lista dela ao lançar. */
+const comSugeridas = (tipo, extras) => { const l = cats(tipo), novas = extras.filter((c) => !l.includes(c)); if (!novas.length) return l; const i = l.lastIndexOf("Outros"); return i >= 0 ? [...l.slice(0, i), ...novas, ...l.slice(i)] : [...l, ...novas]; };
+async function guardaCategoriasNovas(itens) {
+  let mudou = false;
+  for (const tipo of ["Despesa", "Receita"]) {
+    const atuais = cats(tipo), novas = [...new Set(itens.filter((x) => x.tipo === tipo && x.categoria && !atuais.includes(x.categoria)).map((x) => x.categoria))];
+    if (!novas.length) continue;
+    const i = atuais.lastIndexOf("Outros"), lista = i >= 0 ? [...atuais.slice(0, i), ...novas, ...atuais.slice(i)] : [...atuais, ...novas];
+    S.prefs.categorias = { ...(S.prefs.categorias || {}), [tipo]: lista }; mudou = true;
+  }
+  if (mudou) await salvaPrefs();
+}
 function conferirConta(fonte, nomeArquivo) {
-  const catD = cats("Despesa"), catR = cats("Receita"), est = { meuNome: S.prefs.meuNome || fonte.titular || "", marcados: new Map(), cats: new Map() };
+  const catD = comSugeridas("Despesa", [CATEGORIA_PIX_PESSOA.Despesa, CATEGORIA_CASAL]), catR = comSugeridas("Receita", [CATEGORIA_PIX_PESSOA.Receita, CATEGORIA_CASAL]), est = { meuNome: S.prefs.meuNome || fonte.titular || "", marcados: new Map(), cats: new Map() };
   // Categoria: primeiro o que a pessoa já usou para a mesma descrição; depois o palpite pelo nome.
   const historico = new Map();
   [...S.data.lancamentos].sort((a, b) => a.data.localeCompare(b.data)).forEach((x) => { if (x.descricao && x.tipo !== "Reserva") historico.set(`${x.tipo}|${norm(x.descricao)}`, x.categoria); });
@@ -5691,7 +5703,7 @@ function conferirConta(fonte, nomeArquivo) {
   const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
   const formaDe = (m) => (m.tipo === "Receita" ? "" : m.forma === "Débito" ? "Débito" : m.forma === "Pix" || m.forma === "Transferência" ? "Pix" : /boleto/i.test(m.original) ? "Boleto" : "Débito");
   const monta = () => {
-    const conta = leConta({ ...fonte, hoje: hoje(), meuNome: [est.meuNome, fonte.titular, nomeDoEmail($("whoName").textContent)].filter(Boolean) });
+    const conta = leConta({ ...fonte, hoje: hoje(), meuNome: [est.meuNome, fonte.titular, nomeDoEmail($("whoName").textContent)].filter(Boolean), parceiro: casalAtivo() ? [nomeDoOutro(), nomeDoEmail(S.casal.outro)].filter(Boolean) : [] });
     const doArquivo = new Set(conta.movimentos.map((m) => m.chave));
     const jaLancados = movimentosJaLancados(conta.movimentos.filter((m) => !chaves.has(m.chave) && !m.ignorar), S.data.lancamentos.filter((x) => !(x.import_key && doArquivo.has(x.import_key))));
     // O pagamento de uma conta fixa que já está cadastrada não vira gasto novo (contaria duas vezes): a conta fixa é marcada como paga.
@@ -5755,6 +5767,7 @@ function conferirConta(fonte, nomeArquivo) {
       const sel = todos.filter(ligado), marcar = paraMarcar(); if (!sel.length && !marcar.length) return;
       const linhas = sel.map((it) => ({ data: it.data, descricao: it.descricao, tipo: it.tipo, categoria: it.cat, forma: formaDe(it), valor: it.valor, cartao_id: null, parcelas: 1, import_key: it.chave }));
       $("ctSalvar").disabled = true; $("ctSalvar").textContent = "Lançando…";
+      await guardaCategoriasNovas(linhas);
       let novos = []; const ok = await grava(async () => { if (linhas.length) novos = await S.store.addLancamentos(linhas); for (const x of marcar) await S.store.setPago(x.fixa.fixoId, x.fixa.mes, true); });
       if (!ok) { $("ctSalvar").disabled = false; conta2(); return; }
       S.data.lancamentos.push(...novos);

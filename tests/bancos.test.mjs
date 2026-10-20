@@ -77,3 +77,34 @@ test("QR de nota em outros formatos de endereço: a chave de 44 números basta",
   assert.equal(leNotaQr(chave), null, "só números pode ser código de barras: não vira nota");
   assert.equal(leNotaQr("https://exemplo.com/?id=12345"), null);
 });
+
+import { ehParceiro, CATEGORIA_CASAL } from "../js/conta.js";
+import { guessCat } from "../js/excel.js";
+
+const NUCONTA = "Data,Valor,Identificador,Descrição\n01/10/2026,-109.65,a1,Transferência enviada pelo Pix - AUTO POSTO SAO FRANCISCO LTDA - 62.711.312/0001-60 - ITAÚ UNIBANCO S.A. (0341) Agência: 1624 Conta: 8-7\n02/10/2026,-81.00,a2,Transferência enviada pelo Pix - Júlia Gabrielle Ferreira da Silva - •••.415.428-•• - NU PAGAMENTOS - IP (0260) Agência: 1 Conta: 565638929-2\n03/10/2026,-20.00,a3,Transferência enviada pelo Pix - Klauber Xandersoon Alves do Carmo - •••.199.098-•• - NU PAGAMENTOS - IP (0260) Agência: 1 Conta: 45936307-9\n04/10/2026,70.00,a4,Transferência Recebida - Júlia Gabrielle Ferreira da Silva - •••.415.428-•• - NU PAGAMENTOS - IP (0260) Agência: 1 Conta: 565638929-2\n05/10/2026,30.00,a5,Transferência recebida pelo Pix - Beltrano de Tal - •••.222.333-•• - BANCO\n06/10/2026,22.63,a6,Transferência recebida pelo Pix - MARCOS HENRIQUE BARBOSA SANTOS - •••.305.298-•• - ITAÚ UNIBANCO S.A. (0341) Agência: 7781 Conta: 35068-6\n";
+
+test("cada real tem para onde ir: posto é Transporte, Pix para o parceiro é Casal, Pix para pessoas e de pessoas têm categoria, e a própria conta fica de fora", () => {
+  const c = leConta({ texto: NUCONTA, hoje: HOJE, meuNome: ["Marcos Henrique"], parceiro: ["Júlia"] }), por = (t) => c.movimentos.find((m) => m.original.includes(t));
+  assert.equal(por("AUTO POSTO").categoria, "Transporte");
+  assert.equal(por("Júlia Gabrielle").categoria, CATEGORIA_CASAL); assert.equal(c.movimentos.filter((m) => m.categoria === CATEGORIA_CASAL).length, 2);   // o que foi e o que veio
+  assert.equal(por("Klauber").categoria, "Pix para pessoas");
+  assert.equal(por("Beltrano").categoria, "Pix de pessoas");
+  assert.equal(por("MARCOS HENRIQUE").ignorar, true); assert.match(por("MARCOS HENRIQUE").motivo, /suas/);   // entre contas da própria pessoa
+  // sem conta de casal, Júlia é uma pessoa como as outras
+  assert.equal(leConta({ texto: NUCONTA, hoje: HOJE }).movimentos.find((m) => m.original.includes("Júlia Gabrielle") && m.tipo === "Despesa").categoria, "Pix para pessoas");
+});
+
+test("parceiro: primeiro nome igual ao apelido ou nome inteiro; outra pessoa não", () => {
+  assert.equal(ehParceiro("Júlia Gabrielle Ferreira da Silva", "Júlia"), true);
+  assert.equal(ehParceiro("Julia Gabrielle", ["Maria", "Júlia"]), true);
+  assert.equal(ehParceiro("Maria Julia Santos", "Júlia"), false);   // o primeiro nome não é o dela
+  assert.equal(ehParceiro("Ana Paula Souza", "Ana Paula"), true);
+  assert.equal(ehParceiro("Qualquer", ""), false);
+});
+
+test("categoria de gasto do dia a dia: gasolina, oficina, pedágio, contas da casa e comida", () => {
+  const casos = [["AUTO POSTO PARQUE VIANA LTDA", "Transporte"], ["Posto Shell", "Transporte"], ["Rosa de Saron Comercio de Combustiveis Ltda", "Transporte"], ["Genios Auto Vidros E Acessorios Automotivo Ltda", "Transporte"],
+    ["Oficina do Zé", "Transporte"], ["Rodoanel Pedagio", "Transporte"], ["Lavenderia 60 Minutos", "Contas da casa"], ["Sabesp", "Contas da casa"], ["Padaria e Confeitaria Bela", "Alimentação"],
+    ["WMS Supermercados do Brasil Ltda.", "Mercado"], ["Editora e Distribuidora Educacional S/A", "Educação"], ["Drogasil", "Saúde"]];
+  for (const [nome, cat] of casos) assert.equal(guessCat(nome, "Despesa"), cat, nome);
+});

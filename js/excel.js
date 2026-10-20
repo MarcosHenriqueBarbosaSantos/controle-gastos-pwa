@@ -31,7 +31,7 @@ const GUESS = [
   ["aluguel", "Despesa", "Moradia"], ["internet", "Despesa", "Contas da casa"], [" luz ", "Despesa", "Contas da casa"],
   [" agua ", "Despesa", "Contas da casa"], ["faculd", "Despesa", "Educação"], ["curso", "Despesa", "Educação"],
   ["parcela", "Despesa", "Parcelas e financiamentos"], ["carro", "Despesa", "Transporte"], ["gasolina", "Despesa", "Transporte"],
-  ["uber", "Despesa", "Transporte"], ["beleza", "Despesa", "Beleza"],
+  [" uber ", "Despesa", "Transporte"], ["beleza", "Despesa", "Beleza"],
   ["mercado", "Despesa", "Mercado"], ["farmac", "Despesa", "Saúde"], ["cinema", "Despesa", "Lazer"],
   // Nomes de loja que aparecem em comprovantes lidos pela câmera.
   ["atacad", "Despesa", "Mercado"], ["hortifruti", "Despesa", "Mercado"], ["acougue", "Despesa", "Mercado"],
@@ -60,6 +60,36 @@ const GUESS = [
   ["renegocia", "Despesa", "Parcelas e financiamentos"], ["parcelamento", "Despesa", "Parcelas e financiamentos"], ["financiamento", "Despesa", "Parcelas e financiamentos"], ["emprestimo", "Despesa", "Parcelas e financiamentos"],
   ["anuidade", "Despesa", "Parcelas e financiamentos"], ["juros", "Despesa", "Parcelas e financiamentos"], [" iof ", "Despesa", "Parcelas e financiamentos"], ["encargo", "Despesa", "Parcelas e financiamentos"],
   ["supermercad", "Despesa", "Mercado"], ["restaurantes", "Despesa", "Alimentação"], ["vestuario", "Despesa", "Roupas"], ["saude", "Despesa", "Saúde"], ["educacao", "Despesa", "Educação"], ["lazer", "Despesa", "Lazer"], ["transporte", "Despesa", "Transporte"]];
+// Mais nomes do dia a dia: carro (oficina, pneu, vidro, lava-rápido, tag de pedágio), contas da casa, saúde, comida e assinaturas.
+GUESS.push(
+  ["auto vidros", "Despesa", "Transporte"], ["autovidros", "Despesa", "Transporte"], ["oficina", "Despesa", "Transporte"], ["mecanic", "Despesa", "Transporte"], ["pneu", "Despesa", "Transporte"],
+  ["borracharia", "Despesa", "Transporte"], ["funilaria", "Despesa", "Transporte"], ["lava rapido", "Despesa", "Transporte"], ["lava jato", "Despesa", "Transporte"], ["estapar", "Despesa", "Transporte"],
+  ["conectcar", "Despesa", "Transporte"], ["veloe", "Despesa", "Transporte"], ["petrobras", "Despesa", "Transporte"], ["br mania", "Despesa", "Transporte"], ["etanol", "Despesa", "Transporte"],
+  [" alcool ", "Despesa", "Transporte"], ["diesel", "Despesa", "Transporte"], [" gnv ", "Despesa", "Transporte"], ["cabify", "Despesa", "Transporte"], ["indrive", "Despesa", "Transporte"], ["in drive", "Despesa", "Transporte"],
+  ["99pay", "Despesa", "Transporte"], ["99 tecnologia", "Despesa", "Transporte"], ["rosa de saron comercio de combustiveis", "Despesa", "Transporte"],
+  ["lavanderia", "Despesa", "Contas da casa"], ["lavenderia", "Despesa", "Contas da casa"], ["sabesp", "Despesa", "Contas da casa"], ["comgas", "Despesa", "Contas da casa"], [" enel ", "Despesa", "Contas da casa"],
+  ["cpfl", "Despesa", "Contas da casa"], ["cemig", "Despesa", "Contas da casa"], ["copel", "Despesa", "Contas da casa"], [" net ", "Despesa", "Contas da casa"],
+  ["material de construcao", "Despesa", "Moradia"], ["constru", "Despesa", "Moradia"],
+  ["psicolog", "Despesa", "Saúde"], ["terapia", "Despesa", "Saúde"], ["dentist", "Despesa", "Saúde"], ["unimed", "Despesa", "Saúde"], [" amil ", "Despesa", "Saúde"], ["hapvida", "Despesa", "Saúde"], ["consulta", "Despesa", "Saúde"],
+  ["padoca", "Despesa", "Alimentação"], ["confeitaria", "Despesa", "Alimentação"], ["acai", "Despesa", "Alimentação"], ["pastelaria", "Despesa", "Alimentação"], ["marmit", "Despesa", "Alimentação"], ["paes e doces", "Despesa", "Alimentação"],
+  ["atacarejo", "Despesa", "Mercado"], ["hipermercado", "Despesa", "Mercado"], ["wms supermercados", "Despesa", "Mercado"], ["companhia brasileira de distribuicao", "Despesa", "Mercado"],
+  ["google", "Despesa", "Lazer"], ["apple", "Despesa", "Lazer"], ["editora e distribuidora educacional", "Despesa", "Educação"],
+);
+// Mais nomes do dia a dia: carro (oficina, pneu, vidro, lava-rápido, tag de pedágio), contas da casa, saúde, comida e assinaturas.
+GUESS.push(
+  ["auto vidros", "Despesa", "Transporte"], ["autovidros", "Despesa", "Transporte"], ["oficina", "Despesa", "Transporte"], ["mecanic", "Despesa", "Transporte"], ["pneu", "Despesa", "Transporte"],
+  ["borracharia", "Despesa", "Transporte"], ["funilaria", "Despesa", "Transporte"], ["lava rapido", "Despesa", "Transporte"], ["lava jato", "Despesa", "Transporte"], ["estapar", "Despesa", "Transporte"],
+  ["conectcar", "Despesa", "Transporte"], ["veloe", "Despesa", "Transporte"], ["petrobras", "Despesa", "Transporte"], ["br mania", "Despesa", "Transporte"], ["etanol", "Despesa", "Transporte"],
+  [" alcool ", "Despesa", "Transporte"], ["diesel", "Despesa", "Transporte"], [" gnv ", "Despesa", "Transporte"], ["cabify", "Despesa", "Transporte"], ["indrive", "Despesa", "Transporte"], ["in drive", "Despesa", "Transporte"],
+  ["99pay", "Despesa", "Transporte"], ["99 tecnologia", "Despesa", "Transporte"], ["rosa de saron comercio de combustiveis", "Despesa", "Transporte"],
+  ["lavanderia", "Despesa", "Contas da casa"], ["lavenderia", "Despesa", "Contas da casa"], ["sabesp", "Despesa", "Contas da casa"], ["comgas", "Despesa", "Contas da casa"], ["enel", "Despesa", "Contas da casa"],
+  ["cpfl", "Despesa", "Contas da casa"], ["cemig", "Despesa", "Contas da casa"], ["copel", "Despesa", "Contas da casa"], [" net ", "Despesa", "Contas da casa"],
+  ["material de construcao", "Despesa", "Moradia"], ["constru", "Despesa", "Moradia"],
+  ["psicolog", "Despesa", "Saúde"], ["terapia", "Despesa", "Saúde"], ["dentist", "Despesa", "Saúde"], ["unimed", "Despesa", "Saúde"], ["amil", "Despesa", "Saúde"], ["hapvida", "Despesa", "Saúde"], ["consulta", "Despesa", "Saúde"],
+  ["padoca", "Despesa", "Alimentação"], ["confeitaria", "Despesa", "Alimentação"], ["acai", "Despesa", "Alimentação"], ["pastelaria", "Despesa", "Alimentação"], ["marmit", "Despesa", "Alimentação"], ["paes e doces", "Despesa", "Alimentação"],
+  ["atacarejo", "Despesa", "Mercado"], ["hipermercado", "Despesa", "Mercado"], ["wms supermercados", "Despesa", "Mercado"], ["companhia brasileira de distribuicao", "Despesa", "Mercado"],
+  ["google", "Despesa", "Lazer"], ["apple", "Despesa", "Lazer"], ["editora e distribuidora educacional", "Despesa", "Educação"],
+);
 export function guessCat(desc, tipo) {
   // Espaço nas pontas e no lugar de pontuação: assim uma regra como " iof " só vale para a palavra inteira.
   const d = " " + norm(desc).replace(/[^a-z0-9&]+/g, " ").trim() + " ";
