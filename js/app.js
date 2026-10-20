@@ -856,6 +856,7 @@ function renderKpis(c) {
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
   ${htmlMercadoIni()}
+  ${htmlCartoesIni()}
   <nav class="ir-para" aria-label="Ir para">
     <button type="button" data-atalho="ext">${ico("saldo")}<span>Extrato</span></button>
     <button type="button" data-atalho="plan">${ico("grafico")}<span>Planejar</span></button>
@@ -871,6 +872,7 @@ function renderKpis(c) {
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
   ligaMercadoIni();
+  $("resumo").querySelectorAll("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
   $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), cal: () => calendario(mKey(hoje())) })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
@@ -2662,11 +2664,11 @@ function ferramentas() {
 $("btnFerramentas").onclick = ferramentas;
 
 /* ---------- Para onde foi o dinheiro: o mês em respostas simples (js/paraondefoi.js) ---------- */
-const corDaCat = (i) => PALETA[i % PALETA.length];
+const corDaCat = (i, nome) => (nome && nome !== "Demais" ? corCat(nome) : "#7fa0c4");
 /** Anel de categorias (conic-gradient): cada fatia é uma categoria, na mesma ordem e cor da lista ao lado. */
 function aneloDasCategorias(r) {
   let ate = 0;
-  const fatias = r.categorias.map((x, i) => { const ini = ate; ate += x.pct; return `${corDaCat(i)} ${ini}% ${Math.min(100, ate)}%`; });
+  const fatias = r.categorias.map((x) => { const ini = ate; ate += x.pct; return `${corDaCat(0, x.nome)} ${ini}% ${Math.min(100, ate)}%`; });
   return `<span class="pof-anel" role="img" aria-label="${esc(r.categorias.slice(0, 4).map((x) => `${x.nome} ${x.pct}%`).join(", "))}" style="background:conic-gradient(${fatias.join(",")})"><b>${r.gasto ? brl(r.base) : ""}</b></span>`;
 }
 /** "▲ 12% a mais que setembro": a seta e as palavras dizem o mesmo que a cor, para quem não distingue cores. */
@@ -2681,7 +2683,7 @@ function renderParaOndeIni(c) {
   const top = r.categorias.slice(0, 3), cab = r.fase === "atual" ? "Previsão do mês" : "Gasto do mês";
   host.innerHTML = `<div class="teto pof-card"><span class="topo"><span class="l">${ico("grafico")}Para onde foi seu dinheiro</span>${pilulaDaDiferenca(r)}</span>
     <div class="pof-corpo">${aneloDasCategorias(r)}
-      <ul class="pof-leg" aria-label="Onde mais gastou">${top.map((x, i) => `<li><i style="background:${corDaCat(i)}" aria-hidden="true"></i><span>${esc(x.nome)}</span><b>${brl(x.valor)}</b></li>`).join("")}</ul></div>
+      <ul class="pof-leg" aria-label="Onde mais gastou">${top.map((x) => `<li>${x.nome === "Demais" ? "" : ava(x.nome)}<span>${esc(x.nome)}</span><b>${brl(x.valor)}</b></li>`).join("")}</ul></div>
     <p class="pof-frase">${esc(r.leituras[0]?.titulo || cab)}</p>
     <button class="btn" type="button" id="pofVer">Ver o porquê e o que fazer</button></div>`;
   $("pofVer").onclick = () => paraOndeFoiTela(S.mes);
@@ -2692,9 +2694,9 @@ function paraOndeFoiTela(m) {
   const colunas = r.meses.map((x) => `<button type="button" class="pof-col${x.atual ? " sel" : ""}" data-m="${x.m}" aria-label="${nomeDoMes(x.m)}: gastou ${brl(x.custo)}, entrou ${brl(x.rec)}${x.atual ? " (mês aberto)" : ""}" aria-pressed="${x.atual}">
       <span class="pof-barras"><i class="ent" style="height:${Math.max(3, Math.round((x.rec / maxMes) * 100))}%"></i><i class="gas ${x.custo > x.rec ? "acima" : ""}" style="height:${Math.max(3, Math.round((x.custo / maxMes) * 100))}%"></i></span><span class="pof-mes">${nomeDoMes(x.m).slice(0, 3)}</span></button>`).join("");
   const maxCat = Math.max(...r.categorias.map((x) => x.valor), 1);
-  const linhaCat = (x, i) => `<li><span class="pof-nome"><i style="background:${corDaCat(i)}" aria-hidden="true"></i>${esc(x.nome)}${x.junta ? ` <small>(${x.junta} categorias)</small>` : ""}</span>
+  const linhaCat = (x) => `<li><span class="pof-nome">${x.nome === "Demais" ? "" : `<button type="button" class="pof-ic" data-ic="${esc(x.nome)}" aria-label="Trocar o desenho de ${esc(x.nome)}">${ava(x.nome)}</button>`}${esc(x.nome)}${x.junta ? ` <small>(${x.junta} categorias)</small>` : ""}</span>
       <span class="pof-val"><b>${brl(x.valor)}</b><small>${x.pct}%</small></span>
-      <span class="pof-fio" aria-hidden="true"><em style="width:${Math.max(2, Math.round((x.valor / maxCat) * 100))}%;background:${corDaCat(i)}"></em></span>
+      <span class="pof-fio" aria-hidden="true"><em style="width:${Math.max(2, Math.round((x.valor / maxCat) * 100))}%;background:${corDaCat(0, x.nome)}"></em></span>
       ${r.temAnterior && x.difPct !== null && Math.abs(x.dif) >= 1 ? `<span class="pof-dif ${x.dif > 0 ? "ruim" : "bom"}">${x.dif > 0 ? "▲ " + brl(x.dif) + " a mais" : "▼ " + brl(-x.dif) + " a menos"} que em ${esc(nomeDoMes(r.anterior))}</span>` : ""}</li>`;
   const icTom = { erro: "▲", ok: "✓", info: "●" }, nomeTom = { erro: "Atenção", ok: "Bom sinal", info: "Para saber" };
   openDlg(`<div class="pof"><h3>Para onde foi o dinheiro</h3>
@@ -2704,13 +2706,14 @@ function paraOndeFoiTela(m) {
     <div class="pof-cols" role="group" aria-label="Escolha um mês para ver">${colunas}</div>
     <p class="pof-leg2"><i class="ent"></i>Entrou <i class="gas"></i>Gastou <small>Toque num mês para ver esse mês.</small></p>
     <h4 class="pof-h">Para onde foi</h4>
-    <ul class="pof-lista">${r.categorias.map(linhaCat).join("")}</ul>
+    <p class="hint" style="margin:-4px 0 8px;font-size:12.5px">Toque no desenho de uma categoria para trocar.</p><ul class="pof-lista">${r.categorias.map(linhaCat).join("")}</ul>
     <h4 class="pof-h">Onde errei e o que ajudou</h4>
     ${r.leituras.length ? `<ul class="pof-leit">${r.leituras.map((x) => `<li class="${x.tom}"><span class="pof-sel" aria-hidden="true">${icTom[x.tom]}</span><span><small>${nomeTom[x.tom]}</small><b>${esc(x.titulo)}</b><span>${esc(x.texto)}</span></span></li>`).join("")}</ul>` : `<p class="hint">Nada fora do normal neste mês.</p>`}
     <h4 class="pof-h">O que fazer para melhorar</h4>
     <ol class="pof-passos">${r.passos.map((p, i) => `<li><span class="pof-n">${i + 1}</span><span class="pof-tx"><b>${esc(p.titulo)}</b><span>${esc(p.texto)}</span></span><button class="btn sm" type="button" data-passo="${p.id}">${esc(p.acao)}</button></li>`).join("")}</ol>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div></div>`);
   document.querySelectorAll("#dlgBody [data-m]").forEach((b) => (b.onclick = () => paraOndeFoiTela(b.dataset.m)));
+  document.querySelectorAll("#dlgBody [data-ic]").forEach((b) => (b.onclick = () => escolheDesenho(b.dataset.ic, () => paraOndeFoiTela(m))));
   const vai = { arrumar: arrumarTela, cortar: () => abrirSub("m"), limite: () => abrirSub("m"), teto: () => abrirSub("m"), fixas: () => abrirSub("f"), manter: () => abrirSub("m") };
   document.querySelectorAll("#dlgBody [data-passo]").forEach((b) => (b.onclick = () => { const f = vai[b.dataset.passo]; if (b.dataset.passo === "arrumar") return f(); $("dlg").close(); setTimeout(f, 150); }));
 }
@@ -3080,6 +3083,21 @@ function comemora() {
   document.body.append(el); setTimeout(() => el.remove(), 1300);
 }
 
+/** Dias até o próximo fechamento da fatura do cartão (0 = fecha hoje). */
+function diasParaFechar(k, hojeISO = hoje()) {
+  const d = Number(hojeISO.slice(8, 10)), fecha = Math.max(1, Math.min(31, Number(k.fechamento) || 1)), dim = new Date(Number(hojeISO.slice(0, 4)), Number(hojeISO.slice(5, 7)), 0).getDate();
+  return fecha >= d ? Math.min(fecha, dim) - d : dim - d + fecha;
+}
+/** Carrossel de cartões no Início: quanto está a fatura de cada um e quando fecha. Tocar abre Cartões. */
+function htmlCartoesIni() {
+  const ks = S.loaded ? cartoesAtivos() : []; if (!ks.length) return "";
+  const fats = new Map(faturasDoMes(S.data, S.mes).filter((f) => f.cartao_id).map((f) => [f.cartao_id, f]));
+  return `<section class="cart-ini" aria-label="Seus cartões"><ul class="cart-lista">${ks.map((k) => {
+    const f = fats.get(k.id), n = diasParaFechar(k), quando = n === 0 ? "fecha hoje" : n === 1 ? "fecha amanhã" : `fecha em ${n} dias`;
+    return `<li><button type="button" class="cart-card" data-cartao-ini="${esc(k.id)}" aria-label="${esc(k.nome)}: fatura de ${esc(nomeMes(S.mes))} ${brl(f ? f.valor : 0)}, ${quando}. Abrir cartões">
+      <span class="cart-nome">${ava("", "Cartao")}${esc(k.nome)}</span><b class="ocultavel">${brl(f ? f.valor : 0)}</b><small>Fatura de ${esc(nomeMes(S.mes))} · ${quando}</small></button></li>`;
+  }).join("")}</ul></section>`;
+}
 /** Lista de mercado no Início: anota o item na hora e, no mercado, é só abrir a lista e colocar os valores. */
 function htmlMercadoIni() {
   const l = listaDe(), falta = l.itens.filter((x) => !x.pego), precos = S.prefs.precosMercado || {};
@@ -4839,7 +4857,7 @@ function renomearCategoria(tipo, antigo, depois = ajustes) {
   });
 }
 /** A pessoa escolhe o desenho de uma categoria de gasto. "Voltar ao padrão" tira a escolha e volta o que o nome sugere. */
-function escolheDesenho(cat) {
+function escolheDesenho(cat, voltar = null) {
   const atual = iconeDaCategoria(cat, S.prefs.iconesCat), c = corCat(cat), padrao = iconeDaCategoria(cat, {});
   openDlg(`<h3>Desenho de ${esc(cat)}</h3>
     <p class="hint" style="margin:0 0 10px">Aparece ao lado de cada gasto dessa categoria, no Extrato e nas listas.</p>
@@ -4848,11 +4866,11 @@ function escolheDesenho(cat) {
   const grava = async (i) => {
     const m = { ...(S.prefs.iconesCat || {}) };
     if (i && i !== padrao) m[cat] = i; else delete m[cat];
-    S.prefs.iconesCat = m; await salvaPrefs(); render(); ajustes();
+    S.prefs.iconesCat = m; await salvaPrefs(); render(); voltar ? voltar() : ajustes();
   };
   $("dlgBody").querySelectorAll("[data-i]").forEach((b) => (b.onclick = () => grava(b.dataset.i)));
   $("icPadrao").onclick = () => grava(null);
-  $("icVolta").onclick = () => ajustes();
+  $("icVolta").onclick = () => (voltar ? voltar() : ajustes());
 }
 function ajustes() {
   const first = primeiroMes(S.data) || mKey(hoje()), cur = mKey(hoje()), meses = [];

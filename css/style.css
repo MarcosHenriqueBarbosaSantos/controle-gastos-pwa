@@ -1402,3 +1402,22 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
   .dlg-x{min-height:44px;padding:10px 16px 10px 12px;box-shadow:0 4px 14px rgba(0,0,0,.18)}
 }
 @media (max-width:700px),(pointer:coarse){ .venc .btn.sm,.cal-lista .btn.sm{min-height:44px;padding:8px 16px;font-size:14px} }
+
+/* Para onde foi: o desenho de cada categoria (o mesmo do Extrato) e troca com um toque */
+.pof-leg li .ava{width:28px;height:28px}
+.pof-leg li .ava .ic{width:15px;height:15px}
+.pof-ic{border:0;background:none;padding:0;cursor:pointer;border-radius:50%;min-width:44px;min-height:44px;display:grid;place-items:center;margin:-6px 0 -6px -6px}
+.pof-ic .ava{width:32px;height:32px}
+.pof-nome{gap:4px}
+
+/* Início: cartões e faturas em carrossel */
+.cart-ini{margin:12px 0 0}
+.cart-lista{list-style:none;margin:0;padding:2px 16px 6px;display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none}
+.cart-lista::-webkit-scrollbar{display:none}
+.cart-lista li{flex:0 0 min(72%,260px);scroll-snap-align:start}
+.cart-card{width:100%;min-height:96px;display:grid;gap:4px;align-content:center;text-align:left;padding:12px 14px;border-radius:18px;border:1px solid var(--border);background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm);cursor:pointer}
+.cart-card:active{background:var(--sunk)}
+.cart-nome{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;min-width:0}
+.cart-nome .ava{width:28px;height:28px;flex:none}
+.cart-card b{font-size:20px;font-variant-numeric:tabular-nums}
+.cart-card small{font-size:12.5px;color:var(--muted)}
