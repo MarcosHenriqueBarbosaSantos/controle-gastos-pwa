@@ -87,3 +87,34 @@ export function paraOndeFoi(st, m, hoje, { teto = 0 } = {}) {
   return { meta, m, anterior: ant, temAnterior, fase: c.fase, gasto: c.custo, previsto: c.proj, base, antes, dif, difPct, entra, sobra, categorias, meses,
     leituras: leituras.sort((x, y) => ({ erro: 0, info: 1, ok: 2 })[x.tom] - ({ erro: 0, info: 1, ok: 2 })[y.tom]).slice(0, 4), passos: passos.slice(0, 3), primeiro: primeiroMes(st) };
 }
+
+/** Categorias que contam como "carro" e como "casa" quando a pessoa usa as categorias padrão do app. */
+export const CATEGORIAS_DO_CARRO = ["Transporte"];
+export const CATEGORIAS_DA_CASA = ["Moradia", "Contas da casa"];
+
+/**
+ * Pelo uso da pessoa nos últimos meses fechados (até 3): quanto vai para o que já tem dono (contas fixas e faturas) e quanto para o dia a dia,
+ * e se o limite do mês cabe nisso. Diz também quanto é a média de cada categoria, para a pessoa usar como limite se quiser.
+ * @returns {{n:number, media:number, fixos:number, dia:number, entra:number, caso:"sem-limite"|"cabe"|"economizando"|"nao-cabe", folga:number, corte:number, cortePct:number,
+ *   realista:number, comEconomia:number, passaDaRenda:boolean, categorias:{nome:string, media:number, limite:number, grupo:string}[]}|null}  null sem nenhum mês fechado com gastos
+ */
+export function limiteViavel(st, m, hoje, { teto = 0, limites = {} } = {}) {
+  const meses = [];
+  for (let k = 1; k <= 12 && meses.length < 3; k++) {
+    const mm = addM(m, -k), c = calcMes(st, mm, hoje);
+    if (c.fase === "passado" && c.custo > 0) meses.push({ c, cats: new Map(catMap(c)) });
+  }
+  if (!meses.length) return null;
+  const n = meses.length, med = (f) => round2(meses.reduce((s, x) => s + f(x), 0) / n);
+  const media = med((x) => x.c.custo), fixos = med((x) => x.c.fxCusto + x.c.fatT), dia = round2(Math.max(0, media - fixos)), entra = med((x) => x.c.rec);
+  const arredonda50 = (v, cima) => Math.max(50, (cima ? Math.ceil(v / 50) : Math.round(v / 50)) * 50), realista = arredonda50(media, true), comEconomia = arredonda50(media * 0.95, false);
+  let caso = "sem-limite", folga = 0, corte = 0, cortePct = 0;
+  if (teto > 0) {
+    if (teto >= media) { caso = "cabe"; folga = round2(teto - media); }
+    else if (teto >= fixos + dia * 0.8) { caso = "economizando"; corte = round2(media - teto); cortePct = dia > 0 ? Math.round((corte / dia) * 100) : 0; }
+    else { caso = "nao-cabe"; corte = round2(media - teto); cortePct = dia > 0 ? Math.round((corte / dia) * 100) : 0; }
+  }
+  const nomes = [...CATEGORIAS_DO_CARRO.map((c) => [c, "carro"]), ...CATEGORIAS_DA_CASA.map((c) => [c, "casa"])];
+  const categorias = nomes.map(([nome, grupo]) => ({ nome, grupo, media: med((x) => x.cats.get(nome) || 0), limite: Number(limites?.[nome]) || 0 })).filter((x) => x.media > 0);
+  return { n, media, fixos, dia, entra, caso, folga, corte, cortePct, realista, comEconomia, passaDaRenda: entra > 0 && media > entra, categorias };
+}

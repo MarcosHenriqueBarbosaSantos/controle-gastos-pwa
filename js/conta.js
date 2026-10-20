@@ -32,27 +32,79 @@ export function ehMeuNome(nome, meuNome) {
 }
 
 /** Tipos de movimento que só aparecem em extrato de conta: servem para reconhecer o arquivo. */
-const MOVIMENTO = /^(transferencia (enviada|recebida)( pelo pix)?|compra no debito|pagamento de fatura|valor adicionado na conta por cartao de credito|pix)\b/;
 
+const MOVIMENTO = /^(transferencia (enviada|recebida)( pelo pix)?|compra no debito|pagamento de fatura|valor adicionado na conta por cartao de credito|pix)\b/;
+/** Movimentos de conta nos outros bancos (Pix, TED, compra no débito, tarifa, salário...): reconhecem o arquivo mesmo sem o texto do Nubank. */
+const MOVIMENTO_GERAL = /\b(pix|ted|doc|transf\w*|compra( com| no)? (cartao )?deb\w*|cartao deb\w*|saque|tarifa|salario|deposito|rendimento|pagto|pagamento|cred(ito)? (em )?conta|deb(ito)? (em )?conta|iof|juros)\b/;
+
+
+/**
+ * Acha a linha de títulos de um extrato de conta, de qualquer banco: data, descrição (às vezes duas colunas, como Histórico e Descrição)
+ * e o valor em uma coluna só (com sinal), em crédito/débito (ou entrada/saída) separados, ou com uma coluna D/C dizendo o sentido.
+ * A coluna Saldo, quando existe, é sinal de extrato de conta (fatura de cartão não tem saldo).
+ */
 function colunas(linhas) {
-  for (let i = 0; i < Math.min(linhas.length, 15); i++) {
-    const cab = linhas[i].map(norm);
-    const d = cab.findIndex((c) => /^data\b/.test(c)), v = cab.findIndex((c) => /^valor\b/.test(c)), t = cab.findIndex((c) => /^descri/.test(c));
-    if (d >= 0 && v >= 0 && t >= 0) return { ini: i + 1, d, v, t, id: cab.findIndex((c) => /^identificador\b|^id$/.test(c)) };
+  for (let i = 0; i < Math.min(linhas.length, 25); i++) {
+    const cab = (linhas[i] || []).map(norm);
+    const d = cab.findIndex((c) => /^(data|release_date|dt)\b|^data_/.test(c));
+    const v = cab.findIndex((c) => /^valor\b|^transaction_net_amount|^amount\b/.test(c) && !/us\$|dolar/.test(c));
+    const cr = cab.findIndex((c) => /^(credito|entrada|creditos|entradas)\b/.test(c)), db = cab.findIndex((c) => /^(debito|saida|debitos|saidas)\b/.test(c));
+    const dc = cab.findIndex((c) => /^(deb_?cred|d\/c|d\.c\.?|natureza|tipo de lancamento|dc)\b/.test(c));
+    const ts = cab.map((c, k) => (/^(descri|hist|lancamento$|lancamentos$|titulo|transaction_type|detalh|memo|estabelecimento)/.test(c) ? k : -1)).filter((k) => k >= 0);
+    if (d >= 0 && ts.length && (v >= 0 || (cr >= 0 && db >= 0))) {
+      return { ini: i + 1, d, v, t: ts[ts.length > 1 && /^descri/.test(cab[ts[1]]) ? 1 : 0], ts, cr, db, dc, saldo: cab.findIndex((c) => /^saldo/.test(c)), id: cab.findIndex((c) => /^identificador\b|^id$|^reference_id$/.test(c)) };
+    }
   }
   return null;
 }
 
+/** O valor com sinal de uma linha: o que entrou é positivo e o que saiu é negativo, qualquer que seja o jeito do banco escrever. */
+function valorDaLinha(l, c) {
+  if (c.cr >= 0 && c.db >= 0 && (c.v < 0)) {
+    const e = numero(l[c.cr]), s = numero(l[c.db]);
+    if (Number.isFinite(e) && e !== 0) return Math.abs(e);
+    if (Number.isFinite(s) && s !== 0) return -Math.abs(s);
+    return NaN;
+  }
+  const v = numero(l[c.v]); if (!Number.isFinite(v)) return NaN;
+  if (c.dc >= 0) { const s = norm(l[c.dc]); if (/^(d|deb|debito|saida)/.test(s)) return -Math.abs(v); if (/^(c|cred|credito|entrada)/.test(s)) return Math.abs(v); }
+  return v;
+}
+/** A descrição de uma linha: as colunas de texto juntas (Histórico e Descrição, por exemplo), sem repetir. */
+function textoDaLinha(l, c) {
+  const partes = []; for (const k of c.ts) { const p = String(l[k] ?? "").replace(/\s+/g, " ").trim(); if (p && !partes.some((x) => norm(x) === norm(p) || norm(x).includes(norm(p)))) partes.push(p); }
+  return partes.join(" - ");
+}
+/**
+ * Deixa a descrição de qualquer banco no jeito que o resto do leitor entende ("Transferência enviada pelo Pix - Nome",
+ * "Compra no débito - Loja", "Pagamento de fatura"). O sentido vem do sinal do valor.
+ */
+export function descricaoGeral(texto, valor) {
+  const t = String(texto ?? "").replace(/\s+/g, " ").trim(), n = norm(t);
+  if (!t || /^transferencia (enviada|recebida)/.test(n) || /^compra no debito\b/.test(n) || /^pagamento de fatura\b/.test(n) || /^valor adicionado/.test(n)) return t;
+  if (/(pagto|pagamento|pgto)\b.*(fatura|cartao de credito|cart(ao)? cred)|fatura (do )?cart|pag(to)? cartao/.test(n)) return "Pagamento de fatura";
+  const sentido = valor < 0 ? "enviada" : "recebida";
+  const limpa = (s) => s.replace(/\b(pix|ted|doc|transf\w*|enviad[oa]|recebid[oa]|qrs|qr code|pagto|pagamento|pgto|compra|no|com|de|para|cart[aã]o|d[eé]bito|deb|cp|cred|cr[eé]dito|dep)\b\s*:?/gi, " ").replace(/\b\d{5,}-?\b/g, " ").replace(/\s*\d{2}\/\d{2}$/, "").replace(/[-:]+/g, " ").replace(/\s{2,}/g, " ").trim();
+  if (/\bpix\b/.test(n)) { const nome = limpa(t); return nome ? `Transferência ${sentido} pelo Pix - ${nome}` : `Transferência ${sentido} pelo Pix`; }
+  if (/^(ted|doc|transf)/.test(n)) { const nome = limpa(t); return nome ? `Transferência ${sentido} - ${nome}` : `Transferência ${sentido}`; }
+  if (/(compra|cartao|pgto|pagto).*(deb|debito)|debito.*compra|compra.*cartao/.test(n) && valor < 0) { const nome = limpa(t); return nome ? `Compra no débito - ${nome}` : "Compra no débito"; }
+  return t;
+}
 /**
  * O arquivo é um extrato da conta (e não da fatura do cartão)? Tem título de Data, Valor e Descrição e, na descrição,
  * os tipos de movimento de uma conta; e o dinheiro entra e sai (no cartão quase tudo tem o mesmo sinal).
  */
+
 export function pareceConta(linhas) {
   const c = colunas(linhas || []); if (!c) return false;
-  const corpo = linhas.slice(c.ini); if (corpo.length < 2) return false;
-  const conhecidas = corpo.filter((l) => MOVIMENTO.test(norm(l[c.t]))).length / corpo.length;
-  const pos = corpo.filter((l) => numero(l[c.v]) > 0).length, neg = corpo.filter((l) => numero(l[c.v]) < 0).length;
-  return (c.id >= 0 && conhecidas >= 0.3) || (conhecidas >= 0.5 && pos >= 2 && neg >= 2);
+  const corpo = linhas.slice(c.ini).filter((l) => l && l.some((x) => String(x ?? "").trim())); if (corpo.length < 2) return false;
+  const vals = corpo.map((l) => valorDaLinha(l, c));
+  const conhecidas = corpo.filter((l) => MOVIMENTO.test(norm(textoDaLinha(l, c)))).length / corpo.length;
+  const gerais = corpo.filter((l) => MOVIMENTO_GERAL.test(norm(textoDaLinha(l, c)))).length / corpo.length;
+  const pos = vals.filter((v) => v > 0).length, neg = vals.filter((v) => v < 0).length;
+  // Saldo, crédito/débito separados ou coluna D/C só existem em extrato de conta.
+  if (c.saldo >= 0 || (c.cr >= 0 && c.db >= 0 && c.v < 0) || c.dc >= 0) return pos + neg >= 2 && gerais >= 0.2;
+  return (c.id >= 0 && conhecidas >= 0.3) || (conhecidas >= 0.5 && pos >= 2 && neg >= 2) || (gerais >= 0.6 && pos >= 1 && neg >= 1 && corpo.length >= 3);
 }
 
 /**
@@ -67,10 +119,12 @@ export function leConta({ texto, linhas, hoje, meuNome = "" }) {
   const L = linhas || separaCsv(texto), c = colunas(L);
   if (!c) return { movimentos: [], periodo: null, resumo: { entradas: 0, saidas: 0, ignorados: 0 } };
   const bruto = [];
+
   L.slice(c.ini).forEach((l) => {
-    const data = leData(l[c.d], hoje), valor = numero(l[c.v]), original = String(l[c.t] ?? "").trim();
-    if (!data || !Number.isFinite(valor) || valor === 0 || !original) return;
-    bruto.push({ data, valor, original, id: c.id >= 0 ? String(l[c.id] ?? "").trim() : "" });
+    if (!l) return;
+    const data = leData(l[c.d], hoje), valor = valorDaLinha(l, c), bruta = textoDaLinha(l, c);
+    if (!data || !Number.isFinite(valor) || valor === 0 || !bruta || /^s\s?a\s?l\s?d\s?o\b|^saldo\b/i.test(bruta)) return;
+    bruto.push({ data, valor, original: descricaoGeral(bruta, valor), id: c.id >= 0 ? String(l[c.id] ?? "").trim() : "" });
   });
   // Dois movimentos com o mesmo identificador, um de entrada e um de saída do mesmo valor, se anulam na conta.
   const grupos = new Map();
@@ -92,8 +146,8 @@ export function leConta({ texto, linhas, hoje, meuNome = "" }) {
     else if (/^(aplicacao|resgate)\b|\brdb\b/.test(pre)) { ignorar = true; motivo = "Movimento de investimento: não é gasto nem entrada"; }
     else if (forma && ehMeuNome(nome, meuNome)) { ignorar = true; motivo = "Transferência entre contas suas"; }   // o Itaú corta o nome ("Marcos"): vale o começo do seu nome
     const tipo = x.valor > 0 ? "Receita" : "Despesa", valor = round2(Math.abs(x.valor));
-    const limpo = forma === "Débito" ? `Compra no débito em ${arrumaNome(nome)}` : forma ? arrumaNome(nome) : x.original.slice(0, 60);
-    const categoria = forma === "Pix" && pessoa && tipo === "Despesa" ? "Outros" : guessCat(nome, tipo);
+    const limpo = forma === "Débito" ? (partes[1] ? `Compra no débito em ${arrumaNome(nome)}` : "Compra no débito") : forma ? arrumaNome(nome) : x.original.slice(0, 60);
+    const categoria = forma === "Pix" && pessoa && partes.length > 2 && tipo === "Despesa" ? "Outros" : guessCat(nome, tipo);
     // A chave não muda se o mesmo arquivo for aberto de novo: o identificador do banco (com o sentido, porque um par divide o mesmo).
     let chave = `nu-${x.id || `${x.data}|${valor}|${norm(x.original)}`}-${tipo === "Receita" ? "e" : "s"}`;
     const n = usados.get(chave) || 0; usados.set(chave, n + 1); if (n) chave += `-${n + 1}`;

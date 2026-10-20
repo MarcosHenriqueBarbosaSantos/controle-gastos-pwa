@@ -59,7 +59,13 @@ export function leNotaQr(texto) {
     }
     if (u.protocol === "https:" && /\.gov\.br$/i.test(u.hostname)) link = u.href;
   }
-  if (!chaveOk(chave)) return null;
+  // Outros endereços e textos (o nome do parâmetro muda de estado para estado, ou a chave vem no caminho): vale a chave de 44 números, que confere sozinha.
+  if (!chaveOk(chave)) {
+    if (!/\D/.test(s.replace(/\s/g, ""))) return null;   // só números pode ser código de barras de boleto, não nota
+    const solta = (s.match(/(?<!\d)\d{44}(?!\d)/g) || []).find(chaveOk); if (!solta) return null;
+    chave = solta; valor = null; data = null;
+    const u = urlDe(s); if (u && u.protocol === "https:" && /\.gov\.br$/i.test(u.hostname)) link = u.href;
+  }
   const mes = `20${chave.slice(2, 4)}-${chave.slice(4, 6)}`;
   if (!/^20\d\d-(0[1-9]|1[0-2])$/.test(mes)) return null;
   if (data && data.length === 2) data = dataOk(`${mes}-${data}`) ? `${mes}-${data}` : null;   // a nota sem internet traz só o dia
@@ -67,6 +73,7 @@ export function leNotaQr(texto) {
   return { chave, cnpj: chave.slice(6, 20), mes, valor, data, link };
 }
 
+const urlDe = (txt) => { try { return new URL(txt); } catch { return null; } };
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const ddmm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 const MESES = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];

@@ -9,7 +9,7 @@ import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comP
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
 import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas } from "./extratopdf.js";
-import { paraOndeFoi, nomeDoMes, metaSugerida } from "./paraondefoi.js";
+import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefoi.js";
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
@@ -1347,6 +1347,7 @@ function paneM(c) {
       <button class="btn primary" type="submit">${u ? "Mudar limite" : "Salvar limite"}</button>${Number(S.prefs.teto) > 0 ? `<button class="btn perigo" type="button" id="tetoTirar">${ico("lixo")}Tirar o limite</button>` : ""}
       <p class="hint">Entra na conta tudo o que sai no mês: contas fixas, gastos do dia a dia e faturas de cartão. Dinheiro guardado não entra.${media ? ` Para se basear: ${antes.length === 1 ? "no último mês" : `nos últimos ${antes.length} meses`} seu custo foi de <b>${brl(media)}</b>${antes.length > 1 ? " em média" : ""}${atual.rec ? `, e neste mês entram ${brl(atual.rec)}` : ""}. <button class="link" type="button" id="tetoUsar">Usar ${brl0(Math.ceil(media / 50) * 50)}</button>` : ""}${u ? " Para tirar o limite, apague o valor e salve." : ""}</p>
     </form>
+    ${htmlLimiteCabe()}
     ${u ? `<div class="teto ${t.cls} parado"><span class="topo"><span class="l">${ico("alvo")}Uso do limite em ${nomeMes(S.mes)}</span><span class="pill ${t.cls === "ok" ? "good" : t.cls}">${t.titulo}</span></span>
       <span class="num"><b>${brl(u.gasto)}</b> de ${brl(u.teto)} <em>${u.pct}%</em></span>${barraDoTeto(u)}<span class="n">${t.frase}</span></div>` : ""}
     <h3 class="sub-h">Limite por categoria</h3>
@@ -2776,6 +2777,7 @@ function paraOndeFoiTela(m) {
     <h4 class="pof-h">Para onde foi</h4>
     <p class="hint" style="margin:-4px 0 8px;font-size:12.5px">Toque no desenho de uma categoria para trocar.</p><ul class="pof-lista">${r.categorias.map(linhaCat).join("")}</ul>
     ${blocoDaMeta(r)}
+    ${htmlLimiteCabe()}
     <h4 class="pof-h">Onde errei e o que ajudou</h4>
     ${r.leituras.length ? `<ul class="pof-leit">${r.leituras.map((x) => `<li class="${x.tom}"><span class="pof-sel" aria-hidden="true">${icTom[x.tom]}</span><span><small>${nomeTom[x.tom]}</small><b>${esc(x.titulo)}</b><span>${esc(x.texto)}</span></span></li>`).join("")}</ul>` : `<p class="hint">Nada fora do normal neste mês.</p>`}
     <h4 class="pof-h">O que fazer para melhorar</h4>
@@ -2824,6 +2826,31 @@ function marcaTitulos() {
 let marcaTitulosAgendado = false;
 new MutationObserver(() => { if (marcaTitulosAgendado) return; marcaTitulosAgendado = true; requestAnimationFrame(() => { marcaTitulosAgendado = false; marcaTitulos(); }); })
   .observe($("app"), { childList: true, subtree: true });
+/* ---------- O seu limite cabe? Pelo uso dos últimos meses, diz se o limite se mantém e dá as médias de carro e casa como opção ---------- */
+function htmlLimiteCabe() {
+  if (!S.loaded) return "";
+  const teto = Number(S.prefs.teto) || 0, r = limiteViavel(S.data, S.mes, hoje(), { teto, limites: S.prefs.limites || {} });
+  if (!r) return `<div class="lim-cabe"><b>O seu limite cabe?</b><p>Depois de 1 mês fechado de uso, o app mostra aqui quanto você gasta em média e se o seu limite se mantém.</p></div>`;
+  const meses = r.n === 1 ? "no último mês" : `nos últimos ${r.n} meses`, usa = (v, rot) => `<button class="btn" type="button" data-usa-limite="${v}">${rot}</button>`;
+  const texto = {
+    "sem-limite": `<p>${meses[0].toUpperCase() + meses.slice(1)} você gastou, em média, <b>${brl(r.media)}</b> por mês: <b>${brl(r.fixos)}</b> já têm dono (contas fixas e faturas) e <b>${brl(r.dia)}</b> vão para o dia a dia. Dois limites possíveis:</p>
+      <div class="lim-botoes">${usa(r.realista, `${brl(r.realista)}: o que você gasta hoje`)}${usa(r.comEconomia, `${brl(r.comEconomia)}: com 5% de economia`)}</div>`,
+    cabe: `<p class="bom">Com o limite de <b>${brl(teto)}</b>, cabe. ${meses[0].toUpperCase() + meses.slice(1)} você gastou, em média, ${brl(r.media)} por mês, então sobram cerca de <b>${brl(r.folga)}</b> por mês.</p>`,
+    economizando: `<p class="aten">Para manter <b>${brl(teto)}</b>, você precisa gastar cerca de <b>${brl(r.corte)}</b> a menos por mês (uns ${brl(Math.round(r.corte / 30))} por dia), ${r.cortePct}% do que vai para o dia a dia. Dá, mas pede atenção. A média ${meses} foi ${brl(r.media)}.</p>
+      <div class="lim-botoes">${usa(r.realista, `Usar ${brl(r.realista)}, o que você gasta hoje`)}</div>`,
+    "nao-cabe": `<p class="ruim">Com <b>${brl(teto)}</b> não fecha: só as contas fixas e as faturas já levam <b>${brl(r.fixos)}</b> por mês. Mesmo cortando 20% do dia a dia, o mês ainda passa do limite. Para manter, é preciso reduzir as contas fixas ou subir o limite.</p>
+      <div class="lim-botoes">${usa(r.realista, `Subir para ${brl(r.realista)}`)}</div>`,
+  }[r.caso];
+  const nomeGrupo = { carro: "Carro e moto", casa: "Casa" };
+  const cats = r.categorias.length ? `<h5>Médias para usar como limite, se quiser</h5><ul class="lim-cats">${r.categorias.map((x) => `<li><span><b>${nomeGrupo[x.grupo]} · ${esc(x.nome)}</b><small>média de ${brl(x.media)} por mês${x.limite ? ` · limite atual ${brl(x.limite)}` : ""}</small></span>${x.limite === Math.round(x.media) ? `<em>é o seu limite</em>` : `<button class="btn sm" type="button" data-usa-cat="${esc(x.nome)}" data-valor="${Math.round(x.media)}">Usar ${brl(Math.round(x.media))}</button>`}</li>`).join("")}</ul>` : "";
+  return `<div class="lim-cabe"><b>O seu limite cabe?</b>${texto}${r.passaDaRenda ? `<p class="ruim">Atenção: em média o seu gasto (${brl(r.media)}) passa do que entra (${brl(r.entra)}). Só mexer no limite não resolve; é preciso gastar menos ou ganhar mais.</p>` : ""}${cats}</div>`;
+}
+document.addEventListener("click", async (e) => {
+  const lim = e.target.closest("[data-usa-limite]"), cat = e.target.closest("[data-usa-cat]"); if (!lim && !cat) return;
+  if (lim) { S.prefs.teto = Number(lim.dataset.usaLimite); await salvaPrefs(); toast(`Limite do mês: ${brl(S.prefs.teto)}.`); }
+  else { S.prefs.limites = { ...(S.prefs.limites || {}), [cat.dataset.usaCat]: Number(cat.dataset.valor) }; await salvaPrefs(); toast(`Limite de ${cat.dataset.usaCat}: ${brl(Number(cat.dataset.valor))}.`); }
+  render(); if ($("dlg").open && $("dlgBody").querySelector(".pof")) paraOndeFoiTela(S.mes);
+});
 /* ---------- Meu desempenho ---------- */
 const ICO_TOM = { good: "sobe", warn: "desce", info: "rumo" };
 const desempHtml = (m, max = 5) => {

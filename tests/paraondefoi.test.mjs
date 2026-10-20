@@ -114,3 +114,36 @@ test("com 3 meses de uso, o mês compara com a média e sugere o limite", () => 
   if (passo) { assert.equal(passo.valor, 2850); assert.match(passo.titulo, /como limite do mês/); }
   assert.equal(paraOndeFoi(st, "2026-10", HOJE, { teto: 4000 }).passos.some((p) => p.id === "teto"), false);   // já tem limite: não repete
 });
+
+import { limiteViavel } from "../js/paraondefoi.js";
+
+function seisMeses() {   // fixo de 1.900 por mês + dia a dia de 1.100 (transporte 700 e mercado 400), entra 4.000
+  const ls = [], fixos = [{ id: "c", descricao: "Parcela do carro", valor: 1900, categoria: "Parcelas e financiamentos", dia: 24, desde: "2026-05-01", ate: null, forma: "Pix", tipo: "Despesa" }];
+  for (const m of ["2026-07", "2026-08", "2026-09"]) ls.push(L(`${m}-05`, 700, "Transporte"), L(`${m}-10`, 400, "Mercado"), L(`${m}-01`, 4000, "Salário", "Receita"));
+  return base({ lancamentos: ls, fixos });
+}
+
+test("o limite cabe? sem limite definido, mostra a média e as opções; sem mês fechado, não inventa", () => {
+  const r = limiteViavel(seisMeses(), "2026-10", HOJE);
+  assert.equal(r.n, 3); assert.equal(r.media, 3000); assert.equal(r.fixos, 1900); assert.equal(r.dia, 1100); assert.equal(r.caso, "sem-limite");
+  assert.equal(r.realista, 3000); assert.equal(r.comEconomia, 2850); assert.equal(r.passaDaRenda, false);
+  assert.equal(limiteViavel(base(), "2026-10", HOJE), null);
+});
+
+test("o limite cabe? três respostas: cabe, cabe economizando e não cabe", () => {
+  const st = seisMeses();
+  const cabe = limiteViavel(st, "2026-10", HOJE, { teto: 3500 }); assert.equal(cabe.caso, "cabe"); assert.equal(cabe.folga, 500);
+  const eco = limiteViavel(st, "2026-10", HOJE, { teto: 2800 }); assert.equal(eco.caso, "economizando"); assert.equal(eco.corte, 200); assert.equal(eco.cortePct, 18);
+  const nao = limiteViavel(st, "2026-10", HOJE, { teto: 2500 }); assert.equal(nao.caso, "nao-cabe"); assert.equal(nao.corte, 500);   // 1.900 fixos + 80% de 1.100 = 2.780 de piso
+});
+
+test("médias de carro e casa pelo uso, com o limite que a pessoa já tem por categoria", () => {
+  const r = limiteViavel(seisMeses(), "2026-10", HOJE, { limites: { Transporte: 650 } });
+  const carro = r.categorias.find((x) => x.nome === "Transporte"); assert.equal(carro.media, 700); assert.equal(carro.limite, 650); assert.equal(carro.grupo, "carro");
+  assert.equal(r.categorias.some((x) => x.grupo === "casa"), false);   // sem gasto de casa, não aparece
+});
+
+test("o limite cabe? avisa quando o gasto médio já passa do que entra", () => {
+  const st = seisMeses(); st.lancamentos = st.lancamentos.filter((x) => x.tipo !== "Receita"); st.lancamentos.push(...["2026-07", "2026-08", "2026-09"].map((m) => L(`${m}-01`, 2500, "Salário", "Receita")));
+  assert.equal(limiteViavel(st, "2026-10", HOJE).passaDaRenda, true);
+});

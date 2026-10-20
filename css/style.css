@@ -1464,3 +1464,13 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .merc-ini{gap:8px;padding:12px 14px}
 @media (max-width:700px){ .venc-cal{margin-top:0} }
 .pof-dif.neutro{color:var(--muted)}
+
+/* O seu limite cabe? */
+.lim-cabe{margin:14px 0;padding:14px;border-radius:16px;background:var(--surface);border:1px solid var(--border);display:grid;gap:8px;box-shadow:var(--shadow-sm)}
+.lim-cabe>b{font-size:15px} .lim-cabe p{margin:0;font-size:14px;color:var(--ink)}
+.lim-cabe p.bom{color:var(--good)} .lim-cabe p.aten{color:var(--warn)} .lim-cabe p.ruim{color:var(--bad)}
+.lim-cabe h5{margin:6px 0 0;font-size:13px;color:var(--muted);font-weight:700}
+.lim-botoes{display:grid;gap:8px} .lim-botoes .btn{min-height:46px;justify-content:center;text-align:center}
+.lim-cats{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.lim-cats li{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 12px;border-radius:14px;background:var(--sunk)}
+.lim-cats span{display:grid;gap:2px;min-width:0} .lim-cats small{color:var(--muted);font-size:12.5px} .lim-cats em{font-style:normal;font-weight:700;font-size:12.5px;color:var(--good)}
