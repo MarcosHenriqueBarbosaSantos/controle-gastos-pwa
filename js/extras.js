@@ -1,7 +1,7 @@
 // Ferramentas extras do app, todas funções puras (sem tela), testadas em tests/extras.test.mjs:
 // "Meu desempenho" em frases, calculadoras, desafio de economia, resumo do ano, subcategorias,
 // valor em outra moeda, colar a mensagem do banco, CSV e PDF do relatório.
-import { parseMoney, calcMes, addM, mKey, round2, MESES, MES3, catMap, comparaCategorias, usoDosLimites, primeiroMes, ocorrencias, diasEntre, ultimosMeses, reservaAcumulada, metasEmAndamento, divisaoDoMes } from "./calc.js";
+import { parseMoney, calcMes, addM, mKey, round2, MESES, MES3, catMap, comparaCategorias, usoDosLimites, primeiroMes, ocorrencias, diasEntre, ultimosMeses, reservaAcumulada, metasEmAndamento, divisaoDoMes, faturasDoMes } from "./calc.js";
 
 const semAcento = (s) => String(s ?? "").normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
 const pad = (n) => String(n).padStart(2, "0");
@@ -695,3 +695,58 @@ export function buscaDeFuncoes(q, itens, limite = 8) {
 /** Filtros do Extrato: por tipo (Despesa, Receita, Reserva) e por categoria. Vazio = não filtra. */
 export const filtraLancamentos = (lancs, { tipo = "", categoria = "" } = {}) =>
   lancs.filter((x) => (!tipo || x.tipo === tipo) && (!categoria || x.categoria === categoria));
+
+/* ======================= Extrato do mês e do cartão (CSV, PDF e Excel) ======================= */
+const porData = (a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
+/** O extrato de um mês: o que foi lançado, as contas e entradas fixas e, à parte (tipo "Fatura"), as faturas que vencem nele. */
+export function linhasDoMes(st, m) {
+  const l = linhasDoAno(st, m.slice(0, 4)).filter((x) => x.data.startsWith(m + "-"));
+  faturasDoMes(st, m).forEach((f) => l.push({ data: f.vencimento, tipo: "Fatura", categoria: "Faturas de cartão", descricao: `Fatura ${f.cartao}`, forma: f.status === "Paga" ? "Paga" : "Em aberto", valor: Number(f.valor), origem: "Vencimento" }));
+  return l.sort(porData);
+}
+/**
+ * As compras de um cartão. Com `m` ("AAAA-MM"), as da fatura que vence nesse mês, cada parcela com o valor dela;
+ * sem `m`, todas as compras lançadas nesse cartão, pelo valor total.
+ */
+export function linhasDoCartao(st, cartaoId, m = "") {
+  if (m) {
+    const f = faturasDoMes(st, m).find((x) => x.auto && x.cartao_id === cartaoId);
+    return (f?.itens || []).map((i) => ({ data: i.data, descricao: i.descricao, categoria: i.categoria || "", parcela: i.de > 1 ? `${i.parcela}/${i.de}` : "", valor: round2(i.valor), origem: i.origem === "fixo" ? "Conta fixa" : "Compra" }));
+  }
+  return (st.lancamentos || []).filter((x) => x.cartao_id === cartaoId && x.tipo === "Despesa")
+    .map((x) => ({ data: x.data, descricao: x.descricao || x.categoria, categoria: x.categoria, parcela: Number(x.parcelas) > 1 ? `em ${x.parcelas}x` : "", valor: Number(x.valor), origem: "Compra" })).sort(porData);
+}
+const csvDeTabela = (cab, linhas) => "\ufeff" + [cab.join(";"), ...linhas.map((r) => r.map(celula).join(";"))].join("\r\n") + "\r\n";
+export const CAB_EXTRATO = ["Data", "Tipo", "Categoria", "Descrição", "Forma de pagamento", "Valor", "Origem"];
+export const CAB_CARTAO = ["Data", "Descrição", "Categoria", "Parcela", "Valor", "Origem"];
+export const tabelaDoMes = (st, m) => linhasDoMes(st, m).map((x) => [dataBr(x.data), x.tipo, x.categoria, x.descricao, x.forma, numBr(x.valor), x.origem]);
+export const tabelaDoCartao = (st, id, m = "") => {
+  const l = linhasDoCartao(st, id, m), total = round2(l.reduce((t, x) => t + x.valor, 0));
+  return [...l.map((x) => [dataBr(x.data), x.descricao, x.categoria, x.parcela, numBr(x.valor), x.origem]), ["", "Total", "", "", numBr(total), ""]];
+};
+export const csvDoMes = (st, m) => csvDeTabela(CAB_EXTRATO, tabelaDoMes(st, m));
+export const csvDoCartao = (st, id, m = "") => csvDeTabela(CAB_CARTAO, tabelaDoCartao(st, id, m));
+const mesPorExtenso = (m) => `${MESES[Number(m.slice(5)) - 1]} de ${m.slice(0, 4)}`;
+/** O extrato do mês em linhas de texto para o PDF: resumo, lançamentos e faturas que vencem. */
+export function extratoDoMesEmLinhas(st, m, hoje) {
+  const c = calcMes(st, m, hoje), l = linhasDoMes(st, m), faturas = l.filter((x) => x.tipo === "Fatura"), resto = l.filter((x) => x.tipo !== "Fatura");
+  const L = [{ t: `Meus Gastos - Extrato de ${mesPorExtenso(m)}`, b: true }, { t: `Gerado em ${dataBr(hoje)}` }, { t: "" },
+    { t: "Resumo", b: true }, { t: largura("Entradas", 20) + largura(moeda(c.rec), 16, true) }, { t: largura("Custo do mês", 20) + largura(moeda(c.custo), 16, true) },
+    { t: largura("Sobra", 20) + largura(moeda(c.saldo), 16, true), b: true }, { t: "" }];
+  L.push({ t: `Lançamentos (${resto.length})`, b: true }, { t: largura("Data", 11) + largura("Tipo", 9) + largura("Categoria", 20) + largura("Descrição", 32) + largura("Valor", 16, true) });
+  resto.forEach((x) => L.push({ t: largura(dataBr(x.data), 11) + largura(x.tipo, 9) + largura(x.categoria, 20) + largura(x.descricao, 32) + largura(moeda(x.valor), 16, true) }));
+  if (faturas.length) {
+    L.push({ t: "" }, { t: "Faturas que vencem no mês", b: true }, { t: "As compras no cartão aparecem pela data da compra; a fatura, pelo vencimento. Não some as duas." });
+    faturas.forEach((x) => L.push({ t: largura(dataBr(x.data), 11) + largura(x.descricao, 41) + largura(x.forma, 8) + largura(moeda(x.valor), 16, true) }));
+  }
+  return L;
+}
+/** As compras de um cartão em linhas de texto para o PDF. */
+export function cartaoEmLinhas(st, id, nome, m, hoje) {
+  const l = linhasDoCartao(st, id, m), total = round2(l.reduce((t, x) => t + x.valor, 0));
+  const L = [{ t: `Meus Gastos - ${nome}${m ? ` - Fatura que vence em ${mesPorExtenso(m)}` : " - Todas as compras"}`, b: true }, { t: `Gerado em ${dataBr(hoje)}` }, { t: "" },
+    { t: largura("Data", 11) + largura("Descrição", 34) + largura("Categoria", 20) + largura("Parcela", 9) + largura("Valor", 16, true), b: true }];
+  l.forEach((x) => L.push({ t: largura(dataBr(x.data), 11) + largura(x.descricao, 34) + largura(x.categoria, 20) + largura(x.parcela, 9) + largura(moeda(x.valor), 16, true) }));
+  L.push({ t: "" }, { t: largura(`Total (${l.length} ${l.length === 1 ? "item" : "itens"})`, 74) + largura(moeda(total), 16, true), b: true });
+  return L;
+}

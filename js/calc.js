@@ -1268,3 +1268,12 @@ export function iconeDaCategoria(nome, escolhidos = {}) {
   const n = semAcento(inteiro);
   return REGRAS_ICONE.find(([, re]) => re.test(n))?.[0] || "pontos";
 }
+
+/* ===================== Apagar um cartão ===================== */
+/** O que depende de um cartão: as compras e as contas fixas lançadas nele e os registros de fatura (paga, valor corrigido). Serve para dizer o que some ao apagar. */
+export function dependentesDoCartao(st, cartaoId) {
+  const compras = (st.lancamentos || []).filter((x) => x.cartao_id === cartaoId);
+  const fixos = (st.fixos || []).filter((x) => x.cartao_id === cartaoId);
+  const faturas = (st.faturas || []).filter((x) => x.cartao_id === cartaoId);
+  return { compras, fixos, faturas, total: round2(compras.filter((x) => x.tipo === "Despesa").reduce((t, x) => t + Number(x.valor), 0)) };
+}
