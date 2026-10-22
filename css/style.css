@@ -214,9 +214,9 @@ body.travado{overflow:hidden}
 .efeito{display:block;font-size:12.5px;font-weight:500;color:var(--muted);margin:2px 0 0} .efeito b{color:var(--ink)}
 /* esconder os valores (o olho do topo) */
 body.ocultar .ocultavel,body.ocultar .kpi .v,body.ocultar .sobra-pl .v,body.ocultar .sobra-agora b{filter:blur(9px);user-select:none}
-#resumo,#grafSobraSec{margin-inline:-16px}
+#resumo,#resumo2,#grafSobraSec{margin-inline:-16px}
 #grafSobraSec:empty{display:none}
-@media (min-width:701px){#resumo,#grafSobraSec{margin-inline:0} #grafSobraSec .graf-sobra{width:100%;margin-inline:0} .hero.banco{border-radius:24px;padding:24px 28px 62px} .hero.banco .v{font-size:46px} .acoes-rap,.resumo3{margin-inline:24px} }
+@media (min-width:701px){#resumo,#resumo2,#grafSobraSec{margin-inline:0} #grafSobraSec .graf-sobra{width:100%;margin-inline:0} .hero.banco{border-radius:24px;padding:24px 28px 62px} .hero.banco .v{font-size:46px} .acoes-rap,.resumo3{margin-inline:24px} }
 /* ---------- seu dia ---------- */
 .dia{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px 14px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow-sm)}
 .dia .ava{width:44px;height:44px;border-radius:14px} .dia .ava .ic{width:22px;height:22px}
@@ -1749,3 +1749,10 @@ dialog:has(.tour) .dlg-barra{display:none}
 @media (max-width:700px){.ir-para{grid-template-columns:repeat(3,minmax(0,1fr))}}
 /* v113: telas de 320px: o nome da conta não é cortado no passo a passo */
 @media (max-width:360px){.glin,.gcab{grid-template-columns:minmax(0,1fr) 96px 54px;gap:6px}.glin .gn{font-size:13.5px;overflow-wrap:anywhere;hyphens:auto}}
+
+/* v114: detalhe da conta em Próximos vencimentos */
+.venc li.toca{cursor:pointer}
+.venc li.toca:focus-visible{outline:2px solid var(--series);outline-offset:-2px}
+.det-cobre{margin:10px 0 6px;padding:10px 12px;border-radius:12px;font-size:.92rem}
+.det-cobre.ok{background:var(--good-soft);color:var(--good)}
+.det-cobre.bad{background:var(--bad-soft);color:var(--bad)}

@@ -1,5 +1,8 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "114", itens: [
+    "Toque em qualquer conta de Próximos vencimentos: abre o detalhe com a data, o tipo (fixa, fatura), se o dinheiro cobre na data e quanto falta, e os botões Já paguei, Editar e Ver no calendário.",
+    "Início reorganizado na ordem do dia a dia: o resumo, o Hoje, os Próximos vencimentos e só depois os atalhos (Contas fixas, Cartões, Lançamentos), o cartão, o mercado e a previsão do mês." ] },
   { versao: "113", itens: [
     "Nas telas pequenas, os nomes no passo a passo de começar (\"Adiantamento ou vale\") não são mais cortados." ] },
   { versao: "112", itens: [

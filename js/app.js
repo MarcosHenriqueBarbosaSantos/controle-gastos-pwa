@@ -931,7 +931,7 @@ function renderKpis(c) {
     ${guiaVisivel() ? "" : `<div class="convite-card"><b>Comece em 2 minutos</b><span>São três perguntas: quanto você recebe, as contas de todo mês e o cartão.</span>
       <button type="button" class="btn primary" id="conviteComecar">Começar agora</button>
       <button type="button" class="btn" id="conviteExtrato">Já tenho o extrato do banco</button></div>`}`;
-    $("grafSobraSec").innerHTML = "";
+    $("grafSobraSec").innerHTML = ""; $("resumo2").innerHTML = "";
     $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
     if ($("conviteComecar")) $("conviteComecar").onclick = () => guiaPasso("renda", true);
     if ($("conviteExtrato")) $("conviteExtrato").onclick = () => abrirExtrato();
@@ -958,9 +958,9 @@ function renderKpis(c) {
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
   ${atualM ? htmlHoje(c) : ""}
-  ${htmlMotoristaIni()}
-  ${htmlMercadoIni()}
-  ${htmlCartoesIni()}
+  ${htmlMotoristaIni()}`;
+  // Abaixo dos Próximos vencimentos: o acesso às telas, o cartão, a lista de mercado e a previsão do mês.
+  $("resumo2").innerHTML = `
   <nav class="ir-para" aria-label="Ir para">
     <button type="button" data-atalho="fixas">${ico("fixo")}<span>Contas fixas</span></button>
     <button type="button" data-atalho="cart">${ico("cartao")}<span>Cartões</span></button>
@@ -969,6 +969,8 @@ function renderKpis(c) {
     ${noCelular() ? `<button type="button" data-atalho="graficos">${ico("grafico")}<span>Gráficos</span></button>` : ""}
     <button type="button" data-atalho="cal">${ico("agenda")}<span>Calendário</span></button>
   </nav>
+  ${htmlCartoesIni()}
+  ${htmlMercadoIni()}
   <div class="resumo3 proj ocultavel">${projecaoDoMes(c, est, rx, acum)}
     <div class="resumo3-links">${c.fase === "passado" ? `<button type="button" class="link" id="verFech">Fechamento para compartilhar</button>` : ""}<button type="button" class="link" id="entenda">Entenda essa conta</button></div>
   </div>`;
@@ -979,8 +981,8 @@ function renderKpis(c) {
   ligaHoje(); ligaMotoristaIni();
   ligaMercadoIni();
   if ($("usaMetaIni")) $("usaMetaIni").onclick = () => usaMeta(Number($("usaMetaIni").dataset.valor), () => {});
-  $("resumo").querySelectorAll("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
-  $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), cal: () => calendario(mKey(hoje())), motorista: motoristaTela, ordem: () => equilibrioTela() })[b.dataset.atalho]()));
+  inicioQ("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
+  inicioQ("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), cal: () => calendario(mKey(hoje())), motorista: motoristaTela, ordem: () => equilibrioTela() })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
@@ -1033,6 +1035,7 @@ function ligaMotoristaIni() {
 }
 
 /** Cartão "Hoje" do Início: quanto ainda cabe hoje e o que pede ação agora (no máximo 3 itens). Substitui o quadro "Seu dia". */
+const inicioQ = (s) => [...$("resumo").querySelectorAll(s), ...$("resumo2").querySelectorAll(s)];
 function htmlHoje(c) {
   const hj = hoje(), g = gastoDoDia(S.data, hj), avista = gastoAVistaDoDia(S.data, hj), pg = semEntradaNoMes(c) ? null : podeGastarHoje(c, avista), itens = oQueFazerAgora(S.data, hj, S.prefs.semGasto || []);
   const seq = sequenciaDeDias(S.data, hj, S.prefs.semGasto || []);
@@ -1495,6 +1498,36 @@ function entendaAConta(c) {
 }
 
 /** Quadro de contas a vencer nos próximos 30 dias (não depende do mês que está na tela). */
+/** Tocar numa conta de "Próximos vencimentos": o dia, o tipo, se o dinheiro cobre na data e os atalhos para pagar, editar e ver no calendário. */
+function detalheVencimento(x) {
+  const hj = hoje(), r = contasQueNaoFecham(S.data, hj), it = r.itens.find((y) => y.titulo === x.titulo && y.data === x.data && y.tipo === x.tipo);
+  const tipo = x.semValor ? "Fatura de cartão sem valor informado" : x.tipo === "repetida" ? "Parece se repetir todo mês (ainda não é conta fixa)" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa";
+  const dt = `${x.data.slice(8, 10)}/${x.data.slice(5, 7)}/${x.data.slice(0, 4)}`;
+  let cobre = "";
+  if (x.semValor || x.tipo === "repetida") cobre = `<p class="hint">${x.semValor ? "Informe o valor da fatura para o app saber se o dinheiro cobre." : "Vire conta fixa para o app contar essa despesa todo mês e avisar antes do vencimento."}</p>`;
+  else if (!S.loaded || mKey(x.data) !== mKey(hj)) cobre = `<p class="hint">A conta de cobertura vale para o mês atual. Esse vencimento é de outro mês.</p>`;
+  else if (it?.falta > 0) cobre = `<p class="det-cobre bad"><b>Faltam ${brl(it.falta)}</b> para pagar essa conta no dia ${dt.slice(0, 5)}. O dinheiro que você tem hoje (${brl(Math.max(0, r.caixa))}) já está contando as contas que vencem antes dela.</p><p class="hint">Dá para segurar o dia a dia, esperar uma entrada ou ver o jeito leve em Mais > Pôr o mês em ordem.</p>`;
+  else cobre = `<p class="det-cobre ok"><b>O dinheiro cobre essa conta.</b> Mesmo pagando antes as que vencem primeiro, sobra para ela no dia ${dt.slice(0, 5)}.</p>`;
+  const f = x.tipo === "fixo" ? S.data.fixos.find((z) => z.id === x.id) : null;
+  openDlg(`<h3>${esc(x.titulo)}</h3>
+    <div class="det"><ul class="itens">
+      <li><span></span><span>Valor</span><b>${x.semValor ? "?" : (x.tipo === "repetida" ? "~ " : "") + brl(x.valor)}</b></li>
+      <li><span></span><span>Vencimento</span><b>${dt}</b></li>
+      <li><span></span><span>Quando</span><b>${quandoVence(x.dias)}</b></li>
+      <li><span></span><span>Tipo</span><b>${tipo}${f?.ate ? " " + ateCurto(f.ate) : ""}</b></li></ul></div>
+    ${cobre}
+    <div class="actions">
+      ${x.semValor ? `<button class="btn primary" type="button" id="dvAcao">Informar valor</button>` : x.tipo === "repetida" ? `<button class="btn primary" type="button" id="dvAcao">Virar conta fixa</button>` : `<button class="btn primary" type="button" id="dvPagar">Já paguei</button>${x.tipo === "fixo" || x.tipo === "fatura" ? `<button class="btn" type="button" id="dvEditar">Editar${x.tipo === "fixo" ? " conta" : " fatura"}</button>` : ""}`}
+      <button class="btn" type="button" id="dvCal">Ver no calendário</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+  if ($("dvPagar")) $("dvPagar").onclick = () => { $("dvPagar").disabled = true; $("dlg").close(); pagarConta(x); };
+  if ($("dvEditar")) $("dvEditar").onclick = () => abrirItem(x.tipo === "fixo" ? { k: "fixo", id: x.id } : { k: "fatura", id: x.id || null, cartao_id: x.cartao_id || null, cartao: x.cartao, venc: x.data });
+  if ($("dvCal")) $("dvCal").onclick = () => calendario(mKey(x.data), x.data);
+  if ($("dvAcao")) $("dvAcao").onclick = async () => {
+    $("dlg").close();
+    if (x.semValor) return editarFatura({ ...x, vencimento: x.data, itens: [], calculado: 0, valor: 0, valor_fixo: false, status: "Aberta" });
+    if (await transformaEmFixas([x.achada])) toast(`${x.titulo} virou conta fixa. Os meses anteriores ficaram como pagos.`);
+  };
+}
 function renderVenc() {
   const host = $("venc"), reais = S.loaded ? proximosVencimentos(S.data, hoje(), 30) : [];
   // Além das contas já cadastradas: o cartão cadastrado que ainda não tem valor de fatura e as contas que o app achou que se repetem.
@@ -1537,13 +1570,17 @@ function renderVenc() {
     ? [atras.length ? `<b class="txt-bad">${atras.length} ${atras.length === 1 ? "atrasada" : "atrasadas"}: ${soma(atras)}</b>` : "", em7.length ? `${em7.length} ${em7.length === 1 ? "vence" : "vencem"} em 7 dias: <b>${soma(em7)}</b>` : ""].filter(Boolean).join(" · ")
     : `${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`;
   host.innerHTML = cab(resumo) +
-    `<ul class="venc">${alerta}${vis.map((x, i) => `<li data-u="${cls(x.dias)}">
+    `<ul class="venc">${alerta}${vis.map((x, i) => `<li class="toca" role="button" tabindex="0" data-vd="${i}" data-u="${cls(x.dias)}" aria-label="${esc(x.titulo)}: ver detalhes">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
       <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<b>${esc(x.titulo)}</b><span>${x.semValor ? "Fatura de cartão · falta informar o valor" : x.tipo === "repetida" ? "Parece se repetir todo mês" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa"}</span></span>
       <span class="quando ${cls(x.dias)}">${quandoVence(x.dias)}</span>
       <span class="valor">${x.semValor ? "?" : x.tipo === "repetida" ? "~ " + brl(x.valor) : brl(x.valor)}</span>
       ${x.semValor ? `<button class="btn sm" type="button" data-iv="${i}">Informar valor</button>` : x.tipo === "repetida" ? `<button class="btn sm" type="button" data-vf="${i}">Virar conta fixa</button>` : `<button class="btn sm" type="button" data-pg="${i}">Já paguei</button>`}</li>`).join("")}${combHtml}
       ${l.length > MAX ? `<li class="vazio"><button class="link" type="button" id="vencMais">${S.vencTodas ? "Mostrar só as próximas" : `Ver todas as ${l.length} contas`}</button></li>` : ""}</ul>`;
+  host.querySelectorAll("[data-vd]").forEach((li) => {
+    const abre = (e) => { if (e.target.closest("button")) return; detalheVencimento(vis[Number(li.dataset.vd)]); };
+    li.onclick = abre; li.onkeydown = (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === li) { e.preventDefault(); detalheVencimento(vis[Number(li.dataset.vd)]); } };
+  });
   host.querySelectorAll("[data-pg]").forEach((b) => (b.onclick = () => { b.disabled = true; pagarConta(vis[Number(b.dataset.pg)]); }));
   host.querySelectorAll("[data-iv]").forEach((b) => (b.onclick = () => { const x = vis[Number(b.dataset.iv)]; editarFatura({ ...x, vencimento: x.data, itens: [], calculado: 0, valor: 0, valor_fixo: false, status: "Aberta" }); }));
   host.querySelectorAll("[data-vf]").forEach((b) => (b.onclick = async () => {
@@ -5587,7 +5624,7 @@ function detalheCategoria(nome) {
     toastOuFlash(v > 0 ? `Limite de ${brl(round2(v))} por mês para ${nome}.` : `${nome} ficou sem limite.`);
   });
 }
-["resumo", "kpis"].forEach((id) => {
+["resumo", "resumo2", "kpis"].forEach((id) => {
   $(id).addEventListener("click", (e) => { const k = e.target.closest("[data-det]"); if (k) detalheKpi(k.dataset.det); });
   $(id).addEventListener("keydown", (e) => { const k = e.target.closest("[data-det]"); if (k && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); detalheKpi(k.dataset.det); } });
 });
