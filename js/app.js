@@ -2062,7 +2062,7 @@ function paneC(c) {
   };
   const linhaFatura = (x, i) => {
     const venc = ddmmaa(x.vencimento), paga = x.status === "Paga";
-    return `<tr><td class="d">${venc}</td><td class="desc">${ava("", "Cartao")}<span class="tx">${esc(x.cartao)}${mKey(x.vencimento) < S.mes ? ` <span class="tag">mês anterior</span>` : ""}${x.auto && x.valor_fixo ? ` <span class="tag">valor corrigido</span>` : ""}
+    return `<tr class="toca-linha" data-frow2="${i}"><td class="d">${venc}</td><td class="desc">${ava("", "Cartao")}<span class="tx">${esc(x.cartao)}${mKey(x.vencimento) < S.mes ? ` <span class="tag">mês anterior</span>` : ""}${x.auto && x.valor_fixo ? ` <span class="tag">valor corrigido</span>` : ""}
         <span class="sub">vence em ${venc}${x.auto ? ` · ${x.itens.length} ${x.itens.length === 1 ? "compra" : "compras"}` : " · lançada à mão"}</span></span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.auto ? `${x.itens.length} ${x.itens.length === 1 ? "compra" : "compras"}` : "Lançada à mão"}</td>
       <td class="num">${brl(x.valor)}</td>
@@ -2103,6 +2103,7 @@ function paneC(c) {
     render();
   }));
   host.querySelectorAll("[data-fat]").forEach((b) => (b.onclick = () => editarFatura(vis[Number(b.dataset.fat)])));
+  host.querySelectorAll("tr[data-frow2]").forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest("button,a")) editarFatura(vis[Number(tr.dataset.frow2)]); }));
   $("lerFatura").onclick = () => abrirLeitor("fatura");
   $("impExtrato").onclick = abrirExtrato;
   $("expCartao").onclick = () => exportarCartao("", "fatura");

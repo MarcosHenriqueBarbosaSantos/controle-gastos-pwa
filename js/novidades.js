@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "118", itens: [
+    "Em Cartões e faturas, tocar na linha da fatura abre as compras ou a edição." ] },
   { versao: "117", itens: [
     "Em Contas fixas e Entradas fixas, tocar em qualquer parte da linha abre a edição (antes só o botão pequeno abria)." ] },
   { versao: "116", itens: [
