@@ -2009,11 +2009,19 @@ function paneF(c, tipo) {
   }));
   host.querySelectorAll("[data-end]").forEach((b) => armDelete(b, async () => {
     const f = S.data.fixos.find((z) => z.id === b.dataset.end); if (!f) return;
-    const ate = addM(S.mes, -1);
+    const ate = addM(S.mes, -1), { user_id, ...copia } = f, ateAntes = f.ate || null, ent = f.tipo === "Receita";
+    const aviso = `${ent ? "Entrada" : "Conta"} ${f.descricao} encerrada a partir de ${nomeMes(S.mes)}.`;
     if (ate < mKey(f.desde)) {
-      if (await grava(() => S.store.deleteFixo(f.id))) S.data.fixos = S.data.fixos.filter((z) => z.id !== f.id);
-    } else if (await grava(() => S.store.updateFixo(f.id, { ate: ate + "-01" }))) f.ate = ate + "-01";
-    render();
+      if (!(await grava(() => S.store.deleteFixo(f.id)))) return render();
+      S.data.fixos = S.data.fixos.filter((z) => z.id !== f.id);
+      render();
+      toastDesfazer(aviso, async () => { let novo; if (await grava(async () => { novo = await S.store.addFixo(copia); })) { S.data.fixos.push(novo || copia); render(); } });
+      return;
+    }
+    if (await grava(() => S.store.updateFixo(f.id, { ate: ate + "-01" }))) {
+      f.ate = ate + "-01"; render();
+      toastDesfazer(aviso, async () => { if (await grava(() => S.store.updateFixo(f.id, { ate: ateAntes }))) { f.ate = ateAntes; render(); } });
+    } else render();
   }));
   $("formFx").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -2108,7 +2116,11 @@ function paneC(c) {
   $("expCartao").onclick = () => exportarCartao("", "fatura");
   host.querySelectorAll("[data-cdel]").forEach((b) => armDelete(b, async () => {
     const id = b.dataset.cdel;
-    if (await grava(() => S.store.deleteFatura(id))) { S.data.faturas = S.data.faturas.filter((z) => z.id !== id); render(); }
+    const { user_id, ...copiaF } = S.data.faturas.find((z) => z.id === id) || {};
+    if (await grava(() => S.store.deleteFatura(id))) {
+      S.data.faturas = S.data.faturas.filter((z) => z.id !== id); render();
+      if (copiaF.id) toastDesfazer("Fatura apagada.", async () => { let nova; if (await grava(async () => { nova = await S.store.addFatura(copiaF); })) { S.data.faturas.push(nova || copiaF); render(); } });
+    }
   }));
   host.querySelectorAll("[data-ked]").forEach((b) => (b.onclick = () => editarCartao(b.dataset.ked)));
   host.querySelectorAll("[data-kon]").forEach((b) => (b.onclick = async () => {

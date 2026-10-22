@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "129", itens: [
+    "Encerrar uma conta ou entrada fixa, e apagar uma fatura lançada à mão, agora mostram o aviso \"Desfazer\". Antes, o toque em Confirmar sem querer não tinha volta." ] },
   { versao: "128", itens: [
     "Remover uma categoria em Ajustes agora mostra o aviso \"Desfazer\" (com a categoria voltando no mesmo lugar) e diz quantos lançamentos usam ela. Antes, um toque sem querer no × tirava a categoria de vez." ] },
   { versao: "127", itens: [
