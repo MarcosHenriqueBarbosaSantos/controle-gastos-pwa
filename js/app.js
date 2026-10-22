@@ -1,7 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
+  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
@@ -703,7 +703,7 @@ function render() {
   }
   const onde = S.view === "inicio" ? "inicio" : S.view === "analise" ? "m" : naMais || sub ? "menu" : S.tab;
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
-  $("listaTitulo").textContent = S.tab === "l" ? "Extrato" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? "Modo motorista" : "";
+  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? "Modo motorista" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   $("listaVoltar").hidden = !sub;
   renderForm(); renderInstalar(); renderFechamento(); renderRepetidos(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
@@ -914,6 +914,7 @@ function renderKpis(c) {
   const tempo = atualM ? Math.max(1, Math.min(99, Math.round((c.dias / c.n) * 100))) : null;
   const ritmo = atualM && sb.livre > 0 && sb.entra > 0 && c.dias >= 3 ? (usado <= tempo - 8 ? { cls: "ok", t: `No ritmo: você usou ${usado}% da folga e o mês já passou ${tempo}%.` } : usado >= tempo + 8 && usado < 100 ? { cls: "alto", t: `Acima do ritmo: você usou ${usado}% da folga e o mês já passou ${tempo}%.` } : null) : null;
   // Conta nova, ainda sem nada: no lugar dos "R$ 0", um convite para começar (as três perguntas ou o primeiro gasto).
+  const semEnt = semEntradaNoMes(c);
   const vazio = atualM && !S.data.lancamentos.length && !S.data.fixos.length && !(S.data.faturas || []).length;
   if (vazio) {
     $("resumo").innerHTML = `<div class="hero banco est-neutro hero-vazio">
@@ -935,15 +936,21 @@ function renderKpis(c) {
     if ($("conviteComecar")) $("conviteComecar").onclick = () => guiaPasso("renda", true);
     if ($("conviteExtrato")) $("conviteExtrato").onclick = () => abrirExtrato();
   } else {
-  $("resumo").innerHTML = `${S.prefs.motorista?.ativo?.ini ? `<button type="button" class="mot-faixa" data-atalho="motorista"><span class="mot-pulso" aria-hidden="true"></span><span>Turno em andamento desde ${hhmm(Number(S.prefs.motorista.ativo.ini))}</span><b>Parar</b></button>` : ""}<div class="hero banco est-${est.nivel}">
+  $("resumo").innerHTML = `${S.prefs.motorista?.ativo?.ini ? `<button type="button" class="mot-faixa" data-atalho="motorista"><span class="mot-pulso" aria-hidden="true"></span><span>Turno em andamento desde ${hhmm(Number(S.prefs.motorista.ativo.ini))}</span><b>Parar</b></button>` : ""}${semEnt ? `<div class="hero banco est-neutro hero-vazio hero-sem-entrada">
+      <div class="hero-top"><span class="l">Seu mês em ${mesNome}</span>
+        <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
+      <span class="v convite">Falta contar o que você recebe</span>
+      <span class="n ocultavel">Até agora o app só viu o que sai: ${brl(c.custo)} em contas e gastos. Diga quanto você recebe e ele mostra quanto sobra.</span>
+      <button type="button" class="hero-bt" data-acao="recebi">Adicionar o que recebo</button>
+    </div>` : `<div class="hero banco est-${est.nivel}">
     <div class="hero-top"><span class="l">${rotulo}</span>
       <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
     <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
     ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
     <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>` : ""}
     ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo && est.nivel !== "estourado" ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
-  </div>
-  ${(rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
+  </div>`}
+  ${!semEnt && (rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
   <div class="acoes-rap" role="group" aria-label="Ações rápidas">
     <button type="button" data-acao="lancar"><span class="forte">${ico("mais")}</span>Lançar gasto</button>
     ${Reconhecedor ? `<button type="button" data-acao="voz"><span>${ico("mic")}</span>Por voz</button>` : `<button type="button" data-acao="cal"><span>${ico("agenda")}</span>Calendário</button>`}
@@ -951,16 +958,16 @@ function renderKpis(c) {
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
   ${atualM ? htmlHoje(c) : ""}
+  ${htmlMotoristaIni()}
   ${htmlMercadoIni()}
   ${htmlCartoesIni()}
   <nav class="ir-para" aria-label="Ir para">
-    <button type="button" data-atalho="ext">${ico("saldo")}<span>Extrato</span></button>
-    ${noCelular() ? `<button type="button" data-atalho="graficos">${ico("grafico")}<span>Gráficos</span></button>` : ""}
-    <button type="button" data-atalho="plan">${ico("alvo")}<span>Planejar</span></button>
-    <button type="button" data-atalho="cart">${ico("cartao")}<span>Cartões</span></button>
     <button type="button" data-atalho="fixas">${ico("fixo")}<span>Contas fixas</span></button>
+    <button type="button" data-atalho="cart">${ico("cartao")}<span>Cartões</span></button>
+    <button type="button" data-atalho="ext">${ico("saldo")}<span>Lançamentos</span></button>
+    <button type="button" data-atalho="plan">${ico("alvo")}<span>Planejar</span></button>
+    ${noCelular() ? `<button type="button" data-atalho="graficos">${ico("grafico")}<span>Gráficos</span></button>` : ""}
     <button type="button" data-atalho="cal">${ico("agenda")}<span>Calendário</span></button>
-    ${S.prefs.motorista?.usa ? `<button type="button" data-atalho="motorista">${ico("carro")}<span>Motorista</span></button>` : ""}
   </nav>
   <div class="resumo3 proj ocultavel">${projecaoDoMes(c, est, rx, acum)}
     <div class="resumo3-links">${c.fase === "passado" ? `<button type="button" class="link" id="verFech">Fechamento para compartilhar</button>` : ""}<button type="button" class="link" id="entenda">Entenda essa conta</button></div>
@@ -969,7 +976,7 @@ function renderKpis(c) {
   $("grafSobraSec").innerHTML = (atualM || c.fase === "passado") && sb.livre > 0 ? graficoDaSobra(c) : "";
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
-  ligaHoje();
+  ligaHoje(); ligaMotoristaIni();
   ligaMercadoIni();
   if ($("usaMetaIni")) $("usaMetaIni").onclick = () => usaMeta(Number($("usaMetaIni").dataset.valor), () => {});
   $("resumo").querySelectorAll("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
@@ -1005,9 +1012,29 @@ function renderKpis(c) {
 }
 
 /** "Seu dia": o que foi gasto hoje, o convite para anotar e a sequência de dias anotados. Só aparece no mês atual. */
+/** Modo motorista no Início: quem usa vê o resultado de hoje e o botão de começar a jornada; quem ainda não usa recebe o convite (e pode dispensar). */
+function htmlMotoristaIni() {
+  const m = S.prefs.motorista;
+  if (m?.ativo?.ini) return "";   // jornada rolando: a faixa no topo já leva para ela
+  if (!m?.usa) {
+    if (S.prefs.motoristaOculto) return "";
+    return `<section class="mot-ini convite" aria-label="Modo motorista"><button type="button" class="mot-ini-bt" data-mot-ini="abrir">${ico("carro")}<span class="tx"><b>Trabalha com aplicativo?</b><span>Uber, 99, iFood: o modo motorista mostra ganho, km, gasolina e o lucro de verdade.</span></span></button><button type="button" class="copiado-x" data-mot-ini="dispensar" aria-label="Não mostrar mais">✕</button></section>`;
+  }
+  const hj = hoje(), r = resumoTurnos(m.turnos || [], hj, hj, S.prefs.veiculo || {});
+  const hoje0 = !r.ganho && !r.ms;
+  return `<section class="mot-ini" aria-label="Modo motorista"><div class="mot-ini-topo"><span class="l">${ico("carro")}<b>Modo motorista</b></span><button class="btn sm primary" type="button" data-mot-ini="abrir">Iniciar jornada</button></div>
+    <p class="mot-ini-res ocultavel">${hoje0 ? "Nenhuma jornada hoje. Toque para começar e o app conta horas, ganho e gastos." : `Hoje: <b>${brl(r.ganho)}</b> de faturamento · ${horasCurtas(r.ms)} rodadas${r.lucro !== undefined && r.lucro !== null ? ` · lucro <b>${brl(r.lucro)}</b>` : ""}`}</p></section>`;
+}
+function ligaMotoristaIni() {
+  $("resumo").querySelectorAll("[data-mot-ini]").forEach((b) => (b.onclick = () => {
+    if (b.dataset.motIni === "dispensar") { S.prefs.motoristaOculto = true; salvaPrefs(); return render(); }
+    motoristaTela();
+  }));
+}
+
 /** Cartão "Hoje" do Início: quanto ainda cabe hoje e o que pede ação agora (no máximo 3 itens). Substitui o quadro "Seu dia". */
 function htmlHoje(c) {
-  const hj = hoje(), g = gastoDoDia(S.data, hj), avista = gastoAVistaDoDia(S.data, hj), pg = podeGastarHoje(c, avista), itens = oQueFazerAgora(S.data, hj, S.prefs.semGasto || []);
+  const hj = hoje(), g = gastoDoDia(S.data, hj), avista = gastoAVistaDoDia(S.data, hj), pg = semEntradaNoMes(c) ? null : podeGastarHoje(c, avista), itens = oQueFazerAgora(S.data, hj, S.prefs.semGasto || []);
   const seq = sequenciaDeDias(S.data, hj, S.prefs.semGasto || []);
   const ult = S.data.lancamentos.filter((x) => x.tipo === "Despesa" && !x.pendente && !x.enviando).sort((p, q) => q.data.localeCompare(p.data) || String(q.created_at || "").localeCompare(String(p.created_at || "")))[0];
   const passou = pg && pg.resta < 0;
@@ -1370,7 +1397,7 @@ function htmlSobra(c) {
   const tempo = `<h3 class="sobra-h3">Como a sobra foi mudando</h3>
     <ul class="itens sobra-tempo">${vis.map(({ x, saldo: sd }) => `<li class="toca" role="button" tabindex="0" data-ref="${esc(JSON.stringify({ k: "lanc", id: x.id }))}"><span class="d">${ddmm(x.data)}</span><span>${esc(x.descricao || x.categoria)} <span class="tag t-dia">Dia a dia</span><span class="mini">${esc(x.categoria)} · − ${brl(x.valor)}</span></span><b class="${sd < 0 ? "txt-bad" : ""}">${sd < 0 ? "faltam " + brl(-sd) : "restam " + brl(sd)}</b></li>`).join("")}
       <li class="ini"><span class="d">01/${S.mes.slice(5)}</span><span>Começo do mês<span class="mini">a sobra depois das contas fixas</span></span><b>${brl(s.livre)}</b></li></ul>
-    ${passos.length > MAX ? `<p class="hint">Mostrando os ${MAX} mais recentes. Todos estão no Extrato.</p>` : ""}
+    ${passos.length > MAX ? `<p class="hint">Mostrando os ${MAX} mais recentes. Todos estão em Lançamentos.</p>` : ""}
     ${c.comprasCartao ? `<p class="hint">Compras no cartão neste mês (${brl(c.comprasCartao)}) não descontam agora: entram na sobra do mês em que a fatura vencer.</p>` : ""}`;
   return `<section class="sobra-pl"><h2>O que sobra para viver ${mes}</h2>
     <p class="hint">Entradas menos as contas que já têm dono. Cada gasto do dia a dia desconta daqui.</p>
@@ -1477,7 +1504,7 @@ function renderVenc() {
   const cab = (dir) => `<div class="sec-head"><h2>Próximos vencimentos</h2><span>${dir}</span></div>${S.loaded ? `<button class="link venc-cal" type="button" id="vencCal">${ico("agenda")}Ver no calendário</button>` : ""}`;
   // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
   const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
-  const ac = S.loaded ? quandoOsDinheiroAcaba(S.data, hoje()) : null, faltaAte = ac?.minimo ? round2(-ac.minimo.saldo) : 0;
+  const ac = S.loaded && !semEntradaNoMes(calcMes(S.data, mKey(hoje()), hoje())) ? quandoOsDinheiroAcaba(S.data, hoje()) : null, faltaAte = ac?.minimo ? round2(-ac.minimo.saldo) : 0;
   const alerta = !ac?.diaZero ? "" : `<li class="alerta ${ac.diasAteZero === 0 ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
       <span class="oque"><b>${ac.diasAteZero === 0 ? "O dinheiro deste mês já acabou" : `No ritmo de agora, o dinheiro do mês acaba dia ${ac.diaZero.slice(8, 10)}`}</b>
       <span>Até o fim do mês faltam ${brl(faltaAte)}.${ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""} Em Mais > Pôr o mês em ordem tem um jeito leve de fechar.</span></span></li>`;
@@ -2506,7 +2533,7 @@ function novidadesTela() {
 }
 /** Outras telas do app que a busca geral também sabe abrir. */
 const DESTINOS = [
-  { id: "l", t: "Extrato", s: "Todos os lançamentos do mês", k: "lancamentos gastos historico lista" },
+  { id: "l", t: "Lançamentos", s: "Todos os gastos e entradas do mês", k: "extrato lancamentos gastos historico lista" },
   { id: "f", t: "Contas fixas", s: "Aluguel, internet e o que se repete", k: "assinaturas recorrente mensal boleto" },
   { id: "r", t: "Entradas fixas", s: "Salário e o que entra todo mês", k: "salario renda receita" },
   { id: "c", t: "Cartões e faturas", s: "Cadastre o cartão e a fatura se monta sozinha", k: "cartao credito fatura parcelado" },
@@ -2541,7 +2568,7 @@ function buscaGeral() {
       const fs = buscaDeFuncoes(q, todas), ls = q.length >= 2 && S.loaded ? buscaLancamentos(S.data.lancamentos, q, 5) : { itens: [], total: 0 };
       res.innerHTML = (fs.length ? `<h4 class="ferr-h">Telas e ferramentas</h4><div class="caixa-mais">${fs.map(linha).join("")}</div>` : "")
         + (ls.total ? `<h4 class="ferr-h">Lançamentos</h4><div class="caixa-mais">${ls.itens.map((x) => `<button class="mais-item" type="button" data-lanc="${esc(x.id)}"><span class="ic-box">${ava(x.categoria, x.tipo)}</span><span class="tx"><b>${esc(x.descricao || x.categoria)}</b><span>${ddmm(x.data)}/${x.data.slice(2, 4)} · ${esc(x.categoria)}</span></span><span class="bg-val">${x.tipo === "Receita" ? "+ " : ""}${brl(x.valor)}</span></button>`).join("")}</div>
-          <button class="btn bg-todos" type="button" id="bgTodos">${ls.total > ls.itens.length ? `Ver os ${ls.total} lançamentos no Extrato` : "Ver no Extrato"}</button>` : "")
+          <button class="btn bg-todos" type="button" id="bgTodos">${ls.total > ls.itens.length ? `Ver os ${ls.total} lançamentos` : "Ver nos lançamentos"}</button>` : "")
         + (!fs.length && !ls.total ? `<p class="hint" style="margin:12px 2px">Nada encontrado para "${esc(q)}". Tente uma palavra mais curta, como "cartão", "meta" ou o nome de um gasto.</p>` : "");
     }
     res.querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { const id = b.dataset.go; $("dlg").close(); setTimeout(() => vaiPara(id), 120); }));
@@ -2821,16 +2848,16 @@ const AJUDA = [
   ["Como registro o dinheiro que guardei?", `Em Lançar, escolha <b>Guardar</b> e diga onde o dinheiro ficou (reserva, investimento). Ele sai do que sobra no mês e passa a somar nas <b>Caixinhas</b>. Para tirar, use o mesmo caminho e escolha Retirar.`],
   ["Como funciona a meta do dinheiro guardado?", `Em <b>Planejar</b>, toque na <b>caixinha</b> e crie uma meta para o lugar onde você guarda: quanto quer juntar e, se quiser, até quando. O app mostra quanto falta, em que mês você chega lá e quanto dá para guardar com o que deve sobrar no mês. Se você combinar um valor por mês, ele aparece em Próximos vencimentos para marcar <b>Guardei</b> ou <b>Pular</b>: não é uma conta e pular não tem problema. A previsão usa só o valor guardado e os meses: o app não calcula rendimento.`],
   ["Como funciona o limite de gastos?", `Na aba <b>Limites</b> você diz quanto quer gastar no máximo por mês e, se quiser, por categoria. O app mostra quanto já foi usado e avisa ao chegar a 80%, ao passar do limite e se passar em mais de 20%.`],
-  ["Como acho um gasto antigo?", `No <b>Extrato</b>, use a <b>busca</b>: ela procura em todos os meses pela descrição, pela categoria, pela forma de pagamento ou pelo valor.`],
+  ["Como acho um gasto antigo?", `No <b>Lançamentos</b>, use a <b>busca</b>: ela procura em todos os meses pela descrição, pela categoria, pela forma de pagamento ou pelo valor.`],
   ["Tem jeito mais rápido de lançar o que se repete?", `Tem. Em Lançar, os gastos que você mais repete aparecem em <b>Você costuma lançar</b>: um toque preenche tudo e você só confirma. E, ao abrir qualquer lançamento, <b>Lançar de novo hoje</b> cria uma cópia com a data de hoje. A categoria também se ajusta sozinha: o app usa a que você escolheu da última vez para aquele nome.`],
   ["Como vejo se estou melhorando?", `Em <b>Análise do mês</b> (no celular, dentro de <b>Planejar</b>), o quadro <b>Últimos meses</b> mostra o que entrou, o custo e quanto sobrou em cada mês. Em <b>Por categoria</b>, o app diz quando uma categoria está mais alta ou mais baixa do que no mês anterior.`],
-  ["Errei um lançamento. Como corrijo?", `No <b>Extrato</b>, toque no lançamento para mudar o valor, a data, a categoria ou para excluir.`],
+  ["Errei um lançamento. Como corrijo?", `No <b>Lançamentos</b>, toque no lançamento para mudar o valor, a data, a categoria ou para excluir.`],
   ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Câmera</b>: ela lê ao vivo o QR code do Pix ou do cupom de mercado e, no mesmo quadro, o botão <b>Foto ou PDF do comprovante</b> lê boleto, conta, fatura ou holerite; também dá para colar o Pix copia e cola. No cupom de mercado, o app busca o valor, a loja e os itens no site da Fazenda (testado com notas de São Paulo; em outros estados pode pedir o valor). Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
   ["Dá para mandar o comprovante direto do aplicativo do banco?", `No Android, com o app instalado: no comprovante, toque em <b>Compartilhar</b> e escolha <b>Meus Gastos</b>. O app abre já lendo o comprovante. Segurando o ícone do app também aparecem os atalhos <b>Lançar gasto</b> e <b>Ler QR code</b>. No iPhone esse caminho não existe: use Lançar → Ler foto ou PDF.`],
   ["E se eu estiver sem internet?", `Pode lançar normalmente. O gasto fica guardado no aparelho, aparece como <b>aguardando internet</b> e é enviado sozinho quando a conexão voltar. Alterar ou excluir o que já estava salvo precisa de conexão.`],
   ["O que é o resumo da semana e o lembrete das 20h?", `No <b>domingo à noite</b> o app manda um resumo: quanto você gastou na semana, onde pesou mais e as contas dos próximos 7 dias. O <b>lembrete das 20h</b> é uma notificação que só aparece nos dias em que você não anotou nada. Os dois se ligam e desligam em <b>Ajustes</b>, na parte Resumo e lembrete.`],
   ["Dá para usar a dois?", `Dá, com a <b>Conta de casal</b> (no celular, em <b>Mais</b>; no computador, em <b>Ajustes</b>). Você convida a outra pessoa pelo e-mail e ela aceita dentro do app, entrando com esse e-mail. Cada um continua com a sua senha. Os dois veem e lançam nas mesmas contas, e o app mostra quem lançou cada gasto. Qualquer um dos dois pode encerrar quando quiser: cada um fica com o que lançou.`],
-  ["Onde ficam as contas fixas, os cartões e os ajustes no celular?", `Na barra de baixo: <b>Início</b>, o <b>+</b> para lançar, <b>Mercado</b> (a lista de compras) e <b>Mais</b>, onde ficam também as calculadoras, o carro, a casa e as outras ferramentas. No Início, a faixa <b>Ir para</b> leva ao <b>Extrato</b>, ao <b>Planejar</b> (limites e metas), aos <b>Cartões</b>, às <b>Contas fixas</b> e ao <b>Calendário</b>. Em Mais ficam as contas fixas, as entradas fixas, os cartões, o calendário, a conta de casal, o relatório, os ajustes e esta ajuda. No fim do Início, <b>Organizar o início</b> escolhe quais quadros aparecem.`],
+  ["Onde ficam as contas fixas, os cartões e os ajustes no celular?", `Na barra de baixo: <b>Início</b>, o <b>+</b> para lançar, <b>Mercado</b> (a lista de compras) e <b>Mais</b>, onde ficam também as calculadoras, o carro, a casa e as outras ferramentas. No Início, a faixa <b>Ir para</b> leva ao <b>Lançamentos</b>, ao <b>Planejar</b> (limites e metas), aos <b>Cartões</b>, às <b>Contas fixas</b> e ao <b>Calendário</b>. Em Mais ficam as contas fixas, as entradas fixas, os cartões, o calendário, a conta de casal, o relatório, os ajustes e esta ajuda. No fim do Início, <b>Organizar o início</b> escolhe quais quadros aparecem.`],
   ["Como recebo avisos e instalo no celular?", `Em <b>Ajustes</b> você liga os avisos por e-mail e a notificação no aparelho. Para instalar, use <b>Instalar app</b> (no celular, em <b>Mais</b>); no iPhone, abra pelo Safari, toque em Compartilhar e em Adicionar à Tela de Início.`],
   ["Como colo a mensagem do banco, uso outra moeda ou crio uma subcategoria?", `<b>Mensagem do banco:</b> em <b>Mais → Colar mensagem do banco</b>, cole a notificação ou o SMS e o lançamento vem preenchido para você conferir. <b>Outra moeda:</b> na tela de lançar, toque em <b>Gastei em outra moeda</b>, digite o valor e a cotação, e o app põe o valor em reais. <b>Subcategoria:</b> ao criar uma categoria, escolha <b>Dentro de</b> (por exemplo, Feira dentro de Mercado). No resumo do ano, as subcategorias somam na categoria de cima.`],
   ["Como funcionam o desafio de economia, as calculadoras e o resumo do ano?", `Estão em <b>Mais</b>. No <b>desafio de economia</b> você escolhe uma caixinha e um valor por semana; a cada semana, toque em <b>Guardei</b> e o valor entra na caixinha. As <b>calculadoras</b> mostram rendimento, parcelas com juros, férias e 13º (valores brutos). O <b>resumo do ano</b> mostra mês a mês e para onde foi o dinheiro, e dá para baixar em PDF.`],

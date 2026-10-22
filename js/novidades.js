@@ -1,5 +1,9 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "112", itens: [
+    "Se você ainda não disse quanto recebe, o Início não mostra mais \"no vermelho\": ele pede a entrada, com um botão para adicionar.",
+    "Modo motorista agora aparece no Início: quem usa vê o resultado de hoje e o botão para iniciar a jornada; quem ainda não usa recebe um convite (que dá para dispensar).",
+    "As telas mais usadas ficaram na frente, na faixa do Início: Contas fixas, Cartões e Lançamentos. O que antes se chamava Extrato agora é Lançamentos." ] },
   { versao: "111", itens: [
     "Ao abrir o Lançar, o app avisa quando você acabou de copiar a mensagem do banco (compra, Pix, boleto): um toque e o valor, a loja e a forma de pagamento vêm preenchidos. Depois da primeira permissão, ele reconhece sozinho." ] },
   { versao: "110", itens: [

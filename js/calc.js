@@ -287,6 +287,14 @@ export function gastoAVistaDoDia(st, dia) {
 }
 
 /**
+ * Mês atual com contas ou gastos, mas sem nenhuma entrada (nem salário, nem entrada fixa): a pessoa ainda não disse quanto recebe.
+ * Nesse caso "sobra" e "no vermelho" não querem dizer nada, e o Início pede a entrada em vez de assustar.
+ */
+export function semEntradaNoMes(c) {
+  return c.fase === "atual" && !(c.rec > 0) && (c.it.length + c.fx.length + c.fat.length) > 0;
+}
+
+/**
  * Quanto ainda dá para gastar HOJE. O saldo do mês já desconta o que foi gasto hoje, então a conta volta
  * esse gasto: a fatia do dia = (saldo + gasto de hoje) ÷ dias que restam (contando hoje); o que sobra dela é o que ainda cabe.
  * Só existe no mês atual; sem sobra no mês, a fatia é zero e `resta` fica negativo (quanto já passou).

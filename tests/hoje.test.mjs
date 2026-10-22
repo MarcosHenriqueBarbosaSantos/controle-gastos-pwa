@@ -55,3 +55,14 @@ test("o que fazer agora: atrasada, vence hoje, fatura sem valor e dia sem anota�
 });
 
 function round(v) { return Math.round(v * 100) / 100; }
+
+import { semEntradaNoMes } from "../js/calc.js";
+test("sem entrada no mês: com contas ou gastos e sem nenhuma entrada, o Início pede a entrada", () => {
+  const hj = "2026-10-20", st = base();
+  assert.equal(semEntradaNoMes(calcMes(st, "2026-10", hj)), false);                       // conta nova e vazia: tem o convite próprio
+  st.lancamentos.push(L("a", "2026-10-05", "Despesa", 120));
+  assert.equal(semEntradaNoMes(calcMes(st, "2026-10", hj)), true);                        // só gasto
+  assert.equal(semEntradaNoMes(calcMes(st, "2026-09", hj)), false);                       // só vale no mês atual
+  st.lancamentos.push(L("b", "2026-10-02", "Receita", 3000));
+  assert.equal(semEntradaNoMes(calcMes(st, "2026-10", hj)), false);                       // com salário, volta ao normal
+});
