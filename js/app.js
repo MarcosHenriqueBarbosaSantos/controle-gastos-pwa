@@ -1967,7 +1967,7 @@ function paneF(c, tipo) {
     // Conta com prazo: mostra até quando vai; na última vez, avisa.
     const ultima = f.ate && mKey(f.ate) === S.mes && !fx.some((o) => o.id === f.id && o.data > f.data);
     const prazo = f.ate ? ` <span class="tag ${ultima ? "fim" : "prazo"}">${ultima ? "última vez" : ateCurto(f.ate)}</span>` : "";
-    return `<tr><td class="d">${quando}</td><td class="desc">${avaFoto("fixo", f.descricao) || ava(f.categoria, ent ? "Receita" : "Despesa")}<span class="tx">${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}${prazo}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
+    return `<tr class="toca-linha" data-frow="${esc(f.id)}"><td class="d">${quando}</td><td class="desc">${avaFoto("fixo", f.descricao) || ava(f.categoria, ent ? "Receita" : "Despesa")}<span class="tx">${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}${prazo}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
       <td class="st">${status}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(f.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
   }).join("");
@@ -1997,6 +1997,7 @@ function paneF(c, tipo) {
   $("xRep").onchange = () => { const sem = $("xRep").value === "semanal"; $("xDiaWrap").hidden = sem; $("xSemWrap").hidden = !sem; prazoX(); };
   if (!ent) $("xForma").onchange = () => { $("xCartaoWrap").hidden = $("xForma").value !== CARTAO || !cartoesAtivos().length; };
   host.querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
+  host.querySelectorAll("tr[data-frow]").forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest("button,a")) editarFixo(tr.dataset.frow); }));
   host.querySelectorAll("[data-pago]").forEach((b) => b.addEventListener("click", async () => {
     const id = b.dataset.pago, pago = b.dataset.v === "1", mes = b.dataset.chave;
     b.disabled = true;

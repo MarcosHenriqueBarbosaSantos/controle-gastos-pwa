@@ -1789,3 +1789,6 @@ dialog:has(.tour) .dlg-barra{display:none}
   .link{min-height:44px;display:inline-flex;align-items:center}
   .cat-edit button,.chip-cat button{min-width:44px;min-height:44px}
 }
+
+/* v117: linha inteira de conta/entrada fixa abre a edição */
+tr.toca-linha{cursor:pointer} tr.toca-linha:hover td{background:var(--sunk)}
