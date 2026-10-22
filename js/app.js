@@ -5801,8 +5801,11 @@ function ajustes() {
   body.querySelectorAll("[data-rm]").forEach((b) => (b.onclick = async () => {
     const t = b.dataset.tipo, l = cats(t);
     if (l.length <= 1) return;
-    S.prefs.categorias = { ...S.prefs.categorias, [t]: l.filter((c) => c !== b.dataset.rm) };
+    const nome = b.dataset.rm, antes = S.prefs.categorias, usos = S.data.lancamentos.filter((x) => x.categoria === nome).length;
+    S.prefs.categorias = { ...S.prefs.categorias, [t]: l.filter((c) => c !== nome) };
     await salvaPrefs(); render(); ajustes();
+    // Um toque sem querer no × tirava a categoria de vez: agora dá para desfazer (a ordem volta igual).
+    toastDesfazer(`Categoria ${nome} removida${usos ? `. Os ${usos} ${usos === 1 ? "lançamento que usa" : "lançamentos que usam"} ela continuam salvos` : ""}.`, async () => { S.prefs.categorias = antes; await salvaPrefs(); render(); ajustes(); });
   }));
   body.querySelectorAll("[data-add]").forEach((f) => f.addEventListener("submit", async (e) => {
     e.preventDefault();

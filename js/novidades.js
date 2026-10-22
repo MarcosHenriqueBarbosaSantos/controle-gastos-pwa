@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "128", itens: [
+    "Remover uma categoria em Ajustes agora mostra o aviso \"Desfazer\" (com a categoria voltando no mesmo lugar) e diz quantos lançamentos usam ela. Antes, um toque sem querer no × tirava a categoria de vez." ] },
   { versao: "127", itens: [
     "Apagar um lançamento pelo botão da lista agora mostra o aviso \"Desfazer\", como já acontecia ao deslizar. Antes, um toque sem querer em Confirmar apagava de vez." ] },
   { versao: "126", itens: [
