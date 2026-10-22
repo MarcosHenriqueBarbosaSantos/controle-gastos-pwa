@@ -1551,3 +1551,65 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .mot-per button{min-width:0;padding:0 6px}
 .mot-add.um{grid-template-columns:minmax(0,1fr) auto}
 .mot-feito{line-height:1.4}
+
+/* v102: cada função abre numa tela inteira, com "‹ Voltar" no alto (no celular). No computador continua a janela no meio. */
+.dlg-seta,.dlg-txt-v{display:none}
+@media (max-width:700px){
+  dialog,dialog:has(.ext),dialog:has(.ajuda){position:fixed;inset:0;width:100%;max-width:100%;height:100dvh;max-height:100dvh;margin:0;border:0;border-radius:0;box-shadow:none;
+    padding:0 18px calc(28px + env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain;background:var(--bg)}
+  dialog::before{display:none}
+  dialog::backdrop{background:var(--bg);backdrop-filter:none}
+  dialog[open]{animation:entraTela .22s cubic-bezier(.2,.8,.2,1)}
+  @keyframes entraTela{from{transform:translateX(24px);opacity:.4}to{transform:none;opacity:1}}
+  dialog .dlg-barra{justify-content:flex-start;margin:0 -18px 12px;padding:calc(10px + env(safe-area-inset-top,0px)) 10px 8px;background:var(--bg);border-bottom:1px solid var(--border)}
+  dialog .dlg-barra .dlg-x{border:0;background:transparent;box-shadow:none;padding:8px 14px 8px 6px;min-height:44px;font-size:16px;color:var(--ink)}
+  dialog .dlg-barra .dlg-x .ic{width:24px;height:24px}
+  .dlg-seta,.dlg-txt-v{display:inline-block}
+  .dlg-xis,.dlg-txt-f{display:none}
+  dialog h3{font-size:24px;margin:6px 0 12px}
+}
+
+/* v102: tela da jornada do motorista (botão grande, cronômetro, Encerrar embaixo) e subtelas */
+.mot-jornada{display:grid;justify-items:center;gap:10px;text-align:center;padding:4px 0 8px}
+.mot-estado{margin:6px 0 0!important;font-size:15px!important;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+.mot-bola{width:min(46vw,184px);aspect-ratio:1;border-radius:50%;border:2px solid var(--border);background:var(--surface);color:var(--ink);font-size:26px;font-weight:700;letter-spacing:.05em;cursor:pointer;
+  box-shadow:0 0 0 10px color-mix(in srgb,var(--series) 10%,transparent),var(--shadow);margin:10px 0 6px;display:grid;place-items:center;font-family:var(--display)}
+.mot-bola:active{transform:scale(.97)}
+.mot-bola.inicio,.em-pausa .mot-bola{background:var(--series);border-color:transparent;color:#1a1204}
+.mot-cron{font-family:var(--mono);font-size:44px;line-height:1.05;font-weight:500;font-variant-numeric:tabular-nums;letter-spacing:-.02em}
+.mot-cron-leg{font-size:13.5px;color:var(--ink-2);margin:0 0 6px}
+.mot-jornada .mot-vivo-box{margin-top:4px}
+.mot-rapidos{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;margin-top:4px}
+.mot-rap{display:grid;gap:2px;text-align:left;padding:12px 14px;border-radius:14px;border:1px solid var(--border);background:var(--surface);color:var(--ink);cursor:pointer;min-height:56px;align-content:center;width:100%}
+.mot-rap small{font-size:12px;color:var(--muted)} .mot-rap b{font-size:16px;font-variant-numeric:tabular-nums}
+.mot-rap.larga{grid-column:1/-1;text-align:center}
+.mot-fim{width:100%;display:grid;gap:8px;justify-items:center;margin-top:12px}
+.mot-voltar{display:inline-flex;align-items:center;gap:4px;border:0;background:transparent;color:var(--ink);font-size:16px;font-weight:600;min-height:44px;padding:0 10px 0 0;cursor:pointer;margin-left:-4px}
+.mot-voltar .ic{width:24px;height:24px}
+.mot-turno .mot-atalhos{margin-top:6px}
+
+.mot-voltar{display:none}
+@media (min-width:701px){.mot-voltar{display:inline-flex}}
+.wrap[data-tab="mot"] #listas{padding:0 16px 22px}
+.wrap[data-tab="mot"] #listas::before{margin:0 -16px 14px;border-radius:0}
+
+/* v102: o Modo motorista no celular é uma tela de ponta a ponta (sem cartão no meio de uma página clara) */
+@media (max-width:700px){
+  #app[data-view="listas"][data-tab="mot"] #listas{position:fixed;inset:0;z-index:39;margin:0;border:0;border-radius:0;box-shadow:none;overflow-y:auto;overscroll-behavior:contain;background:#12161c;
+    padding:calc(12px + env(safe-area-inset-top,0px)) 18px calc(32px + env(safe-area-inset-bottom,0px))}
+  #app[data-view="listas"][data-tab="mot"] #listas::before{margin:calc(-12px - env(safe-area-inset-top,0px)) -18px 12px;border-radius:0;height:6px}
+  #app[data-view="listas"][data-tab="mot"] #listaVoltar{background:transparent;border:0;box-shadow:none;color:var(--ink);padding-left:0}
+  body:has(#app[data-view="listas"][data-tab="mot"]){background:#12161c}
+}
+
+/* v102 (celular): cada função é uma tela só dela. Sem faixa de meses onde o mês não importa, sem aviso da demonstração fora do Início
+   e sem a barra de baixo dentro de uma função (fica a seta Voltar no alto). */
+@media (max-width:700px){
+  #app:not([data-view="inicio"]) #banner.demo{display:none!important}
+  #app[data-view="listas"]:is([data-tab="c"],[data-tab="mot"]) .top{display:none!important}
+  #app[data-view="listas"]:is([data-tab="c"],[data-tab="mot"]) #banner{display:none!important}
+  body:has(#app[data-view="listas"]:is([data-tab="c"],[data-tab="f"],[data-tab="r"],[data-tab="m"],[data-tab="mot"])) .bnav,
+  body:has(#app[data-view="analise"]) .bnav{display:none!important}
+  body:has(#app[data-view="listas"]:is([data-tab="c"],[data-tab="f"],[data-tab="r"],[data-tab="m"],[data-tab="mot"])),
+  body:has(#app[data-view="analise"]){padding-bottom:env(safe-area-inset-bottom,0px)}
+}

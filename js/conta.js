@@ -135,7 +135,7 @@ export function pareceConta(linhas) {
  * Lê o extrato da conta e já separa o que vira lançamento do que deve ficar de fora (com o motivo).
  * Ficam de fora: o pagamento da fatura do cartão (o gasto já está na fatura), o Pix pago no crédito (a conta mostra o
  * dinheiro entrando e saindo com o mesmo identificador, e a compra está na fatura), movimento de investimento e,
- * se a pessoa disse o nome dela (`meuNome`), as transferências entre contas dela.
+ * se a pessoa disse o nome dela (`meuNome`), as transferências entre contas dela e, com a conta de casal ligada (`parceiro`), as transferências entre os dois.
  * @returns {{movimentos: object[], periodo: {de:string, ate:string}|null, resumo: {entradas:number, saidas:number, ignorados:number}}}
  *  Cada movimento: { id, chave, data, tipo ("Despesa"|"Receita"), valor (positivo), descricao, categoria, forma, pessoa, ignorar, motivo, original }
  */
@@ -164,14 +164,16 @@ export function leConta({ texto, linhas, hoje, meuNome = "", parceiro = "" }) {
     let forma = "", nome = x.original, pessoa = false;
     if (/^transferencia (enviada|recebida)/.test(pre)) { forma = /pelo pix/.test(pre) ? "Pix" : "Transferência"; nome = partes[1] || x.original; pessoa = !/\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}|^qr$/i.test(partes[2] || ""); }
     else if (/^compra no debito/.test(pre)) { forma = "Débito"; nome = partes[1] || x.original; }
+    const entreOsDois = (forma === "Pix" || forma === "Transferência") && Boolean(parceiro) && ehParceiro(nome, parceiro);   // só transferência: uma compra no débito numa loja "Júlia Modas" não é a Júlia
     let ignorar = false, motivo = anulados.get(x) || "";
     if (motivo) ignorar = true;
     else if (/^pagamento de fatura/.test(pre)) { ignorar = true; motivo = "Pagamento da fatura do cartão: o gasto já está na fatura"; }
     else if (/^(aplicacao|resgate)\b|\brdb\b/.test(pre)) { ignorar = true; motivo = "Movimento de investimento: não é gasto nem entrada"; }
     else if (forma && ehMeuNome(nome, meuNome)) { ignorar = true; motivo = "Transferência entre contas suas"; }   // o Itaú corta o nome ("Marcos"): vale o começo do seu nome
+    else if (entreOsDois) { ignorar = true; motivo = "Transferência com a pessoa da conta casal: o dinheiro só muda de mão entre vocês"; }
     const tipo = x.valor > 0 ? "Receita" : "Despesa", valor = round2(Math.abs(x.valor));
     const limpo = forma === "Débito" ? (partes[1] ? `Compra no débito em ${arrumaNome(nome)}` : "Compra no débito") : forma ? arrumaNome(nome) : x.original.slice(0, 60);
-    const parc = Boolean(forma) && Boolean(parceiro) && ehParceiro(nome, parceiro);
+    const parc = entreOsDois;
     let categoria = forma && pessoa && partes.length > 2 ? "Outros" : guessCat(nome, tipo);   // uma pessoa (com CPF) não é uma loja: o nome dela não vira "posto" nem "Uber"
     // Só dá para dizer "é uma pessoa" quando o banco escreve o documento (CPF). O Pix para uma pessoa nunca fica sem categoria: é "Pix para pessoas" (ou "Casal", se é o parceiro).
     if (parc) categoria = CATEGORIA_CASAL;

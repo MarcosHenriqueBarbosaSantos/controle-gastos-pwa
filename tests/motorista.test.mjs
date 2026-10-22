@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal } from "../js/motorista.js";
+import { msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal } from "../js/motorista.js";
 
 const h = (hh, mm = 0, dia = 5) => new Date(2026, 9, dia, hh, mm).getTime();   // outubro de 2026
 const turno = (ini, fim, apps, extra = {}) => ({ id: String(ini), ini, fim, apps, ...extra });
@@ -68,4 +68,11 @@ test("ritmo ao vivo: líquido por hora, mínimo da meta e veredito só depois de
   assert.equal(ritmoAoVivo({ ganho: 0, gastos: 0, ms: 0, liquidoDia: 200 }).porHora, null);
   assert.equal(ritmoAoVivo({ ganho: 100, gastos: 0, ms: h, liquidoDia: 0 }).veredito, null);   // mês coberto: sem meta
   assert.equal(somaValores({ a: 10.5, b: "4", c: -2, d: "x" }), 14.5);
+});
+
+test("pausas não contam no tempo trabalhado", () => {
+  const H = 3600000;
+  assert.equal(duracaoMs({ ini: 0, fim: 5 * H, pausado: 1 * H }), 4 * H);
+  assert.equal(msAndamento({ ini: 0, pausado: 0, pausaIni: null }, 2 * H), 2 * H);
+  assert.equal(msAndamento({ ini: 0, pausado: H, pausaIni: 3 * H }, 5 * H), 2 * H);   // 5h no relógio, menos 1h já pausada e 2h de pausa agora
 });

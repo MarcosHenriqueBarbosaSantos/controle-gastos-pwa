@@ -14,7 +14,10 @@ export const somaValores = (o) => r2(Object.values(o || {}).reduce((t, v) => t +
 export const isoLocal = (ms) => { const d = new Date(ms); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
 
 export const ganhoDoTurno = (t) => r2(Object.values(t?.apps || {}).reduce((s, v) => s + (Number(v) > 0 ? Number(v) : 0), 0));
-export const duracaoMs = (t, agora = Date.now()) => Math.max(0, (t.fim ?? agora) - t.ini);
+/** Tempo trabalhado: do início ao fim, sem as pausas (t.pausado, em milissegundos). */
+export const duracaoMs = (t, agora = Date.now()) => Math.max(0, (t.fim ?? agora) - t.ini - (Number(t.pausado) > 0 ? Number(t.pausado) : 0));
+/** Tempo de uma jornada em andamento: desconta o que já ficou pausado e a pausa que está rolando agora. */
+export const msAndamento = (a, agora = Date.now()) => Math.max(0, agora - a.ini - (Number(a.pausado) > 0 ? Number(a.pausado) : 0) - (a.pausaIni ? Math.max(0, agora - a.pausaIni) : 0));
 
 /** 8130000 -> "02:15:30" */
 export function relogio(ms) {

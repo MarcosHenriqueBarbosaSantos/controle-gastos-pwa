@@ -3,15 +3,19 @@
 
 import { round2, CARTAO, ocorrencias, mKey, addM } from "./calc.js";
 import { norm } from "./excel.js";
-import { ehMeuNome, arrumaNome } from "./conta.js";
+import { ehMeuNome, ehParceiro, arrumaNome } from "./conta.js";
 
 /**
  * Transferências entre as contas da própria pessoa: contam como entrada e como gasto ao mesmo tempo e inflam os dois lados.
  * Vale o nome inteiro no texto ("Marcos Henrique Barbosa Santos") ou o começo do nome cortado pelo banco ("Marcos").
+ * Com `parceiro` (a pessoa da conta casal), entram também as transferências entre os dois: é dinheiro que só muda de mão.
  * Só olha entradas e gastos; o que foi guardado não entra.
  */
-export function entreMinhasContas(lancamentos, meuNome) {
-  const itens = (lancamentos || []).filter((x) => (x.tipo === "Receita" || x.tipo === "Despesa") && ehMeuNome(nomeDoLancamento(x.descricao), meuNome));
+export function entreMinhasContas(lancamentos, meuNome, parceiro = "") {
+  // Com a pessoa da conta casal: só vale o que o banco escreveu como transferência/Pix, para um gasto qualquer com o mesmo primeiro nome não entrar.
+  const doBanco = (x) => /^transferencia (enviada|recebida)/.test(norm(String(x.descricao ?? "").trim().split(" - ")[0]));
+  const itens = (lancamentos || []).filter((x) => (x.tipo === "Receita" || x.tipo === "Despesa")
+    && (ehMeuNome(nomeDoLancamento(x.descricao), meuNome) || (Boolean(parceiro) && doBanco(x) && ehParceiro(nomeDoLancamento(x.descricao), parceiro))));
   const soma = (t) => round2(itens.filter((x) => x.tipo === t).reduce((s, x) => s + Number(x.valor), 0));
   return { itens, entradas: soma("Receita"), saidas: soma("Despesa") };
 }
