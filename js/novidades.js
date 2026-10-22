@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "116", itens: [
+    "Calendário, botões de editar e links do rodapé ficaram maiores no celular, para tocar sem errar." ] },
   { versao: "115", itens: [
     "Botões e links ficaram maiores no celular (Câmera, Falar, gastos que você repete, categorias, rodapé), mais fáceis de tocar sem errar.",
     "Os nomes dos atalhos do Início e das categorias ficaram em letra maior.",

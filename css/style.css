@@ -1777,3 +1777,15 @@ dialog:has(.tour) .dlg-barra{display:none}
 .prev-fut h3{margin:0;font-size:1rem}
 .prev-fut p{margin:0;font-size:.9rem;line-height:1.45}
 .prev-fut .btn{justify-self:start;min-height:44px}
+
+/* v116: mais área de toque no celular (calendário, botões pequenos, links do rodapé) */
+@media (max-width:700px){
+  .cal{gap:3px}
+  .cal-d{min-height:56px}
+  .btn.sm,button.sm{min-height:44px;padding-inline:14px}
+  .cal-lista li{padding:12px}
+  .cal-lista button.t{min-height:44px;align-content:center}
+  .foot a,.rodape a,.rodape button,.foot button{min-height:44px;display:inline-flex;align-items:center}
+  .link{min-height:44px;display:inline-flex;align-items:center}
+  .cat-edit button,.chip-cat button{min-width:44px;min-height:44px}
+}
