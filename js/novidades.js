@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "127", itens: [
+    "Apagar um lançamento pelo botão da lista agora mostra o aviso \"Desfazer\", como já acontecia ao deslizar. Antes, um toque sem querer em Confirmar apagava de vez." ] },
   { versao: "126", itens: [
     "O aviso de data com ano errado (como 2062) agora também aparece quando você edita um lançamento." ] },
   { versao: "125", itens: [

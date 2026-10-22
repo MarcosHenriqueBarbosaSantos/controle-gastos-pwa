@@ -1949,8 +1949,7 @@ function listaL(c) {
   });
   if (noCelular()) ligaDeslizar($("pane-l"));
   $("pane-l").querySelectorAll("[data-del]").forEach((b) => armDelete(b, async () => {
-    const id = b.dataset.del;
-    if (await apagaLancamento(id)) render();
+    await apagaComDesfazer(b.dataset.del, () => conferirRepetidos());   // com "Desfazer", igual ao deslizar
   }));
 }
 
