@@ -958,6 +958,7 @@ function renderKpis(c) {
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
   ${atualM ? htmlHoje(c) : ""}
+  ${c.fase === "futuro" ? htmlPrevisaoFuturo(c, rx) : ""}
   ${htmlMotoristaIni()}`;
   // Abaixo dos Próximos vencimentos: o acesso às telas, o cartão, a lista de mercado e a previsão do mês.
   $("resumo2").innerHTML = `
@@ -978,7 +979,7 @@ function renderKpis(c) {
   $("grafSobraSec").innerHTML = (atualM || c.fase === "passado") && sb.livre > 0 ? graficoDaSobra(c) : "";
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
-  ligaHoje(); ligaMotoristaIni();
+  ligaHoje(); ligaMotoristaIni(); ligaPrevisaoFuturo();
   ligaMercadoIni();
   if ($("usaMetaIni")) $("usaMetaIni").onclick = () => usaMeta(Number($("usaMetaIni").dataset.valor), () => {});
   inicioQ("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
@@ -1014,6 +1015,33 @@ function renderKpis(c) {
 }
 
 /** "Seu dia": o que foi gasto hoje, o convite para anotar e a sequência de dias anotados. Só aparece no mês atual. */
+/**
+ * Mês que ainda não começou e que já aparece no vermelho: explica por quê (só conta o que já está cadastrado) e, se a pessoa costuma
+ * lançar entradas avulsas (Uber, extras), oferece contar a média dos últimos meses como previsão.
+ */
+function mediaDeEntradasAvulsas(mes) {
+  const ms = [addM(mes, -1), addM(mes, -2), addM(mes, -3)].filter((m) => m >= (primeiroMes(S.data) || m) && m <= mKey(hoje()));
+  const por = ms.map((m) => round2(S.data.lancamentos.filter((x) => x.tipo === "Receita" && mKey(x.data) === m).reduce((t, x) => t + Number(x.valor), 0))).filter((v) => v > 0);
+  return por.length ? { media: round2(por.reduce((t, v) => t + v, 0) / por.length), meses: por.length } : null;
+}
+function htmlPrevisaoFuturo(c, rx) {
+  if (!S.loaded || rx.sobra >= 0) return "";
+  const mes = nomeMes(S.mes), md = mediaDeEntradasAvulsas(S.mes), jaTem = S.data.fixos.some((f) => f.tipo === "Receita" && f.descricao === "Renda variável (média)" && f.desde <= S.mes + "-01" && (!f.ate || f.ate >= S.mes + "-01"));
+  return `<section class="prev-fut" aria-label="Por que ${mes} aparece no vermelho">
+    <h3>Por que ${mes} já aparece no vermelho?</h3>
+    <p>${mes.charAt(0).toUpperCase() + mes.slice(1)} ainda não começou, então o app só conta o que já está cadastrado: entradas fixas de <b>${brl(c.rec)}</b> e contas de <b>${brl(c.custo)}</b>. O que entra durante o mês (Uber, extras) só aparece quando você lança. O saldo de meses anteriores não entra nessa conta.</p>
+    ${md && !jaTem ? `<p>Nos últimos ${md.meses} ${md.meses === 1 ? "mês" : "meses"}, entraram em média <b>${brl(md.media)}</b> além das entradas fixas.</p><button type="button" class="btn primary" id="prevMedia" data-valor="${md.media}">Contar ${brl(md.media)} como previsão de entrada</button><p class="hint">Cria uma entrada fixa "Renda variável (média)" a partir de ${mes}. Você muda o valor ou apaga em Entradas fixas.</p>` : ""}
+    <p class="hint">No dia 1º o app passa a mostrar quanto você pode gastar por dia, e cada gasto que você anota diminui esse valor na hora.</p></section>`;
+}
+function ligaPrevisaoFuturo() {
+  const b = $("prevMedia"); if (!b) return;
+  b.onclick = async () => {
+    const v = Number(b.dataset.valor); if (!(v > 0)) return; b.disabled = true;
+    const row = { tipo: "Receita", descricao: "Renda variável (média)", categoria: cats("Receita")[0] || "Salário", dia: 5, valor: v, forma: "", desde: S.mes + "-01", ate: null };
+    let novo; if (await grava(async () => { novo = await S.store.addFixo(row); })) { S.data.fixos.push(novo); render(); toastOuFlash(`Entrada de ${brl(v)} por mês contada a partir de ${nomeMes(S.mes)}. Dá para mudar em Entradas fixas.`); } else b.disabled = false;
+  };
+}
+
 /** Modo motorista no Início: quem usa vê o resultado de hoje e o botão de começar a jornada; quem ainda não usa recebe o convite (e pode dispensar). */
 function htmlMotoristaIni() {
   const m = S.prefs.motorista;

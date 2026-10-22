@@ -1756,3 +1756,24 @@ dialog:has(.tour) .dlg-barra{display:none}
 .det-cobre{margin:10px 0 6px;padding:10px 12px;border-radius:12px;font-size:.92rem}
 .det-cobre.ok{background:var(--good-soft);color:var(--good)}
 .det-cobre.bad{background:var(--bad-soft);color:var(--bad)}
+
+/* v115: alvos de toque de pelo menos 44px e textos de pelo menos 12px no celular (auditoria das telas) */
+@media (max-width:700px){
+  .ir-para span{font-size:clamp(12px,3.3vw,13px)}
+  #btnLer,#btnVoz{min-height:44px}
+  .rapidos button{min-height:44px;padding-block:8px}
+  .moeda-fora summary{min-height:44px;display:flex;align-items:center}
+  .moeda-fora p .link{min-height:44px;display:inline-flex;align-items:center}
+  .chip{min-height:44px;padding:4px 6px 4px 14px;font-size:14px}
+  .chip button{width:36px;height:36px}
+  .chip .chip-nome{width:auto;min-height:40px;padding:0 8px;font-size:14px;color:var(--ink);border-radius:10px}
+  .cal-d .m{font-size:12px}
+  .proj-nota .ln{min-height:36px;padding:6px 4px}
+  .hint a,.foot a,.rodape a{display:inline-block;padding:10px 4px}
+}
+
+/* v115: explicação do mês que ainda não começou */
+.prev-fut{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin:12px 16px;display:grid;gap:8px}
+.prev-fut h3{margin:0;font-size:1rem}
+.prev-fut p{margin:0;font-size:.9rem;line-height:1.45}
+.prev-fut .btn{justify-self:start;min-height:44px}

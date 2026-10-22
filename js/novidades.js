@@ -1,5 +1,9 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "115", itens: [
+    "Botões e links ficaram maiores no celular (Câmera, Falar, gastos que você repete, categorias, rodapé), mais fáceis de tocar sem errar.",
+    "Os nomes dos atalhos do Início e das categorias ficaram em letra maior.",
+    "Mês que ainda não começou e já aparece no vermelho (como novembro): o Início explica por quê e, se você costuma lançar entradas avulsas (Uber, extras), oferece contar a média dos últimos meses como previsão." ] },
   { versao: "114", itens: [
     "Toque em qualquer conta de Próximos vencimentos: abre o detalhe com a data, o tipo (fixa, fatura), se o dinheiro cobre na data e quanto falta, e os botões Já paguei, Editar e Ver no calendário.",
     "Início reorganizado na ordem do dia a dia: o resumo, o Hoje, os Próximos vencimentos e só depois os atalhos (Contas fixas, Cartões, Lançamentos), o cartão, o mercado e a previsão do mês." ] },
