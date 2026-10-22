@@ -1698,3 +1698,7 @@ dialog:has(.tour) .dlg-barra{display:none}
 
 /* v105 — aviso de contas que o gasto deixa sem cobrir */
 .aviso-contas{margin:0;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--warn) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 45%,var(--border));font-size:13.5px;line-height:1.4;grid-column:1/-1}
+
+/* v106 — lista de mercado por corredor e "repetir a última compra" */
+.ml-corr{margin:14px 2px 4px;font-size:12.5px;font-weight:700;color:var(--ink-2);letter-spacing:.01em}
+.ml-repete{margin:10px 0 0;min-height:44px}

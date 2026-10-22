@@ -636,6 +636,69 @@ export function juntaLista(a, b, agora = Date.now()) {
   const itens = [...mapa.values()].filter((x) => !(mortos.has(x.id) && mortos.get(x.id) >= (x.t || 0))).slice(0, 300);
   return { itens, apagados: [...mortos].map(([id, t]) => ({ id, t })).slice(-200), limite: Number(b?.limite) >= 0 && (b?.tl || 0) > (a?.tl || 0) ? Number(b.limite) : Number(a?.limite) || 0, tl: Math.max(a?.tl || 0, b?.tl || 0) };
 }
+/* ---- corredores, repetir a última compra e variação de preço ---- */
+/** Corredores na ordem em que quase todo mercado é percorrido; cada um com as palavras que o reconhecem no nome do item. */
+export const CORREDORES = [
+  ["Hortifruti", ["banana", "maca", "laranja", "limao", "tomate", "cebola", "alho", "batata", "cenoura", "alface", "abacate", "mamao", "melancia", "abobrinha", "pepino", "pimentao", "couve", "brocolis", "fruta", "verdura", "legume", "manga", "uva", "mandioca", "ovo", "ovos"]],
+  ["Padaria", ["pao", "paes", "bolo", "biscoito", "bolacha", "torrada", "broa"]],
+  ["Açougue e peixaria", ["carne", "frango", "peixe", "linguica", "bife", "costela", "file", "coxa", "peito", "moida", "acem", "patinho", "tilapia", "salmao", "camarao", "salsicha"]],
+  ["Frios e laticínios", ["leite", "queijo", "presunto", "mussarela", "iogurte", "manteiga", "margarina", "requeijao", "creme de leite", "mortadela", "nata"]],
+  ["Mercearia", ["arroz", "feijao", "macarrao", "farinha", "acucar", "sal", "oleo", "azeite", "cafe", "molho", "extrato", "milho", "aveia", "cereal", "fuba", "tempero", "vinagre", "lentilha", "sardinha", "atum", "achocolatado", "gelatina", "maionese", "ketchup"]],
+  ["Bebidas", ["agua", "suco", "refrigerante", "cerveja", "vinho", "refri", "cha", "energetico"]],
+  ["Limpeza", ["detergente", "sabao", "amaciante", "desinfetante", "agua sanitaria", "esponja", "multiuso", "limpa", "saco de lixo", "lixo", "vassoura", "alvejante", "papel aluminio", "guardanapo"]],
+  ["Higiene", ["shampoo", "xampu", "condicionador", "sabonete", "creme dental", "pasta de dente", "escova", "papel higienico", "desodorante", "absorvente", "fralda", "algodao", "fio dental", "lenco"]],
+];
+/** Em que corredor o item costuma estar. Sem pista, "Outros". Compara palavra inteira ou o começo dela ("tomates" acha "tomate"). */
+export function corredorDoItem(nome) {
+  const k = chaveDoItem(nome); if (!k) return "Outros";
+  const palavras = k.split(" ");
+  for (const [corredor, chaves] of CORREDORES) if (chaves.some((c) => c.includes(" ") && k.includes(c))) return corredor;   // "água sanitária" antes de "água"
+  for (const [corredor, chaves] of CORREDORES) {
+    if (chaves.some((c) => (c.includes(" ") ? false : palavras.some((p) => p === c || (c.length >= 4 && p.startsWith(c)) || (p.length >= 4 && c.startsWith(p) && c.length - p.length <= 2))))) return corredor;
+  }
+  return "Outros";
+}
+/** A lista dividida por corredor, na ordem do mercado; "Outros" por último. Só corredores com item. */
+export function agrupaPorCorredor(itens) {
+  const m = new Map();
+  for (const i of itens || []) { const c = corredorDoItem(i.nome); if (!m.has(c)) m.set(c, []); m.get(c).push(i); }
+  const ordem = [...CORREDORES.map((x) => x[0]), "Outros"];
+  return ordem.filter((c) => m.has(c)).map((c) => ({ corredor: c, itens: m.get(c) }));
+}
+/** Guarda o preço pago de cada item com a data (até 6 por item, 400 itens): é daí que sai "subiu 8% desde 03/09". */
+export function registraPrecos(hist, novos, dataISO) {
+  const out = { ...(hist || {}) };
+  for (const [k, v] of Object.entries(novos || {})) {
+    if (!k || !(Number(v) > 0)) continue;
+    const l = [...(out[k] || [])];
+    if (l.length && l[l.length - 1][0] === dataISO) l[l.length - 1] = [dataISO, round2(Number(v))]; else l.push([dataISO, round2(Number(v))]);
+    delete out[k]; out[k] = l.slice(-6);
+  }
+  const chaves = Object.keys(out); for (const k of chaves.slice(0, Math.max(0, chaves.length - 400))) delete out[k];
+  return out;
+}
+/** Quanto o preço mudou desde a primeira vez guardada. Só conta mudança de 3% para cima ou para baixo. */
+export function variacaoDoPreco(historico, precoAtual) {
+  const l = historico || [], atual = Number(precoAtual);
+  if (l.length < 2 || !(atual > 0)) return null;
+  const [data, antes] = l[0]; if (!(antes > 0)) return null;
+  const pct = Math.round(((atual - antes) / antes) * 100);
+  return Math.abs(pct) >= 3 ? { pct, desde: data, antes } : null;
+}
+/** Os itens da última compra que ainda não estão na lista (para "repetir a última compra"). */
+export function itensParaRepetir(ultima, atuais) {
+  const tem = new Set((atuais || []).filter((x) => x && !x.apagado).map((x) => chaveDoItem(x.nome)));
+  return (ultima?.itens || []).filter((x) => x?.nome && !tem.has(chaveDoItem(x.nome)));
+}
+/** A frase depois de lançar a compra: como ela ficou perto da compra média da pessoa. */
+export function resumoDaCompra(total, mediaDeAntes) {
+  const t = Number(total), m = Number(mediaDeAntes);
+  if (!(t > 0) || !(m > 0)) return "";
+  const pct = Math.round(((t - m) / m) * 100);
+  if (Math.abs(pct) < 5) return " Foi uma compra parecida com a sua média.";
+  return pct < 0 ? ` Ficou ${Math.abs(pct)}% abaixo da sua compra média (${"R$ " + m.toFixed(2).replace(".", ",")}).` : ` Ficou ${pct}% acima da sua compra média (${"R$ " + m.toFixed(2).replace(".", ",")}).`;
+}
+
 /** O que vira lançamento: o total dos itens no carrinho, por categoria (do maior para o menor). */
 export function compraDoCarrinho(itens, precos = {}, padrao = "Mercado") {
   const m = new Map(); let total = 0;

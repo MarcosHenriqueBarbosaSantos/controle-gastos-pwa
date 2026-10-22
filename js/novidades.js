@@ -1,5 +1,10 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "106", itens: [
+    "Lista de mercado por corredor: hortifruti, padaria, açougue, frios, mercearia, bebidas, limpeza e higiene, na ordem em que você anda no mercado.",
+    "Repetir a última compra: um toque traz de volta os itens que você comprou, sem repetir os que já estão na lista.",
+    "O app guarda o preço de cada item e avisa quando ele subiu ou baixou desde a primeira vez que você anotou.",
+    "Depois de lançar a compra, uma frase mostra como ela ficou perto da sua compra média." ] },
   { versao: "105", itens: [
     "Pôr o mês em ordem: uma tela com o tamanho das contas do mês, as contas em atraso (com \"Já paguei\"), quanto falta para sobrar e quantos dias a sua reserva cobre.",
     "Virar a página: quando um mês fecha no vermelho, o saldo dele deixa de ser levado para os meses seguintes. Nada é apagado e dá para desfazer.",

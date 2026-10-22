@@ -17,7 +17,7 @@ import { NOVIDADES } from "./novidades.js";
 import { msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
+  avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
 import { pareceConta, leConta, arrumaNome, nomeDoEmail, CATEGORIA_PIX_PESSOA, CATEGORIA_CASAL } from "./conta.js";
@@ -3473,8 +3473,10 @@ function concluiLista() {
   for (const [k, v] of Object.entries(f.precos)) { delete precos[k]; precos[k] = v; }
   const chaves = Object.keys(precos); for (const k of chaves.slice(0, Math.max(0, chaves.length - 400))) delete precos[k];
   S.prefs.precosMercado = precos;
+  S.prefs.historicoPrecos = registraPrecos(S.prefs.historicoPrecos, f.precos, hoje());
+  S.prefs.ultimaCompraMercado = { data: hoje(), itens: l.itens.filter((x) => ids.has(x.id)).slice(0, 120).map((x) => ({ nome: x.nome, qtd: Number(x.qtd) > 0 ? Number(x.qtd) : 1 })) };
   gravaLista({ ...l, itens: l.itens.filter((x) => !ids.has(x.id)), apagados: [...l.apagados, ...[...ids].map((id) => ({ id, t }))], tl: t });
-  toast("Compra lançada. Os itens do carrinho saíram da lista; o que ficou de fora continua nela.");
+  toast("Compra lançada. Os itens do carrinho saíram da lista; o que ficou de fora continua nela." + resumoDaCompra(f.total, f.media));
 }
 
 function mercado() {
@@ -3484,7 +3486,7 @@ function mercado() {
   const muda = (fn) => { const l = listaDe(); fn(l); gravaLista(l); };
   const agora = () => Date.now(), tarde = (f) => setTimeout(f, 0);   // redesenhar no meio de um "change" quebra o foco do campo
   const desenha = () => {
-    const l = listaDe(), precos = S.prefs.precosMercado || {}, c = calcMes(S.data, mKey(hoje()), hoje()), tk = ticketMedioMercado(S.data.lancamentos, hoje(), padrao);
+    const l = listaDe(), precos = S.prefs.precosMercado || {}, hist = S.prefs.historicoPrecos || {}, repetir = itensParaRepetir(S.prefs.ultimaCompraMercado, l.itens), c = calcMes(S.data, mKey(hoje()), hoje()), tk = ticketMedioMercado(S.data.lancamentos, hoje(), padrao);
     const e = estimativaDaLista(l.itens, precos, tk.media), noMes = new Map(catMap(c)).get(padrao) || 0, outro = casalAtivo() ? nomeDoOutro() : "";
     const cabe = l.limite > 0 ? round2(l.limite - e.noCarrinho) : null, semPrecoNoCarrinho = l.itens.filter((x) => x.pego && !(precoDoItem(x, precos).valor > 0)).length;
     const falta = l.itens.filter((x) => !x.pego), nocar = l.itens.filter((x) => x.pego);
@@ -3492,7 +3494,7 @@ function mercado() {
       const pr = precoDoItem(x, precos), q = Number(x.qtd) > 0 ? Number(x.qtd) : 1, id = esc(x.id), qt = String(q).replace(".", ",");
       return `<li class="ml-item${x.pego ? " pego" : ""}">
         <button class="ml-check" type="button" data-pega="${id}" aria-pressed="${Boolean(x.pego)}" aria-label="${x.pego ? "Tirar do carrinho" : "Colocar no carrinho"}: ${esc(x.nome || "item")}">${ico("ok")}</button>
-        <span class="ml-corpo"><b>${esc(x.nome || "Item")}</b><small>${pr.valor > 0 ? `${brl(pr.valor * q)}${q > 1 ? ` (${qt} × ${brl(pr.valor)})` : ""}${pr.de === "ultimo" ? " · último preço" : ""}` : "informe o preço"}</small></span>
+        <span class="ml-corpo"><b>${esc(x.nome || "Item")}</b><small>${pr.valor > 0 ? `${brl(pr.valor * q)}${q > 1 ? ` (${qt} × ${brl(pr.valor)})` : ""}${pr.de === "ultimo" ? " · último preço" : ""}${(() => { const vr = variacaoDoPreco(hist[chaveDoItem(x.nome)], pr.valor); return vr ? ` · ${vr.pct > 0 ? "subiu" : "baixou"} ${Math.abs(vr.pct)}% desde ${ddmm(vr.desde)}` : ""; })()}` : "informe o preço"}</small></span>
         <button class="mc-x" type="button" data-x="${id}" aria-label="Tirar da lista: ${esc(x.nome || "item")}">×</button>
         <span class="ml-ajuste">
           <span class="ml-qtd" role="group" aria-label="Quantidade de ${esc(x.nome || "item")}"><button type="button" data-menos="${id}" aria-label="Menos um">−</button><output>${qt}</output><button type="button" data-mais="${id}" aria-label="Mais um">+</button></span>
@@ -3515,7 +3517,8 @@ function mercado() {
         <button class="ml-mais" type="submit" aria-label="Adicionar à lista">${ico("mais")}</button>
         <datalist id="mlSug">${Object.keys(precos).slice(-60).map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
       </form>
-      ${falta.length ? `<h4 class="ml-h">Falta pegar <span>${falta.length}</span></h4><ul class="ml-lista">${falta.map(linha).join("")}</ul>` : l.itens.length ? `<p class="ml-vazio">Tudo no carrinho. Toque em Finalizar compra.</p>` : `<p class="ml-vazio">A lista está vazia.<br>Digite o que precisa comprar e toque em +.</p>`}
+      ${repetir.length ? `<button class="btn sm ml-repete" type="button" id="mlRepete">Repetir a última compra · ${repetir.length} ${repetir.length === 1 ? "item" : "itens"}</button>` : ""}
+      ${falta.length ? `<h4 class="ml-h">Falta pegar <span>${falta.length}</span></h4>${falta.length >= 6 ? agrupaPorCorredor(falta).map((g) => `<h5 class="ml-corr">${esc(g.corredor)}</h5><ul class="ml-lista">${g.itens.map(linha).join("")}</ul>`).join("") : `<ul class="ml-lista">${falta.map(linha).join("")}</ul>`}` : l.itens.length ? `<p class="ml-vazio">Tudo no carrinho. Toque em Finalizar compra.</p>` : `<p class="ml-vazio">A lista está vazia.<br>Digite o que precisa comprar e toque em +.</p>`}
       ${nocar.length ? `<h4 class="ml-h">No carrinho <span>${nocar.length}</span></h4><ul class="ml-lista">${nocar.map(linha).join("")}</ul>` : ""}
       ${semPrecoNoCarrinho ? `<p class="ml-aviso">${semPrecoNoCarrinho} ${semPrecoNoCarrinho === 1 ? "item no carrinho está sem preço e não entra" : "itens no carrinho estão sem preço e não entram"} no total.</p>` : ""}
       <details class="ml-opc"><summary>Mais opções</summary>
@@ -3543,6 +3546,11 @@ function mercado() {
     $("dlgBody").querySelectorAll("[data-preco]").forEach((i) => (i.onchange = () => { const v = avaliaConta(i.value) ?? parseMoney(i.value); edita(i.dataset.preco, (x) => { x.preco = v > 0 && v <= VALOR_MAX ? round2(v) : 0; }); tarde(desenha); }));
     $("dlgBody").querySelectorAll("[data-cat]").forEach((s) => (s.onchange = () => { edita(s.dataset.cat, (x) => { x.cat = s.value; }); tarde(desenha); }));
     $("mlLimite").addEventListener("change", () => { const v = parseMoney($("mlLimite").value); muda((m) => { m.limite = v > 0 && v <= VALOR_MAX ? round2(v) : 0; m.tl = agora(); }); tarde(desenha); });
+    if ($("mlRepete")) $("mlRepete").onclick = () => {
+      const novos = itensParaRepetir(S.prefs.ultimaCompraMercado, listaDe().itens), cabem = Math.max(0, 300 - listaDe().itens.length);
+      muda((m) => { novos.slice(0, cabem).forEach((x) => m.itens.push({ id: crypto.randomUUID(), nome: String(x.nome).slice(0, 40), qtd: Number(x.qtd) > 0 ? Number(x.qtd) : 1, preco: 0, pego: false, t: agora() })); });
+      toast(`${Math.min(novos.length, cabem)} ${novos.length === 1 ? "item voltou" : "itens voltaram"} para a lista. Tire o que não precisa.`); desenha();
+    };
     $("mlOutra").onchange = () => { muda((m) => { m.outraCat = $("mlOutra").checked; }); tarde(desenha); };
     if ($("mlCasal")) $("mlCasal").onclick = () => abrirCasal();
     if ($("mlLimpa")) $("mlLimpa").onclick = () => {
@@ -3554,10 +3562,10 @@ function mercado() {
       try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast("Lista copiada. Cole no WhatsApp ou onde preferir."); } } catch { /* a pessoa desistiu */ }
     };
     $("mlOk").onclick = () => {
-      const lista = listaDe(), pr = S.prefs.precosMercado || {}, compra = compraDoCarrinho(lista.itens, pr, padrao);
+      const lista = listaDe(), pr = S.prefs.precosMercado || {}, compra = compraDoCarrinho(lista.itens, pr, padrao), tk0 = ticketMedioMercado(S.data.lancamentos, hoje(), padrao);
       if (!(compra.total > 0)) return void toast("Marque no carrinho ao menos um item com preço.");
       const partes = lista.outraCat ? compra.partes : [[padrao, compra.total]], umaSo = partes.length === 1, pegos = lista.itens.filter((x) => x.pego);
-      S.listaFinalizando = { ids: pegos.map((x) => x.id), precos: Object.fromEntries(pegos.filter((x) => precoDoItem(x, pr).valor > 0).map((x) => [chaveDoItem(x.nome), precoDoItem(x, pr).valor]).filter(([k]) => k)) };
+      S.listaFinalizando = { total: compra.total, media: tk0.media, ids: pegos.map((x) => x.id), precos: Object.fromEntries(pegos.filter((x) => precoDoItem(x, pr).valor > 0).map((x) => [chaveDoItem(x.nome), precoDoItem(x, pr).valor]).filter(([k]) => k)) };
       clearInterval(timer); $("dlg").close(); S.tipo = "Despesa"; renderForm();
       $("fValor").value = compra.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); $("fDesc").value = "Compra no mercado"; $("fCat").value = umaSo ? partes[0][0] : padrao; S.catManual = true; $("fData").value = hoje();
       S.divisaoPronta = umaSo ? null : partes; renderForm(); mostraEfeito();
