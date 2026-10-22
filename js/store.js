@@ -369,9 +369,13 @@ export function demoSeed(hojeISO) {
     F.push({ id: uuid(), tipo: "Despesa", repete: "semanal", dia_semana: 4, descricao: "Terapia", categoria: "Saúde", dia: 1, valor: 90, forma: "Pix", desde: `${prev2}-01`, ate: null });
     const salario = { id: uuid(), tipo: "Receita", descricao: "Salário", categoria: "Salário", dia: 5, valor: 3900, forma: "", desde: `${prev2}-01`, ate: null };
     const P = [];
+    // A terapia das quintas que já passaram aparece paga (só a de hoje ou das últimas horas fica por pagar).
+    F.filter((f) => f.repete === "semanal").forEach((f) => { for (let t = new Date(y, m - 3, 1); t < new Date(y, m - 1, d); t.setDate(t.getDate() + 1)) if (t.getDay() === Number(f.dia_semana)) P.push({ fixo_id: f.id, mes: `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, "0")}-${String(t.getDate()).padStart(2, "0")}` }); });
     F.filter((f) => f.repete !== "semanal" && !f.cartao_id).forEach((f) => { P.push({ fixo_id: f.id, mes: `${prev2}-01` }); P.push({ fixo_id: f.id, mes: `${prev}-01` }); if (f.dia <= d) P.push({ fixo_id: f.id, mes: `${cur}-01` }); });
     // A fatura que vence neste mês (compras do mês passado) já aparece paga depois do dia 8.
-    const C = d >= 8 ? [{ id: uuid(), cartao_id: roxo.id, cartao: roxo.nome, vencimento: `${cur}-08`, valor: 300.9, status: "Paga", valor_fixo: false }] : [];
+    // As faturas dos meses que já passaram aparecem pagas: no exemplo nada fica "atrasado há 74 dias".
+    const pagaEm = (mm, valor) => ({ id: uuid(), cartao_id: roxo.id, cartao: roxo.nome, vencimento: `${mm}-08`, valor, status: "Paga", valor_fixo: false });
+    const C = [pagaEm(mes(-3), 0), pagaEm(prev2, 0), pagaEm(prev, 0), ...(d >= 8 ? [pagaEm(cur, 300.9)] : [])];
     return { lancamentos: L, fixos: [...F, salario], pagos: P, faturas: C, cartoes: [roxo],
       prefs: { limites: { Mercado: 700, Lazer: 150, Transporte: 100, "Alimentação": 60 } } };   // três estados de limite para a demonstração: cabe, falta pouco e passou
   };

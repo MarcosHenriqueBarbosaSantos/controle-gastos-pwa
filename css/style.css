@@ -1613,3 +1613,51 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
   body:has(#app[data-view="listas"]:is([data-tab="c"],[data-tab="f"],[data-tab="r"],[data-tab="m"],[data-tab="mot"])),
   body:has(#app[data-view="analise"]){padding-bottom:env(safe-area-inset-bottom,0px)}
 }
+
+/* v103: os nomes dos atalhos do Início não quebram no meio da palavra ("Calendá-rio") */
+.ir-para span{overflow-wrap:normal;word-break:normal;hyphens:none;font-size:clamp(10.5px,3.1vw,12.5px);letter-spacing:-.01em}
+
+/* v103: Início mais curto e sem palavras quebradas */
+.pof-anel b{white-space:nowrap;overflow-wrap:normal;max-width:none}
+.cart-lista li:only-child{flex-basis:100%}
+.dia .acoes:empty{display:none}
+
+/* v103: "Vale a pena essa corrida?" e ganho por aplicativo */
+.mot-vale{margin-top:14px;padding:14px;border-radius:16px;background:var(--surface);border:1px solid var(--border)}
+.mot-vale-t{display:block;font-size:22px;margin-bottom:10px}
+.mot-vale.boa{border-color:var(--good)} .mot-vale.boa .mot-vale-t{color:var(--good)}
+.mot-vale.media .mot-vale-t{color:var(--warn)} .mot-vale.ruim{border-color:var(--bad)} .mot-vale.ruim .mot-vale-t{color:var(--bad)}
+.mot-vale-g{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.mot-vale-g span{display:grid;gap:2px;padding:8px 6px;border-radius:12px;background:var(--sunk)} .mot-vale-g small{font-size:11.5px;color:var(--muted)} .mot-vale-g b{font-size:16px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mot-vale p{margin:10px 0 0;font-size:14px;line-height:1.4}
+.mot-apps{list-style:none;margin:0 0 6px;padding:0;display:grid;gap:8px}
+.mot-apps li{position:relative;display:grid;grid-template-columns:1fr auto auto;gap:4px 10px;align-items:baseline;padding:10px 12px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--border)}
+.mot-apps li i{position:absolute;left:12px;bottom:6px;height:4px;border-radius:3px;background:var(--accent,#ffc828);max-width:calc(100% - 24px)}
+.mot-apps small{color:var(--muted);font-size:12px}
+.mot-compartilha{width:100%;margin:12px 0 0}
+
+/* v103: na Análise do celular, os gráficos vêm primeiro; convites de limite e meta ficam no fim */
+@media (max-width:700px){
+  .wrap[data-view="analise"] #analiseTopo{order:0}
+  .wrap[data-view="analise"] #grafSobraSec{order:1}
+  .wrap[data-view="analise"] #graficos{order:2}
+  .wrap[data-view="analise"] #evoPanel{order:3}
+  .wrap[data-view="analise"] #kpis{order:4}
+  .wrap[data-view="analise"] #insight{order:5}
+  .wrap[data-view="analise"] #teto{order:6}
+  .wrap[data-view="analise"] #metas{order:7}
+  .wrap[data-view="analise"] .lim-aviso{display:none}   /* os limites estourados já aparecem na barra de cada categoria */
+}
+
+.mot-real{margin:8px 0 0;padding:9px 11px;border-radius:12px;background:rgba(0,0,0,.12);font-size:13.5px;line-height:1.4}
+.mot-real.ok{background:rgba(21,115,71,.18)} .mot-real.longe{background:rgba(120,30,20,.22);border:1px solid rgba(120,30,20,.45)}
+/* v103: alvos de toque de pelo menos 44 px nos botões pequenos do celular (o texto não muda de tamanho, só a área que responde ao dedo) */
+@media (max-width:700px){
+  .voltar-pill,#listaVoltar,#analiseVoltar{min-height:44px}
+  button.ln,#tetoUsar,.link.sm{position:relative}
+  button.ln::after,#tetoUsar::after{content:"";position:absolute;inset:-11px -6px}
+}
+/* v103: conta nova mostra só o convite para começar; o resto aparece quando houver o que mostrar */
+.wrap[data-vazio="1"] #venc,.wrap[data-vazio="1"] #dia,.wrap[data-vazio="1"] #instCard{display:none}
+/* o passo a passo de boas-vindas tem o próprio Pular: sem o Voltar solto no alto */
+dialog:has(.tour) .dlg-barra{display:none}

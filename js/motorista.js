@@ -5,7 +5,7 @@ import { custoDoVeiculo } from "./extras.js";
 
 const r2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const pad = (n) => String(n).padStart(2, "0");
-export const APPS = [["uber", "Uber"], ["99", "99"], ["indrive", "inDrive"], ["outros", "Outros"]];
+export const APPS = [["uber", "Uber"], ["99", "99"], ["indrive", "inDrive"], ["ifood", "iFood"], ["rappi", "Rappi"], ["particular", "Particular"], ["outros", "Outros"]];
 export const TIPOS_GASTO = [["comb", "Combustível"], ["pedagio", "Pedágio"], ["estac", "Estacionamento"], ["outros", "Outros"]];
 export const MAX_TURNOS = 400;
 export const somaValores = (o) => r2(Object.values(o || {}).reduce((t, v) => t + (Number(v) > 0 ? Number(v) : 0), 0));
@@ -99,4 +99,84 @@ export function ritmoAoVivo({ ganho, gastos, ms, liquidoDia = 0, horasDia = 8 })
   const liquidoPorHora = ok ? r2(liquido / h) : null;
   const veredito = liquidoPorHora !== null && minimo > 0 && h >= 0.25 ? (liquidoPorHora >= minimo ? "bom" : "abaixo") : null;
   return { liquido, porHora: ok ? r2(ganho / h) : null, liquidoPorHora, minimo, veredito };
+}
+
+/**
+ * "Vale a pena essa corrida?": antes de aceitar, o motorista digita o valor, os km (contando o caminho até o passageiro) e os minutos.
+ * Desconta o que o carro gasta por km rodado e compara o que sobra por hora com o mínimo da meta do dia.
+ * Sem meta, compara o valor por km com o custo por km. É uma ajuda para decidir: quem aceita ou recusa é sempre o motorista.
+ */
+export function valeAPena({ valor, km, min, custoKm = 0, minimoHora = 0 }) {
+  valor = Number(valor); km = Number(km); min = Number(min);
+  if (!(valor > 0) || !(km > 0)) return null;
+  const gasto = r2(km * (custoKm || 0)), liquido = r2(valor - gasto), porKm = r2(valor / km), liquidoPorKm = r2(liquido / km);
+  const liquidoPorHora = min > 0 ? r2(liquido / (min / 60)) : null;
+  let nivel;
+  if (liquido <= 0) nivel = "ruim";
+  else if (minimoHora > 0 && liquidoPorHora !== null) nivel = liquidoPorHora >= minimoHora * 1.15 ? "boa" : liquidoPorHora >= minimoHora * 0.85 ? "media" : "ruim";
+  else if (custoKm > 0) nivel = porKm >= custoKm * 2 ? "boa" : porKm >= custoKm * 1.3 ? "media" : "ruim";
+  else nivel = "sem-base";
+  return { gasto, liquido, porKm, liquidoPorKm, liquidoPorHora, nivel };
+}
+
+/** Quanto cada aplicativo rendeu no período, do maior para o menor, com a parte de cada um no total. */
+export function ganhoPorApp(turnos, de, ate) {
+  const por = {};
+  (turnos || []).filter((t) => t.fim && isoLocal(t.ini) >= de && isoLocal(t.ini) <= ate).forEach((t) => { for (const [k, v] of Object.entries(t.apps || {})) if (Number(v) > 0) por[k] = r2((por[k] || 0) + Number(v)); });
+  const total = r2(Object.values(por).reduce((a, b) => a + b, 0));
+  return Object.entries(por).map(([app, ganho]) => ({ app, ganho, pct: total > 0 ? Math.round((ganho / total) * 100) : 0 })).sort((a, b) => b.ganho - a.ganho);
+}
+
+/** O dia da semana em que a hora rendeu mais (precisa de pelo menos 2 dias diferentes para comparar). Devolve { dia: 0..6, ganhoPorHora } ou null. */
+export function melhorDiaDaSemana(turnos, de, ate) {
+  const por = new Map();
+  (turnos || []).filter((t) => t.fim && isoLocal(t.ini) >= de && isoLocal(t.ini) <= ate).forEach((t) => {
+    const d = new Date(t.ini).getDay(), a = por.get(d) || { ganho: 0, ms: 0, datas: new Set() };
+    a.ganho += ganhoDoTurno(t); a.ms += duracaoMs(t); a.datas.add(isoLocal(t.ini)); por.set(d, a);
+  });
+  const cand = [...por.entries()].filter(([, a]) => a.ms >= 3600000).map(([dia, a]) => ({ dia, ganhoPorHora: r2(a.ganho / (a.ms / 3600000)) })).sort((x, y) => y.ganhoPorHora - x.ganhoPorHora);
+  return cand.length >= 2 ? cand[0] : null;
+}
+
+/**
+ * O ritmo real de quem roda: a média dos dias trabalhados nos últimos `janela` dias (turnos encerrados, agrupados por dia).
+ * É com isso que a meta é conferida: um número só serve se a pessoa consegue chegar nele.
+ */
+export function ritmoHistorico(turnos, ate, janela = 30) {
+  const ini = isoLocal(new Date(`${ate}T12:00:00`).getTime() - (janela - 1) * 864e5);
+  const por = new Map();
+  (turnos || []).filter((t) => t.fim && isoLocal(t.ini) >= ini && isoLocal(t.ini) <= ate).forEach((t) => {
+    const d = isoLocal(t.ini), a = por.get(d) || { ganho: 0, ms: 0 }; a.ganho += ganhoDoTurno(t); a.ms += duracaoMs(t); por.set(d, a);
+  });
+  const dias = [...por.values()].filter((a) => a.ganho > 0);
+  if (dias.length < 2) return null;
+  const ganho = dias.reduce((s, a) => s + a.ganho, 0), ms = dias.reduce((s, a) => s + a.ms, 0);
+  return { dias: dias.length, ganhoMedioDia: r2(ganho / dias.length), melhorDia: r2(Math.max(...dias.map((a) => a.ganho))), ganhoPorHora: ms > 0 ? r2(ganho / (ms / 3600000)) : null };
+}
+
+/**
+ * A meta do dia cabe no seu ritmo? Compara o bruto por dia que a meta pede com a média e o melhor dia da pessoa.
+ *  ok: até 10% acima da média · puxado: acima da média, mas dentro do melhor dia · fora: acima do melhor dia · sem-historico: poucos turnos.
+ * Também diz quanto sobraria até o fim do mês no ritmo atual (líquido = bruto médio menos o que o carro gasta por dia).
+ */
+export function alcanceDaMeta({ meta, hist, custoDia = 0 }) {
+  if (!meta || meta.coberto || !(meta.brutoDia > 0)) return { nivel: "coberta" };
+  if (!hist) return { nivel: "sem-historico" };
+  const nivel = meta.brutoDia <= hist.ganhoMedioDia * 1.1 ? "ok" : meta.brutoDia <= hist.melhorDia ? "puxado" : "fora";
+  const liquidoMedioDia = r2(hist.ganhoMedioDia - (custoDia || 0)), projeta = r2(Math.max(0, liquidoMedioDia) * meta.dias);
+  return { nivel, liquidoMedioDia, projeta, faltaAinda: r2(Math.max(0, meta.falta - projeta)) };
+}
+
+/**
+ * Quantos km por mês a pessoa realmente roda, pelos turnos dos últimos 30 dias. Só com pelo menos 14 dias de uso (antes disso, o número engana).
+ * Serve para atualizar o "Meu carro ou moto" quando ela passa a rodar mais ou menos do que informou. Arredonda de 10 em 10 km.
+ */
+export function kmRealPorMes(turnos, ate) {
+  const t = (turnos || []).filter((x) => x.fim && Number(x.km) > 0 && isoLocal(x.ini) <= ate);
+  if (!t.length) return null;
+  const dia = (iso) => new Date(`${iso}T12:00:00`).getTime(), primeiro = isoLocal(Math.min(...t.map((x) => x.ini)));
+  const dias = Math.min(30, Math.round((dia(ate) - dia(primeiro)) / 864e5) + 1);
+  if (dias < 14) return null;
+  const ini = isoLocal(dia(ate) - 29 * 864e5), total = t.filter((x) => isoLocal(x.ini) >= ini).reduce((s2, x) => s2 + Number(x.km), 0);
+  return Math.round(((total / dias) * 30) / 10) * 10;
 }

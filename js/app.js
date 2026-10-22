@@ -11,9 +11,10 @@ import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.
 import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas, leFaturaPdf } from "./extratopdf.js";
 import { saldosDoCasal } from "./casalvisao.js";
 import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefoi.js";
-import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas } from "./arrumar.js";
+import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas, contasQueSeRepetem } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
-import { msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo } from "./motorista.js";
+import { NOVIDADES } from "./novidades.js";
+import { msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -501,7 +502,7 @@ function demoMotorista() {
 function startDemo() {
   try { sessionStorage.setItem("cg-modo", "demo"); } catch { /* nada */ }
   let mot = false; try { mot = sessionStorage.getItem("cg-demo-mot") === "1"; } catch { /* nada */ }
-  const store = mot ? createLocalStore("cg-demo-mot-v1", demoMotorista()) : createLocalStore("cg-demo-v10", demoSeed(hoje()));
+  const store = mot ? createLocalStore("cg-demo-mot-v1", demoMotorista()) : createLocalStore("cg-demo-v12", demoSeed(hoje()));
   startApp(store, "Demonstração");
   showBanner(`Demonstração com dados de exemplo.`,
     [...(S.semLogin ? [] : [["Criar conta", contaAPartirDaDemo]]), ["Recomeçar", () => { store.reset(); startDemo(); }]], "fina");
@@ -693,6 +694,7 @@ function render() {
   // No celular aparece uma tela por vez; a barra de baixo mostra onde a pessoa está.
   // Barra de baixo: Início · Ferramentas · + · Mercado · Mais. Extrato, Planejar, Cartões e Contas fixas ficam na faixa "Ir para" do Início.
   const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab;
+  app.dataset.vazio = S.loaded && !S.data.lancamentos.length && !S.data.fixos.length && !(S.data.faturas || []).length ? "1" : "0";   // conta nova: o Início mostra só o que ajuda a começar
   corDaBarra(S.view === "listas" && S.tab === "mot" && noCelular());   // tela cheia: a barra de cima do celular acompanha a cor da tela
   // Fora do Início, o Voltar do celular precisa de uma entrada no histórico para voltar ao Início (e não fechar o app).
   // Vale também quando a tela mudou por um atalho (gráfico, limite, fatura salva), e não só pela barra de baixo.
@@ -943,7 +945,8 @@ function renderKpis(c) {
   ${htmlCartoesIni()}
   <nav class="ir-para" aria-label="Ir para">
     <button type="button" data-atalho="ext">${ico("saldo")}<span>Extrato</span></button>
-    <button type="button" data-atalho="plan">${ico("grafico")}<span>Planejar</span></button>
+    ${noCelular() ? `<button type="button" data-atalho="graficos">${ico("grafico")}<span>Gráficos</span></button>` : ""}
+    <button type="button" data-atalho="plan">${ico("alvo")}<span>Planejar</span></button>
     <button type="button" data-atalho="cart">${ico("cartao")}<span>Cartões</span></button>
     <button type="button" data-atalho="fixas">${ico("fixo")}<span>Contas fixas</span></button>
     <button type="button" data-atalho="cal">${ico("agenda")}<span>Calendário</span></button>
@@ -959,7 +962,7 @@ function renderKpis(c) {
   ligaMercadoIni();
   if ($("usaMetaIni")) $("usaMetaIni").onclick = () => usaMeta(Number($("usaMetaIni").dataset.valor), () => {});
   $("resumo").querySelectorAll("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
-  $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), cal: () => calendario(mKey(hoje())), motorista: motoristaTela })[b.dataset.atalho]()));
+  $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), cal: () => calendario(mKey(hoje())), motorista: motoristaTela })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
@@ -1003,8 +1006,8 @@ function renderDia(c) {
   host.innerHTML = `<div class="dia${seq.feitoHoje ? " feito" : ""}">
     <span class="ava ${seq.feitoHoje ? "in" : "res"}">${ico(seq.feitoHoje ? "ok" : "dia")}</span>
     <div class="tx"><b>${titulo}</b><span>${sub}</span>${seqTxt ? `<span class="seq">${ico("fogo")}${seqTxt}</span>` : ""}${ult ? `<button class="link" type="button" id="diaRepetir" style="justify-self:start;text-align:left">Repetir: ${esc(ult.descricao || ult.categoria)} · ${brl(ult.valor)}</button>` : ""}</div>
-    <div class="acoes"><button class="btn sm primary" type="button" id="diaLancar">Lançar gasto</button>${g.n || zero ? "" : `<button class="btn sm" type="button" id="diaZero">Não gastei nada</button>`}</div></div>`;
-  $("diaLancar").onclick = () => { S.tipo = "Despesa"; renderForm(); if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } };
+    <div class="acoes">${noCelular() ? "" : `<button class="btn sm primary" type="button" id="diaLancar">Lançar gasto</button>`}${g.n || zero ? "" : `<button class="btn sm" type="button" id="diaZero">Não gastei nada</button>`}</div></div>`;
+  if ($("diaLancar")) $("diaLancar").onclick = () => { S.tipo = "Despesa"; renderForm(); if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } };
   if ($("diaRepetir")) $("diaRepetir").onclick = () => repeteLancamento(ult);
   if ($("diaZero")) $("diaZero").onclick = () => {
     S.prefs.semGasto = [...new Set([...(S.prefs.semGasto || []), hj])].sort().slice(-90);   // guarda só os últimos 90 dias
@@ -1689,7 +1692,9 @@ function cartaoDoMes(c, host) {
 /* ---------- últimos meses: entradas e custo lado a lado, e a sobra embaixo ---------- */
 function renderEvo() {
   const painel = $("evoPanel"), host = $("chEvo");
-  const meses = S.loaded ? ultimosMeses(S.data, S.mes, hoje()) : [];
+  let meses = S.loaded ? ultimosMeses(S.data, S.mes, hoje()) : [];
+  let ini = 0; while (ini < meses.length - 2 && !(meses[ini].rec > 0) && !(meses[ini].custo > 0)) ini++;   // meses vazios no começo só atrapalham a leitura
+  meses = meses.slice(ini);
   painel.hidden = meses.length < 2;   // um mês só não é evolução
   if (meses.length < 2) { host.innerHTML = ""; return; }
   const max = Math.max(...meses.flatMap((x) => [x.rec, x.custo]), 1), alt = (v) => (v > 0 ? Math.max(2, (v / max) * 100).toFixed(1) : 0);
@@ -2299,13 +2304,13 @@ $("bnav").addEventListener("click", (e) => {
 });
 /** Celular: abre a tela Análise do mês (a partir do Início ou do Planejar); o Voltar devolve para onde a pessoa estava. */
 function abrirAnalise() {
-  S.analiseDe = S.view === "listas" && S.tab === "m" ? "m" : "inicio";
+  S.analiseDe = S.view === "listas" && S.tab === "m" ? "m" : S.view === "mais" ? "mais" : "inicio";
   S.view = "analise";
   try { if (!history.state?.sub) history.pushState({ sub: true }, ""); } catch { /* sem histórico: o botão Voltar da tela resolve */ }
   render(); scrollTo(0, 0);
 }
 function sairDaAnalise() {
-  if (S.analiseDe === "m") { S.view = "listas"; S.tab = "m"; } else S.view = "inicio";
+  if (S.analiseDe === "m") { S.view = "listas"; S.tab = "m"; } else S.view = S.analiseDe === "mais" ? "mais" : "inicio";
   render(); scrollTo(0, 0);
 }
 $("irAnaliseBtn").onclick = abrirAnalise;
@@ -2336,16 +2341,49 @@ const GRUPOS_FERR = [
     { id: "calc", k: "ferias decimo terceiro juros parcelas rendimento investir divida simulador", ico: "calc", t: "Calculadoras", s: "Rendimento, parcelas, juros, férias e 13º" },
     { id: "dica", k: "habito economia ideia", ico: "luz", t: "Dica do dia", s: "Um hábito pequeno por dia para guardar dinheiro" }] },
   { titulo: "Entender e comemorar", itens: [
+    { id: "graficos", k: "graficos grafico analise mes custo categoria sobra evolucao ultimos meses", ico: "grafico", t: "Gráficos do mês", s: "Sobra, custo acumulado, categorias e últimos meses" },
     { id: "pof", k: "para onde foi dinheiro gastei categoria mes anterior onde errei melhorar compara", ico: "grafico", t: "Para onde foi o dinheiro", s: "Quanto gastou, o que mudou desde o mês passado e o que fazer" },
     { id: "desemp", k: "comparar evolucao", ico: "rumo", t: "Meu desempenho", s: "O seu mês em frases, comparado com os outros" },
     { id: "ano", k: "anual relatorio ano", ico: "grafico", t: "Resumo do ano", s: "Mês a mês, melhor e pior mês e para onde foi o dinheiro" },
     { id: "assin", k: "assinaturas streaming netflix spotify recorrente mensalidade cobranca renovacao academia aplicativo", ico: "fixo", t: "Assinaturas", s: "O que se repete todo mês e quanto custa por ano" },
     { id: "conq", k: "medalhas premios", ico: "medalha", t: "Conquistas", s: "As medalhas que você já ganhou e as próximas" }] },
   { titulo: "Levar com você", itens: [
-    { id: "share", k: "imagem compartilhar redes status", ico: "baixar", t: "Compartilhar meu mês", s: "Uma imagem do seu mês, com ou sem os valores" },
+    { id: "share", k: "imagem compartilhar redes status", ico: "imagem", t: "Compartilhar meu mês", s: "Uma imagem do seu mês, com ou sem os valores" },
     { id: "btnExport", k: "excel pdf csv planilha exportar baixar", ico: "baixar", t: "Baixar relatório", s: "Excel, PDF ou CSV" },
     { id: "copia", k: "backup restaurar seguranca", ico: "baixar", t: "Cópia de segurança", s: "Baixe tudo num arquivo e restaure quando precisar" }] },
 ];
+/**
+ * Telas que reúnem várias ferramentas parecidas, para o menu Mais não ter 30 linhas.
+ * Cada uma abre uma tela cheia com as opções e uma frase dizendo para que serve cada uma.
+ */
+const HUBS = {
+  conferir: { ico: "lupa", t: "Conferir meus lançamentos", s: "Tirar o que está repetido e dar categoria ao que ficou em \"Outros\"", k: "arrumar limpar corrigir revisar conferir repetido duplicado outros categoria transferencia",
+    intro: "Deixe os lançamentos certos para os números do app baterem com a sua vida.", itens: ["arrumar", "revisar"] },
+  analise: { ico: "rumo", t: "Análise do seu dinheiro", s: "Para onde foi, como você está indo, o ano e as assinaturas", k: "analise relatorio comparar evolucao ano assinaturas conquistas onde gastei",
+    intro: "Escolha o que você quer entender.", itens: ["graficos", "pof", "desemp", "ano", "assin", "conq"] },
+  baixar: { ico: "baixar", t: "Baixar e guardar", s: "Relatório em Excel, PDF ou CSV e cópia de segurança", k: "excel pdf csv planilha exportar baixar backup restaurar seguranca",
+    intro: "Leve os seus dados com você ou guarde uma cópia.", itens: ["btnExport", "copia"] },
+};
+const GRUPOS_MAIS = [
+  { titulo: "Seu dia a dia", ids: ["motorista", "mercado", "veiculo", "casa"] },
+  { titulo: "Conferir e entender", ids: ["conferir", "analise", "revisao", "msg"] },
+  { titulo: "Guardar e planejar", ids: ["desafio", "calc"] },
+  { titulo: "Levar com você", ids: ["share", "baixar"] },
+];
+const TODAS_FERR = () => [...GRUPOS_FERR.flatMap((g) => g.itens), ...Object.entries(HUBS).map(([id, h]) => ({ id, ...h }))];
+function hubTela(id) {
+  const h = HUBS[id]; if (!h) return;
+  const todas = TODAS_FERR(), linha = (x) => `<button class="mais-item" type="button" data-go="${x.id}"><span class="ic-box">${ico(x.ico || "lupa")}</span><span class="tx"><b>${esc(x.t)}</b><span>${x.s}</span></span>${ico("chev")}</button>`;
+  openDlg(`<h3>${esc(h.t)}</h3><p class="hint" style="margin:0 2px 12px">${esc(h.intro)}</p>
+    <div class="caixa-mais">${h.itens.map((i) => todas.find((x) => x.id === i)).filter(Boolean).map(linha).join("")}</div>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  $("dlg").querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { const alvo = b.dataset.go; $("dlg").close(); setTimeout(() => vaiPara(alvo), 120); }));
+}
+function novidadesTela() {
+  openDlg(`<h3>Novidades</h3><p class="hint" style="margin:0 0 12px">Você está na versão ${esc(APP_VERSAO)}. O app se atualiza sozinho.</p>
+    ${NOVIDADES.slice(0, 3).map((v) => `<h4 class="ferr-h">Versão ${esc(v.versao)}</h4><ul class="casal-pontos">${v.itens.map((i) => `<li>${esc(i)}</li>`).join("")}</ul>`).join("")}
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+}
 /** Outras telas do app que a busca geral também sabe abrir. */
 const DESTINOS = [
   { id: "l", t: "Extrato", s: "Todos os lançamentos do mês", k: "lancamentos gastos historico lista" },
@@ -2357,16 +2395,19 @@ const DESTINOS = [
   { id: "casal", t: "Conta de casal", s: "Divida as contas com outra pessoa", k: "casal parceiro dividir compartilhar" },
   { id: "btnAjustes", t: "Ajustes e categorias", s: "Categorias, avisos, tema, letra e a sua conta", k: "configuracoes tema escuro letra contraste notificacao categorias conta senha" },
   { id: "btnAjuda", t: "Como usar", s: "Respostas para as dúvidas mais comuns", k: "ajuda duvida tutorial suporte" },
+  { id: "novidades", t: "Novidades", s: "O que mudou em cada versão", k: "novidades versao atualizacao mudou novo" },
   { id: "btnSugerir", t: "Sugerir melhoria ou correção", s: "Conte o que falta ou o que deu errado", k: "feedback problema erro sugestao" },
 ];
 /** Abre uma tela ou ferramenta pelo id: usado pela tela Mais, pelo botão Ferramentas e pela busca geral. */
 function vaiPara(k) {
-  const FER = { motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  if (HUBS[k]) return hubTela(k);
+  if (k === "novidades") return novidadesTela();
+  const FER = { graficos: () => (noCelular() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
   if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
 }
 /* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
 function buscaGeral() {
-  const todas = [...GRUPOS_FERR.flatMap((g) => g.itens), ...DESTINOS];
+  const todas = [...TODAS_FERR(), ...DESTINOS];
   const sugeridas = ["mercado", "calc", "l", "m", "f", "btnAjustes"].map((id) => todas.find((x) => x.id === id));
   const linha = (x) => `<button class="mais-item" type="button" data-go="${x.id}"><span class="ic-box">${ico(x.ico || "lupa")}</span><span class="tx"><b>${esc(x.t)}</b><span>${esc(x.s)}</span></span>${ico("chev")}</button>`;
   openDlg(`<h3>Buscar</h3>
@@ -2413,11 +2454,12 @@ function renderMais(c) {
       linha("c", "cartao", "Cartões e faturas", cartoes.length ? `${n(cartoes.length, "cartão", "cartões")}${c.fatT ? `, ${brl(c.fatT)} em faturas neste mês` : ""}` : "Cadastre o cartão e a fatura se monta sozinha", "card"),
       linha("cal", "agenda", "Calendário de vencimentos", "O que vence e o que entra em cada dia")])}
     ${grupo("Dividir as contas", [linha("casal", "casal", "Conta de casal", esc(resumoDoCasal()), S.casal?.situacao === "convidado" ? "aviso" : "")])}
-    ${GRUPOS_FERR.map((g) => grupo(g.titulo, g.itens.map((i) => linha(i.id, i.ico, i.t, i.s)))).join("")}
+    ${GRUPOS_MAIS.map((g) => grupo(g.titulo, g.ids.map((id) => TODAS_FERR().find((x) => x.id === id)).filter(Boolean).map((i) => linha(i.id, i.ico, i.t, i.s)))).join("")}
     ${grupo("Ajustes e ajuda", [
       appInstalado() ? "" : linha("btnInstall", "instalar", "Instalar o app no celular", "Ícone na tela inicial, abre em tela cheia e funciona sem internet"),
       linha("btnAjustes", "ajustes", "Ajustes e categorias", naDemo ? "Categorias, tema e saldo" : "Categorias, avisos, tema e a sua conta"),
       linha("btnAjuda", "ajuda", "Como usar", "Respostas para as dúvidas mais comuns"),
+      linha("novidades", "luz", "Novidades", `O que mudou na versão ${APP_VERSAO}`),
       linha("btnSugerir", "ideia", "Sugerir melhoria ou correção", "Conte o que falta ou o que deu errado"),
       linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
@@ -2761,7 +2803,7 @@ const corDaCat = (i, nome) => (nome && nome !== "Demais" ? corCat(nome) : "#7fa0
 function aneloDasCategorias(r) {
   let ate = 0;
   const fatias = r.categorias.map((x) => { const ini = ate; ate += x.pct; return `${corDaCat(0, x.nome)} ${ini}% ${Math.min(100, ate)}%`; });
-  return `<span class="pof-anel" role="img" aria-label="${esc(r.categorias.slice(0, 4).map((x) => `${x.nome} ${x.pct}%`).join(", "))}" style="background:conic-gradient(${fatias.join(",")})"><b>${r.gasto ? brl(r.base) : ""}</b></span>`;
+  return `<span class="pof-anel" role="img" aria-label="${esc(r.categorias.slice(0, 4).map((x) => `${x.nome} ${x.pct}%`).join(", "))}" style="background:conic-gradient(${fatias.join(",")})"><b>${r.gasto ? brl0(r.base) : ""}</b></span>`;
 }
 /** "▲ 12% a mais que setembro": a seta e as palavras dizem o mesmo que a cor, para quem não distingue cores. */
 function pilulaDaDiferenca(r) {
@@ -3263,6 +3305,7 @@ function htmlCartoesIni() {
 /** Lista de mercado no Início: anota o item na hora e, no mercado, é só abrir a lista e colocar os valores. */
 function htmlMercadoIni() {
   const l = listaDe(), falta = l.itens.filter((x) => !x.pego), precos = S.prefs.precosMercado || {};
+  if (!l.itens.length && noCelular()) return "";   // lista vazia: no celular ela mora em Mais > Lista de mercado, o Início fica mais curto
   const e = estimativaDaLista(l.itens, precos, 0), nCar = l.itens.length - falta.length;
   const res = !l.itens.length ? "Anote o que falta. No mercado, é só colocar os valores."
     : `${falta.length} ${falta.length === 1 ? "item para pegar" : "itens para pegar"}${nCar ? ` · ${nCar} no carrinho` : ""}${e.estimado > 0 ? ` · estimativa ${brl(e.estimado)}` : ""}`;
@@ -3468,9 +3511,18 @@ function meuVeiculo() {
     calcula: (v) => {
       const r = custoDoVeiculo(v); if (!r) return null;
       const transp = new Map(catMap(c)).get("Transporte") || 0, pctRenda = c.rec > 0 ? Math.round((r.bolso / c.rec) * 100) : null;
+      const real = kmRealPorMes(motDados().turnos, hoje()), usado = Number(v.kmMes) || 0;
+      const aviso = real && Math.abs(real - usado) / Math.max(usado, 1) >= 0.1 ? `<p class="hint" style="margin:10px 0 0">Pelos seus turnos, você roda cerca de <b>${real.toLocaleString("pt-BR")} km por mês</b>${usado ? ` (aqui está ${usado.toLocaleString("pt-BR")})` : ""}. <button class="link" type="button" data-usa-km="${real}">Usar ${real.toLocaleString("pt-BR")} km</button></p>` : "";
       return { rotulo: "Custa por mês", valor: brl(r.total), mini: [["Por dia", brl(r.porDia)], [r.porKm ? "Por km" : "Por ano", r.porKm ? brl(r.porKm) : brl(r.porAno)], ["Do seu bolso", brl(r.bolso)]],
-        fim: barrasDe(r.partes) + `<p class="hint" style="margin:10px 0 0">${r.desval > 0 ? `Dos ${brl(r.total)}, ${brl(r.desval)} é o valor que o veículo perde (não sai do bolso). ` : ""}${r.faltaFinanciamento > 0 ? `Ainda falta pagar ${brl(r.faltaFinanciamento)} do financiamento. ` : ""}${pctRenda !== null ? `O que sai do bolso equivale a <b>${pctRenda}%</b> do que entrou neste mês. ` : ""}${transp > 0 ? `No app, você lançou ${brl(transp)} em Transporte neste mês.` : ""}</p>` };
+        fim: aviso + barrasDe(r.partes) + `<p class="hint" style="margin:10px 0 0">${r.desval > 0 ? `Dos ${brl(r.total)}, ${brl(r.desval)} é o valor que o veículo perde (não sai do bolso). ` : ""}${r.faltaFinanciamento > 0 ? `Ainda falta pagar ${brl(r.faltaFinanciamento)} do financiamento. ` : ""}${pctRenda !== null ? `O que sai do bolso equivale a <b>${pctRenda}%</b> do que entrou neste mês. ` : ""}${transp > 0 ? `No app, você lançou ${brl(transp)} em Transporte neste mês.` : ""}</p>` };
     } });
+  // "Usar N km": atualiza o campo e a conta na hora, e guarda.
+  $("rcFim").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-usa-km]"); if (!b) return;
+    const campo = document.querySelector('#dlgBody [data-k="kmMes"]'); if (!campo) return;
+    campo.value = b.dataset.usaKm; campo.dispatchEvent(new Event("input", { bubbles: true })); campo.dispatchEvent(new Event("change", { bubbles: true }));
+    toast("Km por mês atualizado. O custo do carro foi recalculado.");
+  });
 }
 
 /* ---------- Modo motorista de aplicativo ---------- */
@@ -3492,6 +3544,61 @@ const somaPor = (lista, chave) => lista.reduce((o, x) => { o[x[chave]] = round2(
 let motPer = "dia", motRelogio = 0, motFechando = false, motSub = null;   // motSub: a subtela aberta ("ganho", "gasto" ou "ajustes")
 /** A tela do Modo motorista (uma aba de Extrato/Planejar, no mesmo jeito): abre pelo Mais, pelo Início ou pela busca. */
 function motoristaTela() { motSub = null; abrirSub("mot"); if (!noCelular()) $("listas").scrollIntoView({ block: "start" }); }
+/** Imagem do resultado do motorista (1080 × 1350), feita no aparelho. Com "esconder valores" mostra só horas, km, viagens e a parte do faturamento que vira lucro. */
+function desenhaResultadoMot(titulo, r, semValores) {
+  const W = 1080, H = 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const g = cv.getContext("2d"), fonte = (peso, tam) => `${peso} ${tam}px "Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif`;
+  const fundo = g.createLinearGradient(0, 0, W, H); fundo.addColorStop(0, "#12161c"); fundo.addColorStop(1, "#1f2a3a");
+  g.fillStyle = fundo; g.fillRect(0, 0, W, H);
+  g.fillStyle = "rgba(255,200,40,.10)"; g.beginPath(); g.arc(W - 100, 150, 330, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#fff"; g.textBaseline = "alphabetic";
+  g.font = fonte(600, 40); g.globalAlpha = 0.9; g.fillText("Meus Gastos · Modo motorista", 90, 130); g.globalAlpha = 1;
+  g.font = fonte(700, 66); g.fillText(titulo, 90, 240);
+  const pct = r.ganho > 0 ? Math.round((r.lucro / r.ganho) * 100) : 0;
+  g.font = fonte(600, 50); g.globalAlpha = 0.9; g.fillText(semValores ? "Do que entrou, sobrou" : "Lucro", 90, 370); g.globalAlpha = 1;
+  g.fillStyle = "#ffc828"; g.font = fonte(800, 170); g.fillText(semValores ? `${pct}%` : brl0(r.lucro), 84, 530); g.fillStyle = "#fff";
+  const linhas = semValores
+    ? [["Horas rodadas", horasCurtas(r.ms)], ["Km rodados", `${virg(r.km)} km`], ["Viagens", String(r.viagens)]]
+    : [["Faturamento", brl0(r.ganho)], ["Horas rodadas", horasCurtas(r.ms)], ["Lucro por hora", r.lucroPorHora !== null ? brl(r.lucroPorHora) : "—"], ["Km rodados", `${virg(r.km)} km`], ["Viagens", String(r.viagens)]];
+  let y = 680;
+  linhas.forEach(([rot, v]) => { g.font = fonte(500, 44); g.globalAlpha = 0.85; g.fillText(rot, 90, y); g.globalAlpha = 1; g.textAlign = "right"; g.font = fonte(700, 46); g.fillText(v, W - 90, y); g.textAlign = "left"; y += 78; g.fillStyle = "rgba(255,255,255,.12)"; g.fillRect(90, y - 52, W - 180, 2); g.fillStyle = "#fff"; });
+  g.font = fonte(500, 34); g.globalAlpha = 0.85; g.fillText("meugastos.com.br/#motorista", 90, H - 70); g.globalAlpha = 1;
+  return cv;
+}
+function compartilharResultadoMot(titulo, r) {
+  let semValores = false;
+  const pinta = () => { const cv = desenhaResultadoMot(titulo, r, semValores); $("motImg").src = cv.toDataURL("image/png"); return cv; };
+  openDlg(`<h3>Meu resultado</h3><p class="hint" style="margin:0 0 10px">Uma imagem para mandar no grupo de motoristas ou guardar. Ela é feita aqui no aparelho.</p>
+    <img id="motImg" class="fech-img" alt="Resultado do motorista: ${esc(titulo)}">
+    <label class="check" style="margin:10px 0 0"><input type="checkbox" id="motSem"> Esconder os valores (mostrar só horas, km e porcentagem)</label>
+    <div class="actions"><button class="btn" type="button" id="motBaixar">Baixar imagem</button><button class="btn primary" type="button" id="motShare">Compartilhar</button></div>`);
+  pinta();
+  $("motSem").onchange = () => { semValores = $("motSem").checked; pinta(); };
+  const arquivo = () => new Promise((ok) => pinta().toBlob((b) => ok(new File([b], "meu-resultado-motorista.png", { type: "image/png" })), "image/png"));
+  const baixa = async () => { const f = await arquivo(), a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+  $("motBaixar").onclick = baixa;
+  $("motShare").onclick = async () => {
+    const f = await arquivo();
+    if (navigator.canShare?.({ files: [f] })) { try { await navigator.share({ files: [f], text: "Meu resultado rodando de aplicativo, no Meus Gastos" }); } catch { /* a pessoa desistiu */ } }
+    else { await baixa(); toast("Este aparelho não compartilha imagens direto daqui. A imagem foi baixada: é só enviar pelo app que quiser."); }
+  };
+}
+/** A meta cabe no ritmo real da pessoa? Diz a verdade, mesmo quando a conta do mês não fecha só rodando. */
+function blocoRealidade(alc, hist, meta) {
+  if (alc.nivel === "sem-historico") return `<p class="mot-real">Ainda não dá para saber se essa meta é possível: depois de 2 dias rodados, o app compara com o seu ritmo real.</p>`;
+  if (alc.nivel === "ok") return `<p class="mot-real ok"><b>Cabe no seu ritmo:</b> você faz em média ${brl(hist.ganhoMedioDia)} por dia.</p>`;
+  if (alc.nivel === "puxado") return `<p class="mot-real"><b>É puxada:</b> fica acima da sua média (${brl(hist.ganhoMedioDia)} por dia), mas dentro do seu melhor dia (${brl(hist.melhorDia)}). Pede dias fortes.</p>`;
+  if (alc.nivel === "fora") return `<p class="mot-real longe"><b>Maior que o seu melhor dia (${brl(hist.melhorDia)}).</b> No seu ritmo normal, de ${brl(hist.ganhoMedioDia)} por dia, rodando esses ${meta.dias} dias sobrariam cerca de ${brl(alc.projeta)} e ainda faltariam ${brl(alc.faltaAinda)}. Só rodar não fecha o mês: vale rever os gastos ou as entradas.</p>`;
+  return "";
+}
+/** Quanto cada aplicativo rendeu e qual dia da semana rende mais por hora (só aparece com dados suficientes). */
+function blocoPorApp(turnos, de, ate) {
+  const apps = ganhoPorApp(turnos, de, ate), nomeApp = Object.fromEntries(APPS), melhor = melhorDiaDaSemana(turnos, "0000-01-01", ate);
+  const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+  if (!apps.length && !melhor) return "";
+  return `<h4 class="mot-h">Por aplicativo</h4>${apps.length ? `<ul class="mot-apps">${apps.map((a) => `<li><span>${esc(nomeApp[a.app] || a.app)}</span><b>${brl(a.ganho)}</b><small>${a.pct}%</small><i style="width:${Math.max(3, a.pct)}%"></i></li>`).join("")}</ul>` : ""}
+    ${melhor ? `<p class="hint">Nos seus turnos, ${DIAS[melhor.dia] === "sábado" || DIAS[melhor.dia] === "domingo" ? "o" : "a"} <b>${DIAS[melhor.dia]}</b> rende mais por hora: ${brl(melhor.ganhoPorHora)} de faturamento.</p>` : ""}`;
+}
 function paneMot() {
   clearInterval(motRelogio); const host = $("pane-mot");
   if (motFechando && motDados().ativo) return paneFechar(host);
@@ -3502,6 +3609,9 @@ function paneMot() {
   const doDia = resumoTurnos(m.turnos, hj, hj, veicD);
   const caixaHoje = round2(m.turnos.filter((t) => t.fim && isoLocal(t.ini) === hj).reduce((s, t) => s + ganhoDoTurno(t) - (Number(t.comb) || 0), 0));
   const meta = metaDoDia({ saldoSemHoje: round2(c.saldo - caixaHoje), extra: m.extra, restam: c.n - c.dias + 1, diasSemana: m.diasSemana, kmDia: kmPorDia(m.turnos, veicD, m.diasSemana), custoKm: cvk });
+  const ritmo = ritmoHistorico(m.turnos, hj), alc = alcanceDaMeta({ meta, hist: ritmo, custoDia: meta.custoDia });
+  // Se a meta está acima do melhor dia da pessoa, o "está valendo a pena?" compara com o ritmo normal dela: cobrar um número que ela não alcança só desanima.
+  const liqRef = alc.nivel === "fora" && alc.liquidoMedioDia > 0 ? alc.liquidoMedioDia : meta.liquidoDia, refNormal = alc.nivel === "fora" && alc.liquidoMedioDia > 0;
   const ganhoHoje = round2(doDia.ganho + (m.ativo ? m.ativo.parcial : 0));   // inclui o turno que ainda está rolando
   const pctHoje = meta.brutoDia > 0 ? Math.min(100, Math.round((ganhoHoje / meta.brutoDia) * 100)) : 100;
   const de = motPer === "dia" ? hj : motPer === "semana" ? toISO(new Date(agora - 6 * 864e5)) : `${mes}-01`;
@@ -3509,12 +3619,16 @@ function paneMot() {
   // O quadro do turno em andamento: refeito a cada segundo, sem mexer nos campos de digitar.
   const vivo = () => {
     const ganho = m.ativo.parcial, gastos = gastosDaJornada(m.ativo), ms = msAndamento(m.ativo);
-    const v = ritmoAoVivo({ ganho, gastos, ms, liquidoDia: meta.liquidoDia, horasDia: m.horasDia });
-    const frase = v.veredito === "bom" ? `Está valendo a pena: ${brl(v.liquidoPorHora)} por hora, acima dos ${brl(v.minimo)} que você precisa.`
-      : v.veredito === "abaixo" ? `Abaixo do que você precisa: ${brl(v.liquidoPorHora)} por hora, e a meta pede ${brl(v.minimo)}. Vale olhar horário e região.`
-      : v.minimo > 0 ? `Meta do dia: ${brl(v.minimo)} líquidos por hora, rodando ${m.horasDia}h. Depois de 15 minutos o app diz se está valendo a pena.` : "Suas contas do mês estão cobertas: o que entrar agora é sobra.";
+    const v = ritmoAoVivo({ ganho, gastos, ms, liquidoDia: liqRef, horasDia: m.horasDia });
+    const alvo = refNormal ? "o seu ritmo normal" : "o que você precisa";
+    const frase = v.veredito === "bom" ? `Está valendo a pena: ${brl(v.liquidoPorHora)} por hora, acima de ${alvo} (${brl(v.minimo)}).`
+      : v.veredito === "abaixo" ? `Abaixo de ${alvo}: ${brl(v.liquidoPorHora)} por hora, contra ${brl(v.minimo)}. Vale olhar horário e região.`
+      : v.minimo > 0 ? `${refNormal ? "Seu ritmo normal" : "Meta do dia"}: ${brl(v.minimo)} líquidos por hora, rodando ${m.horasDia}h. Depois de 15 minutos o app diz se está valendo a pena.` : "Suas contas do mês estão cobertas: o que entrar agora é sobra.";
+    const totalHoje = round2(doDia.ganho + ganho), bateu = meta.brutoDia > 0 && totalHoje >= meta.brutoDia, cobriu = ganho > 0 && ganho >= gastos && gastos > 0;
+    const aviso = bateu ? `<p class="mot-ver bom"><b>Meta do dia batida:</b> você fez ${brl(totalHoje)} e a meta era ${brl(meta.brutoDia)}. O que entrar agora é sobra.</p>`
+      : cobriu ? `<p class="mot-ver bom"><b>Os gastos de hoje já estão pagos.</b> Daqui para a frente é lucro.${meta.brutoDia > 0 ? ` Faltam ${brl(round2(meta.brutoDia - totalHoje))} para a meta do dia.` : ""}</p>` : "";
     return `<div class="mot-vivo"><div><small>Ganho</small><b>${brl(ganho)}</b></div><div><small>Gastos</small><b>${brl(gastos)}</b></div><div class="forte"><small>Líquido por hora</small><b>${tracos(v.liquidoPorHora, brl)}</b></div></div>
-      <p class="mot-ver ${v.veredito || ""}">${frase}</p>`;
+      ${aviso}<p class="mot-ver ${v.veredito || ""}">${frase}</p>`;
   };
   if (m.ativo) {   // jornada em andamento: uma tela só com o cronômetro, no estilo "dirigindo"
     const a = m.ativo, pausada = Boolean(a.pausaIni), gastosTot = gastosDaJornada(a);
@@ -3526,6 +3640,7 @@ function paneMot() {
       <div class="mot-rapidos">
         <button class="mot-rap" type="button" data-mot-sub="ganho"><small>Ganho do dia</small><b>${a.parcial ? brl(a.parcial) : "Informar"}</b></button>
         <button class="mot-rap" type="button" data-mot-acao="lancar"><small>Gastos da jornada · lançar</small><b>${gastosTot ? brl(gastosTot) : "Lançar gasto"}</b></button>
+        <button class="mot-rap larga" type="button" data-mot-sub="vale"><b>Vale a pena essa corrida?</b></button>
         <button class="mot-rap larga" type="button" data-mot-acao="ler"><b>Escanear nota ou QR code</b></button>
       </div>
       <div class="mot-fim"><button class="btn mot-grande parar" type="button" id="motParar">Encerrar jornada</button>
@@ -3549,6 +3664,7 @@ function paneMot() {
     ? `<section class="mot-meta ok"><small>Meta do mês</small><b>Contas do mês cobertas</b><p>Com o que já entrou, dá para pagar tudo o que vence até o fim de ${nomeMes(mes)}. O que você rodar agora é sobra.</p></section>`
     : `<section class="mot-meta"><small>Para fechar ${nomeMes(mes)} sem ficar no vermelho</small><b>${brl(meta.brutoDia)} <span>por dia rodado</span></b>
         <p>Faltam <b>${brl(meta.falta)}</b> para cobrir as contas em aberto. Rodando ${meta.dias} ${meta.dias === 1 ? "dia" : "dias"} (${m.diasSemana} por semana), são ${brl(meta.liquidoDia)} livres por dia${meta.custoDia > 0 ? `, mais ${brl(meta.custoDia)} que o carro gasta` : ""}. É uma estimativa.</p>
+        ${blocoRealidade(alc, ritmo, meta)}
         <div class="tbar"><i style="width:${pctHoje}%"></i></div><small>Hoje: ${brl(ganhoHoje)} de ${brl(meta.brutoDia)} (${pctHoje}%)</small></section>`;
   const tile = (rot, v, cls = "") => `<div class="mot-t ${cls}"><small>${rot}</small><b>${v}</b></div>`;
   const hist = m.turnos.filter((t) => t.fim).slice(-8).reverse().map((t) => { const rr = resumoTurnos([t], isoLocal(t.ini), isoLocal(t.ini), veicD);
@@ -3556,6 +3672,7 @@ function paneMot() {
       <button class="del x" type="button" data-mdel="${esc(t.id)}" aria-label="Apagar o turno de ${ddmm(isoLocal(t.ini))}" title="Apaga o turno e os lançamentos que ele criou">×</button></li>`; }).join("");
   host.innerHTML = `<div id="motRoot"><p class="mot-sub">Seu painel de corrida: horas, ganho e quanto sobra de verdade.</p>
     ${turno}${metaHtml}
+    <button class="mot-rap larga" type="button" data-mot-sub="vale"><small>Antes de aceitar</small><b>Vale a pena essa corrida?</b></button>
     <button class="mot-rap larga" type="button" data-mot-sub="ajustes"><small>Minha meta</small><b>Ajustar dias, horas e quanto quero sobrar</b></button>
     <h4 class="mot-h">Seu resultado</h4>
     <div class="mot-per" role="group" aria-label="Período">${[["dia", "Hoje"], ["semana", "7 dias"], ["mes", nomeMes(mes)]].map(([k, n]) => `<button type="button" data-per="${k}" aria-pressed="${motPer === k}">${n}</button>`).join("")}</div>
@@ -3566,8 +3683,10 @@ function paneMot() {
       ${tile("Km rodados", virg(r.km))}${tile("Lucro por km", tracos(r.lucroPorKm, brl))}
       ${tile("Viagens", String(r.viagens))}${tile("Ganho por viagem", tracos(r.ganhoPorViagem, brl))}
     </div>
+    ${blocoPorApp(m.turnos, de, hj)}
     ${temCarro ? `<p class="hint">O lucro já desconta o custo do carro, ${brl(custoDoVeiculo(veicD)?.total || 0)} por mês, do <b>Meu carro ou moto</b>.</p>`
       : `<p class="hint">Por enquanto o lucro desconta só os gastos que você lança no turno. Preencha o <b>Meu carro ou moto</b>, com os km por mês, e o app desconta o custo real do carro. <button class="link" type="button" id="motVeic">Preencher agora</button></p>`}
+    ${r.n ? `<button class="btn mot-compartilha" type="button" id="motImagem">Compartilhar meu resultado</button>` : ""}
     ${hist ? `<h4 class="mot-h">Últimos turnos</h4><ul class="itens apagaveis mot-hist">${hist}</ul>` : ""}
   </div>`;
   host.querySelectorAll("[data-mot-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.motAcao)));
@@ -3575,6 +3694,7 @@ function paneMot() {
   host.querySelectorAll("[data-per]").forEach((b) => (b.onclick = () => { motPer = b.dataset.per; render(); }));
   $("motIniciar").onclick = () => { const ini = Date.now(); gravaMot({ ...motDados(), ativo: { ini, parcial: 0, antes: S.data.lancamentos.filter((x) => x.data >= isoLocal(ini)).map((x) => x.id), pausado: 0, pausaIni: null } }); vibra(30); render(); scrollTo(0, 0); };
   if ($("motVeic")) $("motVeic").onclick = () => meuVeiculo();
+  if ($("motImagem")) $("motImagem").onclick = () => compartilharResultadoMot(motPer === "dia" ? "Hoje" : motPer === "semana" ? "Últimos 7 dias" : `${nomeMes(mes)[0].toUpperCase()}${nomeMes(mes).slice(1)}`, r);
   host.querySelectorAll("[data-mdel]").forEach((b) => armDelete(b, async () => {
     const mm = motDados(), t = mm.turnos.find((x) => x.id === b.dataset.mdel); if (!t) return;
     for (const id of [t.rid, ...(t.cids || [t.cid])].filter(Boolean)) if (lancPorId(id)) await apagaLancamento(id);
@@ -3603,7 +3723,30 @@ function fecharTurno() {
 function paneMotSub(host) {
   const m = motDados(), volta = motSai;
   const topo = (t, intro) => `<div id="motRoot"><button class="mot-voltar" type="button" id="motVolta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Voltar</button><h3 class="mot-h" style="margin:6px 0 4px">${t}</h3><p class="hint" style="margin:0 0 14px">${intro}</p>`;
-  if (motSub === "ajustes" || !m.ativo) {
+  if (motSub === "vale") {
+    const hj = hoje(), c = calcMes(S.data, mKey(hj), hj), veicD = S.prefs.veiculo || {}, cvk = custoVariavelPorKm(veicD) || 0;
+    const caixaHoje = round2(m.turnos.filter((t) => t.fim && isoLocal(t.ini) === hj).reduce((s2, t) => s2 + ganhoDoTurno(t) - (Number(t.comb) || 0), 0));
+    const meta = metaDoDia({ saldoSemHoje: round2(c.saldo - caixaHoje), extra: m.extra, restam: c.n - c.dias + 1, diasSemana: m.diasSemana, kmDia: kmPorDia(m.turnos, veicD, m.diasSemana), custoKm: cvk });
+    const alc = alcanceDaMeta({ meta, hist: ritmoHistorico(m.turnos, hj), custoDia: meta.custoDia });
+    const liqRef = alc.nivel === "fora" && alc.liquidoMedioDia > 0 ? alc.liquidoMedioDia : meta.liquidoDia, normal = alc.nivel === "fora" && alc.liquidoMedioDia > 0;
+    const minimoHora = liqRef > 0 && m.horasDia > 0 ? round2(liqRef / m.horasDia) : 0;
+    host.innerHTML = topo("Vale a pena essa corrida?", "Digite o que o app mostra. Conte o caminho até o passageiro nos km. Quem aceita ou recusa é sempre você.") +
+      `<form id="mvForm" class="dlg-form" autocomplete="off" onsubmit="return false"><label class="f">Valor da corrida (R$)<input class="in money" id="mvVal" inputmode="decimal" placeholder="0,00"></label>
+      <label class="f">Km no total (busca + corrida)<input class="in" id="mvKm" inputmode="decimal" placeholder="ex.: 8,5"></label>
+      <label class="f wide">Minutos no total<input class="in" id="mvMin" inputmode="numeric" placeholder="ex.: 22"></label></form>
+      <div id="mvRes" class="mot-vale" aria-live="polite"></div>
+      <p class="hint" style="margin:10px 0 0">${cvk > 0 ? `Desconta ${brl(cvk)} por km rodado (combustível, manutenção e pneus do seu <b>Meu carro ou moto</b>).` : `Para descontar o gasto do carro, preencha o <b>Meu carro ou moto</b> com os km por mês.`}${minimoHora > 0 ? ` Compara com os ${brl(minimoHora)} líquidos por hora ${normal ? "do seu ritmo normal (a meta do mês pede mais do que você costuma fazer)" : "que a sua meta do dia pede"}.` : ""}</p></div>`;
+    const calc = () => {
+      const r = valeAPena({ valor: nm($("mvVal").value), km: nm($("mvKm").value), min: nm($("mvMin").value), custoKm: cvk, minimoHora }), box = $("mvRes");
+      if (!r) { box.className = "mot-vale"; box.innerHTML = `<p class="hint" style="margin:0">Preencha o valor e os km para ver a conta.</p>`; return; }
+      const T = { boa: ["Boa corrida", "✓"], media: ["Corrida média", "●"], ruim: ["Corrida ruim", "▲"], "sem-base": ["Veja os números", "●"] }[r.nivel];
+      box.className = `mot-vale ${r.nivel}`;
+      box.innerHTML = `<b class="mot-vale-t"><span aria-hidden="true">${T[1]}</span> ${T[0]}</b>
+        <div class="mot-vale-g"><span><small>Por km</small><b>${brl(r.porKm)}</b></span><span><small>Sobra</small><b>${brl(r.liquido)}</b></span><span><small>Sobra por hora</small><b>${r.liquidoPorHora === null ? "—" : brl(r.liquidoPorHora)}</b></span></div>
+        <p>${r.nivel === "ruim" && r.liquido <= 0 ? "Não cobre nem o que o carro gasta nesse trajeto." : r.nivel === "ruim" ? "Rende menos do que você precisa por hora." : r.nivel === "boa" ? "Rende acima do que você precisa por hora." : r.nivel === "media" ? "Está perto do que você precisa por hora." : "Sem meta ou custo do carro, só dá para mostrar os números."}</p>`;
+    };
+    ["mvVal", "mvKm", "mvMin"].forEach((id) => $(id).addEventListener("input", calc)); calc(); $("mvVal").focus();
+  } else if (motSub === "ajustes" || !m.ativo) {
     host.innerHTML = topo("Minha meta", "O app usa isso para dizer quanto você precisa rodar por dia e quanto precisa render por hora.") +
       `<form id="motAjForm" class="dlg-form" autocomplete="off"><label class="f">Dias rodando por semana<select class="in" id="motDias">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option${n === m.diasSemana ? " selected" : ""}>${n}</option>`).join("")}</select></label>
       <label class="f">Horas por dia<select class="in" id="motHoras">${[4, 5, 6, 7, 8, 9, 10, 11, 12, 14].map((n) => `<option${n === m.horasDia ? " selected" : ""}>${n}</option>`).join("")}</select></label>
@@ -3611,7 +3754,7 @@ function paneMotSub(host) {
       <div class="actions wide"><button class="btn primary" type="submit">Salvar</button></div></form></div>`;
     $("motAjForm").addEventListener("submit", (e) => { e.preventDefault(); gravaMot({ ...motDados(), diasSemana: Number($("motDias").value) || 6, horasDia: Number($("motHoras").value) || 8, extra: Math.max(0, nm($("motExtra").value)) }); toast("Meta salva."); volta(); });
   } else if (motSub === "ganho") {
-    host.innerHTML = topo("Ganho do dia", "Some o que os apps (Uber, 99, inDrive) mostram até agora e digite aqui. Assim o app diz quanto você está rendendo por hora. No fim, você informa o total de cada app.") +
+    host.innerHTML = topo("Ganho do dia", "Some o que os apps (Uber, 99, iFood...) e as corridas particulares renderam até agora e digite aqui. Assim o app diz quanto você está rendendo por hora. No fim, você informa o total de cada app.") +
       `<form id="motGanho" class="dlg-form" autocomplete="off"><label class="f wide">Ganho do dia até agora (R$)<input class="in money" id="mgnVal" inputmode="decimal" placeholder="0,00" value="${m.ativo.parcial ? esc(virg(m.ativo.parcial)) : ""}"></label>
       <div class="actions wide"><button class="btn primary" type="submit">Salvar</button></div></form></div>`;
     $("motGanho").addEventListener("submit", (e) => {
@@ -3655,7 +3798,7 @@ function paneFechar(host) {
     if (f2 - i2 > 24 * 3600 * 1000 || f2 > Date.now() + 60000) return erro("Confira o horário: o turno passou de 24 horas ou termina no futuro.");
     const dia = isoLocal(i2), catR = cats("Receita").find((x) => /extra|app|motor/i.test(x)) || cats("Receita")[0];
     const base = { data: dia, import_key: null, cartao_id: null, parcelas: 1 }, rows = [];
-    if (ganho > 0) rows.push({ ...base, descricao: "Corridas: " + APPS.filter(([k]) => apps[k]).map(([, n]) => n).join(" + "), tipo: "Receita", categoria: catR, forma: "", valor: ganho });
+    if (ganho > 0) rows.push({ ...base, descricao: "Ganhos: " + APPS.filter(([k]) => apps[k]).map(([, n]) => n).join(" + "), tipo: "Receita", categoria: catR, forma: "", valor: ganho });
     let criados = [];
     if (rows.length && !(await grava(async () => { criados = await S.store.addLancamentos(rows); }))) return;
     criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) }));
@@ -3851,16 +3994,60 @@ const nomesDoParceiro = () => (casalAtivo() ? [nomeDoOutro(), nomeDoEmail(S.casa
 // Pix e débito que entraram como compra de cartão e o que ficou em "Outros" (por nome, de uma vez). Lógica em js/arrumar.js.
 function arrumarTela() {
   const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, ls = S.data.lancamentos, nome = S.prefs.meuNome || "";
-  const a = entreMinhasContas(ls, [nome, nomeDoEmail($("whoName").textContent)].filter(Boolean), nomesDoParceiro()), b = pixComoCartao(ls), c = gruposEmOutros(ls), d = repetidosDeImportacao(ls), nCopias = d.reduce((s, g) => s + g.copias.length, 0);
+  const a = entreMinhasContas(ls, [nome, nomeDoEmail($("whoName").textContent)].filter(Boolean), nomesDoParceiro()), b = pixComoCartao(ls), c = gruposEmOutros(ls), d = repetidosDeImportacao(ls), nCopias = d.reduce((s, g) => s + g.copias.length, 0), fixas = contasQueSeRepetem(ls, S.data.fixos, hoje());
   openDlg(`<h3>Arrumar lançamentos</h3>
     <p class="hint" style="margin:0 0 12px">Veja o que atrapalha as suas contas e arrume de uma vez. Nada muda sem você confirmar.</p>
     <div class="caixa-mais">
       ${opFerr("arA", "pessoa", casalAtivo() ? "Transferências entre as minhas contas e com o casal" : "Transferências entre as minhas contas", a.itens.length ? `${plural(a.itens.length, "lançamento", "lançamentos")}: entradas ${brl(a.entradas)} e saídas ${brl(a.saidas)} que não são ganho nem gasto` : nome ? "Nenhuma encontrada" : "Diga o seu nome para procurar")}
       ${opFerr("arB", "cartao", "Pix e débito que entraram como cartão", b.length ? `${plural(b.length, "lançamento", "lançamentos")} que não são compra de cartão` : "Nenhum encontrado")}
       ${opFerr("arC", "lupa", "Categorias em \"Outros\", por nome", c.length ? `${plural(c.length, "nome se repete", "nomes se repetem")}: escolha a categoria uma vez só` : "Nada repetido em Outros")}</div>
+      ${opFerr("arE", "fixo", "Contas que se repetem todo mês", fixas.length ? `${plural(fixas.length, "achada", "achadas")}: deixe como conta fixa e pare de lançar` : "Nenhuma encontrada")}
       ${opFerr("arD", "lixo", "Lançamentos em dobro", nCopias ? `${plural(nCopias, "cópia", "cópias")} de importação com o mesmo valor e dia` : "Nenhum em dobro")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
-  $("arA").onclick = arrumarMinhasContas; $("arB").onclick = arrumarPixComoCartao; $("arC").onclick = arrumarOutros; $("arD").onclick = arrumarRepetidos;
+  $("arA").onclick = arrumarMinhasContas; $("arB").onclick = arrumarPixComoCartao; $("arC").onclick = arrumarOutros; $("arD").onclick = arrumarRepetidos; $("arE").onclick = arrumarFixas;
+}
+/**
+ * Contas que se repetem todo mês (achadas nos lançamentos, sobretudo nos que vieram do extrato): a pessoa escolhe quais viram conta fixa.
+ * Os lançamentos antigos viram "pago" na conta fixa, para o mesmo gasto não contar duas vezes, e as chaves deles ficam guardadas para o mesmo
+ * extrato, se for importado de novo, não trazer tudo de volta.
+ */
+function arrumarFixas() {
+  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, achadas = contasQueSeRepetem(S.data.lancamentos, S.data.fixos, hoje()), marcados = new Set(achadas.map((g) => g.chave));
+  const linha = (g) => `<li><input type="checkbox" data-k="${esc(g.chave)}" checked aria-label="Virar conta fixa: ${esc(g.nome)}">
+    <span class="oque"><b>${esc(g.nome)}</b><span>${g.tipo === "Receita" ? "Entra" : "Sai"} todo mês, perto do dia ${g.dia} · ${plural(g.itens.length, "mês seguido", "meses seguidos")}${g.variavel ? " · o valor muda um pouco" : ""}</span></span>
+    <b class="v ${g.tipo === "Receita" ? "pos" : ""}">${brl(g.valor)}</b></li>`;
+  openDlg(`<div class="ext"><h3>Contas que se repetem</h3>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">O app achou lançamentos que aparecem todo mês, no mesmo valor e perto do mesmo dia. Como conta fixa, eles entram sozinhos nos próximos meses e aparecem nos vencimentos. Os lançamentos antigos ficam marcados como pagos, sem contar duas vezes. Gastos do dia a dia, como mercado e Pix, não entram aqui.</p>
+    ${achadas.length ? `<ul class="ext-lista">${achadas.map(linha).join("")}</ul>
+      <p class="auth-msg err" id="arFxMsg" style="margin:8px 0 0"></p>
+      <div class="actions" style="margin-top:12px"><button class="btn primary" type="button" id="arFxOk"></button>${voltaArrumar}</div>`
+      : `<div class="empty" style="margin-top:12px">Não achei contas que se repetem. Elas aparecem quando o mesmo lançamento vem em 2 meses seguidos.</div><div class="actions" style="margin-top:12px">${voltaArrumar}</div>`}</div>`);
+  $("arVolta").onclick = arrumarTela;
+  if (!achadas.length) return;
+  const conta = () => { $("arFxOk").textContent = marcados.size ? `Deixar ${plural(marcados.size, "conta", "contas")} como fixa${marcados.size === 1 ? "" : "s"}` : "Escolha ao menos uma"; $("arFxOk").disabled = !marcados.size; };
+  document.querySelectorAll("#dlgBody [data-k]").forEach((b) => (b.onchange = () => { b.checked ? marcados.add(b.dataset.k) : marcados.delete(b.dataset.k); conta(); }));
+  conta();
+  $("arFxOk").onclick = async () => {
+    const sel = achadas.filter((g) => marcados.has(g.chave)); if (!sel.length) return;
+    $("arFxOk").disabled = true; $("arFxOk").textContent = "Salvando…";
+    const chaves = [], apagados = new Set(), novosFixos = [], novosPagos = [];
+    const ok = await grava(async () => {
+      for (const g of sel) {
+        const criado = await S.store.addFixo({ tipo: g.tipo, descricao: g.nome, categoria: g.categoria, dia: g.dia, valor: g.valor, forma: g.tipo === "Receita" ? "" : (g.forma || "Pix"), desde: g.desde, ate: null });
+        novosFixos.push(criado);
+        for (const x of g.itens) {
+          const mes = `${mKey(x.data)}-01`; await S.store.setPago(criado.id, mes, true); novosPagos.push({ fixo_id: criado.id, mes });
+          await S.store.deleteLancamento(x.id); apagados.add(x.id); if (x.import_key) chaves.push(x.import_key);
+        }
+      }
+    });
+    // Mesmo se parou no meio, o que já foi feito entra na tela: nada fica pela metade sem aparecer.
+    S.data.fixos.push(...novosFixos); S.data.pagos.push(...novosPagos); S.data.lancamentos = S.data.lancamentos.filter((x) => !apagados.has(x.id));
+    if (chaves.length) { S.prefs.chavesLigadas = [...new Set([...(S.prefs.chavesLigadas || []), ...chaves])].slice(-800); await salvaPrefs(); }
+    render();
+    if (!ok) { $("arFxMsg").textContent = "Não consegui salvar tudo. O que já foi feito está na tela; tente de novo para o resto."; $("arFxOk").disabled = false; conta(); return; }
+    $("dlg").close(); toast(`${plural(sel.length, "conta virou fixa", "contas viraram fixas")}. Os meses anteriores ficaram como pagos.`);
+  };
 }
 /** Volta para o menu de arrumar quando a janela atual é fechada pelo botão Voltar. */
 const voltaArrumar = `<button class="btn" type="button" id="arVolta">Voltar</button>`;
@@ -5942,7 +6129,7 @@ function conferirConta(fonte, nomeArquivo) {
   // Categoria: primeiro o que a pessoa já usou para a mesma descrição; depois o palpite pelo nome.
   const historico = new Map();
   [...S.data.lancamentos].sort((a, b) => a.data.localeCompare(b.data)).forEach((x) => { if (x.descricao && x.tipo !== "Reserva") historico.set(`${x.tipo}|${norm(x.descricao)}`, x.categoria); });
-  const chaves = new Set(S.data.lancamentos.map((x) => x.import_key).filter(Boolean));
+  const chaves = new Set([...S.data.lancamentos.map((x) => x.import_key), ...(S.prefs.chavesLigadas || [])].filter(Boolean));   // inclui o que já virou conta fixa
   const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`;
   const formaDe = (m) => (m.tipo === "Receita" ? "" : m.forma === "Débito" ? "Débito" : m.forma === "Pix" || m.forma === "Transferência" ? "Pix" : /boleto/i.test(m.original) ? "Boleto" : "Débito");
   const monta = () => {
@@ -6020,6 +6207,7 @@ function conferirConta(fonte, nomeArquivo) {
       S.mes = mKey(ultimo); S.view = "listas"; S.tab = "l";
       $("dlg").close(); fecharLancar(); render();
       const s = sel.filter((x) => x.tipo === "Despesa").length, en = sel.length - s;
+      setTimeout(() => { const n = contasQueSeRepetem(S.data.lancamentos, S.data.fixos, hoje()).length; if (n) showBanner(`Achei ${plural(n, "conta que se repete", "contas que se repetem")} todo mês. Quer deixar como conta fixa?`, [["Ver", () => { showBanner(""); arrumarFixas(); }], ["Agora não", () => showBanner("")]]); }, 900);
       const nMeses = new Set(sel.map((x) => x.data.slice(0, 7))).size; toastOuFlash(`${plural(novos.length, "movimento lançado", "movimentos lançados")}: ${plural(s, "gasto", "gastos")} e ${plural(en, "entrada", "entradas")}${nMeses > 1 ? `, em ${nMeses} meses` : ""}.${marcar.length ? ` ${plural(marcar.length, "conta fixa marcada como paga", "contas fixas marcadas como pagas")}.` : ""}`);
     });
   };

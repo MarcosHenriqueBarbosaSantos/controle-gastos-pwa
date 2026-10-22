@@ -136,3 +136,49 @@ export function movimentosDeContasFixas(movimentos, fixos, pagos = []) {
   }
   return achados;
 }
+
+/** Gasto do dia a dia: mesmo repetindo valor e dia, não é conta fixa (o mercado do mês, o lanche, o posto). */
+const DIA_A_DIA_CAT = new Set(["Mercado", "Alimentação", "Roupas"]);
+const DIA_A_DIA_NOME = /\b(mercado|supermercado|atacadao|padaria|restaurante|lanchonete|ifood|rappi|lanche|pizzaria|acougue|hortifruti|feira|posto|combustivel|gasolina|uber|99)\b/;
+const UTILIDADE = /\b(luz|energia|enel|cemig|copel|cpfl|agua|sabesp|saneamento|gas|comgas|internet|vivo|claro|tim|oi|telefone|condominio)\b/;
+const semNumeros = (t) => norm(nomeDoLancamento(t)).replace(/[0-9]+/g, " ").replace(/\s+/g, " ").trim();
+const mediana = (v) => { const o = [...v].sort((a, b) => a - b), m = Math.floor(o.length / 2); return o.length % 2 ? o[m] : (o[m - 1] + o[m]) / 2; };
+const maisComum = (v) => { const c = new Map(); v.forEach((x) => c.set(x, (c.get(x) || 0) + 1)); return [...c.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] ?? ""; };
+
+/**
+ * Quem começa pelo extrato do banco não sabe dizer ao app o que é conta fixa e o que é gasto do dia. Aqui o app descobre: o que aparece uma vez por mês,
+ * com quase o mesmo valor e perto do mesmo dia, em pelo menos 2 meses seguidos (aluguel, internet, parcela, salário), é sugerido como conta fixa.
+ * Gasto do dia a dia (mercado, Pix para gente, combustível) aparece várias vezes no mês ou varia muito e fica de fora.
+ * Contas de luz, água, internet, telefone e condomínio podem variar até 40%; as outras, até 12% (ou R$ 3).
+ * Já fica de fora o que parece uma conta fixa cadastrada e o que parou de aparecer há mais de 2 meses.
+ * @returns {{chave:string, nome:string, tipo:string, categoria:string, forma:string, valor:number, dia:number, desde:string, variavel:boolean, itens:object[]}[]} do maior valor para o menor
+ */
+export function contasQueSeRepetem(lancamentos, fixos = [], hojeISO) {
+  const grupos = new Map();
+  for (const x of lancamentos || []) {
+    if ((x.tipo !== "Despesa" && x.tipo !== "Receita") || x.forma === CARTAO || x.cartao_id) continue;
+    const k = semNumeros(x.descricao); if (k.length < 3 || (x.tipo === "Despesa" && (DIA_A_DIA_CAT.has(x.categoria) || DIA_A_DIA_NOME.test(k)))) continue;
+    const g = grupos.get(`${x.tipo}|${k}`) || { tipo: x.tipo, k, l: [] }; g.l.push(x); grupos.set(`${x.tipo}|${k}`, g);
+  }
+  const limite = addM(mKey(hojeISO), -2), out = [];
+  for (const g of grupos.values()) {
+    const porMes = new Map(); g.l.forEach((x) => porMes.set(mKey(x.data), [...(porMes.get(mKey(x.data)) || []), x]));
+    if ([...porMes.values()].some((v) => v.length > 1)) continue;   // mais de uma vez no mês: é gasto do dia a dia
+    const meses = [...porMes.keys()].sort();
+    // A série vale a partir do último buraco: só os meses seguidos até o mais recente.
+    let ini = meses.length - 1; while (ini > 0 && addM(meses[ini - 1], 1) === meses[ini]) ini--;
+    const seguidos = meses.slice(ini); if (seguidos.length < 2 || seguidos[seguidos.length - 1] < limite) continue;
+    const itens = seguidos.map((m) => porMes.get(m)[0]), valores = itens.map((x) => Number(x.valor)), ref = mediana(valores);
+    const variavel = UTILIDADE.test(g.k), tol = variavel ? 0.4 : 0.12;
+    if (!valores.every((v) => Math.abs(v - ref) <= Math.max(ref * tol, variavel ? 0 : 3))) continue;
+    const dias = itens.map((x) => Number(x.data.slice(8, 10))), medLinear = mediana(dias);
+    const md = dias.every((d) => Math.abs(d - medLinear) <= 5) ? medLinear : dias[dias.length - 1];   // virando o mês (30 e 1), vale o dia mais recente
+    const perto = (a, b) => { const d = Math.abs(a - b); return Math.min(d, 31 - d) <= 5; };   // o dia 30 e o dia 1 estão perto (salário do fim do mês)
+    if (!dias.every((d) => perto(d, md))) continue;
+    const nome = arrumaNome(nomeDoLancamento(itens[itens.length - 1].descricao).replace(/^(pagamento de boleto efetuado|pagamento efetuado|compra no d[eé]bito|d[eé]bito autom[aá]tico)\s*(-|–|em)\s*/i, "")) || g.k, valor = variavel ? round2(ref) : round2(Number(itens[itens.length - 1].valor));
+    const jaTem = (fixos || []).some((f) => (f.tipo || "Despesa") === g.tipo && Math.abs(Number(f.valor) - valor) <= Math.max(valor * 0.4, 3) && (norm(f.descricao).includes(g.k) || g.k.includes(norm(f.descricao)) || Math.abs(Number(f.dia) - md) <= 5 && Math.abs(Number(f.valor) - valor) <= 0.5));
+    if (jaTem) continue;
+    out.push({ chave: `${g.tipo}|${g.k}`, nome, tipo: g.tipo, categoria: maisComum(itens.map((x) => x.categoria)), forma: maisComum(itens.map((x) => x.forma || "")), valor, dia: Math.round(md), desde: `${seguidos[0]}-01`, variavel, itens });
+  }
+  return out.sort((a, b) => b.valor - a.valor);
+}
