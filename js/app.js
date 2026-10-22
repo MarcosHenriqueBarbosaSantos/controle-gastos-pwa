@@ -5166,6 +5166,11 @@ function openDlg(html) {
     else try { if (!history.state?.dlg) { history.pushState({ ...(history.state || {}), dlg: true }, ""); S.dlgNoHist = true; } } catch { /* sem histórico: o Fechar resolve */ }
   }
 }
+// Editou um item que veio de um quadro de detalhe (Entradas, Contas fixas, Faturas...): ao fechar a edição, volta para o quadro.
+$("dlg").addEventListener("close", () => {
+  const volta = S.voltaDet; S.voltaDet = "";
+  if (volta) setTimeout(() => { if (!$("dlg").open) detalheKpi(volta); }, 60);
+});
 // "Pular e lançar um gasto agora", nos primeiros passos: fecha o guia e abre o lançamento, já no valor.
 $("dlgBody").addEventListener("click", (e) => {
   if (!e.target.closest("[data-ja-lancar]")) return;
@@ -5532,7 +5537,7 @@ function abreDetalhe(titulo, sub, secoes, ir) {
   if (de) $("detVoltar").onclick = () => detalheKpi(de);
   if (ir) $("detIr").onclick = () => { $("dlg").close(); S.view = "listas"; S.tab = ir[1]; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
   $("dlgBody").querySelectorAll("[data-ref]").forEach((li) => {
-    const abre = () => abrirItem(JSON.parse(li.dataset.ref));
+    const abre = () => { S.voltaDet = S.detTipo || ""; abrirItem(JSON.parse(li.dataset.ref)); };
     li.onclick = abre; li.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abre(); } };
   });
 }
@@ -5569,6 +5574,7 @@ const linhaCusto = (i) => { const [tag, tagCls] = tipoDoItem(i); return { d: ddm
 function detalheKpi(tipo, de = "") {
   if (!S.loaded) return;
   S.detDe = de;   // quem abriu (ex.: "saldo"): o quadro mostra um "Voltar" para lá
+  S.detTipo = tipo; S.voltaDet = "";
   const hj = hoje(), c = calcMes(S.data, S.mes, hj), mes = nomeMes(S.mes);
   if (tipo === "entradas") {
     const l = [...c.fr.map((f) => ({ data: f.data, t: f.descricao, s: f.categoria + (c.fase === "futuro" || (c.fase === "atual" && f.data > hj) ? " · a receber" : ""), valor: f.valor,

@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "119", itens: [
+    "Ao tocar num item dentro de Entradas, Contas fixas, Faturas ou Saldo e editar, você volta para a mesma lista, sem ter que abrir tudo de novo." ] },
   { versao: "118", itens: [
     "Em Cartões e faturas, tocar na linha da fatura abre as compras ou a edição." ] },
   { versao: "117", itens: [
