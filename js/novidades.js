@@ -1,5 +1,11 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "107", itens: [
+    "O aviso \"Quer recomeçar sem peso?\" no Início não fica mais escondido atrás dos botões de ação.",
+    "O topo do Início fala em palavras simples quando o mês está no vermelho: \"Gastou além do que entrou\".",
+    "O sinal de menos fica colado ao valor, sem pular de linha.",
+    "Lista de mercado dividida com o casal: o nome da pessoa não quebra mais em linhas estreitas.",
+    "Contas do casal mostra só o primeiro nome, sem cortar." ] },
   { versao: "106", itens: [
     "Lista de mercado por corredor: hortifruti, padaria, açougue, frios, mercearia, bebidas, limpeza e higiene, na ordem em que você anda no mercado.",
     "Repetir a última compra: um toque traz de volta os itens que você comprou, sem repetir os que já estão na lista.",

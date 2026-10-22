@@ -1031,7 +1031,7 @@ function pintaSim() {
   const sobra = BASE.entradas - sim.custo - sim.guardado, noFim = Math.round(BASE.entradas - sim.previsao - sim.guardado), pct = (v) => Math.min(100, (v / BASE.entradas) * 100) + "%";
   q("#simBarra").style.width = pct(sim.custo + sim.guardado); q("#simMarca").style.left = pct(sim.previsao + sim.guardado);
   q("#simMed").classList.toggle("estourou", noFim < 0);
-  q("#simRot").textContent = sobra >= 0 ? "Livre para gastar em outubro" : "Passou do que tinha para outubro";
+  q("#simRot").textContent = sobra >= 0 ? "Livre para gastar em outubro" : "Gastou além do que entrou em outubro";
   q("#simCusto").classList.toggle("neg", sobra < 0);
   q("#simPrev").innerHTML = sobra <= 0 ? `As saídas já passaram do que entra no mês. Hora de segurar os gastos.`
     : `Dá para gastar <b>${brl(sobra / BASE.faltam)}</b> por dia nos ${BASE.faltam} dias que faltam. ` + (noFim >= 0

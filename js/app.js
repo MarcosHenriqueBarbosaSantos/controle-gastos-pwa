@@ -27,7 +27,7 @@ const $ = (id) => document.getElementById(id);
 const NS = "http://www.w3.org/2000/svg";
 const brl = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const brl0 = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const sgn = (v) => (v < 0 ? "− " : "") + brl(Math.abs(v));
+const sgn = (v) => (v < 0 ? "−\u00a0" : "") + brl(Math.abs(v));   // espaço que não quebra: o sinal nunca fica sozinho no fim da linha
 const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const ddmm = (iso) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 const ddmmaa = (iso) => `${ddmm(iso)}/${iso.slice(2, 4)}`;
@@ -907,7 +907,7 @@ function renderKpis(c) {
   // Topo com cara de banco: o valor livre em destaque, a barra do quanto da sobra já foi usado (na cor do estado do mês),
   // o olho para esconder os valores e, logo abaixo, as ações rápidas e o resumo em três números.
   const sb = sobraDoMes(c), atualM = c.fase === "atual";
-  const rotulo = atualM ? (falta ? `Passou do que tinha para ${mesNome}` : `Livre para gastar em ${mesNome}`) : `${verbo} em ${mesNome}`;
+  const rotulo = atualM ? (falta ? `Gastou além do que entrou em ${mesNome}` : `Livre para gastar em ${mesNome}`) : `${verbo} em ${mesNome}`;
   const usado = sb.livre > 0 ? Math.min(100, Math.round((sb.usado / sb.livre) * 100)) : 100;
   const ocultos = valoresOcultos();
   // O traço na barra mostra onde o mês está (quantos dias já passaram); a barra, quanto da folga já foi usado.
@@ -940,7 +940,7 @@ function renderKpis(c) {
       <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
     <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
     ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
-    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? `de ${brl(sb.livre)} depois das contas` : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>` : ""}
+    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>` : ""}
     ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo && est.nivel !== "estourado" ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
   </div>
   ${(rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
@@ -3050,7 +3050,7 @@ function renderCasalIni(c) {
   host.hidden = false;
   host.innerHTML = `<div class="teto casal-card"><span class="topo"><span class="l">${ico("casal")}Contas do casal</span></span>
     <p class="hint" style="margin:0 0 8px;font-size:13px">O mês de cada um e dos dois juntos. A sobra de cada um não soma o que o outro ganha. O Pix entre vocês dois (categoria Casal) não entra em Juntos.</p>
-    <div class="cs-grade">${col("eu", "Eu", "eu")}${col("outro", outro, "outro")}${col("juntos", "Juntos", null)}</div></div>`;
+    <div class="cs-grade">${col("eu", "Eu", "eu")}${col("outro", String(outro || "").trim().split(/\s+/)[0] || "Outro", "outro")}${col("juntos", "Juntos", null)}</div></div>`;
   host.querySelectorAll("[data-cs-ver]").forEach((b) => (b.onclick = () => { S.quem = b.dataset.csVer; abrirSub("l"); }));
 }
 /* ---------- Meu desempenho ---------- */
@@ -3505,7 +3505,7 @@ function mercado() {
     };
     const raiz = $("dlg"), rolou = raiz.scrollTop;
     openDlg(`<div id="mlRoot"><h3>Lista de mercado</h3>
-      ${outro ? `<p class="ml-par">${ico("casal")}Dividida com <b>${esc(outro)}</b>. O que um adiciona ou marca aparece para o outro em instantes.</p>` : ""}
+      ${outro ? `<p class="ml-par">${ico("casal")}<span>Dividida com <b>${esc(outro)}</b>. O que um adiciona ou marca aparece para o outro em instantes.</span></p>` : ""}
       <div class="ml-resumo">
         <div><small>Estimativa da compra</small><b>${e.estimado > 0 ? brl(e.estimado) : e.pelaMedia > 0 ? "≈ " + brl(e.pelaMedia) : brl(0)}</b>
           <small>${e.estimado > 0 ? (e.semPreco ? `${e.semPreco} ${e.semPreco === 1 ? "item sem preço" : "itens sem preço"}` : "todos com preço") : e.pelaMedia > 0 ? "pela sua compra média" : "informe os preços"}</small></div>
