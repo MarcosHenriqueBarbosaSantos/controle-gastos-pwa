@@ -281,6 +281,39 @@ export function livrePorDia(c) {
   return { restam, valor: c.saldo > 0 ? round2(c.saldo / restam) : 0 };
 }
 
+/** O que saiu do bolso em um dia (sem as compras no cartão, que só pesam na fatura). É o que entra na conta do "ainda cabem hoje". */
+export function gastoAVistaDoDia(st, dia) {
+  return round2(st.lancamentos.filter((x) => x.tipo === "Despesa" && x.data === dia && !noCartao(x)).reduce((t, x) => t + Number(x.valor), 0));
+}
+
+/**
+ * Quanto ainda dá para gastar HOJE. O saldo do mês já desconta o que foi gasto hoje, então a conta volta
+ * esse gasto: a fatia do dia = (saldo + gasto de hoje) ÷ dias que restam (contando hoje); o que sobra dela é o que ainda cabe.
+ * Só existe no mês atual; sem sobra no mês, a fatia é zero e `resta` fica negativo (quanto já passou).
+ */
+export function podeGastarHoje(c, gastoHoje = 0) {
+  if (c.fase !== "atual") return null;
+  const restam = c.n - c.dias + 1, fatia = c.saldo + gastoHoje > 0 ? round2((c.saldo + gastoHoje) / restam) : 0;
+  return { fatia, gasto: round2(gastoHoje), resta: round2(fatia - gastoHoje), restam };
+}
+
+/**
+ * Lista curta do que pede ação agora, na ordem de urgência (no máximo 3):
+ * contas atrasadas, contas que vencem hoje, faturas de cartão sem valor para os próximos 7 dias e o dia ainda sem anotação.
+ * Cada item: { tipo, titulo, sub, valor?, alvo } — `alvo` diz onde a pessoa resolve (venc, fatura, lancar).
+ */
+export function oQueFazerAgora(st, hoje, semGasto = []) {
+  const itens = [], reais = proximosVencimentos(st, hoje, 7), soma = (a) => round2(a.reduce((t, x) => t + x.valor, 0));
+  const atras = reais.filter((x) => x.dias < 0), hojeV = reais.filter((x) => x.dias === 0);
+  if (atras.length) itens.push({ tipo: "atrasada", titulo: atras.length === 1 ? `${atras[0].titulo} está atrasada` : `${atras.length} contas atrasadas`, sub: "Pague ou marque como paga", valor: soma(atras), alvo: "venc" });
+  if (hojeV.length) itens.push({ tipo: "hoje", titulo: hojeV.length === 1 ? `${hojeV[0].titulo} vence hoje` : `${hojeV.length} contas vencem hoje`, sub: "Marque como paga quando pagar", valor: soma(hojeV), alvo: "venc" });
+  const sem = faturasSemValor(st, hoje, 7);
+  if (sem.length) itens.push({ tipo: "fatura", titulo: sem.length === 1 ? `Falta o valor da fatura ${sem[0].titulo}` : `Faltam os valores de ${sem.length} faturas`, sub: sem[0].dias <= 0 ? "Vence hoje" : `Vence em ${sem[0].dias} ${sem[0].dias === 1 ? "dia" : "dias"}`, alvo: "venc" });
+  const fez = st.lancamentos.some((x) => x.data === hoje) || semGasto.includes(hoje);
+  if (!fez) itens.push({ tipo: "dia", titulo: "Nada anotado hoje", sub: "Anote o que gastou ou marque que não gastou nada", alvo: "lancar" });
+  return itens.slice(0, 3);
+}
+
 /**
  * Dias seguidos com anotação, terminando hoje (ou ontem, se hoje ainda não tem nada).
  * Conta o dia que tem algum lançamento ou que a pessoa marcou como "não gastei nada".

@@ -1703,3 +1703,24 @@ dialog:has(.tour) .dlg-barra{display:none}
 /* v106 — lista de mercado por corredor e "repetir a última compra" */
 .ml-corr{margin:14px 2px 4px;font-size:12.5px;font-weight:700;color:var(--ink-2);letter-spacing:.01em}
 .ml-repete{margin:10px 0 0;min-height:44px}
+
+/* v110: cartão "Hoje" no Início (quanto ainda cabe hoje + o que pede ação agora) */
+.hoje-card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin:12px 0;display:grid;gap:10px}
+.hoje-topo{display:grid;gap:2px}
+.hoje-topo .l{font-size:.78rem;color:var(--muted);font-weight:600}
+.hoje-topo b{font-size:1.5rem;line-height:1.15;color:var(--good)}
+.hoje-topo.bad b{color:var(--bad)}
+.hoje-topo>span:last-child{font-size:.82rem;color:var(--muted)}
+.hoje-lista{list-style:none;margin:0;padding:0;display:grid;gap:8px;border-top:1px solid var(--border);padding-top:10px}
+.hoje-item{display:grid;gap:6px}
+.hoje-item>button:first-child{display:flex;align-items:center;gap:10px;text-align:left;background:none;border:0;padding:6px 0;width:100%;font:inherit;color:inherit;cursor:pointer;min-height:44px}
+.hoje-item .tx{display:grid;gap:1px;flex:1;min-width:0}
+.hoje-item .tx b{font-size:.95rem}
+.hoje-item .tx span{font-size:.8rem;color:var(--muted)}
+.hoje-item .valor{font-weight:700;white-space:nowrap}
+.hoje-item.t-atrasada .tx b,.hoje-item.t-atrasada .valor{color:var(--bad)}
+.hoje-item.t-hoje .tx b{color:var(--warn)}
+.hoje-item .btn{justify-self:start}
+.hoje-ok{display:flex;align-items:center;gap:8px;margin:0;font-size:.88rem;color:var(--muted);border-top:1px solid var(--border);padding-top:10px}
+.hoje-rod{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:.82rem}
+.hoje-rod .seq{display:inline-flex;align-items:center;gap:4px;color:var(--muted)}

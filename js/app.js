@@ -1,7 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
+  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
@@ -950,6 +950,7 @@ function renderKpis(c) {
     <button type="button" data-acao="ler"><span>${ico("qr")}</span>Escanear e importar</button>
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
+  ${atualM ? htmlHoje(c) : ""}
   ${htmlMercadoIni()}
   ${htmlCartoesIni()}
   <nav class="ir-para" aria-label="Ir para">
@@ -968,6 +969,7 @@ function renderKpis(c) {
   $("grafSobraSec").innerHTML = (atualM || c.fase === "passado") && sb.livre > 0 ? graficoDaSobra(c) : "";
   $("olho").onclick = () => { ocultaValores(!valoresOcultos()); render(); };
   $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
+  ligaHoje();
   ligaMercadoIni();
   if ($("usaMetaIni")) $("usaMetaIni").onclick = () => usaMeta(Number($("usaMetaIni").dataset.valor), () => {});
   $("resumo").querySelectorAll("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
@@ -1003,25 +1005,36 @@ function renderKpis(c) {
 }
 
 /** "Seu dia": o que foi gasto hoje, o convite para anotar e a sequência de dias anotados. Só aparece no mês atual. */
-function renderDia(c) {
-  const host = $("dia"), hj = hoje();
-  if (!S.loaded || c.fase !== "atual") { host.hidden = true; host.innerHTML = ""; return; }
-  const g = gastoDoDia(S.data, hj), seq = sequenciaDeDias(S.data, hj, S.prefs.semGasto || []), zero = (S.prefs.semGasto || []).includes(hj);
-  const titulo = g.n ? `Hoje você gastou ${brl(g.total)}` : zero ? "Hoje: dia sem gastos" : "Nada anotado hoje";
-  const sub = g.n ? `em ${g.n} ${g.n === 1 ? "lançamento" : "lançamentos"}` : zero ? "Anotado. Se aparecer um gasto, é só lançar." : "Anote os gastos de hoje ou marque que não gastou nada.";
-  const seqTxt = seq.feitoHoje ? (seq.dias > 1 ? `${seq.dias} dias seguidos anotando` : "Primeiro dia da sequência") : seq.dias ? `Anote hoje para manter ${seq.dias === 1 ? "o dia de ontem em sequência" : `os ${seq.dias} dias seguidos`}` : "";
+/** Cartão "Hoje" do Início: quanto ainda cabe hoje e o que pede ação agora (no máximo 3 itens). Substitui o quadro "Seu dia". */
+function htmlHoje(c) {
+  const hj = hoje(), g = gastoDoDia(S.data, hj), avista = gastoAVistaDoDia(S.data, hj), pg = podeGastarHoje(c, avista), itens = oQueFazerAgora(S.data, hj, S.prefs.semGasto || []);
+  const seq = sequenciaDeDias(S.data, hj, S.prefs.semGasto || []);
   const ult = S.data.lancamentos.filter((x) => x.tipo === "Despesa" && !x.pendente && !x.enviando).sort((p, q) => q.data.localeCompare(p.data) || String(q.created_at || "").localeCompare(String(p.created_at || "")))[0];
-  host.hidden = false;
-  host.innerHTML = `<div class="dia${seq.feitoHoje ? " feito" : ""}">
-    <span class="ava ${seq.feitoHoje ? "in" : "res"}">${ico(seq.feitoHoje ? "ok" : "dia")}</span>
-    <div class="tx"><b>${titulo}</b><span>${sub}</span>${seqTxt ? `<span class="seq">${ico("fogo")}${seqTxt}</span>` : ""}${ult ? `<button class="link" type="button" id="diaRepetir" style="justify-self:start;text-align:left">Repetir: ${esc(ult.descricao || ult.categoria)} · ${brl(ult.valor)}</button>` : ""}</div>
-    <div class="acoes">${noCelular() ? "" : `<button class="btn sm primary" type="button" id="diaLancar">Lançar gasto</button>`}${g.n || zero ? "" : `<button class="btn sm" type="button" id="diaZero">Não gastei nada</button>`}</div></div>`;
-  if ($("diaLancar")) $("diaLancar").onclick = () => { S.tipo = "Despesa"; renderForm(); if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } };
-  if ($("diaRepetir")) $("diaRepetir").onclick = () => repeteLancamento(ult);
-  if ($("diaZero")) $("diaZero").onclick = () => {
-    S.prefs.semGasto = [...new Set([...(S.prefs.semGasto || []), hj])].sort().slice(-90);   // guarda só os últimos 90 dias
-    salvaPrefs(); render();
+  const passou = pg && pg.resta < 0;
+  const topo = !pg ? "" : pg.fatia <= 0 ? `<div class="hoje-topo bad"><span class="l">Hoje</span><b class="ocultavel">Sem folga no mês</b><span>As contas do mês já passam das entradas. Gaste só o essencial.</span></div>`
+    : `<div class="hoje-topo${passou ? " bad" : ""}"><span class="l">${passou ? "Hoje passou do dia" : "Ainda cabem hoje"}</span><b class="ocultavel">${brl(Math.abs(pg.resta))}</b><span class="ocultavel">${passou ? `a fatia de hoje era ${brl(pg.fatia)}; o resto sai dos outros dias` : avista ? `de ${brl(pg.fatia)} do dia · você já gastou ${brl(avista)}` : `a fatia de hoje, repartindo o mês em ${pg.restam} ${pg.restam === 1 ? "dia" : "dias"}`}</span></div>`;
+  const lista = itens.map((x, i) => `<li class="hoje-item t-${x.tipo}"><button type="button" data-hoje="${i}"><span class="tx"><b>${esc(x.titulo)}</b><span>${esc(x.sub)}</span></span>${x.valor ? `<span class="valor ocultavel">${brl(x.valor)}</span>` : ""}${ico("chev")}</button>${x.tipo === "dia" ? `<button type="button" class="btn sm" id="hojeZero">Não gastei nada</button>` : ""}</li>`).join("");
+  const rodape = [ult && !g.n ? `<button class="link" type="button" id="hojeRepetir">Repetir: ${esc(ult.descricao || ult.categoria)} · ${brl(ult.valor)}</button>` : "", seq.feitoHoje && seq.dias > 1 ? `<span class="seq">${ico("fogo")}${seq.dias} dias seguidos anotando</span>` : ""].filter(Boolean).join("");
+  S.hojeItens = itens;
+  return `<section class="hoje-card" aria-label="Hoje">${topo}${lista ? `<ul class="hoje-lista">${lista}</ul>` : `<p class="hoje-ok">${ico("ok")}Nada pendente por agora. Tudo em dia.</p>`}${rodape ? `<div class="hoje-rod">${rodape}</div>` : ""}</section>`;
+}
+function ligaHoje() {
+  const host = $("resumo");
+  host.querySelectorAll("[data-hoje]").forEach((b) => (b.onclick = () => {
+    const x = (S.hojeItens || [])[Number(b.dataset.hoje)]; if (!x) return;
+    if (x.alvo === "lancar") return acaoRapida("lancar");
+    const v = $("venc"); if (v) v.scrollIntoView({ behavior: "smooth", block: "start" });
+  }));
+  if ($("hojeZero")) $("hojeZero").onclick = () => { S.prefs.semGasto = [...new Set([...(S.prefs.semGasto || []), hoje()])].sort().slice(-90); salvaPrefs(); render(); };
+  if ($("hojeRepetir")) $("hojeRepetir").onclick = () => {
+    const ult = S.data.lancamentos.filter((x) => x.tipo === "Despesa" && !x.pendente && !x.enviando).sort((p, q) => q.data.localeCompare(p.data) || String(q.created_at || "").localeCompare(String(p.created_at || "")))[0];
+    if (ult) repeteLancamento(ult);
   };
+}
+
+function renderDia() {
+  // O quadro "Seu dia" virou o cartão "Hoje", dentro do resumo; o antigo fica sempre escondido.
+  const host = $("dia"); host.hidden = true; host.innerHTML = "";
 }
 
 /* ---------- limite de gastos do mês ---------- */
@@ -5386,10 +5399,12 @@ const linhasDet = (l, vazio = "Nada por aqui neste mês.") => l.length
   : `<p class="hint" style="margin:6px 0 10px">${vazio}</p>`;
 /** Abre o quadro de detalhes. secoes: [{titulo?, total?, itens?, vazio?, html?}]; ir: [rótulo do botão, aba para abrir]. */
 function abreDetalhe(titulo, sub, secoes, ir) {
+  const de = S.detDe || ""; S.detDe = "";
   openDlg(`<h3>${titulo}</h3>${sub ? `<p class="hint" style="margin:0 0 4px;font-size:13px">${sub}</p>` : ""}
     <div class="det">${secoes.map((s) => `${s.titulo ? `<h4><span>${s.titulo}</span><b>${s.total ?? ""}</b></h4>` : ""}${s.html ?? linhasDet(s.itens, s.vazio)}`).join("")}</div>
     ${secoes.some((s) => s.itens?.some((i) => i.ref)) ? `<p class="hint det-toque">Toque em um item para editar.</p>` : ""}
-    <div class="actions">${ir ? `<button class="btn primary" type="button" id="detIr">${ir[0]}</button>` : ""}<button class="btn" type="button" data-close>Fechar</button></div>`);
+    <div class="actions">${ir ? `<button class="btn primary" type="button" id="detIr">${ir[0]}</button>` : ""}${de ? `<button class="btn" type="button" id="detVoltar">Voltar ao saldo</button>` : ""}<button class="btn" type="button" data-close>Fechar</button></div>`);
+  if (de) $("detVoltar").onclick = () => detalheKpi(de);
   if (ir) $("detIr").onclick = () => { $("dlg").close(); S.view = "listas"; S.tab = ir[1]; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
   $("dlgBody").querySelectorAll("[data-ref]").forEach((li) => {
     const abre = () => abrirItem(JSON.parse(li.dataset.ref));
@@ -5426,8 +5441,9 @@ const origemTxt = (i) => i.origem === "cartao" ? `na fatura do ${i.cartao}` : i.
 const formaTxt = (i) => (i.origem === "cartao" || i.origem === "fatura" ? i.cartao : i.forma || "");
 const linhaCusto = (i) => { const [tag, tagCls] = tipoDoItem(i); return { d: ddmm(i.data), t: i.descricao, tag, tagCls, s: [i.categoria, formaTxt(i)].filter(Boolean).join(" · "), v: brl(i.valor), ref: i.ref }; };
 
-function detalheKpi(tipo) {
+function detalheKpi(tipo, de = "") {
   if (!S.loaded) return;
+  S.detDe = de;   // quem abriu (ex.: "saldo"): o quadro mostra um "Voltar" para lá
   const hj = hoje(), c = calcMes(S.data, S.mes, hj), mes = nomeMes(S.mes);
   if (tipo === "entradas") {
     const l = [...c.fr.map((f) => ({ data: f.data, t: f.descricao, s: f.categoria + (c.fase === "futuro" || (c.fase === "atual" && f.data > hj) ? " · a receber" : ""), valor: f.valor,
@@ -5447,15 +5463,21 @@ function detalheKpi(tipo) {
     const viradas = S.prefs.mesesVirados || [], virado = viradas.includes(S.mes);
     const ini = Number(S.prefs.saldoInicial) || 0, ant = S.prefs.levarSaldo ? saldoAnterior(S.data, S.mes, hj, S.prefs.saldoDesde, viradas) : 0;
     const acum = S.prefs.levarSaldo ? saldoAcumulado(S.data, S.mes, hj, { desde: S.prefs.saldoDesde, inicial: ini, viradas }) : (virado ? 0 : c.saldo), iniVale = round2(acum - ant - (virado ? 0 : c.saldo));
-    const li = (t, v, forte = false) => `<li class="${forte ? "tot" : ""}"><span></span><span>${t}</span><b>${v}</b></li>`;
+    const li = (t, v, forte = false, abre = "") => abre
+      ? `<li class="toca" role="button" tabindex="0" data-saldo-det="${abre}" aria-label="${t}: ver os lançamentos"><span></span><span>${t}<span class="mini">Toque para ver e editar</span></span><b>${v}</b></li>`
+      : `<li class="${forte ? "tot" : ""}"><span></span><span>${t}</span><b>${v}</b></li>`;
     const atrasoN = contasEmAtraso(S.data, hj, S.prefs.saldoDesde).itens.length;
     const pedeOrdem = c.saldo < 0 || acum < 0 || virado || atrasoN > 0;
     abreDetalhe(`Saldo de ${mes}`, "Entradas menos o gasto do mês e menos o que você guardou.", [
-      { html: `<ul class="itens">${li("Entradas", "+ " + brl(c.rec))}${li("Gasto do mês", "− " + brl(c.custo))}${c.res ? li(c.res > 0 ? "Guardado neste mês" : "Retirado do guardado", (c.res > 0 ? "− " : "+ ") + brl(Math.abs(c.res))) : ""}${li("Saldo do mês", sgn(c.saldo), true)}</ul>` },
+      { html: `<ul class="itens">${li("Entradas", "+ " + brl(c.rec), false, "entradas")}${li("Gasto do mês", "− " + brl(c.custo), false, "custo")}${c.res ? li(c.res > 0 ? "Guardado neste mês" : "Retirado do guardado", (c.res > 0 ? "− " : "+ ") + brl(Math.abs(c.res)), false, "guardado") : ""}${li("Saldo do mês", sgn(c.saldo), true)}</ul>` },
       ...(S.prefs.levarSaldo ? [{ titulo: "Saldo acumulado", total: sgn(acum),
         html: `<ul class="itens">${iniVale ? li("Saldo inicial", sgn(iniVale)) : ""}${li("Saldo dos meses anteriores", sgn(ant))}${virado ? li(`Saldo de ${mes} (virado: não é levado adiante)`, "virado") : li(`Saldo de ${mes}`, sgn(c.saldo))}${li("Saldo acumulado", sgn(acum), true)}</ul>` }] : []),
       ...(pedeOrdem ? [{ html: `<div class="ordem-cta"><p class="hint" style="margin:10px 0 8px">${virado ? `Você virou a página de ${mes}: o saldo dele não passa para os próximos meses.` : acum < 0 || c.saldo < 0 ? "Acontece com todo mundo. Dá para ver as contas, o que ficou para trás e um jeito leve de recomeçar." : atrasoN ? `Você tem ${atrasoN} ${atrasoN === 1 ? "conta" : "contas"} em atraso para ver com calma.` : ""}</p><button class="btn primary" type="button" id="detOrdem" style="margin-left:0">Pôr o mês em ordem</button></div>` }] : [])]);
     if ($("detOrdem")) $("detOrdem").onclick = () => { $("dlg").close(); setTimeout(() => equilibrioTela(S.mes), 120); };
+    $("dlgBody").querySelectorAll("[data-saldo-det]").forEach((li) => {
+      const abre = () => detalheKpi(li.dataset.saldoDet, "saldo");
+      li.onclick = abre; li.onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); abre(); } };
+    });
     return;
   }
   if (tipo === "guardado") {

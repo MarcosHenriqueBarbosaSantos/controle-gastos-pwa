@@ -1,5 +1,9 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "110", itens: [
+    "Novo cartão \"Hoje\" no Início: mostra quanto ainda cabe gastar hoje e, logo abaixo, o que pede ação agora (conta atrasada, conta que vence hoje, fatura sem valor, dia sem anotação).",
+    "Na tela \"Saldo de outubro\", toque em Entradas, Gasto do mês ou Guardado para ver cada lançamento que compõe o valor e editar na hora. Tem um botão para voltar ao saldo.",
+    "O quadro \"Seu dia\" foi para dentro do cartão Hoje, e o Início ficou mais curto." ] },
   { versao: "109", itens: [
     "Próximos vencimentos diz logo no título quantas contas estão atrasadas e quanto vence nos próximos 7 dias.",
     "O que está atrasado ou vence em 7 dias aparece sempre na frente, mesmo no celular.",
