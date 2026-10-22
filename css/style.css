@@ -1799,3 +1799,11 @@ tr.toca-linha{cursor:pointer} tr.toca-linha:hover td{background:var(--sunk)}
   .pof-corpo > :first-child{align-self:center}
   .chip button{width:44px;height:44px}
 }
+
+/* v123: botões das tabelas (Editar, Encerrar, Pago, Ver compras...) e da lista de categorias com 44px de área de toque */
+@media (max-width:700px){
+  td.acts .act,td.acts .del,td.st .chk{min-height:44px;min-width:44px}
+  td.acts{white-space:nowrap}
+  details.manual > summary{min-height:44px;display:flex;align-items:center}
+  .chip button{width:44px;height:44px}
+}

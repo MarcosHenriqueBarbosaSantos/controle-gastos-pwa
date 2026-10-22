@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "123", itens: [
+    "Nas tabelas de Contas fixas, Entradas fixas, Cartões e Lançamentos, os botões Editar, Encerrar, Pago e Ver compras ficaram com tamanho de dedo (44 px) no celular. Também nos botões de remover e trocar o desenho das categorias." ] },
   { versao: "122", itens: [
     "Em celulares de tela pequena, o gráfico \"Onde mais gastou\" não corta mais os nomes das categorias (Moradia, Mercado, Saúde): a lista fica embaixo do gráfico." ] },
   { versao: "121", itens: [
