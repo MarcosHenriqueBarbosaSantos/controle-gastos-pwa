@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "122", itens: [
+    "Em celulares de tela pequena, o gráfico \"Onde mais gastou\" não corta mais os nomes das categorias (Moradia, Mercado, Saúde): a lista fica embaixo do gráfico." ] },
   { versao: "121", itens: [
     "Caixinhas agora explicam o que são (dinheiro separado para um objetivo) e \"Previsão de gasto\" virou \"Previsão do mês\", o mesmo nome do resto do app." ] },
   { versao: "120", itens: [

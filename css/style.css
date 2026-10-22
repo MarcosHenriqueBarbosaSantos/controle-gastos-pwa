@@ -1792,3 +1792,10 @@ dialog:has(.tour) .dlg-barra{display:none}
 
 /* v117: linha inteira de conta/entrada fixa abre a edição */
 tr.toca-linha{cursor:pointer} tr.toca-linha:hover td{background:var(--sunk)}
+
+/* v122: em telas bem estreitas, o gráfico de rosca fica em cima e a lista de categorias embaixo (os nomes eram cortados) */
+@media (max-width:380px){
+  .pof-corpo,.pof-card .pof-corpo{flex-direction:column;align-items:stretch}
+  .pof-corpo > :first-child{align-self:center}
+  .chip button{width:44px;height:44px}
+}
