@@ -347,6 +347,7 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
 .barra-app{margin-top:34px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:22px 22px 18px;box-shadow:0 2px 8px rgba(11,37,69,.05)}
 .barra-app h3{font-size:1rem;margin-bottom:14px}
 .barra-app ul{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px}
+.barra-app.quatro ul{grid-template-columns:repeat(4,minmax(0,1fr))}
 .barra-app li{display:grid;justify-items:center;text-align:center;gap:6px;align-content:start}
 .barra-app li>svg{margin-block:5px} .barra-app svg{width:24px;height:24px;fill:none;stroke:var(--band);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .barra-app li.meio i{display:grid;place-items:center;width:44px;height:34px;border-radius:10px;background:var(--band)}
@@ -360,7 +361,7 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
   .usar-lista li{flex:0 0 74%;scroll-snap-align:start}
   .usar-lista .tela{aspect-ratio:585/700;border-radius:24px 24px 0 0}
   .barra-app{padding:18px}
-  .barra-app ul{grid-template-columns:minmax(0,1fr);gap:12px}
+  .barra-app ul,.barra-app.quatro ul{grid-template-columns:minmax(0,1fr);gap:12px}
   .barra-app li{grid-template-columns:44px 74px minmax(0,1fr);justify-items:start;text-align:left;align-items:center;gap:10px}
   .barra-app li>svg{justify-self:center}
   .barra-app span{max-width:none}
@@ -536,14 +537,13 @@ picture{display:contents}
     <li class="sobe d1"><figure class="tela"><picture><source srcset="img/tela-metas.webp" type="image/webp"><img src="img/tela-metas.png" alt="Planejar: o que sobra para viver outubro, com entradas, contas fixas, faturas e o guardado" loading="lazy" width="585" height="1266"></picture></figure>
       <div><span class="n">5</span><h3>Planeje o mês</h3><p>Em <b>Planejar</b>: o que sobra para viver o mês, as caixinhas do dinheiro guardado (com foto, como nos bancos), as metas e o limite de gastos.</p></div></li>
   </ol>
-  <div class="barra-app sobe">
+  <div class="barra-app sobe quatro">
     <h3>A barra de baixo do app</h3>
     <ul>
-      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg><b>Início</b><span>Quanto está livre, o que vence e o gráfico do mês.</span></li>
-      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-3-2-3 2-3-2-3 2zM9 8h6M9 12h6"/></svg><b>Extrato</b><span>Tudo o que entrou e saiu, dia por dia, com busca e filtros.</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg><b>Início</b><span>Quanto pode gastar, o que vence e como o mês está indo.</span></li>
       <li class="meio"><i><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></i><b>Lançar</b><span>Gasto, entrada ou dinheiro guardado. Por voz ou foto também.</span></li>
-      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg><b>Planejar</b><span>O que sobra, caixinhas, metas e limites.</span></li>
-      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg><b>Mais</b><span>Ferramentas, contas fixas, cartões, calendário, casal e ajustes.</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.1L20 8H6M9 20h.01M17 20h.01"/></svg><b>Mercado</b><span>A lista de compras, com a estimativa do que vai gastar.</span></li>
+      <li><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg><b>Mais</b><span>Contas fixas, cartões, calendário, casal, ferramentas e ajustes.</span></li>
     </ul>
   </div>
   <div class="barra-app tres sobe">

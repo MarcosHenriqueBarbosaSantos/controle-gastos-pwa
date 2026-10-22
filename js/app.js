@@ -692,7 +692,7 @@ function render() {
   mesesNoTopo(!naMais && noCelular());
   const c = calcMes(S.data, S.mes, hoje());
   // No celular aparece uma tela por vez; a barra de baixo mostra onde a pessoa está.
-  // Barra de baixo: Início · Ferramentas · + · Mercado · Mais. Extrato, Planejar, Cartões e Contas fixas ficam na faixa "Ir para" do Início.
+  // Barra de baixo: Início · + · Mercado · Mais (as ferramentas moram todas no Mais). Extrato, Planejar, Cartões e Contas fixas ficam na faixa "Ir para" do Início.
   const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab;
   app.dataset.vazio = S.loaded && !S.data.lancamentos.length && !S.data.fixos.length && !(S.data.faturas || []).length ? "1" : "0";   // conta nova: o Início mostra só o que ajuda a começar
   corDaBarra(S.view === "listas" && S.tab === "mot" && noCelular());   // tela cheia: a barra de cima do celular acompanha a cor da tela
@@ -2414,7 +2414,7 @@ const HUBS = {
 const GRUPOS_MAIS = [
   { titulo: "Seu dia a dia", ids: ["motorista", "mercado", "veiculo", "casa"] },
   { titulo: "Conferir e entender", ids: ["conferir", "analise", "revisao", "msg"] },
-  { titulo: "Guardar e planejar", ids: ["ordem", "desafio", "calc"] },
+  { titulo: "Guardar e planejar", ids: ["ordem", "desafio", "calc", "dica"] },
   { titulo: "Levar com você", ids: ["share", "baixar"] },
 ];
 const TODAS_FERR = () => [...GRUPOS_FERR.flatMap((g) => g.itens), ...Object.entries(HUBS).map(([id, h]) => ({ id, ...h }))];
@@ -2811,7 +2811,7 @@ const AJUDA = [
   ["E se eu estiver sem internet?", `Pode lançar normalmente. O gasto fica guardado no aparelho, aparece como <b>aguardando internet</b> e é enviado sozinho quando a conexão voltar. Alterar ou excluir o que já estava salvo precisa de conexão.`],
   ["O que é o resumo da semana e o lembrete das 20h?", `No <b>domingo à noite</b> o app manda um resumo: quanto você gastou na semana, onde pesou mais e as contas dos próximos 7 dias. O <b>lembrete das 20h</b> é uma notificação que só aparece nos dias em que você não anotou nada. Os dois se ligam e desligam em <b>Ajustes</b>, na parte Resumo e lembrete.`],
   ["Dá para usar a dois?", `Dá, com a <b>Conta de casal</b> (no celular, em <b>Mais</b>; no computador, em <b>Ajustes</b>). Você convida a outra pessoa pelo e-mail e ela aceita dentro do app, entrando com esse e-mail. Cada um continua com a sua senha. Os dois veem e lançam nas mesmas contas, e o app mostra quem lançou cada gasto. Qualquer um dos dois pode encerrar quando quiser: cada um fica com o que lançou.`],
-  ["Onde ficam as contas fixas, os cartões e os ajustes no celular?", `Na barra de baixo: <b>Início</b>, <b>Ferramentas</b> (calculadoras, carro, casa e outras), o <b>+</b> para lançar, <b>Mercado</b> (a lista de compras) e <b>Mais</b>. No Início, a faixa <b>Ir para</b> leva ao <b>Extrato</b>, ao <b>Planejar</b> (limites e metas), aos <b>Cartões</b>, às <b>Contas fixas</b> e ao <b>Calendário</b>. Em Mais ficam as contas fixas, as entradas fixas, os cartões, o calendário, a conta de casal, o relatório, os ajustes e esta ajuda. No fim do Início, <b>Organizar o início</b> escolhe quais quadros aparecem.`],
+  ["Onde ficam as contas fixas, os cartões e os ajustes no celular?", `Na barra de baixo: <b>Início</b>, o <b>+</b> para lançar, <b>Mercado</b> (a lista de compras) e <b>Mais</b>, onde ficam também as calculadoras, o carro, a casa e as outras ferramentas. No Início, a faixa <b>Ir para</b> leva ao <b>Extrato</b>, ao <b>Planejar</b> (limites e metas), aos <b>Cartões</b>, às <b>Contas fixas</b> e ao <b>Calendário</b>. Em Mais ficam as contas fixas, as entradas fixas, os cartões, o calendário, a conta de casal, o relatório, os ajustes e esta ajuda. No fim do Início, <b>Organizar o início</b> escolhe quais quadros aparecem.`],
   ["Como recebo avisos e instalo no celular?", `Em <b>Ajustes</b> você liga os avisos por e-mail e a notificação no aparelho. Para instalar, use <b>Instalar app</b> (no celular, em <b>Mais</b>); no iPhone, abra pelo Safari, toque em Compartilhar e em Adicionar à Tela de Início.`],
   ["Como colo a mensagem do banco, uso outra moeda ou crio uma subcategoria?", `<b>Mensagem do banco:</b> em <b>Mais → Colar mensagem do banco</b>, cole a notificação ou o SMS e o lançamento vem preenchido para você conferir. <b>Outra moeda:</b> na tela de lançar, toque em <b>Gastei em outra moeda</b>, digite o valor e a cotação, e o app põe o valor em reais. <b>Subcategoria:</b> ao criar uma categoria, escolha <b>Dentro de</b> (por exemplo, Feira dentro de Mercado). No resumo do ano, as subcategorias somam na categoria de cima.`],
   ["Como funcionam o desafio de economia, as calculadoras e o resumo do ano?", `Estão em <b>Mais</b>. No <b>desafio de economia</b> você escolhe uma caixinha e um valor por semana; a cada semana, toque em <b>Guardei</b> e o valor entra na caixinha. As <b>calculadoras</b> mostram rendimento, parcelas com juros, férias e 13º (valores brutos). O <b>resumo do ano</b> mostra mês a mês e para onde foi o dinheiro, e dá para baixar em PDF.`],
