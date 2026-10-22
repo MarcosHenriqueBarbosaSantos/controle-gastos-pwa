@@ -82,6 +82,14 @@ test("backup: arquivo estranho ou com lixo não entra", () => {
   assert.equal(r.dados.lancamentos[0].user_id, undefined);
 });
 
+test("backup: lançamento do extrato com a mesma chave não volta duplicado", () => {
+  const L = (id, k) => ({ id, data: "2026-10-01", tipo: "Despesa", categoria: "A", valor: 5, import_key: k });
+  const b = { cartoes: [], fixos: [], faturas: [], pagos: [], lancamentos: [L(U1, "k1"), L(U2, "k2"), L(U3, "k2"), { id: "e0000000-0000-0000-0000-000000000004", data: "2026-10-01", tipo: "Despesa", categoria: "A", valor: 5, import_key: "k3" }] };
+  // conta nova: já tem k1 com outro código; k3 virou conta fixa
+  const f = faltaRestaurar(b, { lancamentos: [{ id: "f0000000-0000-0000-0000-000000000009", import_key: "k1" }], fixos: [], pagos: [] }, ["k3"]);
+  assert.deepEqual(f.lancamentos.map((x) => x.id), [U2]);
+});
+
 test("backup: pagos só voltam se o fixo existe e ainda não estão marcados", () => {
   const b = { cartoes: [], fixos: [{ id: U1 }], lancamentos: [], faturas: [], pagos: [{ fixo_id: U1, mes: "2026-09-01" }, { fixo_id: U2, mes: "2026-09-01" }, { fixo_id: U1, mes: "2026-08-01" }] };
   const f = faltaRestaurar(b, { fixos: [], pagos: [{ fixo_id: U1, mes: "2026-08-01" }] });

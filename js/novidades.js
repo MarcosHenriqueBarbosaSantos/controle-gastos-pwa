@@ -1,5 +1,10 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "104", itens: [
+    "Restaurar a cópia de segurança não repete o que já veio de um extrato importado.",
+    "Extrato da conta: quando o mesmo valor sai e entra com a mesma pessoa em poucos dias, o app avisa que pode ser dinheiro entre contas suas e deixa o movimento desmarcado.",
+    "\"Custo\" virou \"Gasto\" nos números do mês, nos gráficos e nos relatórios.",
+    "Filtros do Extrato maiores e mais fáceis de tocar no celular." ] },
   { versao: "103", itens: [
     "Modo motorista para qualquer tipo de corrida: carro de aplicativo, moto, entrega, frete ou corrida particular.",
     "Vale a pena essa corrida? Digite valor, km e minutos e veja quanto sobra depois do gasto do carro.",

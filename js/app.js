@@ -891,10 +891,10 @@ function renderKpis(c) {
   const entra = c.rec > 0 ? `Entram <button type="button" class="ln" data-det="entradas">${brl(c.rec)}</button>` : `<button type="button" class="ln" data-det="entradas">Nenhuma entrada lançada</button>`;
   const guardado = c.res > 0 ? ` · guardado <button type="button" class="ln" data-det="guardado">${brl(c.res)}</button>` : "";
   const duo = c.fase === "atual" ? `
-      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">Custo até agora</span><span class="v">${brl0(c.custo)}</span><span class="n">com as contas fixas</span></div>
+      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">Gasto até agora</span><span class="v">${brl0(c.custo)}</span><span class="n">com as contas fixas</span></div>
       <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">Projeção do mês</span><span class="v">${brl0(c.proj)}</span><span class="n">${est.projSobra < 0 ? `fecha ${brl0(-est.projSobra)} no vermelho` : `devem sobrar ${brl0(est.projSobra)}`}</span></div>`
     : `
-      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">${c.fase === "futuro" ? "Custo previsto" : "Custo do mês"}</span><span class="v">${brl0(c.custo)}</span><span class="n">${c.fase === "futuro" ? "por enquanto, só as contas fixas" : "fechado"}</span></div>
+      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">${c.fase === "futuro" ? "Gasto previsto" : "Gasto do mês"}</span><span class="v">${brl0(c.custo)}</span><span class="n">${c.fase === "futuro" ? "por enquanto, só as contas fixas" : "fechado"}</span></div>
       <div class="hstat" data-det="entradas" role="button" tabindex="0"><span class="l">Entradas</span><span class="v">${brl0(c.rec)}</span><span class="n">${c.fase === "futuro" ? "previstas" : "no mês"}</span></div>`;
   // Topo com cara de banco: o valor livre em destaque, a barra do quanto da sobra já foi usado (na cor do estado do mês),
   // o olho para esconder os valores e, logo abaixo, as ações rápidas e o resumo em três números.
@@ -1602,7 +1602,7 @@ function renderCusto(c) {
   const maxV = Math.max(c.rec, c.fase === "atual" ? c.proj : 0, cum[n], 100) * 1.1;
   const step = niceStep(maxV / 4), hi = Math.ceil(maxV / step) * step;
   const x = (d) => m.l + ((d - 1) / (n - 1)) * (W - m.l - m.r), y = (v) => m.t + ((hi - v) / hi) * (H - m.t - m.b);
-  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: H, role: "img", "aria-label": "Custo acumulado no mês" }, host);
+  const svg = el("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", height: H, role: "img", "aria-label": "Gasto acumulado no mês" }, host);
   // Preenchimento em degradê embaixo da linha do custo.
   const grad = el("linearGradient", { id: "gCusto", x1: 0, y1: 0, x2: 0, y2: 1 }, el("defs", {}, svg));
   el("stop", { offset: 0, style: "stop-color:var(--series);stop-opacity:.38" }, grad); el("stop", { offset: 1, style: "stop-color:var(--series);stop-opacity:0" }, grad);
@@ -1709,7 +1709,7 @@ function renderEvo() {
   const tip = host.querySelector(".tip");
   const mostra = (b) => {
     const x = meses[Number(b.dataset.i)];
-    tip.innerHTML = `<b>${nomeMes(x.m)} de ${x.m.slice(0, 4)}${x.fase === "atual" ? " (até agora)" : ""}</b><div class="r"><span>Entradas</span><span>${brl0(x.rec)}</span></div><div class="r"><span>Custo</span><span>${brl0(x.custo)}</span></div><div class="r"><span>${x.sobra >= 0 ? "Sobrou" : "Faltou"}</span><span>${brl0(Math.abs(x.sobra))}</span></div>`;
+    tip.innerHTML = `<b>${nomeMes(x.m)} de ${x.m.slice(0, 4)}${x.fase === "atual" ? " (até agora)" : ""}</b><div class="r"><span>Entradas</span><span>${brl0(x.rec)}</span></div><div class="r"><span>Gastos</span><span>${brl0(x.custo)}</span></div><div class="r"><span>${x.sobra >= 0 ? "Sobrou" : "Faltou"}</span><span>${brl0(Math.abs(x.sobra))}</span></div>`;
     tip.hidden = false;
     // Ao lado do mês, para não cobrir as barras dele.
     const larg = host.clientWidth; let left = b.offsetLeft + b.offsetWidth + 6;
@@ -2666,7 +2666,7 @@ function textoDoAcesso() {
 /* ---------- Organizar o início: a pessoa escolhe quais quadros aparecem ---------- */
 const QUADROS = [["dia", "Seu dia", "O que você gastou hoje e a sequência de dias anotando", ["dia"]], ["teto", "Limite do mês", "Quanto do limite já foi usado", ["teto"]],
   ["metas", "Metas", "As metas do dinheiro guardado", ["metas"]], ["venc", "Próximos vencimentos", "Contas e faturas a pagar", ["venc"]],
-  ["kpis", "Guardado, fixos e faturas", "Os quadros com os totais do mês", ["kpis", "insight"]], ["graficos", "Gráficos do mês", "Custo acumulado e gastos por categoria", ["graficos"]],
+  ["kpis", "Guardado, fixos e faturas", "Os quadros com os totais do mês", ["kpis", "insight"]], ["graficos", "Gráficos do mês", "Quanto você gastou ao longo do mês e em quê", ["graficos"]],
   ["evo", "Últimos meses", "Entradas, custo e sobra mês a mês", ["evoPanel"]], ["desemp", "Meu desempenho", "O mês em frases, comparado com os outros", ["desempIni"]],
   ["conq", "Conquistas", "As medalhas ganhas e a próxima", ["conqIni"]]];
 const NO_INICIO_CEL = ["dia", "venc", "desemp", "conq"];   // no celular, o resto fica em Planejar → Análise do mês
@@ -2883,7 +2883,7 @@ function projecaoDoMes(c, est, rx, acum) {
   const sobra = round2(entra - previsto), falta = sobra < 0 && entra > 0;
   const pill = entra > 0 ? `<span class="pof-pill ${falta ? "ruim" : "bom"}">${atualM ? (falta ? "Previsão: fecha " + brl0(-sobra) + " no vermelho" : "Previsão: sobram " + brl0(sobra)) : (falta ? "Fechou " + brl0(-sobra) + " no vermelho" : "Sobraram " + brl0(sobra))}</span>` : `<span class="pof-pill neutro">Sem entradas lançadas</span>`;
   const titulo = c.fase === "futuro" ? "Como o mês deve ser" : atualM ? "Como o mês vai fechar" : "Como o mês fechou";
-  const legenda = atualM ? `Gasto até hoje <b>${brl0(gasto)}</b> · previsão <b>${brl0(previsto)}</b>` : `${c.fase === "futuro" ? "Custo previsto" : "Custo do mês"} <b>${brl0(gasto)}</b>`;
+  const legenda = atualM ? `Gasto até hoje <b>${brl0(gasto)}</b> · previsão <b>${brl0(previsto)}</b>` : `${c.fase === "futuro" ? "Gasto previsto" : "Gasto do mês"} <b>${brl0(gasto)}</b>`;
   const trilho = `<div class="proj-trilho" role="img" aria-label="${esc(`${legenda.replace(/<[^>]+>/g, "")}. ${entra > 0 ? "Entradas " + brl0(entra) + "." : ""}`)}">
       <i class="gasto${atualM ? "" : " fechado"}" style="width:${p(gasto)}%"></i>${atualM && previsto > gasto ? `<i class="falta" style="left:${p(gasto)}%;width:${p(previsto) - p(gasto)}%"></i>` : ""}
       ${entra > 0 ? `<u class="entra" style="left:${p(entra)}%"><s>entra</s></u>` : ""}</div>`;
@@ -2978,8 +2978,8 @@ function resumoAno(ano = S.mes.slice(0, 4)) {
   const mesNome = (x) => `${nomeMes(x.m)}`;
   openDlg(`<h3>Resumo de ${ano}</h3>
     <div class="ano-nav"><button class="btn sm" type="button" id="anoAnt">‹ ${Number(ano) - 1}</button><button class="btn sm" type="button" id="anoProx">${Number(ano) + 1} ›</button></div>
-    ${com.length ? `<dl class="ano-tot"><div><dt>Entrou</dt><dd>${brl(r.rec)}</dd></div><div><dt>Custo</dt><dd>${brl(r.custo)}</dd></div><div><dt>Guardado</dt><dd>${brl(r.guardado)}</dd></div>
-      <div><dt>Sobrou</dt><dd class="${r.sobra < 0 ? "txt-bad" : ""}">${sgn(r.sobra)}</dd></div><div><dt>Custo médio por mês</dt><dd>${brl(r.mediaCusto)}</dd></div></dl>
+    ${com.length ? `<dl class="ano-tot"><div><dt>Entrou</dt><dd>${brl(r.rec)}</dd></div><div><dt>Gastos</dt><dd>${brl(r.custo)}</dd></div><div><dt>Guardado</dt><dd>${brl(r.guardado)}</dd></div>
+      <div><dt>Sobrou</dt><dd class="${r.sobra < 0 ? "txt-bad" : ""}">${sgn(r.sobra)}</dd></div><div><dt>Gasto médio por mês</dt><dd>${brl(r.mediaCusto)}</dd></div></dl>
       ${r.melhor && r.pior && r.melhor.m !== r.pior.m ? `<p class="hint" style="margin:6px 0 10px">Melhor mês: <b>${mesNome(r.melhor)}</b> (${sgn(r.melhor.sobra)}). Mês mais apertado: <b>${mesNome(r.pior)}</b> (${sgn(r.pior.sobra)}).</p>` : ""}
       <h4 class="meta-h">Mês a mês</h4><ul class="ano-meses">${com.map((x) => `<li><span class="mm">${MES3[Number(x.m.slice(5)) - 1]}</span>
         <span class="bs"><i class="b-in" style="width:${(x.rec / maxV) * 100}%"></i><i class="b-out" style="width:${(x.custo / maxV) * 100}%"></i></span><span class="vv ${x.sobra < 0 ? "txt-bad" : ""}">${sgn(x.sobra)}</span></li>`).join("")}</ul>
@@ -4244,7 +4244,7 @@ async function restauraCopia(arquivo) {
   const texto = await arquivo.text(), lido = leBackup(texto);
   if (!lido.ok) return openDlg(`<h3>Não deu para ler</h3><p class="hint">${esc(lido.erro)}</p><div class="actions">${fecha}</div>`);
   let prefsGuardadas = {}; try { prefsGuardadas = JSON.parse(texto).prefs || {}; } catch { /* sem ajustes no arquivo */ }
-  const falta = faltaRestaurar(lido.dados, S.data), ajustes = ajustesRestauraveis(prefsGuardadas, S.prefs);
+  const falta = faltaRestaurar(lido.dados, S.data, S.prefs.chavesLigadas || []), ajustes = ajustesRestauraveis(prefsGuardadas, S.prefs);
   const n = (k) => falta[k].length, tot = n("cartoes") + n("fixos") + n("lancamentos") + n("faturas") + n("pagos"), nAj = Object.keys(ajustes).length;
   if (!tot && !nAj) return openDlg(`<h3>Está tudo aqui</h3><p class="hint">Tudo o que está nesse arquivo${lido.criadoEm ? ` (de ${ddmmaaaa(lido.criadoEm)})` : ""} já existe na sua conta. Nada a restaurar.</p><div class="actions">${fecha}</div>`);
   const li = (q, s, p) => (q ? `<li><b>${q}</b> ${q === 1 ? s : p}</li>` : "");
@@ -4586,7 +4586,7 @@ function desenhaFechamento(m, semValores) {
   g.fillText(semValores ? pct(Math.abs(sobra)) : brl0(Math.abs(sobra)), 84, 510);
   if (semValores) { g.font = fonte(500, 40); g.globalAlpha = 0.9; g.fillText("do que entrou no mês", 90, 575); g.globalAlpha = 1; }
   // Entrou, custo e guardado
-  const linhas = [["Entrou", semValores ? "100%" : brl0(c.rec)], ["Custo do mês", val(c.custo)], ...(c.res > 0 ? [["Guardado", val(c.res)]] : [])];
+  const linhas = [["Entrou", semValores ? "100%" : brl0(c.rec)], ["Gasto do mês", val(c.custo)], ...(c.res > 0 ? [["Guardado", val(c.res)]] : [])];
   let y = 690;
   g.font = fonte(500, 42);
   linhas.forEach(([r, v]) => { g.globalAlpha = 0.85; g.fillText(r, 90, y); g.globalAlpha = 1; g.textAlign = "right"; g.font = fonte(700, 42); g.fillText(v, W - 90, y); g.textAlign = "left"; g.font = fonte(500, 42); y += 62; });
@@ -5326,7 +5326,7 @@ function detalheKpi(tipo) {
     const acum = S.prefs.levarSaldo ? saldoAcumulado(S.data, S.mes, hj, { desde: S.prefs.saldoDesde, inicial: ini }) : c.saldo, iniVale = round2(acum - ant - c.saldo);
     const li = (t, v, forte = false) => `<li class="${forte ? "tot" : ""}"><span></span><span>${t}</span><b>${v}</b></li>`;
     return abreDetalhe(`Saldo de ${mes}`, "Entradas menos o custo do mês e menos o que você guardou.", [
-      { html: `<ul class="itens">${li("Entradas", "+ " + brl(c.rec))}${li("Custo do mês", "− " + brl(c.custo))}${c.res ? li(c.res > 0 ? "Guardado neste mês" : "Retirado do guardado", (c.res > 0 ? "− " : "+ ") + brl(Math.abs(c.res))) : ""}${li("Saldo do mês", sgn(c.saldo), true)}</ul>` },
+      { html: `<ul class="itens">${li("Entradas", "+ " + brl(c.rec))}${li("Gasto do mês", "− " + brl(c.custo))}${c.res ? li(c.res > 0 ? "Guardado neste mês" : "Retirado do guardado", (c.res > 0 ? "− " : "+ ") + brl(Math.abs(c.res))) : ""}${li("Saldo do mês", sgn(c.saldo), true)}</ul>` },
       ...(S.prefs.levarSaldo ? [{ titulo: "Saldo acumulado", total: sgn(acum),
         html: `<ul class="itens">${iniVale ? li("Saldo inicial", sgn(iniVale)) : ""}${li("Saldo dos meses anteriores", sgn(ant))}${li(`Saldo de ${mes}`, sgn(c.saldo))}${li("Saldo acumulado", sgn(acum), true)}</ul>` }] : [])]);
   }
@@ -6144,12 +6144,12 @@ function conferirConta(fonte, nomeArquivo) {
       return { ...m, cat: est.cats.get(m.chave) || (lista.includes(c) ? c : lista.includes("Outros") ? "Outros" : lista[0]), estado: chaves.has(m.chave) ? "importada" : m.ignorar ? "fora" : jaLancados.has(m.chave) ? "parecida" : fixas.has(m.chave) ? "fixa" : "nova", fixa: fixas.get(m.chave) };
     });
     if (!itens.length) return openDlg(`<h3>Não achei movimentos nesse arquivo</h3><p style="color:var(--ink-2);margin:0 0 14px">O arquivo precisa ter data, valor e descrição em cada linha.</p><div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
-    const ligado = (it) => (est.marcados.has(it.chave) ? est.marcados.get(it.chave) : it.estado === "nova");
+    const ligado = (it) => (est.marcados.has(it.chave) ? est.marcados.get(it.chave) : it.estado === "nova" && !it.suspeita);
     const vis = itens.filter((it) => it.estado === "nova" || it.estado === "parecida" || it.estado === "fixa"), fora = itens.filter((it) => it.estado === "fora"), antigas = itens.filter((it) => it.estado === "importada").length;
     const linha = (it, extra = "") => `<li class="${it.estado}">
         <input type="checkbox" data-k="${esc(it.chave)}" ${ligado(it) ? "checked" : ""} aria-label="${it.tipo === "Receita" ? "Lançar entrada" : "Lançar gasto"}: ${esc(it.descricao)}">
         <span class="oque"><b>${esc(it.descricao)}${it.forma ? ` <span class="tag">${esc(it.forma)}</span>` : ""}</b>
-          <span>${ddmm(it.data)}${it.estado === "parecida" ? ` · <em>parece já estar lançado</em>` : ""}${it.estado === "fixa" ? ` · <em>é a conta fixa ${esc(it.fixa.nome)}${it.fixa.jaPaga ? " (já paga)" : ""}</em>` : ""}${extra}</span></span>
+          <span>${ddmm(it.data)}${it.estado === "parecida" ? ` · <em>parece já estar lançado</em>` : ""}${it.estado === "fixa" ? ` · <em>é a conta fixa ${esc(it.fixa.nome)}${it.fixa.jaPaga ? " (já paga)" : ""}</em>` : ""}${it.suspeita && it.estado === "nova" ? ` · <em>parece ida e volta</em>` : ""}${extra}</span></span>
         <b class="v ${it.tipo === "Receita" ? "pos" : ""}">${it.tipo === "Receita" ? "+ " : ""}${brl(it.valor)}</b>
         <select class="in" data-c="${esc(it.chave)}" aria-label="Categoria de ${esc(it.descricao)}">${opts(it.tipo === "Receita" ? catR : catD, it.cat)}</select></li>`;
     // Vários meses no mesmo arquivo (o extrato do Itaú junta 3 ou mais): um bloco por mês, fechado, com o total e uma caixa para marcar o mês inteiro.
@@ -6166,7 +6166,8 @@ function conferirConta(fonte, nomeArquivo) {
       ${listaVis()}` : `<div class="empty" style="margin-top:12px">Todos os movimentos desse arquivo já foram importados antes.</div>`}
       ${vis.some((it) => it.estado === "fixa") ? `<p class="hint" style="margin:8px 0 0">${plural(vis.filter((it) => it.estado === "fixa").length, "movimento é o pagamento de uma conta fixa que você já cadastrou", "movimentos são pagamentos de contas fixas que você já cadastrou")}. Eles começam desmarcados para o gasto não contar duas vezes, e a conta fixa é marcada como paga ao lançar.</p>` : ""}
       ${vis.some((it) => it.estado === "parecida") ? `<p class="hint" style="margin:8px 0 0">${plural(vis.filter((it) => it.estado === "parecida").length, "movimento parece já estar lançado", "movimentos parecem já estar lançados")} e começa${vis.filter((it) => it.estado === "parecida").length === 1 ? "" : "m"} desmarcado${vis.filter((it) => it.estado === "parecida").length === 1 ? "" : "s"}, para não duplicar. Marque se quiser lançar mesmo assim.</p>` : ""}
-      ${antigas ? `<p class="hint" style="margin:10px 0 0">${plural(antigas, "movimento já tinha sido importado", "movimentos já tinham sido importados")} antes e ${antigas === 1 ? "ficou" : "ficaram"} de fora.</p>` : ""}
+      ${vis.some((it) => it.suspeita && it.estado === "nova") ? `<p class="hint" style="margin:8px 0 0">${plural(vis.filter((it) => it.suspeita && it.estado === "nova").length, "movimento parece ida e volta", "movimentos parecem ida e volta")}: o mesmo valor saiu e entrou com a mesma pessoa em poucos dias, o que costuma ser dinheiro entre as suas contas. ${vis.filter((it) => it.suspeita && it.estado === "nova").length === 1 ? "Começa desmarcado" : "Começam desmarcados"}. Marque se for um gasto ou uma entrada de verdade.</p>` : ""}
+      ${antigas ? `<p class="hint" style="margin:10px 0 0">${plural(antigas, "movimento já tinha sido importado","movimentos já tinham sido importados")} antes e ${antigas === 1 ? "ficou" : "ficaram"} de fora.</p>` : ""}
       ${fora.length ? `<details class="manual" style="margin-top:10px"><summary>${plural(fora.length, "movimento não entra", "movimentos não entram")} (por padrão)</summary>
         <p class="hint" style="margin:6px 0">Marque se quiser incluir algum mesmo assim.</p><ul class="ext-lista">${fora.map((it) => linha(it, ` · ${esc(it.motivo)}`)).join("")}</ul></details>` : ""}
       <p class="auth-msg err" id="ctMsg" style="margin:8px 0 0"></p>

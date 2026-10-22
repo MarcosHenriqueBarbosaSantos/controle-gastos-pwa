@@ -427,11 +427,15 @@ export function leBackup(texto) {
   return { ok: true, dados, descartados, criadoEm: typeof j.criadoEm === "string" ? j.criadoEm.slice(0, 10) : "" };
 }
 /** O que está no arquivo e ainda não está no app, pelo código de cada registro. */
-export function faltaRestaurar(backup, atual) {
+export function faltaRestaurar(backup, atual, chavesJaUsadas = []) {
   const ids = (l) => new Set((l || []).map((x) => x.id)), novos = (k) => backup[k].filter((x) => !ids(atual[k]).has(x.id));
+  // Lançamento que veio do extrato leva uma "chave" única. Se a mesma chave já está na conta (com outro código, por exemplo
+  // numa conta nova) ou virou conta fixa, não volta de novo: assim restaurar não duplica o que foi importado.
+  const chaves = new Set([...(atual.lancamentos || []).map((x) => x.import_key).filter(Boolean), ...(chavesJaUsadas || [])]);
+  const lancNovos = novos("lancamentos").filter((x) => { if (!x.import_key) return true; if (chaves.has(x.import_key)) return false; chaves.add(x.import_key); return true; });
   const chave = (p) => `${p.fixo_id}|${String(p.mes).slice(0, 10)}`, tem = new Set((atual.pagos || []).map(chave));
   const fixosOk = new Set([...ids(atual.fixos), ...backup.fixos.map((f) => f.id)]);
-  return { cartoes: novos("cartoes"), fixos: novos("fixos"), lancamentos: novos("lancamentos"), faturas: novos("faturas"),
+  return { cartoes: novos("cartoes"), fixos: novos("fixos"), lancamentos: lancNovos, faturas: novos("faturas"),
     pagos: backup.pagos.filter((p) => !tem.has(chave(p)) && fixosOk.has(p.fixo_id)) };
 }
 
@@ -731,7 +735,7 @@ const mesPorExtenso = (m) => `${MESES[Number(m.slice(5)) - 1]} de ${m.slice(0, 4
 export function extratoDoMesEmLinhas(st, m, hoje) {
   const c = calcMes(st, m, hoje), l = linhasDoMes(st, m), faturas = l.filter((x) => x.tipo === "Fatura"), resto = l.filter((x) => x.tipo !== "Fatura");
   const L = [{ t: `Meus Gastos - Extrato de ${mesPorExtenso(m)}`, b: true }, { t: `Gerado em ${dataBr(hoje)}` }, { t: "" },
-    { t: "Resumo", b: true }, { t: largura("Entradas", 20) + largura(moeda(c.rec), 16, true) }, { t: largura("Custo do mês", 20) + largura(moeda(c.custo), 16, true) },
+    { t: "Resumo", b: true }, { t: largura("Entradas", 20) + largura(moeda(c.rec), 16, true) }, { t: largura("Gasto do mês", 20) + largura(moeda(c.custo), 16, true) },
     { t: largura("Sobra", 20) + largura(moeda(c.saldo), 16, true), b: true }, { t: "" }];
   L.push({ t: `Lançamentos (${resto.length})`, b: true }, { t: largura("Data", 11) + largura("Tipo", 9) + largura("Categoria", 20) + largura("Descrição", 32) + largura("Valor", 16, true) });
   resto.forEach((x) => L.push({ t: largura(dataBr(x.data), 11) + largura(x.tipo, 9) + largura(x.categoria, 20) + largura(x.descricao, 32) + largura(moeda(x.valor), 16, true) }));

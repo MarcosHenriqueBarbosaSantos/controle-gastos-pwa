@@ -1661,3 +1661,11 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .wrap[data-vazio="1"] #venc,.wrap[data-vazio="1"] #dia,.wrap[data-vazio="1"] #instCard{display:none}
 /* o passo a passo de boas-vindas tem o próprio Pular: sem o Voltar solto no alto */
 dialog:has(.tour) .dlg-barra{display:none}
+
+/* v104: filtros do Extrato fáceis de tocar no celular */
+@media (max-width: 700px) {
+  #lFiltros .seg button { min-height: 44px; }
+  #lFiltros .lf-mais summary { min-height: 44px; display: flex; align-items: center; }
+  #lFiltros #fCatSel { min-height: 44px; font-size: 16px; }
+  #lFiltros #fLimpa { min-height: 44px; display: inline-flex; align-items: center; }
+}

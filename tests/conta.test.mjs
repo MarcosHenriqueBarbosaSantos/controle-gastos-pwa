@@ -111,3 +111,17 @@ test("categorias novas: pedágio, posto junto, mercearia e bebidas", () => {
   for (const [nome, cat] of Object.entries(esperado)) assert.equal(guessCat(nome, "Despesa"), cat, nome);
   assert.equal(guessCat("Loja Qualquer", "Despesa"), "Outros");   // sem pista, continua Outros
 });
+
+test("ida e volta: mesma pessoa, mesmo valor, poucos dias → suspeita, sem precisar do nome", () => {
+  const csv = `Data,Valor,Identificador,Descrição
+02/10/2026,-500.00,a1,Transferência enviada pelo Pix - Marcos H B Santos - •••.111.222-•• - BANCO X (0001) Agência: 1 Conta: 2-3
+03/10/2026,500.00,a2,Transferência recebida pelo Pix - Marcos H B Santos - •••.111.222-•• - BANCO X (0001) Agência: 1 Conta: 2-3
+04/10/2026,-30.00,a3,Transferência enviada pelo Pix - Maria Exemplo - •••.333.444-•• - NU PAGAMENTOS - IP (0260) Agência: 1 Conta: 4-5
+20/10/2026,-500.00,a4,Transferência enviada pelo Pix - Marcos H B Santos - •••.111.222-•• - BANCO X (0001) Agência: 1 Conta: 2-3`;
+  const r = leConta({ texto: csv, hoje: "2026-10-21" });
+  const por = (id) => r.movimentos.find((m) => m.id === id);
+  assert.ok(por("a1").suspeita); assert.ok(por("a2").suspeita);
+  assert.equal(por("a3").suspeita, undefined);
+  assert.equal(por("a4").suspeita, undefined);   // longe demais para ser o mesmo par
+  assert.equal(por("a1").ignorar, false);        // nada é descartado
+});

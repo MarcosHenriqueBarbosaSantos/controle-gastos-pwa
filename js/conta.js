@@ -132,6 +132,25 @@ export function pareceConta(linhas) {
 }
 
 /**
+ * Quando a pessoa não disse o nome dela, o app não sabe quais transferências são entre contas dela. Pista que não depende do nome:
+ * uma saída e uma entrada de Pix/transferência com o MESMO valor e a MESMA pessoa em até 3 dias (ida e volta). Pode ser dinheiro
+ * passando de uma conta sua para outra, ou um reembolso. Os dois movimentos ganham `suspeita` e começam desmarcados; nada é descartado.
+ */
+export function marcaIdaEVolta(movimentos) {
+  const dias = (a, b) => Math.abs(Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`)) / 864e5;
+  const cand = movimentos.filter((m) => !m.ignorar && (m.forma === "Pix" || m.forma === "Transferência") && m.pessoa);
+  const usado = new Set();
+  for (const s of cand.filter((m) => m.tipo === "Despesa")) {
+    const par = cand.find((e) => e.tipo === "Receita" && !usado.has(e) && e.valor === s.valor && dias(e.data, s.data) <= 3 && norm(e.descricao) === norm(s.descricao));
+    if (!par) continue;
+    usado.add(par);
+    const aviso = "Entrou e saiu o mesmo valor com essa pessoa em poucos dias. Pode ser dinheiro entre contas suas";
+    s.suspeita = aviso; par.suspeita = aviso;
+  }
+  return movimentos;
+}
+
+/**
  * Lê o extrato da conta e já separa o que vira lançamento do que deve ficar de fora (com o motivo).
  * Ficam de fora: o pagamento da fatura do cartão (o gasto já está na fatura), o Pix pago no crédito (a conta mostra o
  * dinheiro entrando e saindo com o mesmo identificador, e a compra está na fatura), movimento de investimento e,
@@ -183,6 +202,7 @@ export function leConta({ texto, linhas, hoje, meuNome = "", parceiro = "" }) {
     const n = usados.get(chave) || 0; usados.set(chave, n + 1); if (n) chave += `-${n + 1}`;
     return { id: x.id, chave, data: x.data, tipo, valor, descricao: limpo || x.original.slice(0, 60), categoria, forma, pessoa, parceiro: parc, ignorar, motivo, original: x.original };
   }).sort((a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0));
+  marcaIdaEVolta(movimentos);
   const uteis = movimentos.filter((m) => !m.ignorar), soma = (t) => round2(uteis.filter((m) => m.tipo === t).reduce((s, m) => s + m.valor, 0));
   return { movimentos, periodo: movimentos.length ? { de: movimentos[0].data, ate: movimentos.at(-1).data } : null,
     resumo: { entradas: soma("Receita"), saidas: soma("Despesa"), ignorados: movimentos.length - uteis.length } };
