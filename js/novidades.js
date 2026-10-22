@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "113", itens: [
+    "Nas telas pequenas, os nomes no passo a passo de começar (\"Adiantamento ou vale\") não são mais cortados." ] },
   { versao: "112", itens: [
     "Se você ainda não disse quanto recebe, o Início não mostra mais \"no vermelho\": ele pede a entrada, com um botão para adicionar.",
     "Modo motorista agora aparece no Início: quem usa vê o resultado de hoje e o botão para iniciar a jornada; quem ainda não usa recebe um convite (que dá para dispensar).",
