@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "124", itens: [
+    "Valores colados no formato americano (1,234.56) agora são entendidos certo: antes virava R$ 1,23 em vez de R$ 1.234,56." ] },
   { versao: "123", itens: [
     "Nas tabelas de Contas fixas, Entradas fixas, Cartões e Lançamentos, os botões Editar, Encerrar, Pago e Ver compras ficaram com tamanho de dedo (44 px) no celular. Também nos botões de remover e trocar o desenho das categorias." ] },
   { versao: "122", itens: [

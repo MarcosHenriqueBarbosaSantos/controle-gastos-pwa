@@ -34,12 +34,14 @@ export function addM(m, k) {
 /** Dias no mês "AAAA-MM". */
 export const dim = (m) => { const [y, mo] = m.split("-").map(Number); return new Date(y, mo, 0).getDate(); };
 
-/** Aceita "1.234,56", "1234,56", "1234.56", "1.200" e números. */
+/** Aceita "1.234,56", "1234,56", "1234.56", "1.200", "1,234.56" e números. */
 export function parseMoney(s) {
   if (typeof s === "number") return s;
   s = String(s ?? "").replace(/[R$\s]/g, "");
   if (!s) return NaN;
-  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  if (s.includes(",") && s.includes(".") && s.lastIndexOf(".") > s.lastIndexOf(",")) s = s.replace(/,/g, "");   // "1,234.56" (formato americano, comum ao copiar de apps): o último separador é o decimal
+  else if ((s.match(/,/g) || []).length > 1) s = s.replace(/,/g, "");   // "1,234,567"
+  else if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
   else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g, "");
   return Number(s);
 }

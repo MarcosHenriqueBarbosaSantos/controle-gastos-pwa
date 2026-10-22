@@ -4,6 +4,13 @@ import assert from "node:assert/strict";
 import { parseMoney, addM, dim, fixosDoMes, calcMes, catMap, custoAcumulado, comprasCartaoPorCategoria } from "../js/calc.js";
 import { cellToISO, importKey, parseWorkbook, guessCat } from "../js/excel.js";
 
+test("parseMoney entende o formato americano (1,234.56)", () => {
+  assert.equal(parseMoney("1,234.56"), 1234.56);
+  assert.equal(parseMoney("R$ 1,234.50"), 1234.5);
+  assert.equal(parseMoney("1,234,567"), 1234567);
+  assert.equal(parseMoney("1.234,56"), 1234.56);
+  assert.equal(parseMoney("12,50"), 12.5);
+});
 test("parseMoney entende formatos brasileiros", () => {
   assert.equal(parseMoney("1.234,56"), 1234.56);
   assert.equal(parseMoney("R$ 25,90"), 25.9);
