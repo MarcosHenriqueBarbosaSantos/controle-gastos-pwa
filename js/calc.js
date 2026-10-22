@@ -783,6 +783,39 @@ export function contasQueNaoFecham(st, hoje, extra = 0) {
 }
 
 /**
+ * Em que dia o dinheiro deste mês acaba, no ritmo de agora.
+ * Parte do dinheiro que a pessoa tem hoje (entradas recebidas menos o que já saiu e foi pago) e anda dia a dia até o fim do mês:
+ * as contas ainda não pagas saem no dia do vencimento (as atrasadas, hoje), as entradas fixas e lançadas entram no dia delas,
+ * e o dia a dia gasta a média do que a pessoa gastou até aqui (só depois do 5º dia do mês, antes disso a média não é confiável).
+ * Só olha este mês e não leva em conta saldo de meses anteriores.
+ * @returns {{saldoHoje:number, mediaDia:number, diaZero:string|null, diasAteZero:number|null, proximaEntrada:{data:string,valor:number}|null, minimo:{data:string,saldo:number}|null}|null}
+ */
+export function quandoOsDinheiroAcaba(st, hoje) {
+  const m = mKey(hoje), c = calcMes(st, m, hoje);
+  if (c.fase !== "atual") return null;
+  const n = c.n, hj = Number(hoje.slice(8, 10)), iso = (d) => `${m}-${String(d).padStart(2, "0")}`;
+  const entradas = [...c.fr.map((o) => ({ data: o.data, valor: Number(o.valor) })), ...c.it.filter((x) => x.tipo === "Receita").map((x) => ({ data: String(x.data).slice(0, 10), valor: Number(x.valor) }))];
+  const recebidas = round2(entradas.filter((e) => e.data <= hoje).reduce((t, e) => t + e.valor, 0));
+  const fixosPagos = round2(c.fxCusto - c.fxPend), fatPagas = round2(c.fatT - c.fatAberta);
+  const saldoHoje = round2(recebidas - c.vari - fixosPagos - fatPagas - c.res);
+  const saidas = [
+    ...c.fx.filter((o) => !noCartao(o) && !c.pagosSet.has(o.id + "|" + o.chave)).map((o) => ({ data: o.data, valor: Number(o.valor) })),
+    ...c.fat.filter((f) => f.status !== "Paga").map((f) => ({ data: String(f.vencimento).slice(0, 10), valor: Number(f.valor) })),
+  ];
+  const mediaDia = hj >= 5 ? round2(c.vari / hj) : 0;
+  const proxima = entradas.filter((e) => e.data > hoje).sort((a, b) => a.data.localeCompare(b.data))[0] || null;
+  let saldo = saldoHoje, diaZero = null, minimo = null;
+  for (let d = hj; d <= n; d++) {
+    const dia = iso(d);
+    saldo = round2(saldo + entradas.filter((e) => (d === hj ? false : e.data === dia)).reduce((t, e) => t + e.valor, 0)
+      - saidas.filter((x) => (d === hj ? x.data <= dia : x.data === dia)).reduce((t, x) => t + x.valor, 0) - (d > hj ? mediaDia : 0));
+    if (!minimo || saldo < minimo.saldo) minimo = { data: dia, saldo };
+    if (saldo < 0 && !diaZero) diaZero = dia;
+  }
+  return { saldoHoje, mediaDia, diaZero, diasAteZero: diaZero ? diasEntre(hoje, diaZero) : null, proximaEntrada: proxima ? { data: proxima.data, valor: round2(proxima.valor) } : null, minimo };
+}
+
+/**
  * Cartões cadastrados cuja fatura vai vencer em breve mas ainda não tem nenhuma compra nem valor informado.
  * Sem isso o cartão sumia dos vencimentos até a primeira compra ser lançada. A pessoa vê a data e informa o valor da fatura.
  * Só olha o dia de hoje em diante (fatura sem valor não "atrasa"). Não entra no servidor de avisos.

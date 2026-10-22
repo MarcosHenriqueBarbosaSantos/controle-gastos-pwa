@@ -1,7 +1,7 @@
 // Pôr o mês em ordem: mês virado, contas em atraso e o plano para sobrar dinheiro.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { saldoAcumulado, saldoAnterior, contasEmAtraso, planoDoMes, contasQueNaoFecham } from "../js/calc.js";
+import { saldoAcumulado, saldoAnterior, contasEmAtraso, planoDoMes, contasQueNaoFecham, quandoOsDinheiroAcaba } from "../js/calc.js";
 
 const L = (id, data, tipo, valor, extra = {}) => ({ id, data, tipo, categoria: tipo === "Receita" ? "Salário" : tipo === "Reserva" ? "Reserva" : "Mercado", forma: "Pix", valor, descricao: "x", ...extra });
 const base = () => ({ lancamentos: [], fixos: [], pagos: [], faturas: [], cartoes: [] });
@@ -117,4 +117,17 @@ test("contas que não fecham: mostra quais contas faltam cobrir, com e sem o gas
   // conta já paga não entra
   st.pagos.push({ fixo_id: "f1", mes: "2026-10-01" });
   assert.deepEqual(contasQueNaoFecham(st, "2026-10-20").itens.map((x) => x.titulo), ["Fatura Nu"]);
+});
+
+test("quando o dinheiro acaba: anda dia a dia com as contas, as entradas e a média do dia a dia", () => {
+  const st = base();
+  st.lancamentos.push(L("a", "2026-10-02", "Receita", 3000), L("b", "2026-10-05", "Despesa", 1000), L("c", "2026-10-10", "Despesa", 1000));
+  st.fixos.push({ id: "f1", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 25, valor: 800, forma: "Pix", desde: "2026-01-01", ate: null });
+  // hoje dia 20: tem R$ 1.000 na mão (3000 - 2000); média do dia a dia = 2000/20 = 100; aluguel dia 25
+  const r = quandoOsDinheiroAcaba(st, "2026-10-20");
+  assert.equal(r.saldoHoje, 1000);
+  assert.equal(r.mediaDia, 100);
+  assert.equal(r.diaZero, "2026-10-25");      // 1000 - 5x100 (dias 21 a 25) - 800 de aluguel = -300 no dia 25
+  assert.equal(r.diasAteZero, 5);
+  assert.equal(r.minimo.saldo, -300 - 100 * 6);  // até o dia 31 continua gastando a média
 });

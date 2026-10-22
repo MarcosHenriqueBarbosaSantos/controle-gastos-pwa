@@ -1,5 +1,9 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "109", itens: [
+    "Próximos vencimentos diz logo no título quantas contas estão atrasadas e quanto vence nos próximos 7 dias.",
+    "O que está atrasado ou vence em 7 dias aparece sempre na frente, mesmo no celular.",
+    "Aviso de dinheiro curto: o app calcula o dia em que o dinheiro do mês acaba, no ritmo de agora, e quanto falta até o fim do mês." ] },
   { versao: "108", itens: [
     "Menu de baixo mais simples: Início, Lançar, Mercado e Mais. A aba Ferramentas foi para dentro do Mais, e cada coisa agora mora em um lugar só.",
     "A Dica do dia também está no Mais, em Guardar e planejar." ] },

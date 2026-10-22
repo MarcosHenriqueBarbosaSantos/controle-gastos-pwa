@@ -1,7 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
+  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
@@ -1464,9 +1464,10 @@ function renderVenc() {
   const cab = (dir) => `<div class="sec-head"><h2>Próximos vencimentos</h2><span>${dir}</span></div>${S.loaded ? `<button class="link venc-cal" type="button" id="vencCal">${ico("agenda")}Ver no calendário</button>` : ""}`;
   // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
   const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
-  const alerta = true || !sd ? "" : `<li class="alerta ${sd.nivel}"><span class="quando ${sd.nivel}">${sd.tipo === "vermelho" ? "no vermelho" : "atenção"}</span>
-      <span class="oque"><b>${sd.tipo === "vermelho" ? `Este mês já está ${brl(sd.valor)} no vermelho` : `No ritmo atual, o mês fecha ${brl(sd.valor)} no vermelho`}</b>
-      <span>${sd.tipo === "vermelho" ? "As saídas do mês passaram das entradas." : "Ainda dá tempo de segurar os gastos do dia a dia."}</span></span></li>`;
+  const ac = S.loaded ? quandoOsDinheiroAcaba(S.data, hoje()) : null, faltaAte = ac?.minimo ? round2(-ac.minimo.saldo) : 0;
+  const alerta = !ac?.diaZero ? "" : `<li class="alerta ${ac.diasAteZero === 0 ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
+      <span class="oque"><b>${ac.diasAteZero === 0 ? "O dinheiro deste mês já acabou" : `No ritmo de agora, o dinheiro do mês acaba dia ${ac.diaZero.slice(8, 10)}`}</b>
+      <span>Até o fim do mês faltam ${brl(faltaAte)}.${ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""} Em Mais > Pôr o mês em ordem tem um jeito leve de fechar.</span></span></li>`;
   // Combinados das metas: aparecem junto, mas não são contas. Não entram no total e nunca ficam atrasados.
   const comb = S.loaded ? combinadosDoMes(S.data, S.prefs.metas, hoje()) : [];
   const combHtml = comb.map((x, i) => `<li class="comb" data-u="ok">
@@ -1489,8 +1490,13 @@ function renderVenc() {
   }
   const cls = (d) => (d < 0 ? "bad" : d <= 7 ? "warn" : "ok");
   // No topo aparecem só as primeiras (2 no celular, 5 no computador); o resto abre no "Ver todas".
-  const MAX = noCelular() ? 2 : 5, vis = S.vencTodas ? l : l.slice(0, MAX);
-  host.innerHTML = cab(`${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`) +
+  // Mostra tudo o que está atrasado ou vence em 7 dias (até 5), mesmo no celular: é o que pede ação.
+  const MAX = Math.max(noCelular() ? 2 : 5, Math.min(5, l.filter((x) => x.dias <= 7).length)), vis = S.vencTodas ? l : l.slice(0, MAX);
+  const atras = reais.filter((x) => x.dias < 0), em7 = reais.filter((x) => x.dias >= 0 && x.dias <= 7), soma = (a) => brl(round2(a.reduce((t, x) => t + x.valor, 0)));
+  const resumo = atras.length || em7.length
+    ? [atras.length ? `<b class="txt-bad">${atras.length} ${atras.length === 1 ? "atrasada" : "atrasadas"}: ${soma(atras)}</b>` : "", em7.length ? `${em7.length} ${em7.length === 1 ? "vence" : "vencem"} em 7 dias: <b>${soma(em7)}</b>` : ""].filter(Boolean).join(" · ")
+    : `${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`;
+  host.innerHTML = cab(resumo) +
     `<ul class="venc">${alerta}${vis.map((x, i) => `<li data-u="${cls(x.dias)}">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
       <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<b>${esc(x.titulo)}</b><span>${x.semValor ? "Fatura de cartão · falta informar o valor" : x.tipo === "repetida" ? "Parece se repetir todo mês" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa"}</span></span>
