@@ -3156,7 +3156,7 @@ function renderCasalIni(c) {
     return `<div class="cs-col${k === "juntos" ? " juntos" : ""}" role="group" aria-label="${esc(titulo)}">
       <b class="cs-nome">${esc(titulo)}</b>
       <span><small>Entra</small><i>${brl0(x.rec)}</i></span>
-      <span><small>${c.fase === "atual" ? "Previsão de gasto" : "Gastou"}</small><i>${brl0(x.custo)}</i></span>
+      <span><small>${c.fase === "atual" ? "Previsão do mês" : "Gastou"}</small><i>${brl0(x.custo)}</i></span>
       <span class="cs-sobra ${falta ? "ruim" : "bom"}"><small>${falta ? "Faltam" : "Sobram"}</small><i>${falta ? "▼ " : "▲ "}${brl0(Math.abs(x.sobra))}</i></span>
       ${quem !== null ? `<button class="link" type="button" data-cs-ver="${quem}">Ver lançamentos</button>` : ""}</div>`;
   };
@@ -4752,6 +4752,7 @@ function htmlCaixinhas() {
       ${a ? `<span class="pbar"><i style="width:${Math.min(100, a.pct)}%"></i></span><small>${a.pct}% de ${brl0(a.alvo)}</small>` : `<small>sem meta</small>`}</span></button>`;
   };
   return `<section class="caixas"><div class="caixas-h"><h2>Caixinhas</h2><span class="ocultavel">${brl(total)} guardados</span></div>
+    <p class="hint" style="margin:0 0 8px;font-size:13px">Dinheiro separado para um objetivo, como viagem ou reserva.</p>
     <div class="caixas-grid">${nomes.map(card).join("")}
       <button type="button" class="caixa nova" data-caixa-nova="1"><span class="capa"><b>+</b></span><span class="info"><b class="nome">Nova caixinha</b><small>viagem, carro, reserva…</small></span></button></div></section>`;
 }

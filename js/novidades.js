@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "121", itens: [
+    "Caixinhas agora explicam o que são (dinheiro separado para um objetivo) e \"Previsão de gasto\" virou \"Previsão do mês\", o mesmo nome do resto do app." ] },
   { versao: "120", itens: [
     "Palavras mais simples: \"Gasto até hoje\" no lugar de \"Gasto até agora\", \"o que dá para gastar hoje\" no lugar de \"fatia\", e \"Saldo somando os meses anteriores\" no lugar de \"Saldo acumulado\"." ] },
   { versao: "119", itens: [
