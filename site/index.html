@@ -258,6 +258,29 @@ button.btn{cursor:pointer}
 .casal-lista b{font-family:var(--display);font-size:1.05rem} .casal-lista span{color:var(--ink-2);font-size:.93rem}
 .selos a{color:inherit}
 @media (max-width:900px){.casal-sec .col{grid-template-columns:minmax(0,1fr)} .casal-lista{grid-template-columns:minmax(0,1fr)}}
+/* Para motoristas de aplicativo: faixa escura com amarelo de sinalização, igual à tela do app */
+.mot-sec{background:#12161c;color:#f2f4f8;padding-block:64px;position:relative}
+.mot-sec::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;background:repeating-linear-gradient(90deg,#ffb81c 0 28px,transparent 28px 52px)}
+.mot-sec .col{display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,.95fr);gap:36px;align-items:start}
+.mot-tx{display:grid;gap:14px;justify-items:start} .mot-tx p{margin:0;color:#c5cdd9}
+.mot-sec h2{color:#f2f4f8} .mot-sec .rot{color:#ffb81c}
+.mot-passos{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:12px;width:100%}
+.mot-passos li{display:grid;grid-template-columns:64px minmax(0,1fr);gap:12px;align-items:baseline;padding:12px 14px;border-radius:14px;background:#1b2129;border:1px solid #2e3947}
+.mot-passos time{font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;color:#ffb81c;font-size:.92rem}
+.mot-passos b{display:block;color:#f2f4f8} .mot-passos span{color:#c5cdd9;font-size:.93rem}
+.mot-sec a.lk-inst{color:#ffb81c;font-weight:600}
+.mot-sec .btn.amarelo{background:#ffb81c;color:#1b1403;box-shadow:0 8px 22px rgba(255,184,28,.25)}
+.mot-card{background:#1b2129;border:1px solid #2e3947;border-radius:22px;padding:18px;display:grid;gap:12px;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.mot-card .cron{text-align:center;display:grid;gap:4px;padding:14px;border-radius:16px;background:rgba(61,220,132,.14)}
+.mot-card .cron small{color:#8f9bad} .mot-card .cron b{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:2.4rem;line-height:1;letter-spacing:-.02em}
+.mot-card .duas{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mot-card .duas div{background:#12161c;border-radius:12px;padding:10px;display:grid;gap:2px;text-align:center} .mot-card .duas small{color:#8f9bad;font-size:.75rem} .mot-card .duas b{font-size:1.1rem}
+.mot-card .forte{background:linear-gradient(135deg,#ffc83d,#ff9d00);color:#1b1403;border-radius:14px;padding:12px;text-align:center;display:grid;gap:2px} .mot-card .forte small{opacity:.8} .mot-card .forte b{font-size:1.7rem}
+.mot-card .ok{margin:0;color:#3ddc84;font-weight:600;font-size:.92rem;text-align:center}
+.mot-card .meta{border-radius:14px;padding:12px;background:#222a34;display:grid;gap:4px} .mot-card .meta small{color:#8f9bad} .mot-card .meta b{font-size:1.25rem;color:#ffb81c} .mot-card .meta .tb{height:8px;border-radius:99px;background:#12161c;overflow:hidden} .mot-card .meta .tb i{display:block;height:100%;width:100%;background:#ffb81c}
+.mot-nota{margin:0;color:#8f9bad;font-size:.8rem;text-align:center}
+@media (max-width:900px){.mot-sec .col{grid-template-columns:minmax(0,1fr)}}
+
 .paraquem{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;margin-top:28px}
 .paraquem div{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:24px}
 .paraquem div:first-child{border-top:4px solid var(--good)} .paraquem div:last-child{border-top:4px solid var(--muted)}
@@ -440,7 +463,7 @@ picture{display:contents}
 <header class="topo"><div class="col">
   <a class="marca" href="#inicio"><img src="img/icone.png" alt="" width="32" height="32">Meus Gastos</a>
   <nav aria-label="Seções">
-    <a class="lk" href="#usar">Como usar</a><a class="lk" href="#casal">Para casais</a><a class="lk" href="#recursos">Recursos</a><a class="lk" href="#instalar">Instalar</a><a class="lk" href="#perguntas">Perguntas</a>
+    <a class="lk" href="#usar">Como usar</a><a class="lk" href="#casal">Para casais</a><a class="lk" href="#motorista">Motoristas</a><a class="lk" href="#recursos">Recursos</a><a class="lk" href="#instalar">Instalar</a><a class="lk" href="#perguntas">Perguntas</a>
     <a class="entrar" data-app="" href="https://meugastos.com.br/" target="_blank" rel="noopener">Entrar</a>
     <a class="btn pri" data-cta data-app="#demo" href="https://meugastos.com.br/#demo" target="_blank" rel="noopener">Testar agora</a>
   </nav>
@@ -549,6 +572,31 @@ picture{display:contents}
   </ul>
 </div></section>
 
+<section class="mot-sec" id="motorista"><div class="col">
+  <div class="mot-tx">
+    <span class="rot">Para motoristas de aplicativo</span>
+    <h2 class="sobe" style="margin-top:10px">Quanto você ganha por hora, depois do carro?</h2>
+    <p class="sobe">Uber, 99 ou inDrive, o dia muda e o gasto também. O Modo motorista mostra, enquanto você roda, quanto está rendendo por hora e se está valendo a pena. No fim do turno, tudo vai para o seu controle de gastos, sem digitar duas vezes.</p>
+    <ol class="mot-passos" aria-label="Um dia rodando com o Meus Gastos (exemplo)">
+      <li class="sobe"><time>6h40</time><div><b>Café na padaria: R$ 14,50</b><span>Escaneia o QR do Pix e o gasto já fica lançado.</span></div></li>
+      <li class="sobe d1"><time>7h30</time><div><b>Toque em “Iniciar turno”</b><span>O relógio começa. Você não precisa lembrar a hora em que saiu.</span></div></li>
+      <li class="sobe d1"><time>Rodando</time><div><b>Pedágio e combustível na hora</b><span>Lance cada gasto quando acontecer. Se tiver nota ou QR, é só escanear.</span></div></li>
+      <li class="sobe d2"><time>Sempre</time><div><b>Líquido por hora, ao vivo</b><span>Digite o total que o Uber, a 99 ou o inDrive já mostram no dia. O app calcula quanto você rende por hora e diz se está valendo a pena.</span></div></li>
+      <li class="sobe d2"><time>No fim</time><div><b>“Parar turno” e o total de cada app</b><span>O ganho entra como entrada e os gastos como despesa. O saldo do mês já fica certo.</span></div></li>
+    </ol>
+    <p class="sobe">Faz uns bicos de motorista para fechar o mês? O app diz <b>quanto você precisa rodar por dia</b> para pagar as contas em aberto, já descontando o custo do seu carro.</p>
+    <a class="btn amarelo sobe" data-cta data-app="#motorista" href="https://meugastos.com.br/#motorista" target="_blank" rel="noopener">Testar o modo motorista</a>
+    <a class="lk-inst sobe" data-venda data-app="#motorista" href="https://meugastos.com.br/#motorista" target="_blank" rel="noopener" hidden>Ver o Modo motorista na demonstração, sem cadastro</a>
+  </div>
+  <div class="mot-card sobe d1" role="img" aria-label="Exemplo da tela do Modo motorista: turno de 6 horas e 12 minutos, ganho de R$ 335,50, gastos de R$ 101,60 e líquido de R$ 37,66 por hora">
+    <div class="cron"><small>Turno em andamento</small><b>06:12:40</b><small>Começou às 17h30</small></div>
+    <div class="duas"><div><small>Ganho</small><b>R$ 335,50</b></div><div><small>Gastos</small><b>R$ 101,60</b></div></div>
+    <div class="forte"><small>Líquido por hora</small><b>R$ 37,66</b></div>
+    <p class="ok">Está valendo a pena: R$ 37,66 por hora, acima dos R$ 16,71 que você precisa.</p>
+    <div class="meta"><small>Para fechar outubro sem ficar no vermelho</small><b>R$ 226 por dia rodado</b><div class="tb"><i></i></div><small>Hoje: R$ 335 de R$ 226</small></div>
+    <p class="mot-nota">Valores de exemplo. Cada pessoa vê os seus.</p>
+  </div>
+</div></section>
 <section class="dor"><div class="col">
   <span class="rot">O problema</span>
   <h2 class="sobe" style="margin-top:10px">A planilha só conta a história depois que o mês acabou.</h2>
