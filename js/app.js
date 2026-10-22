@@ -5276,6 +5276,8 @@ function editarLancamento(id) {
     e.preventDefault();
     const v = parseMoney($("eValor").value);
     if (avisoValor(v)) { $("edMsg").textContent = avisoValor(v); return; }
+    const anoEd = Number(($("eData").value || hoje()).slice(0, 4)), anoAgora = Number(hoje().slice(0, 4));
+    if (anoEd > anoAgora + 2 || anoEd < anoAgora - 10) { $("edMsg").textContent = `A data parece errada (ano ${anoEd}). Confira o ano.`; $("eData").focus(); return; }
     const mv = $("eTipo").value === "Reserva" ? parseMoney($("eMetaValor").value) : 0;
     if (mv > VALOR_MAX) { $("edMsg").textContent = ALTO_DEMAIS; return $("eMetaValor").focus(); }
     const tipo = $("eTipo").value;
