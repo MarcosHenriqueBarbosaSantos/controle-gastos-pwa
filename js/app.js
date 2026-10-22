@@ -899,7 +899,7 @@ function renderKpis(c) {
   const entra = c.rec > 0 ? `Entram <button type="button" class="ln" data-det="entradas">${brl(c.rec)}</button>` : `<button type="button" class="ln" data-det="entradas">Nenhuma entrada lançada</button>`;
   const guardado = c.res > 0 ? ` · guardado <button type="button" class="ln" data-det="guardado">${brl(c.res)}</button>` : "";
   const duo = c.fase === "atual" ? `
-      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">Gasto até agora</span><span class="v">${brl0(c.custo)}</span><span class="n">com as contas fixas</span></div>
+      <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">Gasto até hoje</span><span class="v">${brl0(c.custo)}</span><span class="n">com as contas fixas</span></div>
       <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">Projeção do mês</span><span class="v">${brl0(c.proj)}</span><span class="n">${est.projSobra < 0 ? `fecha ${brl0(-est.projSobra)} no vermelho` : `devem sobrar ${brl0(est.projSobra)}`}</span></div>`
     : `
       <div class="hstat" data-det="custo" role="button" tabindex="0"><span class="l">${c.fase === "futuro" ? "Gasto previsto" : "Gasto do mês"}</span><span class="v">${brl0(c.custo)}</span><span class="n">${c.fase === "futuro" ? "por enquanto, só as contas fixas" : "fechado"}</span></div>
@@ -1070,7 +1070,7 @@ function htmlHoje(c) {
   const ult = S.data.lancamentos.filter((x) => x.tipo === "Despesa" && !x.pendente && !x.enviando).sort((p, q) => q.data.localeCompare(p.data) || String(q.created_at || "").localeCompare(String(p.created_at || "")))[0];
   const passou = pg && pg.resta < 0;
   const topo = !pg ? "" : pg.fatia <= 0 ? `<div class="hoje-topo bad"><span class="l">Hoje</span><b class="ocultavel">Sem folga no mês</b><span>As contas do mês já passam das entradas. Gaste só o essencial.</span></div>`
-    : `<div class="hoje-topo${passou ? " bad" : ""}"><span class="l">${passou ? "Hoje passou do dia" : "Ainda cabem hoje"}</span><b class="ocultavel">${brl(Math.abs(pg.resta))}</b><span class="ocultavel">${passou ? `a fatia de hoje era ${brl(pg.fatia)}; o resto sai dos outros dias` : avista ? `de ${brl(pg.fatia)} do dia · você já gastou ${brl(avista)}` : `a fatia de hoje, repartindo o mês em ${pg.restam} ${pg.restam === 1 ? "dia" : "dias"}`}</span></div>`;
+    : `<div class="hoje-topo${passou ? " bad" : ""}"><span class="l">${passou ? "Hoje passou do dia" : "Ainda cabem hoje"}</span><b class="ocultavel">${brl(Math.abs(pg.resta))}</b><span class="ocultavel">${passou ? `o limite de hoje era ${brl(pg.fatia)}; o resto sai dos outros dias` : avista ? `de ${brl(pg.fatia)} por dia · você já gastou ${brl(avista)}` : `o que dá para gastar hoje, repartindo o mês em ${pg.restam} ${pg.restam === 1 ? "dia" : "dias"}`}</span></div>`;
   const lista = itens.map((x, i) => `<li class="hoje-item t-${x.tipo}"><button type="button" data-hoje="${i}"><span class="tx"><b>${esc(x.titulo)}</b><span>${esc(x.sub)}</span></span>${x.valor ? `<span class="valor ocultavel">${brl(x.valor)}</span>` : ""}${ico("chev")}</button>${x.tipo === "dia" ? `<button type="button" class="btn sm" id="hojeZero">Não gastei nada</button>` : ""}</li>`).join("");
   const rodape = [ult && !g.n ? `<button class="link" type="button" id="hojeRepetir">Repetir: ${esc(ult.descricao || ult.categoria)} · ${brl(ult.valor)}</button>` : "", seq.feitoHoje && seq.dias > 1 ? `<span class="seq">${ico("fogo")}${seq.dias} dias seguidos anotando</span>` : ""].filter(Boolean).join("");
   S.hojeItens = itens;
@@ -5601,8 +5601,8 @@ function detalheKpi(tipo, de = "") {
     const pedeOrdem = c.saldo < 0 || acum < 0 || virado || atrasoN > 0;
     abreDetalhe(`Saldo de ${mes}`, "Entradas menos o gasto do mês e menos o que você guardou.", [
       { html: `<ul class="itens">${li("Entradas", "+ " + brl(c.rec), false, "entradas")}${li("Gasto do mês", "− " + brl(c.custo), false, "custo")}${c.res ? li(c.res > 0 ? "Guardado neste mês" : "Retirado do guardado", (c.res > 0 ? "− " : "+ ") + brl(Math.abs(c.res)), false, "guardado") : ""}${li("Saldo do mês", sgn(c.saldo), true)}</ul>` },
-      ...(S.prefs.levarSaldo ? [{ titulo: "Saldo acumulado", total: sgn(acum),
-        html: `<ul class="itens">${iniVale ? li("Saldo inicial", sgn(iniVale)) : ""}${li("Saldo dos meses anteriores", sgn(ant))}${virado ? li(`Saldo de ${mes} (virado: não é levado adiante)`, "virado") : li(`Saldo de ${mes}`, sgn(c.saldo))}${li("Saldo acumulado", sgn(acum), true)}</ul>` }] : []),
+      ...(S.prefs.levarSaldo ? [{ titulo: "Saldo somando os meses anteriores", total: sgn(acum),
+        html: `<ul class="itens">${iniVale ? li("Saldo inicial", sgn(iniVale)) : ""}${li("Saldo dos meses anteriores", sgn(ant))}${virado ? li(`Saldo de ${mes} (virado: não é levado adiante)`, "virado") : li(`Saldo de ${mes}`, sgn(c.saldo))}${li("Saldo até aqui", sgn(acum), true)}</ul>` }] : []),
       ...(pedeOrdem ? [{ html: `<div class="ordem-cta"><p class="hint" style="margin:10px 0 8px">${virado ? `Você virou a página de ${mes}: o saldo dele não passa para os próximos meses.` : acum < 0 || c.saldo < 0 ? "Acontece com todo mundo. Dá para ver as contas, o que ficou para trás e um jeito leve de recomeçar." : atrasoN ? `Você tem ${atrasoN} ${atrasoN === 1 ? "conta" : "contas"} em atraso para ver com calma.` : ""}</p><button class="btn primary" type="button" id="detOrdem" style="margin-left:0">Pôr o mês em ordem</button></div>` }] : [])]);
     if ($("detOrdem")) $("detOrdem").onclick = () => { $("dlg").close(); setTimeout(() => equilibrioTela(S.mes), 120); };
     $("dlgBody").querySelectorAll("[data-saldo-det]").forEach((li) => {
