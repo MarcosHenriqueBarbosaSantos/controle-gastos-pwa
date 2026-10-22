@@ -5041,6 +5041,9 @@ $("formLanc").addEventListener("submit", async (e) => {
   e.preventDefault();
   const flash = $("flash"); normalizaConta(); let v = parseMoney($("fValor").value);
   if (avisoValor(v)) { flash.style.color = "var(--bad)"; flash.textContent = avisoValor(v); $("fValor").focus(); return; }
+  // Data com ano digitado errado (ex.: 2062 em vez de 2026): o lançamento sumiria para um mês que ninguém olha.
+  const dtForm = $("fData").value || hoje(), anoForm = Number(dtForm.slice(0, 4)), anoHoje = Number(hoje().slice(0, 4));
+  if (anoForm > anoHoje + 2 || anoForm < anoHoje - 10) { flash.style.color = "var(--bad)"; flash.textContent = `A data ${ddmm(dtForm)}/${dtForm.slice(0, 4)} parece errada (ano ${anoForm}). Confira o ano.`; $("fData").hidden = false; $("fData").focus(); return; }
   // Valor muito acima do costume (ex.: 3890 em vez de 38,90): confere antes de lançar.
   const fora = valorForaDoComum(S.data.lancamentos, { tipo: S.tipo, valor: round2(v), categoria: $("fCat").value }, hoje(), $("fValor").value);
   if (fora) {

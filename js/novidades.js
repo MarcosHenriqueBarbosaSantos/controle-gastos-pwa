@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "125", itens: [
+    "Se você digitar uma data com o ano errado (por exemplo 2062 em vez de 2026), o app avisa antes de lançar. Antes o gasto sumia para um mês que ninguém olha." ] },
   { versao: "124", itens: [
     "Valores colados no formato americano (1,234.56) agora são entendidos certo: antes virava R$ 1,23 em vez de R$ 1.234,56." ] },
   { versao: "123", itens: [
