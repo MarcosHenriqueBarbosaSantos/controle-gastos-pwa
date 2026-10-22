@@ -1724,3 +1724,13 @@ dialog:has(.tour) .dlg-barra{display:none}
 .hoje-ok{display:flex;align-items:center;gap:8px;margin:0;font-size:.88rem;color:var(--muted);border-top:1px solid var(--border);padding-top:10px}
 .hoje-rod{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:.82rem}
 .hoje-rod .seq{display:inline-flex;align-items:center;gap:4px;color:var(--muted)}
+
+/* v110: atalho "você copiou a mensagem do banco" na tela de lançar */
+.copiado{display:flex;align-items:stretch;gap:6px;margin:0 0 10px}
+.copiado[hidden]{display:none}
+.copiado-bt{flex:1;display:flex;align-items:center;text-align:left;gap:10px;padding:10px 12px;min-height:48px;border-radius:12px;border:1px solid var(--series);background:var(--series-soft);color:var(--ink);font:inherit;cursor:pointer}
+.copiado-bt.leve{border-style:dashed;background:transparent}
+.copiado-bt .tx{display:grid;gap:1px}
+.copiado-bt .tx b{font-size:.92rem}
+.copiado-bt .tx span{font-size:.8rem;color:var(--muted)}
+.copiado-x{flex:0 0 44px;border:0;background:none;color:var(--muted);font-size:1rem;cursor:pointer;border-radius:12px}

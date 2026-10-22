@@ -184,6 +184,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
     <div class="voz-painel" id="vozPainel" role="status" aria-live="polite" hidden><span class="voz-onda" aria-hidden="true"><i></i><i></i><i></i></span>
       <span class="voz-tx"><b id="vozTitulo">Ouvindo…</b><span id="vozTexto">Fale o gasto, por exemplo: “gastei 32 no mercado no débito”.</span></span>
       <button class="btn sm" type="button" id="vozParar">Parar</button></div>
+    <div class="copiado" id="fCopiado" hidden></div>
     <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
     <form id="formLanc" class="fields" autocomplete="off" novalidate>
       <label class="f">Valor (R$)<span class="efeito" id="fEfeito" hidden></span><input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>

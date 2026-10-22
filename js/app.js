@@ -2315,7 +2315,7 @@ function toastAcao(t, rotulo, acao, dura = 7000) {
 }
 const toastDesfazer = (t, desfazer) => toastAcao(t, "Desfazer", desfazer);
 function abrirLancar() {
-  document.body.classList.add("lancando"); $("flash").textContent = ""; diaOutroAberto = false; formaDoCostume(); syncDiaChips();
+  document.body.classList.add("lancando"); ofereceCopiado(); $("flash").textContent = ""; diaOutroAberto = false; formaDoCostume(); syncDiaChips();
   try { if (!history.state?.lanc) history.pushState({ lanc: true }, ""); } catch { /* sem histórico: o ✕ fecha */ }   // o botão Voltar do celular fecha a tela
   // O foco vai para o valor na hora do toque: o iPhone só abre o teclado quando o foco vem direto do toque,
   // e não de um setTimeout. O setTimeout fica só para quando a tela abre sem toque (compartilhar, atalho).
@@ -3251,6 +3251,37 @@ function novoDesafio() {
     toast("Desafio criado. Toque em Guardei a cada semana para registrar.");
   });
 }
+
+/* ---------- "Você copiou a mensagem do banco?": o gasto entra com um toque, sem digitar ---------- */
+const resumoCopiado = (f) => `${f.tipo === "Receita" ? "Entrada" : "Gasto"} de ${brl(f.valor)}${f.descricao ? ` · ${f.descricao}` : ""}`;
+async function ofereceCopiado() {
+  const host = $("fCopiado"); if (!host) return;
+  host.hidden = true; host.innerHTML = "";
+  if (!navigator.clipboard?.readText || !S.loaded) return;
+  let estado = "prompt"; try { estado = (await navigator.permissions.query({ name: "clipboard-read" })).state; } catch { /* Safari: pergunta na hora do toque */ }
+  if (estado === "denied" || !document.body.classList.contains("lancando")) return;
+  if (estado === "granted") {   // já deu licença antes: lê sozinho e só mostra se parece mensagem de banco com valor
+    let txt = ""; try { txt = (await navigator.clipboard.readText()).trim().slice(0, 600); } catch { return; }
+    const f = txt && txt !== S.copiadoVisto ? entendeMensagemBanco(txt, hoje()) : null;
+    if (!f?.valor || !/\b(compra|pix|pagamento|debito|débito|credito|crédito|transfer|recebeu|enviou|boleto|cartao|cartão)\b/i.test(txt)) return;
+    host.innerHTML = `<button type="button" class="copiado-bt" id="copiadoUsa"><span class="tx"><b>Você copiou uma mensagem do banco</b><span>${esc(resumoCopiado(f))}. Toque para anotar.</span></span></button><button type="button" class="copiado-x" id="copiadoX" aria-label="Agora não">✕</button>`;
+    host.hidden = false;
+    $("copiadoUsa").onclick = () => { S.copiadoVisto = txt; host.hidden = true; aplicaEntendido(f, txt, "mensagem"); };
+    $("copiadoX").onclick = () => { S.copiadoVisto = txt; host.hidden = true; };
+    return;
+  }
+  if (S.prefs.colarOculto) return;
+  host.innerHTML = `<button type="button" class="copiado-bt leve" id="copiadoPede"><span class="tx"><b>Copiou a mensagem do banco?</b><span>Toque aqui: o app lê o valor e o nome da loja.</span></span></button><button type="button" class="copiado-x" id="copiadoX" aria-label="Não mostrar mais">✕</button>`;
+  host.hidden = false;
+  $("copiadoX").onclick = () => { host.hidden = true; S.prefs.colarOculto = true; salvaPrefs(); };
+  $("copiadoPede").onclick = async () => {
+    let txt = ""; try { txt = (await navigator.clipboard.readText()).trim().slice(0, 600); } catch { toast("Não consegui ler o que você copiou. Use Mais > Colar mensagem do banco."); return; }
+    const f = txt ? entendeMensagemBanco(txt, hoje()) : null;
+    if (!f?.valor) return toast("Não achei um valor em reais no que você copiou. Copie a mensagem do banco e toque de novo.");
+    S.copiadoVisto = txt; host.hidden = true; aplicaEntendido(f, txt, "mensagem");
+  };
+}
+document.addEventListener("visibilitychange", () => { if (!document.hidden && document.body.classList.contains("lancando")) ofereceCopiado(); });
 
 /* ---------- Colar mensagem do banco ---------- */
 function colarMensagem() {

@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "111", itens: [
+    "Ao abrir o Lançar, o app avisa quando você acabou de copiar a mensagem do banco (compra, Pix, boleto): um toque e o valor, a loja e a forma de pagamento vêm preenchidos. Depois da primeira permissão, ele reconhece sozinho." ] },
   { versao: "110", itens: [
     "Novo cartão \"Hoje\" no Início: mostra quanto ainda cabe gastar hoje e, logo abaixo, o que pede ação agora (conta atrasada, conta que vence hoje, fatura sem valor, dia sem anotação).",
     "Na tela \"Saldo de outubro\", toque em Entradas, Gasto do mês ou Guardado para ver cada lançamento que compõe o valor e editar na hora. Tem um botão para voltar ao saldo.",
