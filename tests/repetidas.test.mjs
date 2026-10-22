@@ -54,3 +54,14 @@ test("o nome sugerido não leva o texto do banco", () => {
   const r = contasQueSeRepetem([L("1", "2026-09-08", "Pagamento de boleto efetuado - COLEGIO ABC LTDA", 450), L("2", "2026-10-08", "Pagamento de boleto efetuado - COLEGIO ABC LTDA", 450)], [], HOJE);
   assert.match(r[0].nome, /^Col[eé]gio Abc/i); assert.ok(!/boleto/i.test(r[0].nome));
 });
+
+import { proximasRepetidas } from "../js/arrumar.js";
+test("próximas das repetidas: dia habitual ainda por vir, e só se o mês ainda não tem o lançamento", () => {
+  const g = { chave: "d|colegio", nome: "Colégio", tipo: "Despesa", valor: 800, dia: 25, itens: [{ data: "2026-08-25" }, { data: "2026-09-25" }] };
+  const r = proximasRepetidas([g], "2026-10-22");
+  assert.equal(r.length, 1); assert.equal(r[0].data, "2026-10-25"); assert.equal(r[0].dias, 3); assert.equal(r[0].titulo, "Colégio");
+  assert.equal(proximasRepetidas([g], "2026-10-26")[0].data, "2026-11-25");                    // já passou: vale o próximo mês, se couber na janela
+  assert.equal(proximasRepetidas([g], "2026-10-26", 20).length, 0);                            // fora da janela
+  assert.equal(proximasRepetidas([{ ...g, itens: [...g.itens, { data: "2026-10-25" }] }], "2026-10-22").length, 0);   // já veio este mês
+  assert.equal(proximasRepetidas([{ ...g, tipo: "Receita" }], "2026-10-22").length, 0);       // entrada não é vencimento
+});

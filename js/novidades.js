@@ -1,5 +1,13 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "105", itens: [
+    "Pôr o mês em ordem: uma tela com o tamanho das contas do mês, as contas em atraso (com \"Já paguei\"), quanto falta para sobrar e quantos dias a sua reserva cobre.",
+    "Virar a página: quando um mês fecha no vermelho, o saldo dele deixa de ser levado para os meses seguintes. Nada é apagado e dá para desfazer.",
+    "Um jeito calmo de recomeçar: repor o que faltou em 1, 3 ou 6 meses, com o valor por dia, por semana e por mês, conferido com o que costuma sobrar.",
+    "O atalho aparece no Início quando o mês está no vermelho e também no menu Mais.",
+    "Próximos vencimentos mostra a fatura do cartão cadastrado na data de pagar, mesmo sem compras, e contas que parecem se repetir todo mês.",
+    "Ao lançar um gasto, o app avisa quais contas do mês deixam de ser cobertas e pede confirmação antes de lançar.",
+    "Tela de Lançar: o botão fica sempre à vista, mostra o valor digitado, e \"Outros\" deixa de ser a primeira categoria." ] },
   { versao: "104", itens: [
     "Restaurar a cópia de segurança não repete o que já veio de um extrato importado.",
     "Extrato da conta: quando o mesmo valor sai e entra com a mesma pessoa em poucos dias, o app avisa que pode ser dinheiro entre contas suas e deixa o movimento desmarcado.",

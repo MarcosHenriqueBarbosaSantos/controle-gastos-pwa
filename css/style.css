@@ -1669,3 +1669,32 @@ dialog:has(.tour) .dlg-barra{display:none}
   #lFiltros #fCatSel { min-height: 44px; font-size: 16px; }
   #lFiltros #fLimpa { min-height: 44px; display: inline-flex; align-items: center; }
 }
+
+/* v105: pôr o mês em ordem */
+.ordem-card{display:flex;align-items:center;gap:12px;width:100%;text-align:left;margin:10px 0 0;padding:14px 16px;min-height:56px;border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--ink);font:inherit;cursor:pointer}
+.ordem-card>svg:first-child{flex:none;width:24px;height:24px;color:var(--accent,#2563eb)}
+.ordem-card>span{flex:1;display:grid;gap:2px}
+.ordem-card>span>b{font-size:15px}
+.ordem-card>span>span{font-size:13px;color:var(--ink-2)}
+.ordem-card>svg:last-child{flex:none;width:18px;height:18px;color:var(--ink-3,var(--ink-2))}
+.ordem .ferr-h{margin:18px 0 6px}
+.ordem .ferr-h:first-child{margin-top:4px}
+.ordem p{margin:6px 0}
+.ordem .itens .mini{display:block;font-size:12px;color:var(--ink-2);font-weight:400}
+.ordem .itens li .btn.sm{margin-left:8px;min-height:44px}
+.ordem details.mes-bloco{margin:6px 0}
+.ordem details.mes-bloco summary{min-height:44px;display:flex;align-items:center}
+.ordem .link{min-height:44px;display:inline-flex;align-items:center}
+.ordem .recomeco li.sug{background:color-mix(in srgb,var(--good,#16a34a) 10%,transparent);border-radius:12px}
+.ordem .recomeco b small{font-size:11px;font-weight:500;color:var(--ink-2);margin-left:2px}
+.ordem .tag{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;background:var(--good,#16a34a);color:#fff;vertical-align:middle}
+
+/* v105 — Lançar: o botão fica sempre à vista no celular, com o valor digitado, mesmo com o teclado aberto e a lista comprida */
+@media (max-width:700px){
+  #formLanc{align-content:start}
+  #fOk{position:sticky;bottom:calc(10px + env(safe-area-inset-bottom,0px));z-index:3;min-height:52px;
+    box-shadow:0 0 0 12px var(--bg),0 -14px 16px 10px var(--bg),0 48px 0 0 var(--bg)}
+}
+
+/* v105 — aviso de contas que o gasto deixa sem cobrir */
+.aviso-contas{margin:0;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--warn) 14%,var(--surface));border:1px solid color-mix(in srgb,var(--warn) 45%,var(--border));font-size:13.5px;line-height:1.4;grid-column:1/-1}

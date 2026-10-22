@@ -1,8 +1,8 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
-  faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, mesDaFatura, valorDasParcelas, periodoDaFatura,
+  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
+  faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
@@ -11,7 +11,7 @@ import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.
 import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas, leFaturaPdf } from "./extratopdf.js";
 import { saldosDoCasal } from "./casalvisao.js";
 import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefoi.js";
-import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas, contasQueSeRepetem } from "./arrumar.js";
+import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas, contasQueSeRepetem, proximasRepetidas } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
 import { NOVIDADES } from "./novidades.js";
 import { msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
@@ -123,7 +123,7 @@ const S = {
   store: null, client: null, loaded: false,
   prefs: prefsPadrao(),
 };
-function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, saldoInicial: 0, boasVindas: false, avisos: { email: true }, limites: {}, semGasto: [], teto: 0, metas: {}, guia: { fechado: false, semRenda: false, semCartao: false } }; }
+function prefsPadrao() { return { categorias: null, levarSaldo: true, saldoDesde: null, mesesVirados: [], saldoInicial: 0, boasVindas: false, avisos: { email: true }, limites: {}, semGasto: [], teto: 0, metas: {}, guia: { fechado: false, semRenda: false, semCartao: false } }; }
 /** Categorias disponíveis para um tipo: as da pessoa, ou as padrão. */
 function cats(tipo) {
   return S.prefs.categorias?.[tipo]?.length ? S.prefs.categorias[tipo] : CATS_PADRAO[tipo];
@@ -764,6 +764,11 @@ function palpiteCat(desc, tipo, dica = "") {
   return aprendida || (fixo !== "Outros" ? fixo : dica || fixo);
 }
 
+/** O botão de lançar mostra o valor digitado ("Lançar gasto de R$ 32,00"): a pessoa confere o número no mesmo lugar onde toca. */
+function rotuloDoOk() {
+  const b = $("fOk"), base = b.dataset.base || b.textContent, v = valorDoCampo();
+  b.textContent = (base === "Lançar gasto" || base === "Lançar entrada") && v > 0 && v <= VALOR_MAX ? `${base} de ${brl(v)}` : base;
+}
 function renderForm() {
   document.querySelectorAll("#tipoSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.t === S.tipo));
   // Gastos que a pessoa mais repete: um toque preenche o formulário.
@@ -809,6 +814,7 @@ function renderForm() {
   dica.hidden = !(fixo && fa.value);
   $("fOk").textContent = fixo ? (fa.value ? (S.tipo === "Receita" ? "Cadastrar entrada com prazo" : "Cadastrar conta com prazo") : S.tipo === "Receita" ? "Cadastrar entrada fixa" : "Cadastrar conta fixa")
     : S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : guardando && $("fFixo").checked ? "Guardar e repetir todo mês" : "Lançar";
+  $("fOk").dataset.base = $("fOk").textContent; rotuloDoOk();
   // Compra no cartão: a pessoa escolhe o cartão e, se não for um gasto fixo, em quantas vezes.
   const cc = S.tipo === "Despesa" && fs.value === CARTAO, tem = cartoesAtivos().length > 0;
   $("fCartaoLinha").hidden = !cc; $("fCartaoWrap").hidden = !tem; $("fParcWrap").hidden = !tem || fixo; $("fCartaoDica").hidden = tem;
@@ -826,8 +832,10 @@ const CHIPS_CAT_MAX = 6;
 function categoriasDeUmToque(lista, tipo) {
   const corte = addM(mKey(hoje()), -4) + "-01", cont = new Map();
   S.data.lancamentos.forEach((x) => { if (x.tipo === tipo && x.data >= corte && lista.includes(x.categoria)) cont.set(x.categoria, (cont.get(x.categoria) || 0) + 1); });
-  const top = [...cont.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]);
-  return [...new Set([...top, ...lista])].slice(0, CHIPS_CAT_MAX);
+  const top = [...cont.entries()].sort((a, b) => b[1] - a[1]).map((x) => x[0]).filter((x) => x !== "Outros");
+  const resto = [...new Set([...top, ...lista.filter((x) => x !== "Outros")])];
+  // "Outros" é a saída de quem não achou a categoria: fica por último, nunca na frente.
+  return lista.includes("Outros") ? [...resto.slice(0, CHIPS_CAT_MAX - 1), "Outros"] : resto.slice(0, CHIPS_CAT_MAX);
 }
 function desenhaChips(sel, destino, valores, rotuloNova) {
   const atual = sel.value, ordem = valores.includes(atual) || !atual || atual === NOVA_CAT ? valores : [...valores.slice(0, valores.length - 1), atual];
@@ -879,7 +887,7 @@ function cartaoDoForm() {
 function renderKpis(c) {
   const noCartao = round2(c.comprasCartao + c.fxCartao);
   // Saldo acumulado: o que a pessoa já tinha (saldo inicial), mais os meses anteriores, mais este mês.
-  const acum = S.prefs.levarSaldo ? saldoAcumulado(S.data, S.mes, hoje(), { desde: S.prefs.saldoDesde, inicial: S.prefs.saldoInicial }) : c.saldo;
+  const acum = S.prefs.levarSaldo ? saldoAcumulado(S.data, S.mes, hoje(), { desde: S.prefs.saldoDesde, inicial: S.prefs.saldoInicial, viradas: S.prefs.mesesVirados || [] }) : c.saldo;
   const resTotal = reservaAcumulada(S.data, S.mes), destinos = guardadoPorDestino(S.data, S.mes);
   const resMes = c.res > 0 ? `+ ${brl0(c.res)} neste mês` : c.res < 0 ? `− ${brl0(-c.res)} neste mês` : "Nada guardado neste mês";
   const resLinhas = destinos.length > 1 ? `<ul class="dest">${destinos.map(([k, v]) => `<li><span>${esc(k)}</span><b>${brl0(v)}</b></li>`).join("")}</ul>` : destinos.length === 1 ? `<span class="n">${esc(destinos[0][0])}</span>` : "";
@@ -935,6 +943,7 @@ function renderKpis(c) {
     <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? `de ${brl(sb.livre)} depois das contas` : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>` : ""}
     ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo && est.nivel !== "estourado" ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
   </div>
+  ${(rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
   <div class="acoes-rap" role="group" aria-label="Ações rápidas">
     <button type="button" data-acao="lancar"><span class="forte">${ico("mais")}</span>Lançar gasto</button>
     ${Reconhecedor ? `<button type="button" data-acao="voz"><span>${ico("mic")}</span>Por voz</button>` : `<button type="button" data-acao="cal"><span>${ico("agenda")}</span>Calendário</button>`}
@@ -962,7 +971,7 @@ function renderKpis(c) {
   ligaMercadoIni();
   if ($("usaMetaIni")) $("usaMetaIni").onclick = () => usaMeta(Number($("usaMetaIni").dataset.valor), () => {});
   $("resumo").querySelectorAll("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
-  $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), cal: () => calendario(mKey(hoje())), motorista: motoristaTela })[b.dataset.atalho]()));
+  $("resumo").querySelectorAll("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), cal: () => calendario(mKey(hoje())), motorista: motoristaTela, ordem: () => equilibrioTela() })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
@@ -1447,8 +1456,11 @@ function entendaAConta(c) {
 
 /** Quadro de contas a vencer nos próximos 30 dias (não depende do mês que está na tela). */
 function renderVenc() {
-  const host = $("venc"), l = S.loaded ? proximosVencimentos(S.data, hoje(), 30) : [];
-  const total = round2(l.reduce((t, x) => t + x.valor, 0));
+  const host = $("venc"), reais = S.loaded ? proximosVencimentos(S.data, hoje(), 30) : [];
+  // Além das contas já cadastradas: o cartão cadastrado que ainda não tem valor de fatura e as contas que o app achou que se repetem.
+  const extras = S.loaded ? [...faturasSemValor(S.data, hoje(), 30), ...proximasRepetidas(contasQueSeRepetem(S.data.lancamentos, S.data.fixos, hoje()), hoje(), 30)] : [];
+  const l = [...reais, ...extras].sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
+  const total = round2(reais.reduce((t, x) => t + x.valor, 0));
   const cab = (dir) => `<div class="sec-head"><h2>Próximos vencimentos</h2><span>${dir}</span></div>${S.loaded ? `<button class="link venc-cal" type="button" id="vencCal">${ico("agenda")}Ver no calendário</button>` : ""}`;
   // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
   const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
@@ -1481,12 +1493,17 @@ function renderVenc() {
   host.innerHTML = cab(`${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`) +
     `<ul class="venc">${alerta}${vis.map((x, i) => `<li data-u="${cls(x.dias)}">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
-      <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<b>${esc(x.titulo)}</b><span>${x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa"}</span></span>
+      <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<b>${esc(x.titulo)}</b><span>${x.semValor ? "Fatura de cartão · falta informar o valor" : x.tipo === "repetida" ? "Parece se repetir todo mês" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa"}</span></span>
       <span class="quando ${cls(x.dias)}">${quandoVence(x.dias)}</span>
-      <span class="valor">${brl(x.valor)}</span>
-      <button class="btn sm" type="button" data-pg="${i}">Já paguei</button></li>`).join("")}${combHtml}
+      <span class="valor">${x.semValor ? "?" : x.tipo === "repetida" ? "~ " + brl(x.valor) : brl(x.valor)}</span>
+      ${x.semValor ? `<button class="btn sm" type="button" data-iv="${i}">Informar valor</button>` : x.tipo === "repetida" ? `<button class="btn sm" type="button" data-vf="${i}">Virar conta fixa</button>` : `<button class="btn sm" type="button" data-pg="${i}">Já paguei</button>`}</li>`).join("")}${combHtml}
       ${l.length > MAX ? `<li class="vazio"><button class="link" type="button" id="vencMais">${S.vencTodas ? "Mostrar só as próximas" : `Ver todas as ${l.length} contas`}</button></li>` : ""}</ul>`;
   host.querySelectorAll("[data-pg]").forEach((b) => (b.onclick = () => { b.disabled = true; pagarConta(vis[Number(b.dataset.pg)]); }));
+  host.querySelectorAll("[data-iv]").forEach((b) => (b.onclick = () => { const x = vis[Number(b.dataset.iv)]; editarFatura({ ...x, vencimento: x.data, itens: [], calculado: 0, valor: 0, valor_fixo: false, status: "Aberta" }); }));
+  host.querySelectorAll("[data-vf]").forEach((b) => (b.onclick = async () => {
+    const x = vis[Number(b.dataset.vf)]; b.disabled = true;
+    if (await transformaEmFixas([x.achada])) toast(`${x.titulo} virou conta fixa. Os meses anteriores ficaram como pagos.`); else b.disabled = false;
+  }));
   if ($("vencMais")) $("vencMais").onclick = () => { S.vencTodas = !S.vencTodas; renderVenc(); };
   ligaComb();
 }
@@ -2153,16 +2170,45 @@ $("fContaWrap").addEventListener("click", (e) => {
 });
 $("fValor").addEventListener("change", normalizaConta);
 $("fValor").addEventListener("input", () => { mostraConta(); });
-$("fValor").addEventListener("input", () => { mostraEfeito(); if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });
+$("fValor").addEventListener("input", () => { rotuloDoOk(); mostraEfeito(); if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });
 /** "Livre agora → depois": o efeito do gasto na sobra do mês, antes de confirmar (só no mês atual, e só para gasto fora do cartão). */
 function mostraEfeito() {
   const el = $("fEfeito"), v = valorDoCampo(), d = $("fData").value || hoje();
   const jaTinha = S.tipo === "Reserva" && $("fForma").value === "Já tinha guardado";
-  if (jaTinha) { el.hidden = false; el.textContent = "Dinheiro que você já tinha: não sai do seu saldo do mês"; return; }
+  if (jaTinha) { el.hidden = false; el.textContent = "Dinheiro que você já tinha: não sai do seu saldo do mês"; return mostraContasSemCobrir(); }
   const conta = S.loaded && v > 0 && S.tipo !== "Receita" && mKey(d) === mKey(hoje()) && !(S.tipo === "Despesa" && $("fForma").value === CARTAO) && !$("fFixo").checked && !(S.tipo === "Reserva" && $("fForma").value === "Retirar");
-  el.hidden = !conta; if (!conta) return;
+  el.hidden = !conta; if (!conta) return mostraContasSemCobrir();
   const livre = raioX(calcMes(S.data, mKey(hoje()), hoje())).sobra, depois = round2(livre - v);
   el.innerHTML = `Livre agora ${brl(livre)} → depois <b class="${depois < 0 ? "txt-bad" : ""}">${brl(depois)}</b>`;
+  mostraContasSemCobrir();
+}
+/** Contas do mês que este gasto deixa sem cobrir (a conta só vale para gasto à vista, no mês de hoje). */
+function contasSemCobrirDoForm() {
+  const v = valorDoCampo(), d = $("fData").value || hoje();
+  if (!S.loaded || !(v > 0) || v > VALOR_MAX || S.tipo !== "Despesa" || mKey(d) !== mKey(hoje()) || $("fForma").value === CARTAO || $("fFixo").checked) return null;
+  const antes = contasQueNaoFecham(S.data, hoje(), 0), com = contasQueNaoFecham(S.data, hoje(), v);
+  return com.totalQueFalta > antes.totalQueFalta ? { antes, com } : null;
+}
+const listaDeContas = (r) => r.naoFecham.map((x) => `${esc(x.titulo)} (${ddmm(x.data)})`).join(", ");
+function mostraContasSemCobrir() {
+  const el = $("fContas"); if (!el) return;
+  const r = contasSemCobrirDoForm();
+  el.hidden = !r; if (!r) { el.textContent = ""; return; }
+  el.innerHTML = `Com esse gasto, não dá para pagar: <b>${listaDeContas(r.com)}</b>. Faltam ${brl(r.com.totalQueFalta)}${r.antes.totalQueFalta > 0 ? ` (antes já faltavam ${brl(r.antes.totalQueFalta)})` : ""}.`;
+}
+/** Na hora de lançar: se o gasto deixa conta sem cobrir, a pessoa vê quais e decide. Não bloqueia, porque o gasto já aconteceu. */
+function confirmaSemCobrir(r) {
+  return new Promise((responde) => {
+    let resp = "voltar";
+    openDlg(`<h3>Esse gasto deixa conta sem cobrir</h3>
+      <p class="hint" style="margin:0 0 10px;font-size:14px">Pelo que você já lançou, com este gasto o dinheiro do mês não chega para: <b>${listaDeContas(r.com)}</b>. Faltam ${brl(r.com.totalQueFalta)}.</p>
+      <p class="hint" style="margin:0 0 12px;font-size:14px">Se o gasto é necessário, lance e veja em <b>Pôr o mês em ordem</b> um jeito leve de fechar essa conta. Se dá para adiar, o mês agradece.</p>
+      <div class="actions"><button class="btn" type="button" id="scSim">Lançar mesmo assim</button><button class="btn primary" type="button" id="scNao">Voltar</button></div>`);
+    $("scSim").onclick = () => { resp = "lancar"; $("dlg").close(); };
+    $("scNao").onclick = () => { resp = "voltar"; $("dlg").close(); };
+    $("dlg").addEventListener("close", () => responde(resp), { once: true });
+    $("scNao").focus();
+  });
 }   // atualiza o valor de cada parcela e o total do prazo
 $("fRepete").addEventListener("change", renderForm);
 $("fAte").addEventListener("change", renderForm);
@@ -2336,6 +2382,7 @@ const GRUPOS_FERR = [
     { id: "revisar", k: "revisar conferir categoria outros classificar fila pendente", ico: "lupa", t: "Para revisar",
       get s() { const n = S.loaded ? paraRevisar(S.data, hoje(), { revisados: S.prefs.revisados || [] }).total : 0; return n ? `${n} ${n === 1 ? "lançamento ficou" : "lançamentos ficaram"} em "Outros"` : "Lançamentos sem categoria, para você conferir"; } }] },
   { titulo: "Guardar e planejar", itens: [
+    { id: "ordem", k: "atraso atrasada devendo negativo vermelho recomecar zerar virar pagina equilibrar recuperar reserva imprevisto buraco", ico: "cofre", t: "Pôr o mês em ordem", s: "Contas, atrasos, um jeito leve de recomeçar e sua reserva" },
     { id: "revisao", k: "fechar mes balanco resumo", ico: "grafico", t: "Revisão do mês", s: "3 passos: como foi, onde ajustar e quanto guardar" },
     { id: "desafio", k: "economizar guardar semanal poupar cofrinho", ico: "alvo", t: "Desafio de economia", s: "Guarde um valor por semana e acompanhe" },
     { id: "calc", k: "ferias decimo terceiro juros parcelas rendimento investir divida simulador", ico: "calc", t: "Calculadoras", s: "Rendimento, parcelas, juros, férias e 13º" },
@@ -2367,7 +2414,7 @@ const HUBS = {
 const GRUPOS_MAIS = [
   { titulo: "Seu dia a dia", ids: ["motorista", "mercado", "veiculo", "casa"] },
   { titulo: "Conferir e entender", ids: ["conferir", "analise", "revisao", "msg"] },
-  { titulo: "Guardar e planejar", ids: ["desafio", "calc"] },
+  { titulo: "Guardar e planejar", ids: ["ordem", "desafio", "calc"] },
   { titulo: "Levar com você", ids: ["share", "baixar"] },
 ];
 const TODAS_FERR = () => [...GRUPOS_FERR.flatMap((g) => g.itens), ...Object.entries(HUBS).map(([id, h]) => ({ id, ...h }))];
@@ -2378,6 +2425,60 @@ function hubTela(id) {
     <div class="caixa-mais">${h.itens.map((i) => todas.find((x) => x.id === i)).filter(Boolean).map(linha).join("")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
   $("dlg").querySelectorAll("[data-go]").forEach((b) => (b.onclick = () => { const alvo = b.dataset.go; $("dlg").close(); setTimeout(() => vaiPara(alvo), 120); }));
+}
+/* ---------- Pôr o mês em ordem: contas, atrasos, recomeço e reserva, sem culpa ---------- */
+function equilibrioTela(mesPedido) {
+  const hj = hoje(), m = mesPedido || (S.mes > mKey(hj) ? mKey(hj) : S.mes), mes = nomeMes(m), viradas = S.prefs.mesesVirados || [];
+  const p = planoDoMes(S.data, m, hj, { desde: S.prefs.saldoDesde, inicial: S.prefs.saldoInicial, viradas, levar: S.prefs.levarSaldo });
+  const at = contasEmAtraso(S.data, hj, S.prefs.saldoDesde), plural = (n, a, b) => `${n} ${n === 1 ? a : b}`;
+  const li = (t, v, forte = false, sub = "") => `<li class="${forte ? "tot" : ""}"><span></span><span>${t}${sub ? `<span class="mini">${sub}</span>` : ""}</span><b>${v}</b></li>`;
+  const dias1 = (v) => String(Math.round(v * 10) / 10).replace(".", ",");
+  // 1) o mês
+  const mesHtml = `<ul class="itens">${li("Entradas", "+ " + brl(p.entradas))}${li("Contas do mês", "− " + brl(p.contasDoMes), false, p.aPagar > 0 ? `${brl(p.aPagar)} ainda a pagar` : "tudo pago")}${li("Dia a dia", "− " + brl(p.diaADia))}${p.guardadoNoMes > 0 ? li("Guardado", "− " + brl(p.guardadoNoMes)) : ""}${li("Saldo do mês", sgn(p.saldoDoMes), true)}</ul>
+    <p class="hint" style="margin:8px 0 0">${p.saldoDoMes >= 0 ? `${mes} está fechando com sobra. Esse é o caminho.` : `Em ${mes}, as saídas passaram das entradas em ${brl(-p.saldoDoMes)}. Acontece, e dá para arrumar passo a passo.`}</p>`;
+  // 2) atrasos
+  const porMes = at.porMes.map((g) => `<details class="mes-bloco"${at.porMes.length === 1 ? " open" : ""}><summary><span class="mes-nome"><b>${nomeMes(g.mes)} de ${g.mes.slice(0, 4)}</b><span class="hint">${plural(g.n, "conta", "contas")} · ${brl(g.total)}</span></span></summary>
+      <ul class="itens">${at.itens.map((i, k) => ({ i, k })).filter((x) => x.i.mes === g.mes).map(({ i, k }) => `<li><span></span><span>${esc(i.titulo)}<span class="mini">venceu dia ${ddmm(i.data)}</span></span><b>${brl(i.valor)}</b><button class="btn sm" type="button" data-pg="${k}">Já paguei</button></li>`).join("")}</ul>
+      <p style="margin:6px 0 0"><button class="link" type="button" data-pgm="${g.mes}">Marcar ${nomeMes(g.mes)} todo como pago</button></p></details>`).join("");
+  const atrasoHtml = at.itens.length ? `<p class="hint" style="margin:0 0 6px">${plural(at.itens.length, "conta venceu e ainda não foi marcada como paga", "contas venceram e ainda não foram marcadas como pagas")}. Se você já pagou, marque aqui para o app ficar certo.</p>${porMes}` : `<p class="hint" style="margin:0">Nenhuma conta em atraso. Tudo em dia.</p>`;
+  // 3) o que falta
+  let falta = "";
+  if (p.fase === "atual" && p.faltaNoMes > 0) {
+    falta += p.soCortarResolve
+      ? `<p>Para fechar ${mes} sem faltar nada, dá para gastar cerca de <b>${brl(p.mediaDia - p.porDiaParaFechar)} por dia</b> no dia a dia (hoje a média é ${brl(p.mediaDia)}). Faltam ${plural(p.diasRestantes, "dia", "dias")}.</p>`
+      : `<p>Mesmo sem gastar nada no dia a dia até o fim de ${mes}, ainda faltariam <b>${brl(p.faltaEntrar)}</b>. Nesse caso o caminho é entrar um dinheiro extra ou combinar o adiamento de uma conta.</p>`;
+  }
+  if (p.recomeco.length) {
+    falta += `<p style="margin:10px 0 6px"><b>Um jeito calmo de repor ${brl(p.devido)}:</b></p><ul class="itens recomeco">${p.recomeco.map((o) => `<li class="${o.sugerida ? "sug" : ""}"><span></span><span>${o.meses === 1 ? "Em 1 mês" : `Em ${o.meses} meses`}${o.sugerida ? ` <span class="tag">sugerido</span>` : ""}<span class="mini">${brl(o.porMes)} por mês · ${brl(o.porSemana)} por semana · ${o.cabe ? "cabe no seu ritmo" : "mais do que costuma sobrar"}</span></span><b>${brl(o.porDia)}<small>/dia</small></b></li>`).join("")}</ul>
+      <p class="hint" style="margin:8px 0 0">${p.sobraMedia > 0 ? `Nos últimos meses sobraram, em média, ${brl(p.sobraMedia)} por mês.` : "Nos últimos meses não sobrou dinheiro em média, por isso o prazo maior é o mais leve."} "Por dia" é quanto deixar sobrar a cada dia (o que você não gasta) para repor o que faltou.</p>`;
+  }
+  if (!falta) falta = `<p class="hint" style="margin:0">Nada falta por enquanto. Cada mês que fecha com sobra aumenta a sua tranquilidade.</p>`;
+  // 4) reserva
+  const un = p.gastoPorDia >= 50 ? 500 : 100;
+  const reservaHtml = p.reserva > 0
+    ? `<p>Você tem <b>${brl(p.reserva)}</b> guardado${p.diasDeReserva ? `. Isso paga cerca de <b>${plural(p.diasDeReserva, "dia", "dias")}</b> dos seus gastos` : ""}.${p.gastoPorDia > 0 ? ` Cada ${brl0(un)} que você guarda a mais compra mais ${dias1(un / p.gastoPorDia)} dia de tranquilidade.` : ""}</p>`
+    : `<p>Você ainda não tem dinheiro guardado. Uma caixinha com só R$ 20 já começa a sua reserva para imprevistos.</p>`;
+  // 5) virar a página
+  const virar = p.virado
+    ? `<p>Você virou a página de ${mes}. O saldo dele (${sgn(p.saldoDoMes)}) não passa para os próximos meses. Os lançamentos e as contas continuam todos aqui.</p><button class="btn" type="button" id="ordDesvirar" style="margin-left:0">Desfazer</button>`
+    : p.saldoDoMes < 0 ? `<p>Virar a página tira o saldo de ${mes} (${sgn(p.saldoDoMes)}) da conta que passa para os meses seguintes, para você recomeçar limpo. Nada é apagado: lançamentos, contas e atrasos continuam aqui. Dá para desfazer quando quiser.</p><button class="btn primary" type="button" id="ordVirar" style="margin-left:0">Virar a página de ${mes}</button>`
+    : `<p class="hint" style="margin:0">Se um mês fechar no vermelho, você pode virar a página dele aqui para recomeçar sem carregar esse saldo.</p>`;
+  const bloco = (t, h) => `<h4 class="ferr-h">${t}</h4>${h}`;
+  openDlg(`<h3>Pôr o mês em ordem</h3><p class="hint" style="margin:0 0 10px">Veja o tamanho das contas, o que ficou para trás e um jeito leve de recomeçar. Nada aqui apaga os seus lançamentos.</p>
+    <div class="ordem">${bloco(`Como está ${mes}`, mesHtml)}${bloco("Contas em atraso", atrasoHtml)}${bloco("O que falta para sobrar", falta)}${bloco("Sua reserva para imprevistos", reservaHtml)}<p style="margin:6px 0 0"><button class="link" type="button" id="ordCaixinhas">Abrir minhas caixinhas</button></p>${bloco("Virar a página", virar)}</div>
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  const reabre = () => equilibrioTela(m);
+  $("ordCaixinhas").onclick = () => { $("dlg").close(); setTimeout(() => vaiPara("m"), 120); };
+  const salvaViradas = async (lista) => { S.prefs.mesesVirados = lista; await salvaPrefs(); render(); reabre(); };
+  if ($("ordVirar")) $("ordVirar").onclick = () => salvaViradas([...new Set([...viradas, m])].sort()).then(() => toast(`Página de ${mes} virada. Recomeço limpo!`));
+  if ($("ordDesvirar")) $("ordDesvirar").onclick = () => salvaViradas(viradas.filter((x) => x !== m));
+  $("dlgBody").querySelectorAll("[data-pg]").forEach((b) => (b.onclick = async () => { b.disabled = true; await pagarConta(at.itens[Number(b.dataset.pg)]); reabre(); }));
+  $("dlgBody").querySelectorAll("[data-pgm]").forEach((b) => (b.onclick = async () => {
+    const lista = at.itens.filter((x) => x.mes === b.dataset.pgm); b.disabled = true; let n = 0;
+    for (const x of lista) if (await mudaPago(x, true)) n++;
+    toastDesfazer(`${plural(n, "conta marcada como paga", "contas marcadas como pagas")}.`, async () => { for (const x of lista) await mudaPago(x, false); toast("Voltaram para a lista."); });
+    reabre();
+  }));
 }
 function novidadesTela() {
   openDlg(`<h3>Novidades</h3><p class="hint" style="margin:0 0 12px">Você está na versão ${esc(APP_VERSAO)}. O app se atualiza sozinho.</p>
@@ -2402,7 +2503,7 @@ const DESTINOS = [
 function vaiPara(k) {
   if (HUBS[k]) return hubTela(k);
   if (k === "novidades") return novidadesTela();
-  const FER = { graficos: () => (noCelular() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  const FER = { ordem: () => equilibrioTela(), graficos: () => (noCelular() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
   if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
 }
 /* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
@@ -4030,24 +4131,29 @@ function arrumarFixas() {
   $("arFxOk").onclick = async () => {
     const sel = achadas.filter((g) => marcados.has(g.chave)); if (!sel.length) return;
     $("arFxOk").disabled = true; $("arFxOk").textContent = "Salvando…";
-    const chaves = [], apagados = new Set(), novosFixos = [], novosPagos = [];
-    const ok = await grava(async () => {
-      for (const g of sel) {
-        const criado = await S.store.addFixo({ tipo: g.tipo, descricao: g.nome, categoria: g.categoria, dia: g.dia, valor: g.valor, forma: g.tipo === "Receita" ? "" : (g.forma || "Pix"), desde: g.desde, ate: null });
-        novosFixos.push(criado);
-        for (const x of g.itens) {
-          const mes = `${mKey(x.data)}-01`; await S.store.setPago(criado.id, mes, true); novosPagos.push({ fixo_id: criado.id, mes });
-          await S.store.deleteLancamento(x.id); apagados.add(x.id); if (x.import_key) chaves.push(x.import_key);
-        }
-      }
-    });
-    // Mesmo se parou no meio, o que já foi feito entra na tela: nada fica pela metade sem aparecer.
-    S.data.fixos.push(...novosFixos); S.data.pagos.push(...novosPagos); S.data.lancamentos = S.data.lancamentos.filter((x) => !apagados.has(x.id));
-    if (chaves.length) { S.prefs.chavesLigadas = [...new Set([...(S.prefs.chavesLigadas || []), ...chaves])].slice(-800); await salvaPrefs(); }
-    render();
+    const ok = await transformaEmFixas(sel);
     if (!ok) { $("arFxMsg").textContent = "Não consegui salvar tudo. O que já foi feito está na tela; tente de novo para o resto."; $("arFxOk").disabled = false; conta(); return; }
     $("dlg").close(); toast(`${plural(sel.length, "conta virou fixa", "contas viraram fixas")}. Os meses anteriores ficaram como pagos.`);
   };
+}
+/** Vira conta fixa o que o app achou que se repete: cria o fixo, marca os meses antigos como pagos e tira o lançamento solto (sem contar duas vezes). */
+async function transformaEmFixas(sel) {
+  const chaves = [], apagados = new Set(), novosFixos = [], novosPagos = [];
+  const ok = await grava(async () => {
+    for (const g of sel) {
+      const criado = await S.store.addFixo({ tipo: g.tipo, descricao: g.nome, categoria: g.categoria, dia: g.dia, valor: g.valor, forma: g.tipo === "Receita" ? "" : (g.forma || "Pix"), desde: g.desde, ate: null });
+      novosFixos.push(criado);
+      for (const x of g.itens) {
+        const mes = `${mKey(x.data)}-01`; await S.store.setPago(criado.id, mes, true); novosPagos.push({ fixo_id: criado.id, mes });
+        await S.store.deleteLancamento(x.id); apagados.add(x.id); if (x.import_key) chaves.push(x.import_key);
+      }
+    }
+  });
+  // Mesmo se parou no meio, o que já foi feito entra na tela: nada fica pela metade sem aparecer.
+  S.data.fixos.push(...novosFixos); S.data.pagos.push(...novosPagos); S.data.lancamentos = S.data.lancamentos.filter((x) => !apagados.has(x.id));
+  if (chaves.length) { S.prefs.chavesLigadas = [...new Set([...(S.prefs.chavesLigadas || []), ...chaves])].slice(-800); await salvaPrefs(); }
+  render();
+  return ok;
 }
 /** Volta para o menu de arrumar quando a janela atual é fechada pelo botão Voltar. */
 const voltaArrumar = `<button class="btn" type="button" id="arVolta">Voltar</button>`;
@@ -4816,6 +4922,8 @@ $("formLanc").addEventListener("submit", async (e) => {
     forma: formaDe(S.tipo, $("fForma").value), valor: round2(v), import_key: null, ...cartaoDoForm() };
   const parecido = lancamentoRepetido(S.data.lancamentos.map(comAutor), comAutor(row)), igual = parecido && S.data.lancamentos.find((z) => z.id === parecido.id);
   if (igual) { const r = await confirmaRepetido(igual, false); if (r === "nao") return naoLancouRepetido(); if (r === "voltar") return $("fValor").focus(); }
+  const semCobrir = row.tipo === "Despesa" ? contasSemCobrirDoForm() : null;
+  if (semCobrir && (await confirmaSemCobrir(semCobrir)) === "voltar") return $("fValor").focus();
   const nivelAntes = nivelDoTeto(), ehMeta = S.tipo === "Reserva", metaAntes = ehMeta ? andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()) : null;
   const combinar = ehMeta && row.forma !== RETIRADA && row.forma !== JA_TINHA && $("fFixo").checked;
   // O lançamento entra na tela no mesmo toque, já com o id definitivo; o envio acontece por trás.
@@ -5322,13 +5430,19 @@ function detalheKpi(tipo) {
       { titulo: "Faturas de cartão", total: brl(c.fatT), itens: c.fat.map(linhaFaturaDet(hj)), vazio: "Nenhuma fatura vence neste mês." }], ["Ver nos lançamentos", "l"]);
   }
   if (tipo === "saldo") {
-    const ini = Number(S.prefs.saldoInicial) || 0, ant = S.prefs.levarSaldo ? saldoAnterior(S.data, S.mes, hj, S.prefs.saldoDesde) : 0;
-    const acum = S.prefs.levarSaldo ? saldoAcumulado(S.data, S.mes, hj, { desde: S.prefs.saldoDesde, inicial: ini }) : c.saldo, iniVale = round2(acum - ant - c.saldo);
+    const viradas = S.prefs.mesesVirados || [], virado = viradas.includes(S.mes);
+    const ini = Number(S.prefs.saldoInicial) || 0, ant = S.prefs.levarSaldo ? saldoAnterior(S.data, S.mes, hj, S.prefs.saldoDesde, viradas) : 0;
+    const acum = S.prefs.levarSaldo ? saldoAcumulado(S.data, S.mes, hj, { desde: S.prefs.saldoDesde, inicial: ini, viradas }) : (virado ? 0 : c.saldo), iniVale = round2(acum - ant - (virado ? 0 : c.saldo));
     const li = (t, v, forte = false) => `<li class="${forte ? "tot" : ""}"><span></span><span>${t}</span><b>${v}</b></li>`;
-    return abreDetalhe(`Saldo de ${mes}`, "Entradas menos o custo do mês e menos o que você guardou.", [
+    const atrasoN = contasEmAtraso(S.data, hj, S.prefs.saldoDesde).itens.length;
+    const pedeOrdem = c.saldo < 0 || acum < 0 || virado || atrasoN > 0;
+    abreDetalhe(`Saldo de ${mes}`, "Entradas menos o gasto do mês e menos o que você guardou.", [
       { html: `<ul class="itens">${li("Entradas", "+ " + brl(c.rec))}${li("Gasto do mês", "− " + brl(c.custo))}${c.res ? li(c.res > 0 ? "Guardado neste mês" : "Retirado do guardado", (c.res > 0 ? "− " : "+ ") + brl(Math.abs(c.res))) : ""}${li("Saldo do mês", sgn(c.saldo), true)}</ul>` },
       ...(S.prefs.levarSaldo ? [{ titulo: "Saldo acumulado", total: sgn(acum),
-        html: `<ul class="itens">${iniVale ? li("Saldo inicial", sgn(iniVale)) : ""}${li("Saldo dos meses anteriores", sgn(ant))}${li(`Saldo de ${mes}`, sgn(c.saldo))}${li("Saldo acumulado", sgn(acum), true)}</ul>` }] : [])]);
+        html: `<ul class="itens">${iniVale ? li("Saldo inicial", sgn(iniVale)) : ""}${li("Saldo dos meses anteriores", sgn(ant))}${virado ? li(`Saldo de ${mes} (virado: não é levado adiante)`, "virado") : li(`Saldo de ${mes}`, sgn(c.saldo))}${li("Saldo acumulado", sgn(acum), true)}</ul>` }] : []),
+      ...(pedeOrdem ? [{ html: `<div class="ordem-cta"><p class="hint" style="margin:10px 0 8px">${virado ? `Você virou a página de ${mes}: o saldo dele não passa para os próximos meses.` : acum < 0 || c.saldo < 0 ? "Acontece com todo mundo. Dá para ver as contas, o que ficou para trás e um jeito leve de recomeçar." : atrasoN ? `Você tem ${atrasoN} ${atrasoN === 1 ? "conta" : "contas"} em atraso para ver com calma.` : ""}</p><button class="btn primary" type="button" id="detOrdem" style="margin-left:0">Pôr o mês em ordem</button></div>` }] : [])]);
+    if ($("detOrdem")) $("detOrdem").onclick = () => { $("dlg").close(); setTimeout(() => equilibrioTela(S.mes), 120); };
+    return;
   }
   if (tipo === "guardado") {
     const dest = guardadoPorDestino(S.data, S.mes), mov = c.it.filter((x) => x.tipo === "Reserva").sort(porData), tem = new Map(dest);

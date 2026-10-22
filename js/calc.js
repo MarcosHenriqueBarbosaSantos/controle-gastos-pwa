@@ -464,23 +464,95 @@ export function primeiroMes(st) {
  * Soma dos saldos dos meses anteriores a m, a partir de `desde` (ou do primeiro mês com dados).
  * É o valor que "sobrou" ou "faltou" e passa para o mês m.
  */
-export function saldoAnterior(st, m, hoje, desde = null) {
+export function saldoAnterior(st, m, hoje, desde = null, viradas = []) {
   const first = primeiroMes(st);
   if (!first) return 0;
   let cur = desde && desde > first ? desde : first, total = 0, guard = 0;
-  while (cur < m && guard++ < 600) { total += calcMes(st, cur, hoje).saldo; cur = addM(cur, 1); }
+  // Mês "virado": o saldo dele (sobra ou falta) não é levado para os meses seguintes.
+  while (cur < m && guard++ < 600) { if (!viradas.includes(cur)) total += calcMes(st, cur, hoje).saldo; cur = addM(cur, 1); }
   return round2(total);
 }
 
 /**
  * Saldo acumulado até o fim do mês m: o que a pessoa já tinha quando começou (`inicial`),
- * mais o saldo dos meses anteriores, mais o saldo do próprio mês.
+ * mais o saldo dos meses anteriores, mais o saldo do próprio mês (que não conta se o mês foi virado).
  * O saldo inicial só vale do mês de início em diante.
  */
-export function saldoAcumulado(st, m, hoje, { desde = null, inicial = 0 } = {}) {
+export function saldoAcumulado(st, m, hoje, { desde = null, inicial = 0, viradas = [] } = {}) {
   const first = primeiroMes(st), inicio = desde && (!first || desde > first) ? desde : first;
   const base = !inicio || m >= inicio ? Number(inicial) || 0 : 0;
-  return round2(base + saldoAnterior(st, m, hoje, desde) + calcMes(st, m, hoje).saldo);
+  const proprio = viradas.includes(m) ? 0 : calcMes(st, m, hoje).saldo;
+  return round2(base + saldoAnterior(st, m, hoje, desde, viradas) + proprio);
+}
+
+/**
+ * Contas que já venceram e não foram marcadas como pagas, do primeiro mês (ou de `desde`) até hoje:
+ * gastos fixos fora do cartão e faturas em aberto. Mês virado não esconde atraso: a conta continua devida.
+ * @returns {{itens:{tipo:"fatura"|"fixo", id:string, titulo:string, valor:number, data:string, dias:number, mes:string, chave?:string, auto?:boolean, cartao_id?:string|null, cartao?:string}[],
+ *   total:number, porMes:{mes:string, n:number, total:number}[]}}  dias é negativo (quantos dias de atraso); porMes do mais antigo para o mais novo
+ */
+export function contasEmAtraso(st, hoje, desde = null) {
+  const first = primeiroMes(st), cur = mKey(hoje);
+  if (!first) return { itens: [], total: 0, porMes: [] };
+  const ini = desde && desde > first ? desde : first, itens = [];
+  const pagos = new Set(st.pagos.map((p) => p.fixo_id + "|" + p.mes));
+  for (let m = ini, g = 0; m <= cur && g < 600; m = addM(m, 1), g++) {
+    ocorrencias(st.fixos, m).forEach((o) => {
+      if (noCartao(o) || pagos.has(o.id + "|" + o.chave) || o.data >= hoje) return;
+      itens.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias: diasEntre(hoje, o.data), mes: m, chave: o.chave });
+    });
+  }
+  faturasAte(st, cur).filter((f) => f.status !== "Paga" && f.vencimento < hoje && mKey(f.vencimento) >= ini && Number(f.valor) > 0).forEach((f) => {
+    itens.push({ tipo: "fatura", id: f.id, auto: f.auto, cartao_id: f.cartao_id || null, cartao: f.cartao, titulo: `Fatura ${f.cartao}`, valor: Number(f.valor), data: f.vencimento, dias: diasEntre(hoje, f.vencimento), mes: mKey(f.vencimento) });
+  });
+  itens.sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
+  const por = new Map();
+  itens.forEach((i) => { const x = por.get(i.mes) || { mes: i.mes, n: 0, total: 0 }; x.n++; x.total = round2(x.total + i.valor); por.set(i.mes, x); });
+  return { itens, total: round2(itens.reduce((t, i) => t + i.valor, 0)), porMes: [...por.values()].sort((a, b) => a.mes.localeCompare(b.mes)) };
+}
+
+/**
+ * Recomeço: o quanto deixar sobrar por mês, por semana e por dia para repor `devido` em 1, 3 ou 6 meses.
+ * `sobraMedia` é o que costuma sobrar por mês (média dos últimos meses fechados). Cada opção diz se cabe nesse ritmo.
+ * A sugerida é a mais curta que cabe; se nenhuma cabe, a mais longa (parcela menor), avisando que pede entrada extra ou corte.
+ * @returns {{meses:number, porMes:number, porSemana:number, porDia:number, cabe:boolean, sugerida:boolean}[]}
+ */
+export function opcoesDeRecomeco(devido, sobraMedia = 0, prazos = [1, 3, 6]) {
+  if (!(devido > 0)) return [];
+  const cap = Math.max(0, Number(sobraMedia) || 0);
+  const ops = prazos.map((meses) => { const porMes = round2(devido / meses); return { meses, porMes, porSemana: round2(porMes / 4.345), porDia: round2(porMes / 30), cabe: porMes <= cap + 0.004, sugerida: false }; });
+  const i = ops.findIndex((o) => o.cabe);
+  ops[i >= 0 ? i : ops.length - 1].sugerida = true;
+  return ops;
+}
+
+/**
+ * Pôr o mês em ordem: o tamanho das contas, o que ficou para trás, quanto falta para sobrar e quantos dias a reserva cobre.
+ * No mês em andamento a conta usa a previsão de fechamento (no ritmo atual do dia a dia) e diz se só cortar gasto resolve.
+ * @returns {{mes:string, fase:string, virado:boolean, entradas:number, contasDoMes:number, aPagar:number, diaADia:number, guardadoNoMes:number, saldoDoMes:number,
+ *   acumulado:number, previsto:number|null, faltaNoMes:number, faltaAcumulado:number, diasRestantes:number, mediaDia:number, corteMaximo:number,
+ *   porDiaParaFechar:number, soCortarResolve:boolean, faltaEntrar:number, atraso:{total:number,n:number}, reserva:number, gastoPorDia:number, diasDeReserva:number,
+ *   sobraMedia:number, devido:number, recomeco:ReturnType<typeof opcoesDeRecomeco>}}
+ */
+export function planoDoMes(st, m, hoje, { desde = null, inicial = 0, viradas = [], levar = true } = {}) {
+  const c = calcMes(st, m, hoje), at = contasEmAtraso(st, hoje, desde), virado = viradas.includes(m);
+  const acumulado = levar ? saldoAcumulado(st, m, hoje, { desde, inicial, viradas }) : (virado ? 0 : c.saldo);
+  const atual = c.fase === "atual", previsto = atual ? round2(c.rec - c.proj - c.res) : null;
+  const falta = Math.max(0, -(atual ? previsto : c.saldo)), diasRestantes = atual ? c.n - c.dias : 0;
+  const mediaDia = c.dias > 0 ? round2(c.vari / c.dias) : 0, corteMaximo = round2(mediaDia * diasRestantes);
+  const soCortarResolve = falta > 0 && diasRestantes > 0 && falta <= corteMaximo + 0.004;
+  // Reserva: quanto há guardado e quantos dias de gasto ela cobre (gasto médio por dia dos até 3 últimos meses fechados; sem histórico, o do mês).
+  const fechados = [1, 2, 3].map((k) => addM(m, -k)).map((x) => calcMes(st, x, hoje)).filter((x) => x.custo > 0);
+  const gastoPorDia = round2(fechados.length ? fechados.reduce((t, x) => t + x.custo / x.n, 0) / fechados.length : (atual ? c.proj : c.custo) / c.n);
+  const reserva = Math.max(0, reservaAcumulada(st, m));
+  // O que repor: o buraco do acumulado; se o mês foi virado, o que faltou nele (a pessoa ainda pode querer repor).
+  const sobraMedia = fechados.length ? round2(fechados.reduce((t, x) => t + x.saldo, 0) / fechados.length) : 0;
+  const devido = virado ? round2(Math.max(0, -c.saldo)) : round2(Math.max(0, -acumulado));
+  return { mes: m, fase: c.fase, virado, entradas: c.rec, contasDoMes: round2(c.fxCusto + c.fatT), aPagar: round2(c.fxPend + c.fatAberta), diaADia: c.vari, guardadoNoMes: c.res,
+    saldoDoMes: c.saldo, acumulado, previsto, faltaNoMes: round2(falta), faltaAcumulado: round2(Math.max(0, -acumulado)), diasRestantes, mediaDia, corteMaximo,
+    porDiaParaFechar: soCortarResolve ? round2(falta / diasRestantes) : 0, soCortarResolve, faltaEntrar: round2(Math.max(0, falta - (diasRestantes > 0 ? corteMaximo : 0))),
+    atraso: { total: at.total, n: at.itens.length }, reserva: round2(reserva), gastoPorDia, diasDeReserva: gastoPorDia > 0 ? Math.floor(reserva / gastoPorDia) : 0,
+    sobraMedia, devido, recomeco: opcoesDeRecomeco(devido, sobraMedia) };
 }
 
 /** Total guardado até o fim do mês m, somando todos os destinos (guardado menos retirado). */
@@ -687,6 +759,46 @@ export function proximosVencimentos(st, hoje, janela = 30) {
     });
   });
   return out.sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
+}
+
+/**
+ * Quais contas ainda a pagar neste mês não fecham com o dinheiro que a pessoa tem.
+ * O dinheiro disponível é o que sobra do mês somado ao que ainda falta pagar (tudo o mais já saiu). As contas são pagas
+ * na ordem da data; a primeira que não cabe, e as seguintes que também não, ficam em `naoFecham`.
+ * `extra` é um gasto que a pessoa está prestes a lançar: mostra o efeito dele antes de acontecer.
+ * Só olha o mês em andamento e as contas dele (faturas e contas fixas ainda não pagas).
+ * @returns {{caixa:number, extra:number, itens:{tipo:string,titulo:string,valor:number,data:string,dias:number,falta:number}[], naoFecham:object[], totalQueFalta:number}}
+ */
+export function contasQueNaoFecham(st, hoje, extra = 0) {
+  const m = mKey(hoje), c = calcMes(st, m, hoje), vazio = { caixa: 0, extra: 0, itens: [], naoFecham: [], totalQueFalta: 0 };
+  if (c.fase !== "atual") return vazio;
+  const caixa = round2(raioX(c).sobra + c.fxPend + c.fatAberta - Math.max(0, extra));
+  let uso = 0;
+  const itens = proximosVencimentos(st, hoje, 31).filter((x) => x.mes === m && x.valor > 0).map((x) => {
+    uso = round2(uso + x.valor);
+    return { tipo: x.tipo, titulo: x.titulo, valor: x.valor, data: x.data, dias: x.dias, falta: Math.max(0, round2(Math.min(x.valor, uso - caixa))) };
+  });
+  const naoFecham = itens.filter((x) => x.falta > 0);
+  return { caixa, extra: Math.max(0, extra), itens, naoFecham, totalQueFalta: round2(naoFecham.reduce((t, x) => t + x.falta, 0)) };
+}
+
+/**
+ * Cartões cadastrados cuja fatura vai vencer em breve mas ainda não tem nenhuma compra nem valor informado.
+ * Sem isso o cartão sumia dos vencimentos até a primeira compra ser lançada. A pessoa vê a data e informa o valor da fatura.
+ * Só olha o dia de hoje em diante (fatura sem valor não "atrasa"). Não entra no servidor de avisos.
+ * @returns {{tipo:"fatura", id:null, auto:true, semValor:true, cartao_id:string, cartao:string, titulo:string, valor:0, data:string, dias:number, mes:string}[]}
+ */
+export function faturasSemValor(st, hoje, janela = 30) {
+  const out = [], cur = mKey(hoje);
+  (st.cartoes || []).filter((c) => c.ativo !== false).forEach((c) => {
+    [cur, addM(cur, 1)].forEach((m) => {
+      const data = diaNoMes(m, c.vencimento), dias = diasEntre(hoje, data);
+      if (dias < 0 || dias > janela) return;
+      if (faturasDoMes(st, m).some((f) => f.cartao_id === c.id) || st.faturas.some((f) => f.cartao_id === c.id && mKey(f.vencimento) === m)) return;
+      out.push({ tipo: "fatura", id: null, auto: true, semValor: true, cartao_id: c.id, cartao: c.nome, titulo: `Fatura ${c.nome}`, valor: 0, data, dias, mes: m });
+    });
+  });
+  return out.sort((a, b) => a.data.localeCompare(b.data));
 }
 
 /**

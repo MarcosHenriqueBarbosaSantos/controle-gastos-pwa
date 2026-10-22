@@ -182,3 +182,27 @@ export function contasQueSeRepetem(lancamentos, fixos = [], hojeISO) {
   }
   return out.sort((a, b) => b.valor - a.valor);
 }
+
+/**
+ * Próxima vez das contas que se repetem (as achadas por contasQueSeRepetem) que ainda não são conta fixa:
+ * o dia habitual, neste mês ou no próximo, se ainda não passou, cabe na janela e o mês ainda não tem o lançamento.
+ * São previsões: a tela de vencimentos mostra com o aviso "parece se repetir" e deixa a pessoa virar conta fixa.
+ * @returns {{tipo:"repetida", chave:string, titulo:string, valor:number, data:string, dias:number, mes:string, achada:object}[]}
+ */
+export function proximasRepetidas(achadas, hojeISO, janela = 30) {
+  const mk = (iso) => iso.slice(0, 7), add = (m, k) => { const d = new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1 + k, 1)); return d.toISOString().slice(0, 7); };
+  const dim = (m) => new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0)).getUTCDate();
+  const dias = (a, b) => Math.round((Date.UTC(+b.slice(0, 4), +b.slice(5, 7) - 1, +b.slice(8, 10)) - Date.UTC(+a.slice(0, 4), +a.slice(5, 7) - 1, +a.slice(8, 10))) / 864e5);
+  const out = [], cur = mk(hojeISO);
+  for (const g of achadas || []) {
+    if (g.tipo !== "Despesa") continue;
+    for (const m of [cur, add(cur, 1)]) {
+      if (g.itens.some((x) => mk(x.data) === m)) continue;
+      const data = `${m}-${String(Math.min(dim(m), g.dia)).padStart(2, "0")}`, d = dias(hojeISO, data);
+      if (d < 0 || d > janela) continue;
+      out.push({ tipo: "repetida", chave: g.chave, titulo: g.nome, valor: g.valor, data, dias: d, mes: m, achada: g });
+      break;
+    }
+  }
+  return out.sort((a, b) => a.data.localeCompare(b.data));
+}
