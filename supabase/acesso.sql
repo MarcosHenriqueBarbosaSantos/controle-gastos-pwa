@@ -104,3 +104,28 @@ end $$;
 -- Desligar a cobrança (tudo volta a funcionar para todos):
 --   update public.acesso_config set cobranca = false, atualizado = now() where id = 1;
 -- ---------------------------------------------------------------------
+
+-- ---------------------------------------------------------------------
+-- TESTE GRÁTIS DE 7 DIAS (v136): quem cria a conta ganha 7 dias de acesso, sem cartão.
+-- Vira uma linha em "acessos" com origem 'teste'. Se a pessoa comprar, a Hotmart troca essa linha pela do plano anual.
+-- Só vale de verdade quando a cobrança estiver ligada (acesso_config.cobranca = true).
+-- ---------------------------------------------------------------------
+alter table public.acessos drop constraint if exists acessos_origem_check;
+alter table public.acessos add constraint acessos_origem_check check (origem in ('hotmart', 'cortesia', 'teste'));
+
+create or replace function public.dar_teste_gratis()
+returns trigger language plpgsql security definer set search_path = '' as $$
+begin
+  if new.email is not null then
+    insert into public.acessos (email, origem, ate)
+    values (lower(new.email), 'teste', ((now() at time zone 'America/Sao_Paulo')::date + 7))
+    on conflict (email) do nothing;
+  end if;
+  return new;
+exception when others then
+  return new;   -- nunca impede o cadastro
+end $$;
+revoke all on function public.dar_teste_gratis() from public, anon, authenticated;
+
+drop trigger if exists teste_gratis on auth.users;
+create trigger teste_gratis after insert on auth.users for each row execute function public.dar_teste_gratis();

@@ -345,7 +345,7 @@ function authModo(m, msg = "", kind = "") {
   $("aSenhaDica").hidden = m !== "criar"; $("aEsqueci").hidden = m !== "entrar"; $("aTermos").hidden = m !== "criar";
   // Com o app à venda, quem cria conta fica sabendo do preço e de que o e-mail tem de ser o da compra.
   $("aPago").hidden = m !== "criar" || !LINK_COMPRA;
-  if (LINK_COMPRA) $("aPago").innerHTML = `O Meus Gastos custa <b>${esc(PRECO_PLANO)}</b>. Use aqui o mesmo e-mail da compra. <a href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">Ainda não comprei</a>`;
+  if (LINK_COMPRA) $("aPago").innerHTML = `Teste <b>7 dias grátis</b>, sem cartão. Depois, ${esc(PRECO_PLANO)}. Já comprou? Use aqui o mesmo e-mail da compra. <a href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">Ainda não comprei</a>`;
   authMsg(S.semLogin && entrada ? "O login ainda não está ligado neste endereço. Você pode testar tudo na demonstração." : msg, kind);
 }
 /** Trava os botões enquanto um pedido está indo: um segundo toque mandaria outro e-mail e o primeiro deixaria de valer. */
@@ -614,8 +614,9 @@ const ddmmaaaa = (iso) => `${ddmm(iso)}/${iso.slice(0, 4)}`;
 function telaDeAcesso(msg = "", kind = "") {
   const a = S.acesso || {}, email = $("whoName").textContent, temDados = S.data.lancamentos.length || S.data.fixos.length || S.data.faturas.length;
   const devolvida = a.status === "reembolsado", venceu = !devolvida && Boolean(a.ate);
-  const titulo = devolvida ? "A compra desta conta foi reembolsada" : venceu ? "O seu acesso terminou" : "Falta liberar o seu acesso";
+  const teste = a.origem === "teste", titulo = devolvida ? "A compra desta conta foi reembolsada" : teste && venceu ? "O seu teste grátis terminou" : venceu ? "O seu acesso terminou" : "Falta liberar o seu acesso";
   const texto = devolvida ? `O acesso de <b>${esc(email)}</b> foi encerrado junto com o reembolso.`
+    : teste && venceu ? `Os 7 dias de teste de <b>${esc(email)}</b> terminaram em ${ddmmaaaa(a.ate)}. Os seus dados continuam guardados e voltam a aparecer assim que você assinar.`
     : venceu ? `O acesso de <b>${esc(email)}</b> valeu até ${ddmmaaaa(a.ate)}. Os seus dados continuam guardados e voltam a aparecer assim que você renovar.`
     : `A conta <b>${esc(email)}</b> está criada, mas ainda não encontramos uma compra com este e-mail.`;
   $("app").hidden = true; $("bnav").hidden = true; $("auth").hidden = true; $("acesso").hidden = false; showBanner(""); fecharLancar(); scrollTo(0, 0);
@@ -648,7 +649,12 @@ function telaDeAcesso(msg = "", kind = "") {
 /** Perto do fim do período: avisa quem cancelou a renovação (15 dias antes) e quem está com a renovação atrasada (3 dias). */
 function avisoDeRenovacao() {
   const a = S.acesso;
-  if (!a?.cobranca || !a.ativo || !a.ate || a.pelo_par || S.store?.kind !== "supabase") return;   // quem usa a assinatura da outra pessoa não é quem renova
+  if (!a?.cobranca || !a.ativo || !a.ate || a.pelo_par || S.store?.kind !== "supabase") return;
+  if (a.origem === "teste") {
+    const f = Math.round((Date.UTC(+a.ate.slice(0, 4), +a.ate.slice(5, 7) - 1, +a.ate.slice(8, 10)) - Date.UTC(+hoje().slice(0, 4), +hoje().slice(5, 7) - 1, +hoje().slice(8, 10))) / 86400000);
+    return showBanner(f <= 0 ? "Hoje é o último dia do seu teste grátis. Seus dados ficam guardados." : `Faltam ${f} ${f === 1 ? "dia" : "dias"} do seu teste grátis. Seus dados ficam guardados.`,
+      LINK_COMPRA ? [[`Assinar por ${PRECO_PLANO}`, () => open(LINK_COMPRA, "_blank", "noopener")]] : []);
+  }   // quem usa a assinatura da outra pessoa não é quem renova
   const d = Math.round((Date.UTC(+a.ate.slice(0, 4), +a.ate.slice(5, 7) - 1, +a.ate.slice(8, 10)) - Date.UTC(+hoje().slice(0, 4), +hoje().slice(5, 7) - 1, +hoje().slice(8, 10))) / 86400000);
   if (d > (a.status === "cancelado" ? 15 : 3)) return;
   showBanner(`O seu acesso vale até ${ddmmaaaa(a.ate)}${a.status === "cancelado" ? ", porque a renovação foi cancelada" : ". A renovação ainda não foi confirmada"}. Os seus dados não se perdem.`,
