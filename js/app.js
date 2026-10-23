@@ -2345,6 +2345,11 @@ function minhaHora() {
   const hj = hoje(), m = motDados();
   return valorDaHora(S.prefs.hora, m.turnos.length ? resumoTurnos(m.turnos, toISO(new Date(Date.now() - 30 * 864e5)), hj, S.prefs.veiculo || {}) : null);
 }
+/** " · X de trabalho" para somar ao resumo de um valor; vazio se a pessoa ainda não tem o valor da hora. */
+function emHoras(valor, complemento = "") {
+  const vh = valor > 0 ? minhaHora() : null, t = vh ? horasDeTrabalho(valor, vh.valor) : null;
+  return t ? ` · ${t} de trabalho${complemento ? " " + complemento : ""}` : "";
+}
 /** Mostra "Isso é X de trabalho" embaixo do valor, só para gasto. */
 function mostraHoras() {
   const el = $("fHoras"); if (!el) return;
@@ -5284,6 +5289,7 @@ function editarLancamento(id) {
   openDlg(`<h3>Editar lançamento</h3><form id="edForm" class="dlg-form" autocomplete="off">
     <label class="f">Tipo<select class="in" id="eTipo">${TIPOS.map(([v, r]) => `<option value="${v}"${v === x.tipo ? " selected" : ""}>${r}</option>`).join("")}</select></label>
     <label class="f">Valor (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${esc(x.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}"></label>
+    <p class="hint wide" id="eHoras" aria-live="polite" hidden></p>
     <label class="f wide">Descrição<input class="in" id="eDesc" maxlength="80" value="${esc(x.descricao)}"></label>
     <label class="f"><span id="eCatLbl">Categoria</span><select class="in" id="eCat">${catOpts(x.tipo, x.categoria)}</select></label>
     <label class="f" id="eFormaWrap"><span id="eFormaLbl">Forma de pagamento</span><select class="in" id="eForma"></select></label>
@@ -5299,6 +5305,11 @@ function editarLancamento(id) {
       <button class="btn sm" type="button" id="eComp">${temComprovante(x) ? "Ver" : "Anexar"}</button></div>`}
     <p class="auth-msg err wide" id="edMsg"></p>
     <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" id="eDeNovo">Lançar de novo hoje</button><button class="btn" type="button" data-close>Cancelar</button><button class="btn perigo" type="button" id="eExcluir">${ico("lixo")}Excluir</button></div></form>`);
+  const horasDoEditar = () => {
+    const el = $("eHoras"), vh = $("eTipo").value === "Despesa" ? minhaHora() : null, v = parseMoney($("eValor").value), t = vh && v > 0 && v <= VALOR_MAX ? horasDeTrabalho(v, vh.valor) : null;
+    el.hidden = !t; el.textContent = t ? `Isso é ${t} do seu trabalho (sua hora vale ${brl(vh.valor)})` : "";
+  };
+  $("eValor").addEventListener("input", horasDoEditar); $("eTipo").addEventListener("change", horasDoEditar); horasDoEditar();
   // Mesmo lançamento, com a data de hoje: para o gasto que se repete.
   $("eDeNovo").onclick = async () => {
     const { id: _id, created_at: _c, user_id: _u, pendente: _p, enviando: _e, comprovante: _cp, ...copia } = x;   // o comprovante é daquele gasto, não da cópia
@@ -5674,7 +5685,7 @@ function detalheKpi(tipo, de = "") {
   }
   if (tipo === "custo") {
     const it = itensDoCusto(c), de = (o) => it.filter((i) => i.origem === o).sort(porData).map(linhaCusto);
-    return abreDetalhe(`Custo de ${mes}`, `Total: <b>${brl(c.custo)}</b>${c.fase === "atual" ? ` · previsão de fechar em ${brl0(c.proj)}` : ""}`, [
+    return abreDetalhe(`Custo de ${mes}`, `Total: <b>${brl(c.custo)}</b>${emHoras(c.custo)}${c.fase === "atual" ? ` · previsão de fechar em ${brl0(c.proj)}` : ""}`, [
       { titulo: "Gastos do dia a dia", total: brl(c.vari), itens: de("gasto"), vazio: "Nenhum gasto lançado fora do cartão." },
       { titulo: "Contas fixas", total: brl(c.fxCusto), itens: de("fixo"), vazio: "Nenhuma conta fixa fora do cartão." },
       { titulo: "Faturas de cartão", total: brl(c.fatT), itens: c.fat.map(linhaFaturaDet(hj)), vazio: "Nenhuma fatura vence neste mês." }], ["Ver nos lançamentos", "l"]);
@@ -5713,7 +5724,7 @@ function detalheKpi(tipo, de = "") {
   }
   if (tipo === "fixos") {
     const st = (f) => f.forma === CARTAO ? ["na fatura", ""] : c.pagosSet.has(f.id + "|" + f.chave) ? ["pago", "ok"] : f.data < hj ? ["atrasado", "bad"] : ["a pagar", ""];
-    return abreDetalhe(`Contas fixas de ${mes}`, `Total: <b>${brl(c.fxT)}</b>${c.fxPend ? ` · ${brl(c.fxPend)} ainda a pagar` : ""}`,
+    return abreDetalhe(`Contas fixas de ${mes}`, `Total: <b>${brl(c.fxT)}</b>${emHoras(c.fxT, "só para pagar as contas fixas")}${c.fxPend ? ` · ${brl(c.fxPend)} ainda a pagar` : ""}`,
       [{ itens: c.fx.map((f) => ({ d: ddmm(f.data), t: f.descricao, tag: st(f)[0], tagCls: st(f)[1], s: [tipoDoFixo(f)[0] + (f.ate ? " " + ateCurto(f.ate) : ""), f.categoria, f.forma ? pagoCom({ ...f, parcelas: 1 }) : ""].filter(Boolean).join(" · "), v: brl(f.valor), ref: { k: "fixo", id: f.id } })),
         vazio: "Nenhuma conta fixa neste mês." }], ["Abrir contas fixas", "f"]);
   }
