@@ -263,6 +263,20 @@ const ASSUNTOS = [[/\biptu\b/, "IPTU"], [/\bipva\b/, "IPVA"], [/licenciamento/, 
  *   `firme` é false quando o valor foi um palpite (nenhuma palavra do documento nem o código de barras confirmam):
  *   quem chama pode tentar ler a foto de novo, de outro jeito, antes de mostrar.
  */
+/**
+ * Quantas parcelas o comprovante da maquininha diz: "8X SEM JUROS", "PARC 08", "08 PARCELAS", "PARCELADO EM 8".
+ * Sem nenhuma dessas palavras, só aceita quando o valor total dividido pelo valor da parcela dá um número inteiro de 2 a 24
+ * (ex.: R$ 3.920,00 e R$ 490,00 = 8x) e o comprovante é de crédito parcelado. Devolve 0 se não achar.
+ */
+export function parcelasDoTexto(tudo, valor, todos = []) {
+  const ok = (n) => (Number.isInteger(n) && n >= 2 && n <= 24 ? n : 0);
+  const pads = [/parcelad[oa]s?\s*(?:em|:)?\s*0?(\d{1,2})\s*x?\b/, /\b0?(\d{1,2})\s*x\s*(?:sem|com|de|r\s?\$|\b)/, /\b0?(\d{1,2})\s*parcelas?\b/, /\bparc(?:elas?|\.)?\s*[:=.\-]?\s*0?(\d{1,2})\b/, /\bqtd\.?\s*parc\w*\s*[:=]?\s*0?(\d{1,2})\b/];
+  for (const re of pads) { const m = re.exec(tudo); if (m && ok(Number(m[1]))) return Number(m[1]); }
+  if (valor > 0 && /credito/.test(tudo) && /parc|sem juros|\d\s*x\b/.test(tudo)) {
+    for (const v of todos) { if (v > 0 && v < valor) { const n = Math.round(valor / v); if (ok(n) && Math.abs(n * v - valor) <= 0.06 * n) return n; } }
+  }
+  return 0;
+}
 export function interpretaTexto(texto, hoje) {
   const linhas = String(texto ?? "").split(/\r?\n/).map((l) => l.trim()).filter(Boolean), norm = linhas.map(semAcento);
   const tudo = norm.join("\n"), ano = Number(hoje.slice(0, 4));
@@ -349,8 +363,9 @@ export function interpretaTexto(texto, hoje) {
   const descricao = tipo === "fatura" ? "" : assunto || pix?.nome || (valor === null && !valores.length ? "" : achaDescricao(linhas, norm, fiscal && !aPagar, aPagar));
   const forma = pix || tem(/\bpix\b/) ? "Pix" : aPagar ? "Boleto" : tem(/\bdebito\b/) ? "Débito" : tem(/\bcredito\b/) ? "Cartão de crédito" : tem(/boleto|codigo de barras|linha digitavel/) ? "Boleto" : fiscal && tem(/dinheiro/) ? "Dinheiro" : "";
   const banco = BANCOS.find((b) => new RegExp(`\\b${b}\\b`).test(tudo)) || "";
+  const parcelas = tipo === "fatura" || forma === "Pix" ? 0 : parcelasDoTexto(tudo, valor, [...new Set(cands.map((c) => c.v))]);
   // O nome do banco só interessa na fatura (no comprovante, o banco que aparece costuma ser o de quem recebeu).
-  return { tipo, valor, valores, data, vencimento, descricao, forma: tipo === "fatura" ? "" : forma,
+  return { tipo, valor, valores, data, vencimento, descricao, forma: tipo === "fatura" ? "" : (parcelas && !forma ? "Cartão de crédito" : forma), parcelas,
     cartao: tipo === "fatura" && banco ? arruma(banco.toUpperCase()) : "", achouData: Boolean(data || vencimento), firme };
 }
 
@@ -364,7 +379,7 @@ export function juntaLeituras(a, b) {
   const valor = base.valor ?? outra.valor, daData = base.data || base.vencimento ? base : outra;
   return { tipo: base.tipo, valor, valores: [...new Set([...base.valores, ...(outra.valor !== null ? [outra.valor] : []), ...outra.valores])].filter((v) => v !== valor).slice(0, 4),
     data: base.tipo === daData.tipo ? daData.data : base.data, vencimento: base.tipo === daData.tipo ? daData.vencimento : base.vencimento,
-    descricao: base.descricao || (outra.tipo === base.tipo ? outra.descricao : ""), forma: base.forma || (outra.tipo === base.tipo ? outra.forma : ""), cartao: base.cartao || (outra.tipo === base.tipo ? outra.cartao : ""),
+    parcelas: base.parcelas || (outra.tipo === base.tipo ? outra.parcelas || 0 : 0), descricao: base.descricao || (outra.tipo === base.tipo ? outra.descricao : ""), forma: base.forma || (outra.tipo === base.tipo ? outra.forma : ""), cartao: base.cartao || (outra.tipo === base.tipo ? outra.cartao : ""),
     achouData: base.achouData || (base.tipo === outra.tipo && outra.achouData), firme: base.firme };
 }
 

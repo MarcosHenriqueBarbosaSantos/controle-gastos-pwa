@@ -1807,3 +1807,8 @@ tr.toca-linha{cursor:pointer} tr.toca-linha:hover td{background:var(--sunk)}
   details.manual > summary{min-height:44px;display:flex;align-items:center}
   .chip button{width:44px;height:44px}
 }
+
+/* v131: cadastrar um cartão na hora de lançar (cartão emprestado ou novo) */
+.novo-cartao{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border:1px dashed var(--border);border-radius:12px;background:var(--sunk);margin:2px 0}
+.novo-cartao[hidden]{display:none}
+.novo-cartao .wide{grid-column:1/-1}

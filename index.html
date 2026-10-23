@@ -200,6 +200,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
       <button class="btn primary" id="fOk" type="submit">Lançar gasto</button>
       <div class="cartao-linha" id="fCartaoLinha" hidden>
         <label class="f" id="fCartaoWrap">Cartão<select class="in" id="fCartao"></select></label>
+        <div id="fNovoHost"></div>
         <label class="f" id="fParcWrap">Parcelas<select class="in" id="fParc"><option value="1">À vista</option></select></label>
         <p class="hint" id="fCartaoDica" hidden>Para a fatura ser montada sozinha, <button class="link" type="button" id="fIrCartoes">cadastre seu cartão</button> em Cartões.</p>
       </div>

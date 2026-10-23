@@ -230,10 +230,32 @@ function ligaNovaCategoria(sel, tipo, sugestao, criada) {
 /* Cartões cadastrados: os ativos aparecem para novas compras; os desativados só mantêm as faturas antigas. */
 const cartoesAtivos = () => S.data.cartoes.filter((k) => k.ativo !== false);
 const cartaoPorId = (id) => S.data.cartoes.find((k) => k.id === id) || null;
-const optsCartao = (atual, vazio = "") => {
-  const l = cartoesAtivos(), fora = atual && !l.some((k) => k.id === atual) ? cartaoPorId(atual) : null;
-  return (vazio ? `<option value="">${esc(vazio)}</option>` : "") + (fora ? [fora, ...l] : l).map((k) => `<option value="${esc(k.id)}"${k.id === atual ? " selected" : ""}>${esc(k.nome)}</option>`).join("");
+const NOVO_CARTAO = "__novo__";
+const optsCartao = (atual, vazio = "", comNovo = false) => {
+  const l = cartoesAtivos(), fora = atual && atual !== NOVO_CARTAO && !l.some((k) => k.id === atual) ? cartaoPorId(atual) : null;
+  const novo = comNovo ? `<option value="${NOVO_CARTAO}"${atual === NOVO_CARTAO || (!l.length && !fora) ? " selected" : ""}>+ Outro cartão (emprestado ou novo)</option>` : "";
+  return (vazio ? `<option value="">${esc(vazio)}</option>` : "") + (fora ? [fora, ...l] : l).map((k) => `<option value="${esc(k.id)}"${k.id === atual ? " selected" : ""}>${esc(k.nome)}</option>`).join("") + novo;
 };
+/** Campos para cadastrar um cartão na hora de lançar (inclusive um cartão emprestado). `p` é o começo dos ids. */
+const htmlNovoCartao = (p, grupo = "") => `<div class="novo-cartao wide" id="${p}Novo"${grupo ? ` data-g="${grupo}"` : ""} hidden>
+  <label class="f wide">Nome do cartão<input class="in" id="${p}NNome" maxlength="40" placeholder="Ex.: Cartão da minha mãe"></label>
+  <label class="f">Dia que a fatura fecha<input class="in" id="${p}NFech" type="number" inputmode="numeric" min="1" max="31" placeholder="Ex.: 3"></label>
+  <label class="f">Dia que a fatura vence<input class="in" id="${p}NVenc" type="number" inputmode="numeric" min="1" max="31" placeholder="Ex.: 10"></label>
+  <p class="hint wide" style="margin:0;font-size:12.5px">Está usando o cartão de outra pessoa? Escreva de quem é no nome. Os dois dias aparecem na fatura do cartão; se não souber, deixe em branco e ajuste depois em Cartões.</p></div>`;
+/** Cadastra o cartão digitado nos campos acima. Devolve { id, padrao } ou { erro }. Cartão com o mesmo nome já ativo é reaproveitado. */
+async function criaCartaoRapido(p) {
+  const nome = $(p + "NNome").value.trim();
+  if (!nome) { $(p + "NNome").focus(); return { erro: "Escreva o nome do cartão (por exemplo, Cartão da minha mãe)." }; }
+  const igual = S.data.cartoes.find((k) => norm(k.nome) === norm(nome));
+  if (igual) return igual.ativo === false ? { erro: `Já existe um cartão chamado ${nome}, mas ele está desativado. Reative em Cartões ou use outro nome.` } : { id: igual.id, padrao: false };
+  const dia = (id, pad) => { const n = Math.round(Number($(id).value)); return n >= 1 && n <= 31 ? n : pad; };
+  const fech = dia(p + "NFech", 0), venc = dia(p + "NVenc", 0), padrao = !fech || !venc;
+  let novo;
+  if (!(await grava(async () => { novo = await S.store.addCartao({ nome, fechamento: fech || 3, vencimento: venc || 10 }); }))) return { erro: "Não consegui cadastrar o cartão agora. Tente de novo." };
+  S.data.cartoes.push(novo);
+  return { id: novo.id, padrao, nome };
+}
+const avisoCartaoPadrao = (r) => (r?.padrao ? ` Cartão ${r.nome}: usei fecha dia 3 e vence dia 10. Ajuste em Cartões quando souber.` : "");
 const optsParcelas = (valor, atual = 1) => {
   const ns = Array.from({ length: 24 }, (_, i) => i + 1); if (Number(atual) > 24) ns.push(Number(atual));
   return ns.map((n) => `<option value="${n}"${n === Number(atual) ? " selected" : ""}>${n === 1 ? "À vista" : n + "x"}${valor > 0 && n > 1 ? " de " + brl(valorDasParcelas(valor, n)[1]) : ""}</option>`).join("");
@@ -816,11 +838,12 @@ function renderForm() {
     : S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : guardando && $("fFixo").checked ? "Guardar e repetir todo mês" : "Lançar";
   $("fOk").dataset.base = $("fOk").textContent; rotuloDoOk();
   // Compra no cartão: a pessoa escolhe o cartão e, se não for um gasto fixo, em quantas vezes.
-  const cc = S.tipo === "Despesa" && fs.value === CARTAO, tem = cartoesAtivos().length > 0;
-  $("fCartaoLinha").hidden = !cc; $("fCartaoWrap").hidden = !tem; $("fParcWrap").hidden = !tem || fixo; $("fCartaoDica").hidden = tem;
-  if (cc && tem) {
+  const cc = S.tipo === "Despesa" && fs.value === CARTAO;
+  $("fCartaoLinha").hidden = !cc; $("fCartaoWrap").hidden = false; $("fParcWrap").hidden = fixo; $("fCartaoDica").hidden = true;
+  if (cc) {
     const fk = $("fCartao"), k = cartoesAtivos().map((z) => z.id + z.nome).join("|");
-    if (fk.dataset.k !== k) { fk.innerHTML = optsCartao(fk.value); fk.dataset.k = k; }
+    if (fk.dataset.k !== k) { fk.innerHTML = optsCartao(fk.value, "", true); fk.dataset.k = k; }
+    $("fNovo").hidden = fk.value !== NOVO_CARTAO;
     $("fParc").innerHTML = optsParcelas(valorDoCampo(), fixo ? 1 : $("fParc").value || 1);
   }
   mostraEfeito(); chipsDoForm();
@@ -880,7 +903,7 @@ function dicaDoExtrato() {
 }
 /** Cartão e parcelas escolhidos no formulário de lançar. Sem cartão cadastrado não devolve nada: o lançamento segue como sempre foi. */
 function cartaoDoForm() {
-  const cc = S.tipo === "Despesa" && $("fForma").value === CARTAO && cartoesAtivos().length > 0;
+  const cc = S.tipo === "Despesa" && $("fForma").value === CARTAO && cartoesAtivos().length > 0 && $("fCartao").value !== NOVO_CARTAO;
   return cc ? { cartao_id: $("fCartao").value || null, parcelas: Number($("fParc").value) || 1 } : {};
 }
 
@@ -2206,7 +2229,17 @@ ligaNovaCategoria($("fCat"), () => S.tipo, () => $("fDesc").value, (nome, nova) 
   const fl = $("flash"); fl.style.color = "var(--good)"; fl.textContent = nova ? `${S.tipo === "Reserva" ? "Caixinha" : "Categoria"} ${nome} criada e escolhida.` : `${nome} já existia: escolhida.`;
 });
 $("fCat").addEventListener("change", () => { S.catManual = true; });
-$("fCartao").addEventListener("change", () => { S.formaManual = true; });
+$("fCartao").addEventListener("change", () => { S.formaManual = true; $("fNovo").hidden = $("fCartao").value !== NOVO_CARTAO; if (!$("fNovo").hidden) $("fNNome").focus(); });
+$("fNovoHost").innerHTML = htmlNovoCartao("f");
+/** No formulário de lançar: se a pessoa escolheu "+ Outro cartão", cadastra agora e deixa o novo escolhido. Devolve o aviso extra, ou null se deu erro (já mostrado). */
+async function resolveNovoCartaoForm() {
+  if (!(S.tipo === "Despesa" && $("fForma").value === CARTAO && $("fCartao").value === NOVO_CARTAO)) return "";
+  const r = await criaCartaoRapido("f");
+  if (r.erro) { const fl = $("flash"); fl.style.color = "var(--bad)"; fl.textContent = r.erro; return null; }
+  const fk = $("fCartao"); fk.innerHTML = optsCartao(r.id, "", true); fk.value = r.id; fk.dataset.k = cartoesAtivos().map((z) => z.id + z.nome).join("|");
+  $("fNovo").hidden = true; $("fNNome").value = ""; $("fNFech").value = ""; $("fNVenc").value = "";
+  return avisoCartaoPadrao(r);
+}
 /**
  * Repete o que a pessoa fez da última vez com essa descrição: a categoria e, no gasto, a forma de pagamento e o cartão.
  * Só mexe no que ela ainda não escolheu à mão, e diz embaixo do campo o que foi preenchido.
@@ -4473,6 +4506,7 @@ function dividirCompra() {
     if ($("dvMais")) $("dvMais").onclick = () => { leDom(); partes.push({ categoria: lista.find((k) => !partes.some((p) => p.categoria === k)) || inicial, valor: "" }); desenha(); };
     $("dvForm").addEventListener("submit", async (e) => {
       e.preventDefault(); leDom(); const r = confere(); if (!r.certo) return resumo();
+      if ((await resolveNovoCartaoForm()) === null) { $("dlg").close(); return; }
       const data = $("fData").value || hoje(), base = { data, descricao: $("fDesc").value.trim(), tipo: "Despesa", forma: formaDe("Despesa", $("fForma").value), import_key: null, ...cartaoDoForm() };
       const rows = r.partes.map((p) => ({ ...base, categoria: p.categoria, valor: p.valor, id: crypto.randomUUID() }));
       $("dvOk").disabled = true;
@@ -5068,6 +5102,7 @@ $("formLanc").addEventListener("submit", async (e) => {
     if (r === "voltar") return $("fValor").focus();
     if (typeof r === "number") { v = r; $("fValor").value = r.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); mostraEfeito(); }
   }
+  const extraCartao = await resolveNovoCartaoForm(); if (extraCartao === null) return;
   const data = $("fData").value || hoje();
   if (S.tipo !== "Reserva" && $("fFixo").checked) {
     // Vira um fixo: conta em todo mês a partir do mês da data, no mesmo dia.
@@ -5120,6 +5155,7 @@ $("formLanc").addEventListener("submit", async (e) => {
   flash.textContent = `Lançado: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}${mKey(data) !== S.mes ? " (outro mês)" : ""}.`
     + (kc ? ` ${row.parcelas > 1 ? `Em ${row.parcelas}x no ${kc.nome}: a primeira parcela vem` : `No ${kc.nome}: vem`} na fatura de ${nomeMes(mesDaFatura(kc, data))}.` : "");
   // Aviso na hora, quando este lançamento fez o mês chegar perto do limite ou passar dele.
+  if (extraCartao) flash.textContent += extraCartao;
   const nivelDepois = nivelDoTeto();
   if (nivelDepois > nivelAntes) { const u = usoDoTeto(calcMes(S.data, mKey(hoje()), hoje()), S.prefs.teto), t = textoDoTeto(u); flash.style.color = "var(--warn)"; flash.textContent += ` ${t.titulo} do mês: ${u.pct}% usado. ${t.frase}`; }
   if (ehMeta && row.forma !== RETIRADA) { const dp = andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()); if (dp?.concluida && !metaAntes?.concluida) comemora(); }
@@ -5988,17 +6024,28 @@ const QR_NAO_SERVE = "Esse código não é de Pix, de nota fiscal nem de boleto.
 function abrirQr() {
   const vez = ++leitura;
   openDlg(`<h3>Ler com a câmera</h3>
-    <p class="hint" style="margin:0 0 10px;font-size:13px">Aponte para o QR code do Pix ou do cupom fiscal. Para comprovante, boleto, fatura ou holerite, use a foto ou o PDF. O app mostra o que leu para você conferir antes de lançar. ${S.store?.kind === "supabase" ? "O código é lido no aparelho; na nota de mercado, o app busca o valor no site da Fazenda." : "Na demonstração, a nota de mercado vem sem o valor: com a sua conta, o app busca o valor no site da Fazenda."}</p>
+    <p class="hint" style="margin:0 0 10px;font-size:13px">Aponte para o QR code do Pix ou do cupom fiscal: o app lê sozinho. Para comprovante da maquininha, boleto, fatura ou holerite, deixe o papel inteiro na tela e toque em Fotografar. O app mostra o que leu para você conferir antes de lançar. ${S.store?.kind === "supabase" ? "O código é lido no aparelho; na nota de mercado, o app busca o valor no site da Fazenda." : "Na demonstração, a nota de mercado vem sem o valor: com a sua conta, o app busca o valor no site da Fazenda."}</p>
     <div class="qr-cam" id="qrCam"><video id="qrVideo" playsinline muted></video><i aria-hidden="true"></i></div>
     <p class="auth-msg" id="qrMsg" role="status">Abrindo a câmera…</p>
     <div class="menu-lista" style="display:grid;gap:8px">
-      <button class="btn" type="button" id="qrImagem">${ico("imagem")}Foto ou PDF do comprovante</button>
+      <button class="btn primary" type="button" id="qrFoto" disabled>${ico("camera")}Fotografar o comprovante agora</button>
+      <button class="btn" type="button" id="qrImagem">${ico("imagem")}Escolher foto ou PDF da galeria</button>
       <details class="qr-colar"><summary>Colar o código do Pix (copia e cola)</summary>
         <textarea class="in" id="qrTexto" rows="3" spellcheck="false" autocapitalize="none" placeholder="Cole aqui o código que começa com 000201…" aria-label="Código do Pix copia e cola"></textarea>
         <button class="btn" type="button" id="qrUsar">Usar este código</button></details>
       <button class="btn ghost" type="button" data-close>Cancelar</button></div>
     <input type="file" id="qrArquivo" accept="image/*" hidden>`);
   const msg = (t, kind = "") => { if ($("qrMsg")) { $("qrMsg").textContent = t; $("qrMsg").className = "auth-msg " + kind; } };
+  // Tira a foto direto da câmera que já está aberta aqui: sem ir escolher a câmera do celular nem a galeria.
+  $("qrFoto").onclick = () => {
+    const v = $("qrVideo"); if (!v || v.readyState < 2 || !v.videoWidth) return msg("A câmera ainda está abrindo. Espere um instante.", "err");
+    const tela = document.createElement("canvas"); tela.width = v.videoWidth; tela.height = v.videoHeight; tela.getContext("2d").drawImage(v, 0, 0);
+    $("qrFoto").disabled = true; msg("Lendo o comprovante…");
+    tela.toBlob((blob) => {
+      if (!blob) { $("qrFoto").disabled = false; return msg("Não consegui tirar a foto. Tente de novo.", "err"); }
+      desligaCamera(); processaLeitura(new File([blob], "comprovante.jpg", { type: "image/jpeg" }));
+    }, "image/jpeg", 0.92);
+  };
   $("qrImagem").onclick = () => $("lerGaleria").click();   // processaLeitura procura o QR code antes e, se não achar, lê o texto
   $("qrArquivo").onchange = async (e) => {
     const f = e.target.files[0]; e.target.value = ""; if (!f) return;
@@ -6025,6 +6072,7 @@ async function ligaCameraDoQr(vez, msg) {
     camera = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
     if (vez !== leitura || !$("qrVideo")) return desligaCamera();   // a pessoa fechou enquanto a câmera abria
     $("qrVideo").srcObject = camera; await $("qrVideo").play().catch(() => {});
+    if ($("qrFoto")) $("qrFoto").disabled = false;
     leitor = await criaLeitorDeCodigos();
   } catch (e) {
     desligaCamera();
@@ -6169,8 +6217,9 @@ function conferirLeitura(r, texto, previa) {
       <label class="f" data-g="gasto">Categoria<select class="in" id="lCat">${opts(catL, escolhe(catL, palpiteCat(r.descricao, "Despesa", r.categoria)))}</select></label>
       <label class="f wide" data-g="entrada">Categoria<select class="in" id="leCat">${opts(catE, escolhe(catE, palpiteCat(r.descricao, "Receita")))}</select></label>
       <label class="f" data-g="gasto">Forma de pagamento<select class="in" id="lForma">${opts(FORMAS, r.forma || "Pix")}</select></label>
-      <label class="f" data-g="gasto" id="lCartaoWrap" hidden>Cartão<select class="in" id="lCartao">${optsCartao(sugerido?.id)}</select></label>
-      <label class="f" data-g="gasto" id="lParcWrap" hidden>Parcelas<select class="in" id="lParc">${optsParcelas(r.valor || 0, 1)}</select></label>
+      <label class="f" data-g="gasto" id="lCartaoWrap" hidden>Cartão<select class="in" id="lCartao">${optsCartao(sugerido?.id, "", true)}</select></label>
+      ${htmlNovoCartao("l", "gasto")}
+      <label class="f" data-g="gasto" id="lParcWrap" hidden>Parcelas<select class="in" id="lParc">${optsParcelas(r.valor || 0, r.parcelas || 1)}</select></label>
       <label class="f wide" data-g="fatura">Cartão<select class="in" id="lfCartao">${ativos.length && !achado ? `<option value="?" selected disabled>Escolha o cartão</option>` : ""}${ativos.map((k) => `<option value="${esc(k.id)}"${k === achado ? " selected" : ""}>${esc(k.nome)}</option>`).join("")}<option value="">Outro cartão (digitar o nome)</option></select></label>
       ${ativos.length && !achado && r.cartao ? `<p class="hint wide" data-g="fatura" style="margin:-4px 0 0;font-size:12.5px">No arquivo aparece o nome ${esc(r.cartao)}.</p>` : ""}
       <p class="hint wide" data-g="fatura" id="lfDica" style="margin:-4px 0 0;font-size:12.5px">O valor lido passa a valer como o total dessa fatura, no lugar da soma das compras lançadas.</p>
@@ -6187,13 +6236,13 @@ function conferirLeitura(r, texto, previa) {
   const sync = () => {
     document.querySelectorAll("#lTipoSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.lt === tipo));
     document.querySelectorAll("#lerForm [data-g]").forEach((el) => (el.hidden = !el.dataset.g.split(" ").includes(tipo)));
-    if (tipo === "gasto") { const cc = $("lForma").value === CARTAO && ativos.length > 0; $("lCartaoWrap").hidden = !cc; $("lParcWrap").hidden = !cc; }
+    if (tipo === "gasto") { const cc = $("lForma").value === CARTAO; $("lCartaoWrap").hidden = !cc; $("lParcWrap").hidden = !cc; $("lNovo").hidden = !(cc && $("lCartao").value === NOVO_CARTAO); }
     else if (tipo === "fatura") { const k = $("lfCartao").value; $("lfNomeWrap").hidden = k !== ""; $("lfDica").hidden = k === "" || k === "?"; }
     $("lDataLbl").textContent = tipo === "entrada" ? "Dia em que recebeu" : "Data";
     $("lerSalvar").textContent = tipo === "fatura" ? "Salvar fatura" : tipo === "entrada" ? "Lançar entrada" : "Lançar gasto"; $("lerMsg").textContent = ""; avisado = "";
   };
   $("lTipoSeg").onclick = (e) => { const b = e.target.closest("button"); if (b) { tipo = b.dataset.lt; sync(); } };
-  $("lForma").onchange = sync; $("lfCartao").onchange = sync;
+  $("lForma").onchange = sync; $("lfCartao").onchange = sync; $("lCartao").onchange = sync;
   $("lValor").oninput = () => { $("lParc").innerHTML = optsParcelas(parseMoney($("lValor").value), $("lParc").value); };
   $("dlgBody").querySelectorAll("[data-usar]").forEach((b) => (b.onclick = () => { $(tipo === "fatura" ? "lfValor" : "lValor").value = dinheiro(Number(b.dataset.usar)); $("lValor").oninput(); }));
   $("lerOutra").onclick = () => abrirLeitor(S.lerComo);
@@ -6215,16 +6264,23 @@ function conferirLeitura(r, texto, previa) {
       // Entrada fixa (como o salário cadastrado) já é lançada sozinha todo mês: lançar o holerite também contaria em dobro.
       const fixas = ent ? calcMes(S.data, mKey(data), hoje()).fr : [];
       if (fixas.length && !confirma(chave, `Você já tem entrada fixa em ${nomeMes(mKey(data))} (${fixas.map((f) => `${f.descricao} ${brl(f.valor)}`).join(", ")}), que o app lança sozinho. Se for o mesmo dinheiro, não lance de novo: ajuste o valor em Entradas fixas. Se for outro recebimento, toque em Salvar mesmo assim.`)) return;
-      const forma = ent ? "" : $("lForma").value, cc = !ent && forma === CARTAO && ativos.length > 0;
+      const forma = ent ? "" : $("lForma").value, cc = !ent && forma === CARTAO;
+      let cartaoId = cc ? $("lCartao").value : "", extraCartao = "";
+      if (cc && cartaoId === NOVO_CARTAO) {
+        $("lerSalvar").disabled = true;
+        const rc = await criaCartaoRapido("l"); $("lerSalvar").disabled = false;
+        if (rc.erro) return msg(rc.erro);
+        cartaoId = rc.id; extraCartao = avisoCartaoPadrao(rc);
+      }
       const row = { data, descricao: $("lDesc").value.trim(), tipo: T, categoria: $(ent ? "leCat" : "lCat").value, forma, valor: round2(v), import_key: null,
-        ...(cc ? { cartao_id: $("lCartao").value || null, parcelas: Number($("lParc").value) || 1 } : {}) };
+        ...(cc ? { cartao_id: cartaoId || null, parcelas: Number($("lParc").value) || 1 } : {}) };
       $("lerSalvar").disabled = true;
       // O comprovante é reduzido agora, enquanto o endereço da miniatura ainda vale (ele é desfeito ao fechar o quadro).
       const comp = previa ? await jpegDoComprovante(previa).catch(() => null) : null;
       let novos; const ok = await grava(async () => { novos = await S.store.addLancamentos([row]); });
       if (!ok) { $("lerSalvar").disabled = false; return; }
       S.data.lancamentos.push(...novos); S.mes = mKey(data);
-      const feito = (extra = "") => toastOuFlash(`${ent ? "Entrada lançada" : "Lançado"} pela leitura: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}.${extra}`);
+      const feito = (extra = "") => toastOuFlash(`${ent ? "Entrada lançada" : "Lançado"} pela leitura: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}.${extra}${extraCartao}`);
       // Comprovante: nunca é guardado sozinho. Lançamento esperando internet ainda não existe no servidor,
       // então nem pergunta: a foto pode ser anexada depois, abrindo o lançamento.
       const lanc = novos[0], pede = comp && lanc && !lanc.pendente && typeof S.store.guardaComprovante === "function";

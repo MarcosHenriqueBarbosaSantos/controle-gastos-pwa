@@ -1,5 +1,9 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "131", itens: [
+    "Cartão emprestado ou novo: ao lançar uma compra no cartão de crédito, escolha \"+ Outro cartão\" e escreva o nome (por exemplo, Cartão da minha mãe). Ele é cadastrado na hora. Funciona também depois de ler um comprovante.",
+    "Na tela de ler com a câmera, o botão \"Fotografar o comprovante agora\" tira a foto ali mesmo, sem escolher câmera nem galeria.",
+    "Comprovante da maquininha: o app agora lê as parcelas (ex.: 8x sem juros) e já deixa a compra em 8 vezes." ] },
   { versao: "130", itens: [
     "Se você apaga um lançamento que tem foto de comprovante e toca em Desfazer, a foto agora volta junto (antes voltava só o lançamento).",
     "Em Cópia de segurança, o app mostra há quantos dias você baixou a última cópia e avisa quando passa de 30 dias." ] },
