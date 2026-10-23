@@ -189,6 +189,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
     <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
     <form id="formLanc" class="fields" autocomplete="off" novalidate>
       <label class="f">Valor (R$)<span class="efeito" id="fEfeito" hidden></span><input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
+      <p class="hint horas-trab" id="fHoras" role="status" hidden></p>
       <p class="aviso-contas" id="fContas" role="status" aria-live="polite" hidden></p>
       <details class="moeda-fora mais-op"><summary>Outra moeda, dividir, fazer conta</summary><p><button class="link" id="fMoedaBtn" type="button">Gastei em outra moeda (viagem)</button><button class="link" id="fDividirBtn" type="button">Dividir em categorias</button><button class="link" id="fContaBtn" type="button">Fazer uma conta</button></p></details>
       <div class="conta-wrap" id="fContaWrap" hidden><div class="conta-ops" role="group" aria-label="Operações"><button type="button" data-op="+" aria-label="Mais">+</button><button type="button" data-op="-" aria-label="Menos">−</button><button type="button" data-op="×" aria-label="Vezes">×</button><button type="button" data-op="÷" aria-label="Dividido por">÷</button><button type="button" data-op="=" aria-label="Calcular" class="igual">=</button></div></div>

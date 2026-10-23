@@ -14,7 +14,7 @@ import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefo
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas, contasQueSeRepetem, proximasRepetidas } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
 import { NOVIDADES } from "./novidades.js";
-import { regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -2330,6 +2330,7 @@ $("fValor").addEventListener("input", () => { mostraConta(); });
 $("fValor").addEventListener("input", () => { rotuloDoOk(); mostraEfeito(); if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });
 /** "Livre agora → depois": o efeito do gasto na sobra do mês, antes de confirmar (só no mês atual, e só para gasto fora do cartão). */
 function mostraEfeito() {
+  mostraHoras();
   const el = $("fEfeito"), v = valorDoCampo(), d = $("fData").value || hoje();
   const jaTinha = S.tipo === "Reserva" && $("fForma").value === "Já tinha guardado";
   if (jaTinha) { el.hidden = false; el.textContent = "Dinheiro que você já tinha: não sai do seu saldo do mês"; return mostraContasSemCobrir(); }
@@ -2338,6 +2339,17 @@ function mostraEfeito() {
   const livre = raioX(calcMes(S.data, mKey(hoje()), hoje())).sobra, depois = round2(livre - v);
   el.innerHTML = `Livre agora ${brl(livre)} → depois <b class="${depois < 0 ? "txt-bad" : ""}">${brl(depois)}</b>`;
   mostraContasSemCobrir();
+}
+/** Quanto vale 1 hora da pessoa (informado em "Quanto vale minha hora" ou, sem isso, o lucro por hora dos turnos). */
+function minhaHora() {
+  const hj = hoje(), m = motDados();
+  return valorDaHora(S.prefs.hora, m.turnos.length ? resumoTurnos(m.turnos, toISO(new Date(Date.now() - 30 * 864e5)), hj, S.prefs.veiculo || {}) : null);
+}
+/** Mostra "Isso é X de trabalho" embaixo do valor, só para gasto. */
+function mostraHoras() {
+  const el = $("fHoras"); if (!el) return;
+  const v = valorDoCampo(), vh = S.tipo === "Despesa" && v > 0 && v <= VALOR_MAX ? minhaHora() : null, t = vh ? horasDeTrabalho(v, vh.valor) : null;
+  el.hidden = !t; el.textContent = t ? `Isso é ${t} do seu trabalho (sua hora vale ${brl(vh.valor)})` : "";
 }
 /** Contas do mês que este gasto deixa sem cobrir (a conta só vale para gasto à vista, no mês de hoje). */
 function contasSemCobrirDoForm() {
@@ -2533,6 +2545,7 @@ const GRUPOS_FERR = [
     { id: "motorista", k: "uber 99 indrive motorista aplicativo corrida turno rodar renda extra", ico: "carro", t: "Modo motorista", s: "Inicie o turno, veja o lucro do dia e quanto rodar para fechar o mês" },
     { id: "mercado", k: "supermercado compras feira carrinho comprar", ico: "carrinho", t: "Lista de mercado", s: "Anote o que comprar, estime o gasto e lance ao finalizar" },
     { id: "veiculo", k: "gasolina combustivel ipva seguro oficina moto", ico: "carro", t: "Meu carro ou moto", s: "Quanto custa por mês, por dia e por km" },
+    { id: "hora", k: "hora trabalho salario quanto vale quanto custa em horas tempo", ico: "alvo", t: "Quanto vale minha hora", s: "Veja quantas horas de trabalho cada compra custa" },
     { id: "casa", k: "aluguel condominio luz agua iptu moradia", ico: "casa", t: "Minha casa", s: "Quanto a casa custa por mês e quanto pesa na renda" },
     { id: "msg", k: "sms notificacao banco colar importar", ico: "clipe", t: "Colar mensagem do banco", s: "A notificação ou o SMS vira um lançamento" },
     { id: "arrumar", k: "arrumar limpar corrigir transferencia propria conta categoria lote outros pix cartao", ico: "lupa", t: "Arrumar lançamentos", s: "Tirar transferências entre as suas contas e dar categoria a vários de uma vez" },
@@ -2660,7 +2673,7 @@ const DESTINOS = [
 function vaiPara(k) {
   if (HUBS[k]) return hubTela(k);
   if (k === "novidades") return novidadesTela();
-  const FER = { ordem: () => equilibrioTela(), graficos: () => (noCelular() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  const FER = { ordem: () => equilibrioTela(), graficos: () => (noCelular() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, hora: minhaHoraTela, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
   if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
 }
 /* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
@@ -3796,6 +3809,18 @@ function ferramentaDeConta({ titulo, intro, grupos, chave, semDinheiro = [], cal
   conta();
 }
 const barrasDe = (partes) => `<h4 class="sub-h">Para onde vai o dinheiro</h4><div class="ve-partes">${partes.map((p) => `<div class="ve-p"><span>${esc(p.nome)}</span><b>${brl(p.valor)}</b><i style="width:${Math.max(3, p.pct)}%"></i></div>`).join("")}</div>`;
+function minhaHoraTela() {
+  const r30 = () => { const m = motDados(); return m.turnos.length ? resumoTurnos(m.turnos, toISO(new Date(Date.now() - 30 * 864e5)), hoje(), S.prefs.veiculo || {}) : null; };
+  ferramentaDeConta({ titulo: "Quanto vale minha hora", chave: "hora", semDinheiro: ["horasSemana"],
+    intro: "Veja quanto custa cada compra em horas do seu trabalho. Informe o que você recebe por mês, já líquido, e quantas horas trabalha por semana. Quem dirige por aplicativo pode deixar em branco: o app usa o lucro por hora dos turnos.",
+    grupos: [["Seu trabalho", [["renda", "Quanto você recebe por mês (R$)", "3.000"], ["horasSemana", "Horas trabalhadas por semana", "44"]]]],
+    calcula: (v) => {
+      const r = valorDaHora(v, r30()); if (!r) return null;
+      const ex = [50, 500, 3920].map((x) => [brl(x), horasDeTrabalho(x, r.valor)]);
+      return { rotulo: "Sua hora vale", valor: brl(r.valor), mini: ex,
+        fim: `<p class="hint" style="margin:10px 0 0">${r.origem === "turnos" ? "Calculado pelo lucro por hora dos seus turnos nos últimos 30 dias." : "Calculado com a renda e as horas por semana que você informou."} Ao lançar um gasto, o app mostra quanto tempo de trabalho ele custou.</p>` };
+    } });
+}
 function meuVeiculo() {
   const c = calcMes(S.data, mKey(hoje()), hoje());
   ferramentaDeConta({ titulo: "Meu carro ou moto", chave: "veiculo", semDinheiro: ["desvalPct", "restantes"],
@@ -4185,7 +4210,7 @@ function revisaoTela(m = S.mes) {
 /* ---------- Dica do dia ---------- */
 const dicasFeitas = () => (Array.isArray(S.prefs.dicasFeitas) ? S.prefs.dicasFeitas : []);
 function abreDaDica(acao) {
-  ({ desafio: desafioEconomia, mercado, casa: minhaCasa, veiculo: meuVeiculo, calc: () => calculadoras(), caixa: () => { $("dlg").close(); S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); } })[acao]?.();
+  ({ desafio: desafioEconomia, mercado, casa: minhaCasa, veiculo: meuVeiculo, hora: minhaHoraTela, calc: () => calculadoras(), caixa: () => { $("dlg").close(); S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); } })[acao]?.();
 }
 function marcaDica(feita) {
   const h = hoje(), l = dicasFeitas().filter((d) => d !== h);

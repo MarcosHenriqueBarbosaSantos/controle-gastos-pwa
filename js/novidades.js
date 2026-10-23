@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "133", itens: [
+    "Novo: \"Quanto vale minha hora\" (em Ferramentas). Informe o que recebe por mês e as horas por semana, e ao lançar um gasto o app mostra quanto tempo de trabalho ele custou (ex.: R$ 3.920 = 249 h). Quem dirige por aplicativo pode deixar em branco: vale o lucro por hora dos turnos." ] },
   { versao: "132", itens: [
     "Modo motorista: a tela inicial agora mostra uma \"Regra para decorar\" (ex.: aceite se pagar R$ 1,50 por km ou mais; abaixo de R$ 1,00, recuse). Assim você decide na hora, com o app da corrida aberto, sem calcular." ] },
   { versao: "131", itens: [

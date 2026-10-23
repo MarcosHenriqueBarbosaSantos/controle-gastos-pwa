@@ -77,3 +77,17 @@ test("regraDeAceite: valor mínimo por km para decorar", () => {
   assert.equal(c.aceita, 1); assert.equal(c.recusa, 0.65); assert.equal(c.base, "carro");
   assert.equal(regraDeAceite({}), null);
 });
+
+test("valorDaHora e horasDeTrabalho: informado, turnos, sem dados e formatos", async () => {
+  const { valorDaHora, horasDeTrabalho } = await import("../js/motorista.js");
+  const a = valorDaHora({ renda: 3000, horasSemana: 44 }, null);
+  assert.equal(a.origem, "informado"); assert.equal(a.valor, 15.73);
+  assert.equal(valorDaHora({}, { ms: 3600000, lucroPorHora: 20 }), null, "menos de 2 h de turno não vale");
+  assert.deepEqual(valorDaHora({}, { ms: 8 * 3600000, lucroPorHora: 25 }), { valor: 25, origem: "turnos" });
+  assert.equal(valorDaHora({ renda: 3000, horasSemana: 500 }, null), null);
+  assert.equal(horasDeTrabalho(50, 25), "2h00");
+  assert.equal(horasDeTrabalho(10, 25), "24 min");
+  assert.equal(horasDeTrabalho(3920, 15.73), "249 h");
+  assert.equal(horasDeTrabalho(100, 0), null);
+  assert.equal(horasDeTrabalho(0, 20), null);
+});

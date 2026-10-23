@@ -132,6 +132,28 @@ export function regraDeAceite({ custoKm = 0, minimoHora = 0, kmPorHora = 0 }) {
   return null;
 }
 
+/**
+ * Quanto vale 1 hora de trabalho da pessoa, líquida. Vale o que ela informou (renda por mês e horas por semana);
+ * sem isso, o lucro por hora dos turnos do modo motorista (só com pelo menos 2 h trabalhadas, para não chutar).
+ */
+export function valorDaHora(hora, r30) {
+  const renda = Number(hora?.renda) || 0, hs = Number(hora?.horasSemana) || 0;
+  if (renda > 0 && hs > 0 && hs <= 100) return { valor: r2(renda / ((hs * 52) / 12)), origem: "informado" };
+  if (r30 && r30.ms >= 7200000 && r30.lucroPorHora > 0) return { valor: r30.lucroPorHora, origem: "turnos" };
+  return null;
+}
+
+/** Quanto tempo de trabalho um valor custa: "42 min", "2h30" ou "41 h". Sem valor da hora, devolve null. */
+export function horasDeTrabalho(valor, vh) {
+  const v = Number(valor) || 0, h = Number(vh) || 0;
+  if (!(v > 0) || !(h > 0)) return null;
+  const min = Math.round((v / h) * 60);
+  if (min < 1) return "menos de 1 min";
+  if (min < 60) return `${min} min`;
+  const horas = min / 60;
+  return horas >= 10 ? `${Math.round(horas)} h` : `${Math.floor(min / 60)}h${pad(min % 60)}`;
+}
+
 /** Quanto cada aplicativo rendeu no período, do maior para o menor, com a parte de cada um no total. */
 export function ganhoPorApp(turnos, de, ate) {
   const por = {};
