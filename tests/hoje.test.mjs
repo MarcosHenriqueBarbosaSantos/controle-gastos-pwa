@@ -66,3 +66,14 @@ test("sem entrada no mês: com contas ou gastos e sem nenhuma entrada, o Início
   st.lancamentos.push(L("b", "2026-10-02", "Receita", 3000));
   assert.equal(semEntradaNoMes(calcMes(st, "2026-10", hj)), false);                       // com salário, volta ao normal
 });
+
+import { regraDeAceite } from "../js/motorista.js";
+test("regraDeAceite: valor mínimo por km para decorar", () => {
+  // custo 0,50/km, precisa de R$ 30 líquidos por hora, roda 25 km por hora: preciso = 0,5 + 1,2 = 1,7 por km
+  const r = regraDeAceite({ custoKm: 0.5, minimoHora: 30, kmPorHora: 25 });
+  assert.equal(r.aceita, 1.96); assert.equal(r.recusa, 1.45); assert.equal(r.base, "meta");
+  // sem média de km por hora, só o custo do carro
+  const c = regraDeAceite({ custoKm: 0.5, minimoHora: 30, kmPorHora: 0 });
+  assert.equal(c.aceita, 1); assert.equal(c.recusa, 0.65); assert.equal(c.base, "carro");
+  assert.equal(regraDeAceite({}), null);
+});

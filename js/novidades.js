@@ -1,5 +1,7 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "132", itens: [
+    "Modo motorista: a tela inicial agora mostra uma \"Regra para decorar\" (ex.: aceite se pagar R$ 1,50 por km ou mais; abaixo de R$ 1,00, recuse). Assim você decide na hora, com o app da corrida aberto, sem calcular." ] },
   { versao: "131", itens: [
     "Cartão emprestado ou novo: ao lançar uma compra no cartão de crédito, escolha \"+ Outro cartão\" e escreva o nome (por exemplo, Cartão da minha mãe). Ele é cadastrado na hora. Funciona também depois de ler um comprovante.",
     "Na tela de ler com a câmera, o botão \"Fotografar o comprovante agora\" tira a foto ali mesmo, sem escolher câmera nem galeria.",

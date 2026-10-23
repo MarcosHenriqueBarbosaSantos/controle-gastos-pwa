@@ -14,7 +14,7 @@ import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefo
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas, contasQueSeRepetem, proximasRepetidas } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
 import { NOVIDADES } from "./novidades.js";
-import { msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -3911,6 +3911,10 @@ function paneMot() {
   const ritmo = ritmoHistorico(m.turnos, hj), alc = alcanceDaMeta({ meta, hist: ritmo, custoDia: meta.custoDia });
   // Se a meta está acima do melhor dia da pessoa, o "está valendo a pena?" compara com o ritmo normal dela: cobrar um número que ela não alcança só desanima.
   const liqRef = alc.nivel === "fora" && alc.liquidoMedioDia > 0 ? alc.liquidoMedioDia : meta.liquidoDia, refNormal = alc.nivel === "fora" && alc.liquidoMedioDia > 0;
+  // Regra para decorar: com o outro app na tela não dá para abrir este e calcular no tempo da corrida.
+  const r30 = resumoTurnos(m.turnos, toISO(new Date(Date.now() - 30 * 864e5)), hj, veicD), kmh = r30.ms >= 3600000 && r30.km > 0 ? r30.km / (r30.ms / 3600000) : 0;
+  const regra = regraDeAceite({ custoKm: cvk, minimoHora: liqRef > 0 && m.horasDia > 0 ? round2(liqRef / m.horasDia) : 0, kmPorHora: kmh });
+  const htmlRegraDeAceite = regra ? `<div class="mot-regra" role="note"><small>Regra para decorar</small><p>Aceite se pagar <b>${brl(regra.aceita)} por km</b> ou mais. Abaixo de <b>${brl(regra.recusa)} por km</b>, recuse.</p><span>${regra.base === "meta" ? `Feita com a sua meta do dia e a sua média de ${virg(Math.round(kmh))} km por hora.` : "Feita só com o custo do seu carro por km. Com a meta e uns dias rodados, ela fica mais certa."} Conte o caminho até o passageiro nos km.</span></div>` : "";
   const ganhoHoje = round2(doDia.ganho + (m.ativo ? m.ativo.parcial : 0));   // inclui o turno que ainda está rolando
   const pctHoje = meta.brutoDia > 0 ? Math.min(100, Math.round((ganhoHoje / meta.brutoDia) * 100)) : 100;
   const de = motPer === "dia" ? hj : motPer === "semana" ? toISO(new Date(agora - 6 * 864e5)) : `${mes}-01`;
@@ -3971,6 +3975,7 @@ function paneMot() {
       <button class="del x" type="button" data-mdel="${esc(t.id)}" aria-label="Apagar o turno de ${ddmm(isoLocal(t.ini))}" title="Apaga o turno e os lançamentos que ele criou">×</button></li>`; }).join("");
   host.innerHTML = `<div id="motRoot"><p class="mot-sub">Seu painel de corrida: horas, ganho e quanto sobra de verdade.</p>
     ${turno}${metaHtml}
+    ${htmlRegraDeAceite}
     <button class="mot-rap larga" type="button" data-mot-sub="vale"><small>Antes de aceitar</small><b>Vale a pena essa corrida?</b></button>
     <button class="mot-rap larga" type="button" data-mot-sub="ajustes"><small>Minha meta</small><b>Ajustar dias, horas e quanto quero sobrar</b></button>
     <h4 class="mot-h">Seu resultado</h4>

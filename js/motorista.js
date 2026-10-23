@@ -119,6 +119,19 @@ export function valeAPena({ valor, km, min, custoKm = 0, minimoHora = 0 }) {
   return { gasto, liquido, porKm, liquidoPorKm, liquidoPorHora, nivel };
 }
 
+/**
+ * Regra para decorar, porque na hora da corrida o outro app está na tela e não dá para abrir este para calcular:
+ * "aceite se pagar pelo menos R$ X por km; abaixo de R$ Y, recuse". Usa os mesmos cortes do "Vale a pena essa corrida?"
+ * (boa a 115% do que precisa, ruim abaixo de 85%). `kmPorHora` é a média real do motorista (km rodados / horas); sem ela,
+ * a regra olha só o custo do carro por km. Devolve null se não há base nenhuma.
+ */
+export function regraDeAceite({ custoKm = 0, minimoHora = 0, kmPorHora = 0 }) {
+  custoKm = Number(custoKm) || 0; minimoHora = Number(minimoHora) || 0; kmPorHora = Number(kmPorHora) || 0;
+  if (minimoHora > 0 && kmPorHora >= 5) { const preciso = custoKm + minimoHora / kmPorHora; return { aceita: r2(preciso * 1.15), recusa: r2(preciso * 0.85), base: "meta" }; }
+  if (custoKm > 0) return { aceita: r2(custoKm * 2), recusa: r2(custoKm * 1.3), base: "carro" };
+  return null;
+}
+
 /** Quanto cada aplicativo rendeu no período, do maior para o menor, com a parte de cada um no total. */
 export function ganhoPorApp(turnos, de, ate) {
   const por = {};

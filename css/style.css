@@ -1812,3 +1812,9 @@ tr.toca-linha{cursor:pointer} tr.toca-linha:hover td{background:var(--sunk)}
 .novo-cartao{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:12px;border:1px dashed var(--border);border-radius:12px;background:var(--sunk);margin:2px 0}
 .novo-cartao[hidden]{display:none}
 .novo-cartao .wide{grid-column:1/-1}
+
+/* v132: regra rápida para aceitar corrida, para decorar */
+.mot-regra{border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:12px 14px;margin:10px 0;display:grid;gap:4px}
+.mot-regra small{color:var(--muted);font-size:12px}
+.mot-regra p{margin:0;font-size:1rem;line-height:1.4}
+.mot-regra span{font-size:12.5px;color:var(--ink-2)}
