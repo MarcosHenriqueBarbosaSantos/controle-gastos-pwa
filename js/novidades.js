@@ -1,5 +1,8 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "130", itens: [
+    "Se você apaga um lançamento que tem foto de comprovante e toca em Desfazer, a foto agora volta junto (antes voltava só o lançamento).",
+    "Em Cópia de segurança, o app mostra há quantos dias você baixou a última cópia e avisa quando passa de 30 dias." ] },
   { versao: "129", itens: [
     "Encerrar uma conta ou entrada fixa, e apagar uma fatura lançada à mão, agora mostram o aviso \"Desfazer\". Antes, o toque em Confirmar sem querer não tinha volta." ] },
   { versao: "128", itens: [

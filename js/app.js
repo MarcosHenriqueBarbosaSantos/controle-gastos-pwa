@@ -3475,11 +3475,13 @@ async function repeteLancamento(x) {
 }
 async function apagaComDesfazer(id, depois) {
   const x = lancPorId(id); if (!x) return;
-  const { enviando, pendente, comprovante, user_id, ...copia } = x;
-  if (!(await apagaLancamento(id))) return;
+  const { enviando, pendente, user_id, ...copia } = x;   // o comprovante (foto) fica na cópia: se desfizer, a foto volta junto
+  if (!(await apagaLancamento(id, true))) return;
+  let desfeito = false;
+  if (x.comprovante) setTimeout(() => { if (!desfeito) Promise.resolve(S.store.apagaComprovante?.(x.comprovante)).catch(() => { /* nada */ }); }, 120000);
   vibra(); render(); depois?.();
   toastDesfazer(`Apagado: ${x.descricao || x.categoria} · ${brl(x.valor)}.`, async () => {
-    let novo; if (await grava(async () => { [novo] = await S.store.addLancamentos([copia]); })) { const g = novo || copia; S.data.lancamentos.push({ ...g, valor: Number(g.valor) }); render(); depois?.(); }
+    let novo; if (await grava(async () => { [novo] = await S.store.addLancamentos([copia]); })) { desfeito = true; const g = novo || copia; S.data.lancamentos.push({ ...g, valor: Number(g.valor) }); render(); depois?.(); }
   });
 }
 /** Deslizar uma linha para a esquerda apaga (a tela decide o que fazer). Vale para qualquer lista: `seletor` diz quais linhas deslizam. */
@@ -4491,7 +4493,9 @@ $("fDividirBtn").onclick = dividirCompra;
 /* ---------- Cópia de segurança ---------- */
 function copiaDeSeguranca() {
   const real = S.store?.kind === "supabase";
-  openDlg(`<h3>Cópia de segurança</h3><p class="hint" style="margin:0 0 12px">Um arquivo com tudo o que você tem aqui. Guarde no seu celular, no computador ou no e-mail. Se algo se perder, dá para trazer de volta.</p>
+  const ult = S.prefs.ultimaCopia, diasCopia = ult ? Math.max(0, Math.round((new Date(hoje()) - new Date(ult)) / 86400000)) : null;
+  const quando = ult ? (diasCopia === 0 ? "Última cópia baixada: hoje." : `Última cópia baixada: há ${diasCopia} ${diasCopia === 1 ? "dia" : "dias"}${diasCopia > 30 ? ". Vale baixar uma nova" : ""}.`) : "Você ainda não baixou nenhuma cópia neste aparelho.";
+  openDlg(`<h3>Cópia de segurança</h3><p class="hint" style="margin:0 0 6px">Um arquivo com tudo o que você tem aqui. Guarde no seu celular, no computador ou no e-mail. Se algo se perder, dá para trazer de volta.</p><p class="hint" style="margin:0 0 12px"><b>${quando}</b></p>
     <div class="caixa-mais">${opFerr("cpBaixar", "baixar", "Baixar a cópia", "Lançamentos, contas fixas, cartões, faturas e ajustes")}
       ${real ? opFerr("cpRest", "subir", "Restaurar de um arquivo", "Traz de volta só o que está faltando. Nada é apagado nem repetido") : ""}</div>
     ${real ? "" : `<p class="hint">Restaurar só funciona na sua conta. Na demonstração, os dados ficam só neste aparelho.</p>`}
@@ -4499,6 +4503,7 @@ function copiaDeSeguranca() {
   $("cpBaixar").onclick = () => {
     const b = montaBackup(S.data, S.prefs, APP_VERSAO, new Date().toISOString());
     baixaArquivo(`meus-gastos-copia-${hoje()}.json`, new Blob([JSON.stringify(b)], { type: "application/json" }));
+    S.prefs.ultimaCopia = hoje(); salvaPrefs();
     toast("Cópia baixada. Guarde o arquivo num lugar seguro.");
   };
   if (real) $("cpRest").onclick = () => {
@@ -4641,13 +4646,14 @@ const lancPorId = (id) => S.data.lancamentos.find((z) => z.id === id);
 /** Marca de clipe nas listas: este lançamento tem comprovante guardado. */
 const marcaComprovante = (x) => (temComprovante(x) ? `<span class="clipe" title="Tem comprovante guardado">${ico("clipe")}</span>` : "");
 /** Apaga o lançamento e, junto, o comprovante dele. Usado em todos os lugares que excluem um lançamento. */
-async function apagaLancamento(id) {
+async function apagaLancamento(id, guardaArquivo = false) {
   if (envios.has(id) && !(await envios.get(id))) return true;   // o envio falhou: o lançamento já saiu da tela e nunca chegou ao banco
   const comp = lancPorId(id)?.comprovante;
   if (!(await grava(() => S.store.deleteLancamento(id)))) return false;
   S.data.lancamentos = S.data.lancamentos.filter((z) => z.id !== id);
   // Se o arquivo não for apagado, fica solto no balde: a consulta que acha os soltos está em supabase/comprovante.sql.
-  if (comp) Promise.resolve(S.store.apagaComprovante?.(comp)).catch(() => { /* nada */ });
+  // Com "Desfazer" no ar (guardaArquivo), o arquivo só sai depois que o prazo de desfazer passa; quem chama cuida disso.
+  if (comp && !guardaArquivo) Promise.resolve(S.store.apagaComprovante?.(comp)).catch(() => { /* nada */ });
   return true;
 }
 /** Reduz a imagem (arquivo ou endereço de imagem) e devolve o JPEG pronto para mandar. */
