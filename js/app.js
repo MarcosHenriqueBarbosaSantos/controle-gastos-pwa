@@ -3708,7 +3708,8 @@ function mercado() {
     const e = estimativaDaLista(l.itens, precos, tk.media), noMes = new Map(catMap(c)).get(padrao) || 0, outro = casalAtivo() ? nomeDoOutro() : "";
     const cabe = l.limite > 0 ? round2(l.limite - e.noCarrinho) : null, semPrecoNoCarrinho = l.itens.filter((x) => x.pego && !(precoDoItem(x, precos).valor > 0)).length;
     const falta = l.itens.filter((x) => !x.pego), nocar = l.itens.filter((x) => x.pego);
-    const catDoItem = (x) => { if (x.cat) return x.cat; const g = guessCat(x.nome || "", "Despesa"); return g && g !== "Outros" && catsD.includes(g) ? g : padrao; };
+    const aprendidas = S.prefs.catItens || {};
+    const catDoItem = (x) => { if (x.cat) return x.cat; const ap = aprendidas[chaveDoItem(x.nome)]; if (ap && catsD.includes(ap)) return ap; const g = guessCat(x.nome || "", "Despesa"); return g && g !== "Outros" && catsD.includes(g) ? g : padrao; };
     const linha = (x) => {
       const pr = precoDoItem(x, precos), q = Number(x.qtd) > 0 ? Number(x.qtd) : 1, id = esc(x.id), qt = String(q).replace(".", ",");
       return `<li class="ml-item${x.pego ? " pego" : ""}">
@@ -3766,9 +3767,24 @@ function mercado() {
     $("dlgBody").querySelectorAll("[data-preco]").forEach((i) => (i.onchange = () => { const v = avaliaConta(i.value) ?? parseMoney(i.value); edita(i.dataset.preco, (x) => { x.preco = v > 0 && v <= VALOR_MAX ? round2(v) : 0; }); tarde(desenha); }));
     $("dlgBody").querySelectorAll("[data-cat]").forEach((s) => {
       const item = () => listaDe().itens.find((z) => z.id === s.dataset.cat);
-      ligaNovaCategoria(s, () => "Despesa", () => item()?.nome || "", (nome) => { edita(s.dataset.cat, (x) => { x.cat = nome; }); tarde(desenha); });
-      s.addEventListener("change", () => { edita(s.dataset.cat, (x) => { x.cat = s.value; }); tarde(desenha); });
+      const lembra = (cat) => { const k = chaveDoItem(item()?.nome); if (k && cat) { const m = { ...(S.prefs.catItens || {}) }; delete m[k]; m[k] = cat; for (const o of Object.keys(m).slice(0, Math.max(0, Object.keys(m).length - 300))) delete m[o]; S.prefs.catItens = m; } };
+      ligaNovaCategoria(s, () => "Despesa", () => item()?.nome || "", (nome) => { lembra(nome); edita(s.dataset.cat, (x) => { x.cat = nome; }); tarde(desenha); });
+      s.addEventListener("change", () => { lembra(s.value); edita(s.dataset.cat, (x) => { x.cat = s.value; }); tarde(desenha); });
     });
+    // No celular: deslizar o item para a direita coloca no carrinho (ou tira de lá), igual a tocar na bolinha.
+    if (!$("dlgBody").dataset.deslizaMl) {
+      $("dlgBody").dataset.deslizaMl = "1";
+      let li = null, x0 = 0, y0 = 0, dx = 0, trava = false;
+      const corpo = $("dlgBody");
+      corpo.addEventListener("touchstart", (e) => { li = e.touches.length === 1 && !e.target.closest("button, input, select, a") ? e.target.closest(".ml-item") : null; if (li) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; dx = 0; trava = false; } }, { passive: true });
+      corpo.addEventListener("touchmove", (e) => {
+        if (!li) return; const mx = e.touches[0].clientX - x0, my = e.touches[0].clientY - y0;
+        if (!trava) { if (Math.abs(my) > 12 && Math.abs(my) > Math.abs(mx)) { li = null; return; } if (mx > 12 && mx > Math.abs(my) * 1.5) trava = true; else return; }
+        dx = Math.max(0, Math.min(120, mx)); li.style.transform = `translateX(${dx}px)`; if (e.cancelable) e.preventDefault();
+      }, { passive: false });
+      const solta = (fim) => { const el = li, d = dx; li = null; dx = 0; trava = false; if (!el) return; el.style.transform = ""; if (fim && d > 80) el.querySelector("[data-pega]")?.click(); };
+      corpo.addEventListener("touchend", () => solta(true)); corpo.addEventListener("touchcancel", () => solta(false));
+    }
     // Foto da etiqueta ou do cupom: o app lê o valor e põe no preço do item; a pessoa confere antes de seguir.
     $("dlgBody").querySelectorAll("[data-foto]").forEach((b) => (b.onclick = () => {
       const f = document.createElement("input"); f.type = "file"; f.accept = "image/*"; f.setAttribute("capture", "environment");
