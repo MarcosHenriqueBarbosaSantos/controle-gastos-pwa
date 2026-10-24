@@ -84,3 +84,13 @@ test("meu desempenho: 'Outros' não é comemorado nem lamentado, só vira um cha
   assert.doesNotMatch(textos, /menos com Outros|mais com Outros/);
   assert.match(textos, /Mercado/);
 });
+
+import { itemNaLista } from "../js/extras.js";
+test("itemNaLista acha o mesmo item sem ligar para maiúscula, acento ou espaço", () => {
+  const l = [{ nome: "Feijão  Preto" }, { nome: "Arroz" }];
+  assert.equal(itemNaLista(l, " feijao preto "), l[0]);
+  assert.equal(itemNaLista(l, "ARROZ"), l[1]);
+  assert.equal(itemNaLista(l, "Macarrão"), null);
+  assert.equal(itemNaLista(l, "   "), null);
+  assert.equal(itemNaLista(undefined, "Arroz"), null);
+});

@@ -18,7 +18,7 @@ import { ganhoContraGasto } from "./ganhogasto.js";
 import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
+  avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
 import { pareceConta, leConta, arrumaNome, nomeDoEmail, CATEGORIA_PIX_PESSOA, CATEGORIA_CASAL } from "./conta.js";
@@ -202,7 +202,7 @@ function ligaNovaCategoria(sel, tipo, sugestao, criada) {
     if (sel.value !== NOVA_CAT) { antes = sel.value; return; }
     e.stopImmediatePropagation();
     sel.value = antes || sel.options[0]?.value || "";
-    const lbl = sel.closest("label"), t = tipo(), caixa = t === "Reserva";
+    const lbl = sel.closest("label") || sel, t = tipo(), caixa = t === "Reserva";
     lbl.parentElement.querySelector(".nova-cat")?.remove();
     const box = document.createElement("div");
     box.className = "nova-cat"; box.style.gridColumn = "1/-1";
@@ -3642,6 +3642,7 @@ function ligaMercadoIni() {
     const nome = $("mercNome").value.trim();
     if (!nome) return $("mercNome").focus();
     const l = listaDe(); if (l.itens.length >= 300) return void toast("A lista chegou a 300 itens. Finalize ou limpe antes de adicionar mais.");
+    if (itemNaLista(l.itens, nome)) { $("mercNome").select(); return void toast(`${nome.slice(0, 40)} já está na lista.`); }
     l.itens.push({ id: crypto.randomUUID(), nome: nome.slice(0, 40), qtd: 1, preco: 0, pego: false, t: Date.now() });
     gravaLista(l); render();
     toast(`${nome.slice(0, 40)} anotado na lista de mercado.`);
@@ -3707,6 +3708,7 @@ function mercado() {
     const e = estimativaDaLista(l.itens, precos, tk.media), noMes = new Map(catMap(c)).get(padrao) || 0, outro = casalAtivo() ? nomeDoOutro() : "";
     const cabe = l.limite > 0 ? round2(l.limite - e.noCarrinho) : null, semPrecoNoCarrinho = l.itens.filter((x) => x.pego && !(precoDoItem(x, precos).valor > 0)).length;
     const falta = l.itens.filter((x) => !x.pego), nocar = l.itens.filter((x) => x.pego);
+    const catDoItem = (x) => { if (x.cat) return x.cat; const g = guessCat(x.nome || "", "Despesa"); return g && g !== "Outros" && catsD.includes(g) ? g : padrao; };
     const linha = (x) => {
       const pr = precoDoItem(x, precos), q = Number(x.qtd) > 0 ? Number(x.qtd) : 1, id = esc(x.id), qt = String(q).replace(".", ",");
       return `<li class="ml-item${x.pego ? " pego" : ""}">
@@ -3715,9 +3717,9 @@ function mercado() {
         <button class="mc-x" type="button" data-x="${id}" aria-label="Tirar da lista: ${esc(x.nome || "item")}">×</button>
         <span class="ml-ajuste">
           <span class="ml-qtd" role="group" aria-label="Quantidade de ${esc(x.nome || "item")}"><button type="button" data-menos="${id}" aria-label="Menos um">−</button><output>${qt}</output><button type="button" data-mais="${id}" aria-label="Mais um">+</button></span>
-          <label class="ml-preco"><span>R$</span><input class="money" data-preco="${id}" inputmode="decimal" aria-label="Preço de cada ${esc(x.nome || "item")}" placeholder="${pr.de === "ultimo" ? esc(pr.valor.toFixed(2).replace(".", ",")) : "0,00"}" value="${Number(x.preco) > 0 ? esc(String(x.preco).replace(".", ",")) : ""}"></label>
+          <label class="ml-preco"><span>R$</span><input class="money" data-preco="${id}" inputmode="decimal" aria-label="Preço de cada ${esc(x.nome || "item")}" placeholder="${pr.de === "ultimo" ? esc(pr.valor.toFixed(2).replace(".", ",")) : "0,00"}" value="${Number(x.preco) > 0 ? esc(String(x.preco).replace(".", ",")) : ""}"><button class="ml-foto" type="button" data-foto="${id}" aria-label="Ler o preço de ${esc(x.nome || "item")} pela câmera">${ico("camera")}</button></label>
         </span>
-        ${l.outraCat ? `<select class="in ml-cat" data-cat="${id}" aria-label="Categoria de ${esc(x.nome || "item")}">${catsD.map((k) => `<option${k === (x.cat || padrao) ? " selected" : ""}>${esc(k)}</option>`).join("")}</select>` : ""}
+        ${l.outraCat ? `<select class="in ml-cat" data-cat="${id}" aria-label="Categoria de ${esc(x.nome || "item")}">${(catsD.includes(catDoItem(x)) ? catsD : [catDoItem(x), ...catsD]).map((k) => `<option${k === catDoItem(x) ? " selected" : ""}>${esc(k)}</option>`).join("")}${optNova("Despesa")}</select>` : ""}
       </li>`;
     };
     const raiz = $("dlg"), rolou = raiz.scrollTop;
@@ -3753,6 +3755,7 @@ function mercado() {
       const nome = $("mlNome").value.trim();
       if (!nome) { toast("Digite o nome do item, por exemplo arroz."); return $("mlNome").focus(); }
       if (listaDe().itens.length >= 300) return void toast("A lista chegou a 300 itens. Finalize ou limpe antes de adicionar mais.");
+      if (itemNaLista(listaDe().itens, nome)) { toast(`${nome.slice(0, 40)} já está na lista.`); $("mlNome").select(); return; }
       muda((m) => { m.itens.push({ id: crypto.randomUUID(), nome: nome.slice(0, 40), qtd: 1, preco: 0, pego: false, t: agora() }); });
       desenha(); $("mlNome").focus();
     });
@@ -3761,7 +3764,26 @@ function mercado() {
     $("dlgBody").querySelectorAll("[data-menos]").forEach((b) => (b.onclick = () => { edita(b.dataset.menos, (x) => { x.qtd = Math.max(1, Math.round((Number(x.qtd) || 1) - 1)); }); desenha(); }));
     $("dlgBody").querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => { edita(b.dataset.mais, (x) => { x.qtd = Math.min(99, Math.round((Number(x.qtd) || 1) + 1)); }); desenha(); }));
     $("dlgBody").querySelectorAll("[data-preco]").forEach((i) => (i.onchange = () => { const v = avaliaConta(i.value) ?? parseMoney(i.value); edita(i.dataset.preco, (x) => { x.preco = v > 0 && v <= VALOR_MAX ? round2(v) : 0; }); tarde(desenha); }));
-    $("dlgBody").querySelectorAll("[data-cat]").forEach((s) => (s.onchange = () => { edita(s.dataset.cat, (x) => { x.cat = s.value; }); tarde(desenha); }));
+    $("dlgBody").querySelectorAll("[data-cat]").forEach((s) => {
+      const item = () => listaDe().itens.find((z) => z.id === s.dataset.cat);
+      ligaNovaCategoria(s, () => "Despesa", () => item()?.nome || "", (nome) => { edita(s.dataset.cat, (x) => { x.cat = nome; }); tarde(desenha); });
+      s.addEventListener("change", () => { edita(s.dataset.cat, (x) => { x.cat = s.value; }); tarde(desenha); });
+    });
+    // Foto da etiqueta ou do cupom: o app lê o valor e põe no preço do item; a pessoa confere antes de seguir.
+    $("dlgBody").querySelectorAll("[data-foto]").forEach((b) => (b.onclick = () => {
+      const f = document.createElement("input"); f.type = "file"; f.accept = "image/*"; f.setAttribute("capture", "environment");
+      f.onchange = async () => {
+        const arq = f.files?.[0]; if (!arq) return;
+        toastOuFlash("Lendo o preço da foto…");
+        try {
+          const { leitura } = await lerImagem(arq, () => {}, hoje()), v = Number(leitura?.valor) || 0;
+          if (v > 0 && v <= VALOR_MAX) { edita(b.dataset.foto, (x) => { x.preco = round2(v); }); toastOuFlash(`Li ${brl(v)}. Confira o preço e ajuste se precisar.`); }
+          else toastOuFlash("Não consegui ler o valor nessa foto. Digite o preço ou tente de perto, com boa luz.");
+        } catch { toastOuFlash("Não consegui ler a foto agora. Digite o preço."); }
+        tarde(desenha);
+      };
+      f.click();
+    }));
     $("mlLimite").addEventListener("change", () => { const v = parseMoney($("mlLimite").value); muda((m) => { m.limite = v > 0 && v <= VALOR_MAX ? round2(v) : 0; m.tl = agora(); }); tarde(desenha); });
     if ($("mlRepete")) $("mlRepete").onclick = () => {
       const novos = itensParaRepetir(S.prefs.ultimaCompraMercado, listaDe().itens), cabem = Math.max(0, 300 - listaDe().itens.length);

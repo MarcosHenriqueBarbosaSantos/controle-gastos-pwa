@@ -589,6 +589,9 @@ export function dicaDoDia(iso) {
 /** O nome do item sem acento, caixa ou espaço sobrando: "  Arroz  " e "arroz" são o mesmo item. */
 export const chaveDoItem = (nome) => String(nome || "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 40);
 
+/** O item da lista com o mesmo nome (sem ligar para maiúscula, acento ou espaço sobrando), ou null: serve para não anotar duas vezes. */
+export const itemNaLista = (itens, nome) => { const k = chaveDoItem(nome); return k ? (itens || []).find((x) => chaveDoItem(x.nome) === k) || null : null; };
+
 /** O preço que vale para o item: o que a pessoa digitou, senão o último que ela pagou nesse item. */
 export function precoDoItem(i, precos = {}) {
   const p = Number(i?.preco);
