@@ -1961,7 +1961,8 @@ function listaL(c) {
   }
   // No celular a lista é separada por dia, com o total gasto em cada um.
   const gastoDoDia = (d) => round2(it.filter((x) => !x.auto && x.tipo === "Despesa" && x.data === d).reduce((t, x) => t + x.valor, 0));
-  const dia = (x, i) => i && it[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
+  const vhLista = minhaHora(), horasDoDia = (v) => { const t = vhLista && horasDeTrabalho(v, vhLista.valor); return t ? ` <small class="horas-dia">· ${t} de trabalho</small>` : ""; };
+  const dia = (x, i) => i && it[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}${horasDoDia(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
   host.innerHTML = `${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
     it.map((x, i) => dia(x, i) + (x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub"><span class="tp">Entrada fixa</span>${esc(x.categoria)}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>

@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "137", itens: ["Na lista de lançamentos do celular, o total gasto de cada dia mostra também quanto tempo de trabalho ele custou (ex.: − R$ 120,00 · 3h20 de trabalho)."] },
   { versao: "136", itens: ["Teste grátis de 7 dias: quem cria a conta usa o app completo por 7 dias, sem cartão. O app avisa quantos dias faltam, e depois dos 7 dias os seus dados continuam guardados até você assinar."] },
   { versao: "135", itens: ["Suas horas de trabalho aparecem também ao editar um gasto, no total do custo do mês e nas contas fixas (ex.: \"43 h de trabalho só para pagar as contas fixas\"). Vale o valor da hora que você informou em Quanto vale minha hora." ] },
   { versao: "134", itens: [
