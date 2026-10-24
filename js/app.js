@@ -15,6 +15,7 @@ import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, mov
 import { entendeFala } from "./voz.js";
 import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
+import { ligaCapturaDeErros } from "./erros.js";
 import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
@@ -527,7 +528,7 @@ function startDemo() {
   let mot = false; try { mot = sessionStorage.getItem("cg-demo-mot") === "1"; } catch { /* nada */ }
   const store = mot ? createLocalStore("cg-demo-mot-v1", demoMotorista()) : createLocalStore("cg-demo-v12", demoSeed(hoje()));
   startApp(store, "Demonstração");
-  showBanner(`Demonstração com dados de exemplo.`,
+  showBanner("Demonstração (dados de exemplo)",
     [...(S.semLogin ? [] : [["Criar conta", contaAPartirDaDemo]]), ["Recomeçar", () => { store.reset(); startDemo(); }]], "fina");
 }
 
@@ -3955,7 +3956,7 @@ function desenhaResultadoMot(titulo, r, semValores) {
   g.fillStyle = "#ffc828"; g.font = fonte(800, 170); g.fillText(semValores ? `${pct}%` : brl0(r.lucro), 84, 530); g.fillStyle = "#fff";
   const linhas = semValores
     ? [["Horas rodadas", horasCurtas(r.ms)], ["Km rodados", `${virg(r.km)} km`], ["Viagens", String(r.viagens)]]
-    : [["Faturamento", brl0(r.ganho)], ["Horas rodadas", horasCurtas(r.ms)], ["Lucro por hora", r.lucroPorHora !== null ? brl(r.lucroPorHora) : "—"], ["Km rodados", `${virg(r.km)} km`], ["Viagens", String(r.viagens)]];
+    : [["Ganho", brl0(r.ganho)], ["Horas rodadas", horasCurtas(r.ms)], ["Lucro por hora", r.lucroPorHora !== null ? brl(r.lucroPorHora) : "—"], ["Km rodados", `${virg(r.km)} km`], ["Viagens", String(r.viagens)]];
   let y = 680;
   linhas.forEach(([rot, v]) => { g.font = fonte(500, 44); g.globalAlpha = 0.85; g.fillText(rot, 90, y); g.globalAlpha = 1; g.textAlign = "right"; g.font = fonte(700, 46); g.fillText(v, W - 90, y); g.textAlign = "left"; y += 78; g.fillStyle = "rgba(255,255,255,.12)"; g.fillRect(90, y - 52, W - 180, 2); g.fillStyle = "#fff"; });
   g.font = fonte(500, 34); g.globalAlpha = 0.85; g.fillText("meugastos.com.br/#motorista", 90, H - 70); g.globalAlpha = 1;
@@ -4078,7 +4079,7 @@ function paneMot() {
     <h4 class="mot-h">Seu resultado</h4>
     <div class="mot-per" role="group" aria-label="Período">${[["dia", "Hoje"], ["semana", "7 dias"], ["mes", nomeMes(mes)]].map(([k, n]) => `<button type="button" data-per="${k}" aria-pressed="${motPer === k}">${n}</button>`).join("")}</div>
     <div class="mot-grid">
-      ${tile("Faturamento", brl(r.ganho), "fat")}
+      ${tile("Ganho", brl(r.ganho), "fat")}
       ${tile(temCarro ? "Custo do carro" : "Gastos do turno", brl(r.custo), "gasto")}${tile("Lucro", brl(r.lucro), "luc")}
       ${tile("Horas", horasCurtas(r.ms))}${tile("Lucro por hora", tracos(r.lucroPorHora, brl))}
       ${tile("Km rodados", virg(r.km))}${tile("Lucro por km", tracos(r.lucroPorKm, brl))}
@@ -6925,6 +6926,13 @@ function guiaFim() {
 }
 $("btnAjustes").onclick = ajustes;
 
+/* ================= Aviso de erros ================= */
+// Se o app quebrar no aparelho de alguém, o servidor recebe um aviso sem dado pessoal. Sem a tabela no banco, nada acontece.
+if (SUPABASE_URL && SUPABASE_ANON_KEY) {
+  ligaCapturaDeErros({ versao: APP_VERSAO, tela: () => [S.view, S.tab].filter(Boolean).join("/"),
+    envia: (linha) => fetch(SUPABASE_URL + "/rest/v1/erros_app", { method: "POST", keepalive: true,
+      headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(linha) }) });
+}
 /* ================= PWA ================= */
 let installEvt = null;
 addEventListener("beforeinstallprompt", (e) => { e.preventDefault(); installEvt = e; if (S.loaded) renderInstalar(); });
