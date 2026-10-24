@@ -287,6 +287,8 @@ async function boot() {
   if (location.hash === "#demo") { try { sessionStorage.setItem("cg-modo", "demo"); sessionStorage.removeItem("cg-demo-mot"); } catch { /* nada */ } history.replaceState(null, "", location.pathname); }
   // #motorista (anúncio e site para motoristas de aplicativo): abre a demonstração já na tela do Modo motorista, com uma semana de corridas de exemplo.
   else if (location.hash === "#motorista") { try { sessionStorage.setItem("cg-modo", "demo"); sessionStorage.setItem("cg-demo-mot", "1"); } catch { /* nada */ } S.atalho = "motorista"; history.replaceState(null, "", location.pathname); }
+  // #criar (botão "Testar 7 dias grátis" do site): abre a tela de entrada já em "Criar conta".
+  else if (location.hash === "#criar") { S.querCriar = true; history.replaceState(null, "", location.pathname); }
   try { localStorage.removeItem("cg-modo"); } catch { /* nada */ }   // versões antigas guardavam a demonstração para sempre
   // Chegou por um atalho do ícone (segurar o ícone do app) ou por "Compartilhar" de outro aplicativo: o app abre e já vai direto ao ponto.
   const chegada = new URLSearchParams(location.search);
@@ -333,7 +335,7 @@ function showAuth(modo = "") {
   if (lembrado && !$("aEmail").value) $("aEmail").value = lembrado;
   // Quem já entrou neste aparelho vê "Entrar"; quem nunca entrou vê "Criar conta".
   const aviso = S.avisoDeEntrada || "", tipo = S.avisoTipo || "err"; S.avisoDeEntrada = ""; S.avisoTipo = "";
-  authModo(modo || (lembrado || aviso ? "entrar" : "criar"), aviso, aviso ? tipo : "");
+  authModo(modo || (S.querCriar ? "criar" : lembrado || aviso ? "entrar" : "criar"), aviso, aviso ? tipo : ""); S.querCriar = false;
 }
 function authMsg(t, kind = "") { const m = $("authMsg"); m.textContent = t; m.className = "auth-msg " + kind; }
 function authModo(m, msg = "", kind = "") {
@@ -1998,7 +2000,7 @@ function paneF(c, tipo) {
     // Conta com prazo: mostra até quando vai; na última vez, avisa.
     const ultima = f.ate && mKey(f.ate) === S.mes && !fx.some((o) => o.id === f.id && o.data > f.data);
     const prazo = f.ate ? ` <span class="tag ${ultima ? "fim" : "prazo"}">${ultima ? "última vez" : ateCurto(f.ate)}</span>` : "";
-    return `<tr class="toca-linha" data-frow="${esc(f.id)}"><td class="d">${quando}</td><td class="desc">${avaFoto("fixo", f.descricao) || ava(f.categoria, ent ? "Receita" : "Despesa")}<span class="tx">${esc(f.descricao)}${sem ? ` <span class="tag">toda ${DIAS3[diaDaSemana(f.data)]}</span>` : ""}${prazo}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
+    return `<tr class="toca-linha" data-frow="${esc(f.id)}"><td class="d">${quando}</td><td class="desc">${avaFoto("fixo", f.descricao) || ava(f.categoria, ent ? "Receita" : "Despesa")}<span class="tx">${esc(f.descricao)}${sem ? ` <span class="tag">semanal</span>` : ""}${prazo}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
       <td class="st">${status}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(f.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
   }).join("");
@@ -2746,8 +2748,8 @@ function renderMais(c) {
       appInstalado() ? "" : linha("btnInstall", "instalar", "Instalar o app no celular", "Ícone na tela inicial, abre em tela cheia e funciona sem internet"),
       linha("btnAjustes", "ajustes", "Ajustes e categorias", naDemo ? "Categorias, tema e saldo" : "Categorias, avisos, tema e a sua conta"),
       linha("btnAjuda", "ajuda", "Como usar", "Respostas para as dúvidas mais comuns"),
-      linha("novidades", "luz", "Novidades", `O que mudou na versão ${APP_VERSAO}`),
-      linha("btnSugerir", "ideia", "Sugerir melhoria ou correção", "Conte o que falta ou o que deu errado"),
+      linha("novidades", "presente", "Novidades", `O que mudou na versão ${APP_VERSAO}`),
+      linha("btnSugerir", "editar", "Sugerir melhoria ou correção", "Conte o que falta ou o que deu errado"),
       linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
     vaiPara(b.dataset.mais);

@@ -945,14 +945,15 @@ if (NO_APP) {
 qa("[data-app]").forEach((a) => { a.href = APP + a.dataset.app; if (NO_APP) { a.removeAttribute("target"); a.removeAttribute("rel"); } });
 
 if (OFERTA.link && OFERTA.preco) {
-  qa("[data-cta]").forEach((a) => { a.href = LINK_PAGAMENTO; a.target = "_blank"; a.rel = "noopener"; a.textContent = a.closest(".topo") ? "Comprar" : "Quero o Meus Gastos"; });
-  q("[data-nota]").textContent = "Garantia de 7 dias: se não gostar, o dinheiro volta. Dá para parcelar no cartão.";
+  // O botão principal leva ao teste grátis de 7 dias (cria a conta no app, sem cartão); "Comprar", no topo, vai direto para o pagamento.
+  qa("[data-cta]").forEach((a) => { if (a.closest(".topo")) { a.href = LINK_PAGAMENTO; a.target = "_blank"; a.rel = "noopener"; a.textContent = "Comprar"; } else { a.href = APP + "#criar"; a.removeAttribute("target"); a.removeAttribute("rel"); a.textContent = "Testar 7 dias grátis"; } });
+  q("[data-nota]").textContent = "7 dias grátis, sem cartão. Depois, " + OFERTA.preco + ", com garantia de 7 dias.";
   q("[data-oferta-titulo]").textContent = "Comece a enxergar o seu mês hoje.";
-  q("[data-oferta-texto]").textContent = "Você cria sua conta, cadastra o que é fixo e passa a acompanhar o mês com previsão e avisos.";
+  q("[data-oferta-texto]").textContent = "Crie sua conta e use tudo por 7 dias, sem cartão. Cadastre o que é fixo e acompanhe o mês com previsão e avisos. Seus dados ficam guardados mesmo se não assinar.";
   q("[data-oferta-rot]").textContent = "Meus Gastos";
   q("[data-oferta-preco]").textContent = OFERTA.preco;
   q("[data-oferta-detalhe]").textContent = OFERTA.detalhe || "Acesso ao app no celular e no computador.";
-  q("[data-oferta-rodape]").innerHTML = 'Pagamento pela Hotmart, no cartão (dá para parcelar), Pix ou boleto. Você tem 7 dias para pedir o dinheiro de volta. Ao comprar, você concorda com os <a href="termos.html">Termos de uso</a>.';
+  q("[data-oferta-rodape]").innerHTML = `Prefere assinar já? <a href="${LINK_PAGAMENTO}" target="_blank" rel="noopener">Assinar por ${OFERTA.preco}</a>. Pagamento pela Hotmart, no cartão (dá para parcelar), Pix ou boleto, com 7 dias para pedir o dinheiro de volta. Ao assinar, você concorda com os <a href="termos.html">Termos de uso</a>.`;
   if (OFERTA.lancamento) { const l = q("[data-oferta-lanc]"); l.textContent = OFERTA.lancamento; l.hidden = false; }
   // Quem ainda quer ver antes de comprar continua com a demonstração a um toque, e as perguntas sobre a compra aparecem.
   qa("[data-venda]").forEach((e) => (e.hidden = false));
