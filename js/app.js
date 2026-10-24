@@ -1084,7 +1084,7 @@ function htmlMotoristaIni() {
   const hj = hoje(), r = resumoTurnos(m.turnos || [], hj, hj, S.prefs.veiculo || {});
   const hoje0 = !r.ganho && !r.ms;
   return `<section class="mot-ini" aria-label="Modo motorista"><div class="mot-ini-topo"><span class="l">${ico("carro")}<b>Modo motorista</b></span><button class="btn sm primary" type="button" data-mot-ini="abrir">Iniciar jornada</button></div>
-    <p class="mot-ini-res ocultavel">${hoje0 ? "Nenhuma jornada hoje. Toque para começar e o app conta horas, ganho e gastos." : `Hoje: <b>${brl(r.ganho)}</b> de faturamento · ${horasCurtas(r.ms)} rodadas${r.lucro !== undefined && r.lucro !== null ? ` · lucro <b>${brl(r.lucro)}</b>` : ""}`}</p></section>`;
+    <p class="mot-ini-res ocultavel">${hoje0 ? "Nenhuma jornada hoje. Toque para começar e o app conta horas, ganho e gastos." : `Hoje: <b>${brl(r.ganho)}</b> de ganho · ${horasCurtas(r.ms)} rodadas${r.lucro !== undefined && r.lucro !== null ? ` · lucro <b>${brl(r.lucro)}</b>` : ""}`}</p></section>`;
 }
 function ligaMotoristaIni() {
   $("resumo").querySelectorAll("[data-mot-ini]").forEach((b) => (b.onclick = () => {
@@ -4842,7 +4842,7 @@ async function verComprovante(lanc, depois) {
   try { url = await S.store.linkComprovante(lanc.comprovante); } catch (e) { console.error(e); }
   if (!url) {
     return openDlg(`<h3>Comprovante</h3>
-      <p style="color:var(--ink-2);margin:0 0 14px">${navigator.onLine === false ? "Sem internet agora: a foto vem do servidor. Tente de novo quando a conexão voltar." : "Não consegui abrir essa foto agora. Tente de novo em instantes."}</p>
+      <p style="color:var(--ink-2);margin:0 0 14px">${navigator.onLine === false ? "Sem internet agora: a foto está guardada online. Tente de novo quando a conexão voltar." : "Não consegui abrir essa foto agora. Tente de novo em instantes."}</p>
       <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
   }
   // Na demonstração a foto vem como texto (data:), que o navegador não abre em outra aba: vira um endereço de arquivo.
@@ -6674,7 +6674,7 @@ async function ligarPush() {
   if (!pushDisponivel()) throw new Error("Este aparelho não aceita notificações pelo navegador.");
   if ((await Notification.requestPermission()) !== "granted") throw new Error("A permissão de notificação foi negada. Libere nas configurações do navegador para este site e tente de novo.");
   const r = await fetch(AVISOS_URL, { headers: { apikey: SUPABASE_ANON_KEY } }), j = await r.json().catch(() => ({}));
-  if (!r.ok || !j.chavePublica) throw new Error("O servidor de avisos ainda não está no ar. Tente de novo mais tarde.");
+  if (!r.ok || !j.chavePublica) throw new Error("O serviço de avisos ainda não está no ar. Tente de novo mais tarde.");
   const reg = await navigator.serviceWorker.ready;
   // Se já havia uma inscrição com outra chave, começa de novo.
   const antiga = await reg.pushManager.getSubscription(); if (antiga) await antiga.unsubscribe();
@@ -6704,11 +6704,11 @@ function ligaAjustesDeAvisos() {
     try {
       const r = await fetch(AVISOS_URL, { method: "POST", headers: { "Content-Type": "application/json", apikey: SUPABASE_ANON_KEY, Authorization: "Bearer " + (await S.store.token()) }, body: JSON.stringify({ teste }) });
       const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j.erro === "Pedido não reconhecido." ? "O servidor de avisos ainda está na versão antiga. Tente de novo mais tarde." : j.erro || "O servidor de avisos ainda não está no ar.");
-      const email = j.email === "enviado" ? "E-mail enviado (olhe também o spam)." : j.email === "desligado" ? "E-mail desligado." : j.email === "não configurado" ? "E-mail ainda não configurado no servidor." : "O e-mail não saiu: " + j.email;
+      if (!r.ok) throw new Error(j.erro === "Pedido não reconhecido." ? "O serviço de avisos ainda está na versão antiga. Tente de novo mais tarde." : j.erro || "O serviço de avisos ainda não está no ar.");
+      const email = j.email === "enviado" ? "E-mail enviado (olhe também o spam)." : j.email === "desligado" ? "E-mail desligado." : j.email === "não configurado" ? "O envio de e-mail ainda não foi configurado." : "O e-mail não saiu: " + j.email;
       const push = j.push.aparelhos ? `Notificação enviada para ${j.push.entregues} de ${j.push.aparelhos} ${j.push.aparelhos === 1 ? "aparelho" : "aparelhos"}.` : "Nenhum aparelho com notificação ligada.";
       diz(`${email} ${push}`, /não saiu/.test(email));
-    } catch (err) { diz(/fetch|network/i.test(String(err?.message)) ? "Não consegui falar com o servidor de avisos. Confira a internet." : String(err?.message || err), true); }
+    } catch (err) { diz(/fetch|network/i.test(String(err?.message)) ? "Não consegui falar com o serviço de avisos. Confira a internet." : String(err?.message || err), true); }
     botao.disabled = false;
   };
   $("ajTeste").onclick = () => pedeEnvio($("ajTeste"), true, msg, "Enviando o aviso de teste…");

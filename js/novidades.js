@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "146", itens: ["Textos mais simples: no resumo do motorista no Início, \"faturamento\" virou \"ganho\", e as mensagens de avisos falam em \"serviço\" em vez de \"servidor\"."] },
   { versao: "145", itens: ["O aviso de gasto que deixa conta sem cobrir ficou mais claro: título direto, o quanto vai faltar e as contas numa lista (e não numa linha só), com o recado de evitar gastar assim se você quer cumprir suas metas. O botão em destaque volta a ser \"Voltar\", para ajudar a segurar o gasto."] },
   { versao: "144", itens: ["Lançar um gasto com a jornada do Modo motorista em andamento não mostra mais o aviso \"deixa conta sem cobrir\": o ganho do dia ainda não entrou na conta e o aviso estava errado. Fora da jornada, o aviso continua, e agora o botão \"Lançar mesmo assim\" é o principal, porque o gasto já aconteceu."] },
   { versao: "143", itens: ["Modo motorista: tirei o \"Vale a pena essa corrida?\", que pedia digitar no meio da viagem. Ficou só a \"Regra para decorar\", que agora nunca fica abaixo de R$ 1,00 por km: ganhar menos que isso não compensa."] },
