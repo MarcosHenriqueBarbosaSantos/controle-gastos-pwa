@@ -2368,7 +2368,7 @@ function mostraHoras() {
 /** Contas do mês que este gasto deixa sem cobrir (a conta só vale para gasto à vista, no mês de hoje). */
 function contasSemCobrirDoForm() {
   const v = valorDoCampo(), d = $("fData").value || hoje();
-  if (!S.loaded || !(v > 0) || v > VALOR_MAX || S.tipo !== "Despesa" || mKey(d) !== mKey(hoje()) || $("fForma").value === CARTAO || $("fFixo").checked) return null;
+  if (!S.loaded || motDados().ativo || !(v > 0) || v > VALOR_MAX || S.tipo !== "Despesa" || mKey(d) !== mKey(hoje()) || $("fForma").value === CARTAO || $("fFixo").checked) return null;
   const antes = contasQueNaoFecham(S.data, hoje(), 0), com = contasQueNaoFecham(S.data, hoje(), v);
   return com.totalQueFalta > antes.totalQueFalta ? { antes, com } : null;
 }
@@ -2386,11 +2386,11 @@ function confirmaSemCobrir(r) {
     openDlg(`<h3>Esse gasto deixa conta sem cobrir</h3>
       <p class="hint" style="margin:0 0 10px;font-size:14px">Pelo que você já lançou, com este gasto o dinheiro do mês não chega para: <b>${listaDeContas(r.com)}</b>. Faltam ${brl(r.com.totalQueFalta)}.</p>
       <p class="hint" style="margin:0 0 12px;font-size:14px">Se o gasto é necessário, lance e veja em <b>Pôr o mês em ordem</b> um jeito leve de fechar essa conta. Se dá para adiar, o mês agradece.</p>
-      <div class="actions"><button class="btn" type="button" id="scSim">Lançar mesmo assim</button><button class="btn primary" type="button" id="scNao">Voltar</button></div>`);
+      <div class="actions"><button class="btn primary" type="button" id="scSim">Lançar mesmo assim</button><button class="btn" type="button" id="scNao">Voltar</button></div>`);
     $("scSim").onclick = () => { resp = "lancar"; $("dlg").close(); };
     $("scNao").onclick = () => { resp = "voltar"; $("dlg").close(); };
     $("dlg").addEventListener("close", () => responde(resp), { once: true });
-    $("scNao").focus();
+    $("scSim").focus();
   });
 }   // atualiza o valor de cada parcela e o total do prazo
 $("fRepete").addEventListener("change", renderForm);

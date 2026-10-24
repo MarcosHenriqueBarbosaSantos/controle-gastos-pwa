@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "144", itens: ["Lançar um gasto com a jornada do Modo motorista em andamento não mostra mais o aviso \"deixa conta sem cobrir\": o ganho do dia ainda não entrou na conta e o aviso estava errado. Fora da jornada, o aviso continua, e agora o botão \"Lançar mesmo assim\" é o principal, porque o gasto já aconteceu."] },
   { versao: "143", itens: ["Modo motorista: tirei o \"Vale a pena essa corrida?\", que pedia digitar no meio da viagem. Ficou só a \"Regra para decorar\", que agora nunca fica abaixo de R$ 1,00 por km: ganhar menos que isso não compensa."] },
   { versao: "142", itens: ["No Modo motorista, \"Faturamento\" passou a se chamar \"Ganho\", como no resto do app, e o aviso da demonstração cabe numa linha só no celular. Por trás, o app agora avisa a equipe quando algo quebra, sem mandar nenhum dado seu."] },
   { versao: "141", itens: ["Lista de mercado: o app lembra a categoria que você deu a cada item (ex.: areia do gato em Animais) e já sugere nas próximas listas. No celular, deslize o item para a direita para colocá-lo no carrinho."] },
