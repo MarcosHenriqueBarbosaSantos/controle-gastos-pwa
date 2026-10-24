@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "149", itens: ["Início mais calmo no celular: no topo ficam o quanto está livre, o dia de hoje e as próximas contas. Atalhos, cartões, previsão do mês e \"Para onde foi\" estão em \"Mais do seu mês\", um toque abaixo. A tela ficou cerca de um terço mais curta."] },
   { versao: "148", itens: ["Toques mais rápidos no celular (sem a espera do zoom de dois toques), a tela de trás não rola junto quando um quadro está aberto, e o campo de preço da lista de mercado mostra quando está selecionado."] },
   { versao: "147", itens: ["Mais fácil para quem usa leitor de tela ou teclado: em Próximos vencimentos, o nome da conta virou um botão próprio (antes havia um botão dentro de outro), e o cartão no Início lê exatamente o que aparece na tela. A página de apresentação também ficou sem nenhum erro de acessibilidade."] },
   { versao: "146", itens: ["Textos mais simples: no resumo do motorista no Início, \"faturamento\" virou \"ganho\", e as mensagens de avisos falam em \"serviço\" em vez de \"servidor\"."] },
