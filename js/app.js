@@ -345,7 +345,7 @@ function authModo(m, msg = "", kind = "") {
   $("aSenhaDica").hidden = m !== "criar"; $("aEsqueci").hidden = m !== "entrar"; $("aTermos").hidden = m !== "criar";
   // Com o app à venda, quem cria conta fica sabendo do preço e de que o e-mail tem de ser o da compra.
   $("aPago").hidden = m !== "criar" || !LINK_COMPRA;
-  if (LINK_COMPRA) $("aPago").innerHTML = `Teste <b>7 dias grátis</b>, sem cartão. Depois, ${esc(PRECO_PLANO)}. Já comprou? Use aqui o mesmo e-mail da compra. <a href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">Ainda não comprei</a>`;
+  if (LINK_COMPRA) $("aPago").innerHTML = `Teste <b>7 dias grátis</b>, sem cartão. Depois, ${esc(PRECO_PLANO)}. Já comprou? Use aqui o mesmo e-mail da compra. <a href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">Quero assinar já</a>`;
   authMsg(S.semLogin && entrada ? "O login ainda não está ligado neste endereço. Você pode testar tudo na demonstração." : msg, kind);
 }
 /** Trava os botões enquanto um pedido está indo: um segundo toque mandaria outro e-mail e o primeiro deixaria de valer. */

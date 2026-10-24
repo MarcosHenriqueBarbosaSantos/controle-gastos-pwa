@@ -38,7 +38,7 @@ export const dim = (m) => { const [y, mo] = m.split("-").map(Number); return new
 export function parseMoney(s) {
   if (typeof s === "number") return s;
   s = String(s ?? "").replace(/[R$\s]/g, "");
-  if (!s) return NaN;
+  if (!s || !/^[+-]?[\d.,]+$/.test(s)) return NaN;   // letras, "1e3", "0x10" e "Infinity" não são valor
   if (s.includes(",") && s.includes(".") && s.lastIndexOf(".") > s.lastIndexOf(",")) s = s.replace(/,/g, "");   // "1,234.56" (formato americano, comum ao copiar de apps): o último separador é o decimal
   else if ((s.match(/,/g) || []).length > 1) s = s.replace(/,/g, "");   // "1,234,567"
   else if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
