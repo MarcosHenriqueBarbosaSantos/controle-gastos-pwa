@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meus Gastos</title>
 <meta name="description" content="Controle de gastos pessoal: lance no dia a dia, acompanhe o custo do mês e a projeção, contas fixas e faturas de cartão.">
-<meta name="theme-color" content="#0b2545">
+<meta name="theme-color" content="#060e1d">
 <script>/* Quem chega pela primeira vez ao endereço do app, pelo navegador, vê antes o site que explica o app (pasta site/).
    Quem já usa, quem instalou o app ou quem chega por um link com destino (demonstração, entrar, confirmação de e-mail) vai direto para o app. */
 try {
@@ -15,8 +15,8 @@ try {
   else localStorage.setItem("cg-conhece", "1");
 } catch (e) { /* sem armazenamento: abre o app normalmente */ }
 </script>
-<script>/* Tema: claro (cara de banco) por padrão; escuro só se a pessoa escolheu em Ajustes. Roda antes de a tela aparecer, para não piscar. */
-try { if (localStorage.getItem("cg-tema") !== "escuro") document.documentElement.dataset.tema = "claro"; } catch (e) { document.documentElement.dataset.tema = "claro"; }
+<script>/* Tema: escuro por padrão; claro (cara de banco) só se a pessoa escolheu em Ajustes. Roda antes de a tela aparecer, para não piscar. */
+try { if (localStorage.getItem("cg-tema") === "claro") document.documentElement.dataset.tema = "claro"; } catch (e) { /* sem armazenamento: fica o escuro */ }
 /* Acessibilidade: tamanho da letra e contraste alto, escolhidos em Ajustes e guardados neste aparelho. */
 try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "maior") document.documentElement.dataset.letra = L; if (localStorage.getItem("cg-contraste") === "alto") document.documentElement.dataset.contraste = "alto"; } catch (e) { /* nada */ }</script>
 <link rel="manifest" href="manifest.webmanifest">
@@ -25,8 +25,9 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Meus Gastos">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&family=JetBrains+Mono:wght@500;700&display=swap">
 <link rel="stylesheet" href="css/style.css">
+<link rel="stylesheet" href="css/tech.css">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js" defer></script>
 <script type="module" src="js/app.js"></script>
 </head>
@@ -270,8 +271,9 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
 <!-- Navegação do celular -->
 <nav class="bnav" id="bnav" aria-label="Navegação" hidden>
   <button type="button" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>Início</button>
+  <button type="button" data-nav="l"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Extrato</button>
   <button type="button" data-nav="mais" class="mais"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>Lançar</button>
-  <button type="button" data-nav="merc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.1L20 8H6M9 20h.01M17 20h.01"/></svg>Mercado</button>
+  <button type="button" data-nav="m"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2"/></svg>Planejar</button>
   <button type="button" data-nav="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg>Mais</button>
 </nav>
 <div class="toast" id="toast" role="status" hidden></div>

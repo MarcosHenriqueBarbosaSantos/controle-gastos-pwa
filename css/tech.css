@@ -1,0 +1,53 @@
+/* Meus Gastos — camada "painel de instrumentos" (v152). Carrega depois do style.css e só refina: títulos em Bricolage,
+   números em fonte mono, brilho ciano no que está ativo, barra de baixo em vidro. Quem escolheu o tema claro em Ajustes não é afetado
+   pelas cores, só pela tipografia e pelas telas simplificadas. */
+:root{
+  --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+  --mono:"JetBrains Mono","IBM Plex Mono",ui-monospace,Menlo,monospace;
+  --ciano:#5fd4ff;
+}
+:root:not([data-tema="claro"]){
+  --bg:#060e1d; --surface:#0e1b32; --surface-2:#13233f; --sunk:#0a1528; --border:#1f3254;
+  --series:#5fd4ff; --series-soft:rgba(95,212,255,.13); --brand:#9fe0ff; --glow:rgba(60,140,255,.2);
+  --hero:linear-gradient(135deg,#0b3a8f 0%,#1550c8 55%,#2a6cf0 100%); --hero-ink:#fff;
+  --btn:linear-gradient(180deg,#6ddcff,#3aa7f0); --glass:rgba(6,14,29,.78);
+}
+h1,h2,h3{letter-spacing:-.03em}
+.eyebrow{letter-spacing:.06em}
+
+/* números: mono, alinhados em coluna */
+.hero-main .v,.num,.bg-val,td.num,.casal-div span:not(.t),.mais-item .tx span b{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.hero-main .v{font-weight:700;text-shadow:0 0 34px rgba(160,225,255,.4)}
+:root:not([data-tema="claro"]) .hero{box-shadow:0 18px 50px rgba(30,100,255,.32),inset 0 0 0 1px rgba(160,225,255,.18)}
+:root:not([data-tema="claro"]) .btn.primary{box-shadow:0 0 0 1px rgba(95,212,255,.45),0 10px 28px rgba(95,212,255,.22);color:#04121f}
+
+/* barra de baixo: vidro, cinco lugares, brilho no que está aberto */
+.bnav{border-top:1px solid rgba(127,220,255,.14)}
+.bnav button{font-size:11.5px}
+.bnav button[aria-current="page"]{color:var(--series)}
+.bnav button[aria-current="page"] svg{background:var(--series-soft);box-shadow:0 0 16px rgba(95,212,255,.35)}
+.bnav .mais span{box-shadow:0 8px 24px rgba(58,167,240,.55),0 0 0 5px var(--bg)}
+
+/* aba Mais: cada grupo com a sua cor de ícone, para a lista longa ter por onde o olho se apoiar */
+.mais-grupo:nth-of-type(2) .mais-item .ava{background:rgba(70,227,165,.14);color:#46e3a5}
+.mais-grupo:nth-of-type(3) .mais-item .ava{background:rgba(255,180,84,.14);color:#ffb454}
+.mais-grupo:nth-of-type(4) .mais-item .ava{background:rgba(180,160,255,.15);color:#b4a0ff}
+.mais-grupo:nth-of-type(5) .mais-item .ava{background:rgba(255,122,107,.13);color:#ff7a6b}
+:root[data-tema="claro"] .mais-grupo .mais-item .ava{background:var(--series-soft);color:var(--series)}
+.mais-grupo h2{font-family:var(--display);font-size:14px;letter-spacing:-.01em;color:var(--ink-2)}
+.mais-lista{border:1px solid var(--border);border-radius:var(--r);overflow:hidden;background:linear-gradient(180deg,rgba(255,255,255,.03),transparent 60%),var(--surface)}
+
+/* uma saída só nas telas: o "Fechar" sozinho embaixo repete o do canto de cima */
+.actions.so-fecha{display:none}
+
+/* cartões: o formulário de novo cartão só aparece quando a pessoa pede */
+.novo-cartao{margin:6px 0 14px;border:1px dashed var(--border);border-radius:var(--r-sm);padding:0 14px}
+.novo-cartao>summary{cursor:pointer;list-style:none;padding:13px 0;font-weight:600;color:var(--series)}
+.novo-cartao>summary::-webkit-details-marker{display:none}
+.novo-cartao>summary::before{content:"+";display:inline-block;width:1.2em;font-weight:700}
+.novo-cartao[open]>summary::before{content:"−"}
+.novo-cartao[open]{padding-bottom:12px}
+
+@media (prefers-reduced-motion:no-preference){
+  .mais-item{transition:background .15s}
+}

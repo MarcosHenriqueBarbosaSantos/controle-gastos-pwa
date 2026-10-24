@@ -724,7 +724,7 @@ function render() {
   mesesNoTopo(!naMais && noCelular());
   const c = calcMes(S.data, S.mes, hoje());
   // No celular aparece uma tela por vez; a barra de baixo mostra onde a pessoa está.
-  // Barra de baixo: Início · + · Mercado · Mais (as ferramentas moram todas no Mais). Extrato, Planejar, Cartões e Contas fixas ficam na faixa "Ir para" do Início.
+  // Barra de baixo: Início · Extrato · + · Planejar · Mais (as ferramentas moram no Mais; o Mercado abre por lá e pela busca). Cartões e Contas fixas ficam na faixa "Ir para" do Início.
   const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab;
   app.dataset.vazio = S.loaded && !S.data.lancamentos.length && !S.data.fixos.length && !(S.data.faturas || []).length ? "1" : "0";   // conta nova: o Início mostra só o que ajuda a começar
   corDaBarra(S.view === "listas" && S.tab === "mot" && noCelular());   // tela cheia: a barra de cima do celular acompanha a cor da tela
@@ -2114,14 +2114,14 @@ function paneC(c) {
    <p class="hint" style="margin-top:0">Cadastre o cartão com o dia em que a fatura fecha e o dia em que vence. Depois é só lançar as compras escolhendo o cartão: o app monta a fatura sozinho, com as parcelas.</p>
    ${S.data.semCartoes ? `<p class="aviso" style="margin:0 0 10px">O cadastro de cartões ainda não está ligado nesta conta: falta atualizar o banco de dados (arquivo supabase/schema.sql). Enquanto isso, as faturas podem ser lançadas à mão.</p>` : ""}
    ${cartoes.length ? `<ul class="cartoes">${cartoes.map(linhaCartao).join("")}</ul>` : `<div class="empty">Nenhum cartão cadastrado ainda.</div>`}
-   <form class="addrow kc" id="formK" autocomplete="off">
+   ${cartoes.length ? `<details class="novo-cartao"><summary>Adicionar outro cartão</summary>` : ""}<form class="addrow kc" id="formK" autocomplete="off">
      <label class="f">Nome do cartão<input class="in" id="kNome" required maxlength="40" placeholder="Ex.: Nubank"></label>
      <label class="f">Dia que a fatura fecha<input class="in" id="kFech" type="number" inputmode="numeric" min="1" max="31" required placeholder="Ex.: 3"></label>
      <label class="f">Dia que a fatura vence<input class="in" id="kVenc" type="number" inputmode="numeric" min="1" max="31" required placeholder="Ex.: 10"></label>
      <button class="btn primary" type="submit">Adicionar cartão</button>
      ${soltos.length ? `<label class="check"><input type="checkbox" id="kLigar" ${cartoes.length ? "" : "checked"}> Usar este cartão nas ${soltos.length} ${soltos.length === 1 ? "compra no cartão que já lancei" : "compras no cartão que já lancei"} sem cartão escolhido</label>` : ""}
-   </form>
-   <h3 class="sub-h">Faturas de ${nomeMes(S.mes)} <button class="btn sm ler" type="button" id="lerFatura">${ico("camera")}Ler fatura</button><button class="btn sm ler" type="button" id="impExtrato">${ico("subir")}Importar extrato</button><button class="btn sm ler" type="button" id="expCartao">${ico("baixar")}Exportar</button></h3>
+   </form>${cartoes.length ? `</details>` : ""}
+   <h3 class="sub-h">Faturas de ${nomeMes(S.mes)}</h3><div class="fat-acoes"><button class="btn sm ler" type="button" id="lerFatura">${ico("camera")}Ler fatura</button><button class="btn sm ler" type="button" id="impExtrato">${ico("subir")}Importar extrato</button><button class="btn sm ler" type="button" id="expCartao">${ico("baixar")}Exportar</button></div>
    ${vis.length ? `<div class="tbl"><table class="cards"><thead><tr><th>Vence</th><th>Cartão</th><th class="hide-sm">Origem</th><th class="num">Fatura</th><th>Situação</th><th></th></tr></thead><tbody>${vis.map(linhaFatura).join("")}</tbody>
      <tfoot><tr><td class="d"></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} de meses anteriores</span>` : ""}</td></tr></tfoot></table></div>`
      : `<div class="empty">Nenhuma fatura com vencimento em ${nomeMes(S.mes)}.</div>`}
@@ -2561,9 +2561,9 @@ const GRUPOS_FERR = [
   { titulo: "No dia a dia", itens: [
     { id: "motorista", k: "uber 99 indrive motorista aplicativo corrida turno rodar renda extra", ico: "carro", t: "Modo motorista", s: "Inicie o turno, veja o lucro do dia e quanto rodar para fechar o mês" },
     { id: "mercado", k: "supermercado compras feira carrinho comprar", ico: "carrinho", t: "Lista de mercado", s: "Anote o que comprar, estime o gasto e lance ao finalizar" },
-    { id: "veiculo", k: "gasolina combustivel ipva seguro oficina moto", ico: "carro", t: "Meu carro ou moto", s: "Quanto custa por mês, por dia e por km" },
+    { id: "veiculo", k: "gasolina combustivel ipva seguro oficina moto", ico: "carro", t: "Custo do carro ou moto", s: "Quanto custa por mês, por dia e por km" },
     { id: "hora", k: "hora trabalho salario quanto vale quanto custa em horas tempo", ico: "alvo", t: "Quanto vale minha hora", s: "Veja quantas horas de trabalho cada compra custa" },
-    { id: "casa", k: "aluguel condominio luz agua iptu moradia", ico: "casa", t: "Minha casa", s: "Quanto a casa custa por mês e quanto pesa na renda" },
+    { id: "casa", k: "aluguel condominio luz agua iptu moradia", ico: "casa", t: "Custo da casa", s: "Quanto a casa custa por mês e quanto pesa na renda" },
     { id: "msg", k: "sms notificacao banco colar importar", ico: "clipe", t: "Colar mensagem do banco", s: "A notificação ou o SMS vira um lançamento" },
     { id: "arrumar", k: "arrumar limpar corrigir transferencia propria conta categoria lote outros pix cartao", ico: "lupa", t: "Arrumar lançamentos", s: "Tirar transferências entre as suas contas e dar categoria a vários de uma vez" },
     { id: "revisar", k: "revisar conferir categoria outros classificar fila pendente", ico: "lupa", t: "Para revisar",
@@ -2573,7 +2573,7 @@ const GRUPOS_FERR = [
     { id: "revisao", k: "fechar mes balanco resumo", ico: "grafico", t: "Revisão do mês", s: "3 passos: como foi, onde ajustar e quanto guardar" },
     { id: "desafio", k: "economizar guardar semanal poupar cofrinho", ico: "alvo", t: "Desafio de economia", s: "Guarde um valor por semana e acompanhe" },
     { id: "calc", k: "ferias decimo terceiro juros parcelas rendimento investir divida simulador", ico: "calc", t: "Calculadoras", s: "Rendimento, parcelas, juros, férias e 13º" },
-    { id: "dica", k: "habito economia ideia", ico: "luz", t: "Dica do dia", s: "Um hábito pequeno por dia para guardar dinheiro" }] },
+    { id: "dica", k: "habito economia ideia", ico: "luz", t: "Dicas para guardar dinheiro", s: "Um hábito pequeno por dia" }] },
   { titulo: "Entender e comemorar", itens: [
     { id: "graficos", k: "graficos grafico analise mes custo categoria sobra evolucao ultimos meses", ico: "grafico", t: "Gráficos do mês", s: "Sobra, custo acumulado, categorias e últimos meses" },
     { id: "ganhogasto", k: "ganho contra gasto horas trabalhadas quanto sobrou quanto trabalhei sobra mes quitado", ico: "grafico", t: "Ganho contra gasto", s: "Horas trabalhadas, ganho, gasto e quanto sobrou no mês" },
@@ -2583,8 +2583,8 @@ const GRUPOS_FERR = [
     { id: "assin", k: "assinaturas streaming netflix spotify recorrente mensalidade cobranca renovacao academia aplicativo", ico: "fixo", t: "Assinaturas", s: "O que se repete todo mês e quanto custa por ano" },
     { id: "conq", k: "medalhas premios", ico: "medalha", t: "Conquistas", s: "As medalhas que você já ganhou e as próximas" }] },
   { titulo: "Levar com você", itens: [
-    { id: "share", k: "imagem compartilhar redes status", ico: "imagem", t: "Compartilhar meu mês", s: "Uma imagem do seu mês, com ou sem os valores" },
-    { id: "btnExport", k: "excel pdf csv planilha exportar baixar", ico: "baixar", t: "Baixar relatório", s: "Excel, PDF ou CSV" },
+    { id: "share", k: "imagem compartilhar redes status", ico: "imagem", t: "Compartilhar o mês", s: "Uma imagem do seu mês, com ou sem os valores" },
+    { id: "btnExport", k: "excel pdf csv planilha exportar baixar", ico: "baixar", t: "Exportar relatório", s: "Excel, PDF ou CSV" },
     { id: "copia", k: "backup restaurar seguranca", ico: "baixar", t: "Cópia de segurança", s: "Baixe tudo num arquivo e restaure quando precisar" }] },
 ];
 /**
@@ -2594,21 +2594,23 @@ const GRUPOS_FERR = [
 const HUBS = {
   conferir: { ico: "lupa", t: "Conferir meus lançamentos", s: "Tirar o que está repetido e dar categoria ao que ficou em \"Outros\"", k: "arrumar limpar corrigir revisar conferir repetido duplicado outros categoria transferencia",
     intro: "Deixe os lançamentos certos para os números do app baterem com a sua vida.", itens: ["arrumar", "revisar"] },
-  analise: { ico: "rumo", t: "Análise do seu dinheiro", s: "Para onde foi, como você está indo, o ano e as assinaturas", k: "analise relatorio comparar evolucao ano assinaturas conquistas onde gastei",
-    intro: "Escolha o que você quer entender.", itens: ["graficos", "pof", "ganhogasto", "desemp", "ano", "assin", "conq"] },
-  baixar: { ico: "baixar", t: "Baixar e guardar", s: "Relatório em Excel, PDF ou CSV e cópia de segurança", k: "excel pdf csv planilha exportar baixar backup restaurar seguranca",
+  analise: { ico: "rumo", t: "Resumo do mês", s: "Como foi, para onde foi, o que ajustar, o ano e as assinaturas", k: "analise relatorio resumo revisao fechar balanco atraso ordem comparar evolucao ano assinaturas conquistas onde gastei",
+    intro: "Escolha o que você quer entender sobre o seu dinheiro.", itens: ["revisao", "graficos", "pof", "ordem", "ganhogasto", "desemp", "ano", "assin", "conq"] },
+  baixar: { ico: "baixar", t: "Exportar e backup", s: "Relatório em Excel, PDF ou CSV e cópia de segurança", k: "excel pdf csv planilha exportar baixar backup restaurar seguranca",
     intro: "Leve os seus dados com você ou guarde uma cópia.", itens: ["btnExport", "copia"] },
+  ajuda: { ico: "ajuda", t: "Ajuda", s: "Como usar, o que mudou e como falar com a gente", k: "ajuda duvida tutorial suporte novidades versao sugestao feedback problema",
+    intro: "Dúvidas, novidades e sugestões.", itens: ["btnAjuda", "novidades", "btnSugerir"] },
 };
 const GRUPOS_MAIS = [
   { titulo: "Seu dia a dia", ids: ["motorista", "mercado", "veiculo", "casa"] },
-  { titulo: "Conferir e entender", ids: ["conferir", "analise", "revisao", "msg"] },
-  { titulo: "Guardar e planejar", ids: ["ordem", "desafio", "calc", "dica"] },
+  { titulo: "Meu mês", ids: ["analise", "conferir", "msg"] },
+  { titulo: "Guardar e aprender", ids: ["desafio", "calc", "dica"] },
   { titulo: "Levar com você", ids: ["share", "baixar"] },
 ];
 const TODAS_FERR = () => [...GRUPOS_FERR.flatMap((g) => g.itens), ...Object.entries(HUBS).map(([id, h]) => ({ id, ...h }))];
 function hubTela(id) {
   const h = HUBS[id]; if (!h) return;
-  const todas = TODAS_FERR(), linha = (x) => `<button class="mais-item" type="button" data-go="${x.id}"><span class="ic-box">${ico(x.ico || "lupa")}</span><span class="tx"><b>${esc(x.t)}</b><span>${x.s}</span></span>${ico("chev")}</button>`;
+  const todas = [...TODAS_FERR(), ...DESTINOS], icoDe = { btnAjuda: "ajuda", novidades: "presente", btnSugerir: "editar" }, linha = (x) => `<button class="mais-item" type="button" data-go="${x.id}"><span class="ic-box">${ico(x.ico || icoDe[x.id] || "lupa")}</span><span class="tx"><b>${esc(x.t)}</b><span>${x.s}</span></span>${ico("chev")}</button>`;
   openDlg(`<h3>${esc(h.t)}</h3><p class="hint" style="margin:0 2px 12px">${esc(h.intro)}</p>
     <div class="caixa-mais">${h.itens.map((i) => todas.find((x) => x.id === i)).filter(Boolean).map(linha).join("")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
@@ -2623,7 +2625,7 @@ function equilibrioTela(mesPedido) {
   const dias1 = (v) => String(Math.round(v * 10) / 10).replace(".", ",");
   // 1) o mês
   const mesHtml = `<ul class="itens">${li("Entradas", "+ " + brl(p.entradas))}${li("Contas do mês", "− " + brl(p.contasDoMes), false, p.aPagar > 0 ? `${brl(p.aPagar)} ainda a pagar` : "tudo pago")}${li("Dia a dia", "− " + brl(p.diaADia))}${p.guardadoNoMes > 0 ? li("Guardado", "− " + brl(p.guardadoNoMes)) : ""}${li("Saldo do mês", sgn(p.saldoDoMes), true)}</ul>
-    <p class="hint" style="margin:8px 0 0">${p.saldoDoMes >= 0 ? `${mes} está fechando com sobra. Esse é o caminho.` : `Em ${mes}, as saídas passaram das entradas em ${brl(-p.saldoDoMes)}. Acontece, e dá para arrumar passo a passo.`}</p>`;
+    <p class="hint" style="margin:8px 0 0">${p.saldoDoMes >= 0 ? `${mes.charAt(0).toUpperCase() + mes.slice(1)} está fechando com sobra. Esse é o caminho.` : `Em ${mes}, as saídas passaram das entradas em ${brl(-p.saldoDoMes)}. Acontece, e dá para arrumar passo a passo.`}</p>`;
   // 2) atrasos
   const porMes = at.porMes.map((g) => `<details class="mes-bloco"${at.porMes.length === 1 ? " open" : ""}><summary><span class="mes-nome"><b>${nomeMes(g.mes)} de ${g.mes.slice(0, 4)}</b><span class="hint">${plural(g.n, "conta", "contas")} · ${brl(g.total)}</span></span></summary>
       <ul class="itens">${at.itens.map((i, k) => ({ i, k })).filter((x) => x.i.mes === g.mes).map(({ i, k }) => `<li><span></span><span>${esc(i.titulo)}<span class="mini">venceu dia ${ddmm(i.data)}</span></span><b>${brl(i.valor)}</b><button class="btn sm" type="button" data-pg="${k}">Já paguei</button></li>`).join("")}</ul>
@@ -2644,7 +2646,7 @@ function equilibrioTela(mesPedido) {
   // 4) reserva
   const un = p.gastoPorDia >= 50 ? 500 : 100;
   const reservaHtml = p.reserva > 0
-    ? `<p>Você tem <b>${brl(p.reserva)}</b> guardado${p.diasDeReserva ? `. Isso paga cerca de <b>${plural(p.diasDeReserva, "dia", "dias")}</b> dos seus gastos` : ""}.${p.gastoPorDia > 0 ? ` Cada ${brl0(un)} que você guarda a mais compra mais ${dias1(un / p.gastoPorDia)} dia de tranquilidade.` : ""}</p>`
+    ? `<p>Você tem <b>${brl(p.reserva)}</b> guardado${p.diasDeReserva ? `. Isso paga cerca de <b>${plural(p.diasDeReserva, "dia", "dias")}</b> dos seus gastos` : ""}.${p.gastoPorDia > 0 ? ` Cada ${brl0(un)} que você guarda a mais compra mais ${dias1(un / p.gastoPorDia)} ${un / p.gastoPorDia >= 2 ? "dias" : "dia"} de tranquilidade.` : ""}</p>`
     : `<p>Você ainda não tem dinheiro guardado. Uma caixinha com só R$ 20 já começa a sua reserva para imprevistos.</p>`;
   // 5) virar a página
   const virar = p.virado
@@ -2738,18 +2740,15 @@ function renderMais(c) {
   host.innerHTML = `<div class="mais-quem"><span class="ava">${naDemo ? ico("pessoa") : esc(quem.trim().charAt(0).toUpperCase() || "?")}</span>
       <div class="tx"><b>${esc(naDemo ? "Demonstração" : quem)}</b><span>${naDemo ? "Dados de exemplo, guardados só neste aparelho." : esc(textoDoAcesso())}</span></div></div>
     ${grupo("Contas e cartões", [
-      linha("f", "fixo", "Contas fixas", contas.length ? `${n(contas.length, "conta", "contas")} em ${nomeMes(S.mes)}, ${brl(round2(contas.reduce((t, o) => t + Number(o.valor), 0)))}` : "Aluguel, internet e o que se repete"),
-      linha("r", "entra", "Entradas fixas", c.fr.length ? `${brl(c.frT)} em ${nomeMes(S.mes)}` : "Salário e o que entra todo mês", "in"),
+      linha("f", "fixo", "Contas e entradas fixas", contas.length || c.fr.length ? `${n(contas.length, "conta", "contas")} (${brl(round2(contas.reduce((t, o) => t + Number(o.valor), 0)))}) e entradas de ${brl(c.frT)} em ${nomeMes(S.mes)}` : "Aluguel, internet, salário e o que se repete todo mês"),
       linha("c", "cartao", "Cartões e faturas", cartoes.length ? `${n(cartoes.length, "cartão", "cartões")}${c.fatT ? `, ${brl(c.fatT)} em faturas neste mês` : ""}` : "Cadastre o cartão e a fatura se monta sozinha", "card"),
-      linha("cal", "agenda", "Calendário de vencimentos", "O que vence e o que entra em cada dia")])}
-    ${grupo("Dividir as contas", [linha("casal", "casal", "Conta de casal", esc(resumoDoCasal()), S.casal?.situacao === "convidado" ? "aviso" : "")])}
+      linha("cal", "agenda", "Calendário de vencimentos", "O que vence e o que entra em cada dia"),
+      linha("casal", "casal", "Conta de casal", esc(resumoDoCasal()), S.casal?.situacao === "convidado" ? "aviso" : "")])}
     ${GRUPOS_MAIS.map((g) => grupo(g.titulo, g.ids.map((id) => TODAS_FERR().find((x) => x.id === id)).filter(Boolean).map((i) => linha(i.id, i.ico, i.t, i.s)))).join("")}
     ${grupo("Ajustes e ajuda", [
       appInstalado() ? "" : linha("btnInstall", "instalar", "Instalar o app no celular", "Ícone na tela inicial, abre em tela cheia e funciona sem internet"),
       linha("btnAjustes", "ajustes", "Ajustes e categorias", naDemo ? "Categorias, tema e saldo" : "Categorias, avisos, tema e a sua conta"),
-      linha("btnAjuda", "ajuda", "Como usar", "Respostas para as dúvidas mais comuns"),
-      linha("novidades", "presente", "Novidades", `O que mudou na versão ${APP_VERSAO}`),
-      linha("btnSugerir", "editar", "Sugerir melhoria ou correção", "Conte o que falta ou o que deu errado"),
+      linha("ajuda", "ajuda", "Ajuda", `Como usar, novidades da versão ${APP_VERSAO} e sugestões`),
       linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
     vaiPara(b.dataset.mais);
@@ -3847,7 +3846,7 @@ function mercado() {
 /** Tela de conta com o resultado fixo no topo (some o medo de "onde fica o total?") e os campos em duas colunas. */
 function ferramentaDeConta({ titulo, intro, grupos, chave, semDinheiro = [], calcula }) {
   const salvo = S.prefs[chave] || {};
-  const campo = ([k, rot, ex]) => `<label class="f">${rot}<input class="in${semDinheiro.includes(k) ? "" : " money"}" data-k="${k}" inputmode="decimal" placeholder="${ex}" value="${salvo[k] ? esc(String(salvo[k]).replace(".", ",")) : ""}"></label>`;
+  const campo = ([k, rot, ex]) => `<label class="f">${rot}<input class="in${semDinheiro.includes(k) ? "" : " money"}" data-k="${k}" inputmode="decimal" placeholder="ex.: ${ex}" value="${salvo[k] ? esc(String(salvo[k]).replace(".", ",")) : ""}"></label>`;
   openDlg(`<h3>${titulo}</h3>
     <p class="hint" style="margin:0 0 12px">${intro}</p>
     <div class="rc-card" id="rcTopo" aria-live="polite" aria-atomic="true"></div>
@@ -4153,6 +4152,7 @@ function paneFechar(host) {
   host.innerHTML = `<div id="motRoot"><h3 class="mot-h" style="margin-top:0">Encerrar a jornada</h3><p class="hint" style="margin:0 0 10px">Você trabalhou <b>${horasCurtas(fim - ini - pausado)}</b>${pausado > 60000 ? ` (sem contar ${horasCurtas(pausado)} de pausa)` : ""}. Informe o <b>total de cada app</b>: o ganho entra no extrato como entrada.${m.ativo.parcial > 0 ? ` Você anotou ${brl(m.ativo.parcial)} até agora.` : ""}${gastosJ > 0 ? ` Os ${brl(gastosJ)} que você gastou na jornada já estão no extrato, não precisa lançar de novo.` : ""}</p>
     <form id="mtForm" class="dlg-form" autocomplete="off">
       ${APPS.map(([k, n]) => `<label class="f">${n} (R$)<input class="in money" data-app="${k}" inputmode="decimal" placeholder="0,00"></label>`).join("")}
+      <p class="hint wide mt-tot" id="mtTot" aria-live="polite">Total do dia: <b>R$ 0,00</b></p>
       <label class="f">Viagens<input class="in" id="mtViag" inputmode="numeric" maxlength="3" placeholder="ex.: 12"></label>
       <label class="f">Km rodados<input class="in" id="mtKm" inputmode="decimal" maxlength="6" placeholder="ex.: 140"></label>
       <label class="f">Começou às<input class="in" type="time" id="mtDe" value="${tempo(ini)}"></label>
@@ -4160,6 +4160,9 @@ function paneFechar(host) {
       <p class="auth-msg err wide" id="mtMsg"></p>
       <div class="actions wide"><button class="btn primary" type="submit">Salvar jornada</button><button class="btn" type="button" id="mtVolta">Voltar à jornada</button></div></form></div>`;
   $("mtVolta").onclick = motSai;
+  // Soma dos apps enquanto a pessoa digita, para conferir com o que os apps mostram.
+  const somaApps = () => { const t = round2([...host.querySelectorAll("[data-app]")].reduce((s2, i) => s2 + (Number(parseMoney(i.value)) > 0 ? parseMoney(i.value) : 0), 0)); $("mtTot").innerHTML = `Total do dia: <b>${brl(t)}</b>`; };
+  host.querySelectorAll("[data-app]").forEach((i) => i.addEventListener("input", somaApps));
   $("mtForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const erro = (t) => { $("mtMsg").textContent = t; };
@@ -5295,6 +5298,8 @@ function openDlg(html) {
   $("dlgBody").innerHTML = html;
   const tit = $("dlgBody").querySelector("h3"); if (tit) { tit.id = "dlgTitulo"; $("dlg").setAttribute("aria-labelledby", "dlgTitulo"); } else $("dlg").removeAttribute("aria-labelledby");
   $("dlgBody").querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => $("dlg").close()));
+  // Um "Fechar" sozinho embaixo repete o "Fechar" do canto de cima: some, para a tela ter uma saída só.
+  $("dlgBody").querySelectorAll(".actions").forEach((a) => { const f = a.children; if (f.length === 1 && f[0].matches("[data-close]") && f[0].textContent.trim() === "Fechar") a.classList.add("so-fecha"); });
   if (!$("dlg").open) {   // trocar o conteúdo de um quadro já aberto não precisa abrir de novo
     $("dlg").showModal(); $("dlg").scrollTop = 0;
     // O botão Voltar do celular fecha o quadro (e não a tela que está atrás dele).

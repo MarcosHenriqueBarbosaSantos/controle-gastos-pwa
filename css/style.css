@@ -895,7 +895,7 @@ input.in.cod::placeholder{color:var(--axis)}
   .venc .dupla{grid-column:2/-1;grid-row:3;justify-self:end} .venc li.comb .quando{grid-column:2;grid-row:2}
   .venc li.alerta{grid-template-columns:minmax(0,1fr)} .venc li.alerta .quando{grid-column:1;grid-row:auto}
   /* barra de navegação */
-  .bnav{display:grid;grid-template-columns:repeat(4,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
+  .bnav{display:grid;grid-template-columns:repeat(5,1fr);position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--glass);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);
     border-top:1px solid var(--border);padding:4px 6px env(safe-area-inset-bottom,0px)}
   .bnav button{border:0;background:none;display:grid;justify-items:center;align-content:center;gap:3px;min-height:60px;font-size:12px;font-weight:500;color:var(--muted);padding:6px 0}
   .bnav svg{width:22px;height:22px;box-sizing:content-box;padding:3px 14px;border-radius:999px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;transition:background .15s}
@@ -1084,7 +1084,7 @@ textarea.in{min-height:110px;resize:vertical;font:inherit;line-height:1.45}
 .conq-lista li{display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:center;padding:10px 12px;border:1px solid var(--line,#2a2f3a);border-radius:14px}
 .conq-lista .medalha{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:var(--line,#2a2f3a);color:var(--muted,#8b93a7)}
 .conq-lista li.feita .medalha{background:var(--good,#3ecf8e);color:#06281a}
-.conq-lista li:not(.feita){opacity:.85}
+.conq-lista li:not(.feita) .medalha{opacity:.75}
 .conq-lista b{display:block;font-size:15px} .conq-lista span.t{display:block;font-size:13px;color:var(--muted,#8b93a7)}
 .conq-lista .conq-barra{margin-top:6px;height:6px}
 .dv-linha{display:grid;grid-template-columns:1fr 110px;gap:8px;margin-bottom:8px}
@@ -1826,3 +1826,10 @@ button,a,label,select,input,summary,[role=button]{touch-action:manipulation}
 dialog{overscroll-behavior:contain}
 .ml-preco:focus-within{border-color:var(--series);box-shadow:0 0 0 3px var(--series-soft)}
 .mais-do-mes #resumo2{margin-inline:0}
+/* Encerrar a jornada: os apps em duas colunas (a lista fica com metade da altura) e o botão de encerrar com contraste suficiente. */
+#mtForm{grid-template-columns:repeat(2,minmax(0,1fr))}
+.mot-grande.parar{background:#b42318}
+.mt-tot{margin:0}
+/* Ações das faturas numa linha própria, abaixo do título (antes os botões ficavam dentro do título e quebravam desalinhados). */
+.fat-acoes{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.fat-acoes .btn{margin:0}

@@ -1,0 +1,83 @@
+/* Camada visual "painel de instrumentos": escuro, ciano-gelo como sinal, números em fonte mono.
+   Carrega depois do <style> da página e só troca as cores (variáveis), a tipografia e alguns acabamentos. */
+@property --ang{syntax:"<angle>";inherits:false;initial-value:0deg}
+
+:root{
+  --bg:#060e1d; --surface:#0e1b32; --sunk:#0a1528; --ink:#e8f0fb; --ink-2:#b3c3d9; --muted:#8fa3bd; --line:#1f3254;
+  --band:#08162b; --band-2:#0d2447; --band-ink:#f2f7ff; --band-mute:#9fb4cf;
+  --accent:#5fd4ff; --accent-ink:#04121f; --accent-soft:rgba(95,212,255,.12); --luz:#7fdcff; --link:#86c9ff;
+  --good:#46e3a5; --good-soft:rgba(70,227,165,.12); --warn:#ffb454; --warn-soft:rgba(255,180,84,.12); --bad:#ff7a6b; --bad-soft:rgba(255,122,107,.13);
+  --frame:#22365a; --shadow:0 22px 54px rgba(0,0,0,.5); --tile:#0b2a55; --tile-ink:#fff;
+  --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
+  --mono:"JetBrains Mono","IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+  color-scheme:dark;
+}
+body{background:
+  radial-gradient(1100px 600px at 50% -200px,rgba(52,120,220,.16),transparent 70%),
+  var(--bg)}
+h1,h2,h3{letter-spacing:-.035em}
+h1{font-weight:800;line-height:.98}
+h2{font-weight:750}
+.rot{letter-spacing:.08em}
+
+/* botões */
+.btn.pri{background:var(--accent);color:var(--accent-ink);box-shadow:0 0 0 1px rgba(95,212,255,.5),0 10px 30px rgba(95,212,255,.28)}
+.btn.pri:hover{filter:none;box-shadow:0 0 0 1px rgba(95,212,255,.8),0 12px 38px rgba(95,212,255,.45)}
+.topo .btn.pri,.abre .btn.pri,.oferta .btn.pri,.fixo .btn.pri,.oferta .cartao-oferta .btn.pri{background:var(--accent);color:var(--accent-ink)}
+.btn.sec{background:rgba(255,255,255,.03);border-color:var(--line);color:var(--ink)}
+.btn.sec:hover{border-color:var(--accent)}
+.topo{background:color-mix(in srgb,#050c19 78%,transparent);border-bottom-color:rgba(127,220,255,.12)}
+.prog{background:linear-gradient(90deg,var(--accent),#7a8cff)}
+.fixo{background:color-mix(in srgb,#050c19 92%,transparent);border-top-color:var(--line)}
+
+/* abertura: grade de instrumento com uma luz que varre */
+.abre{background:
+  radial-gradient(900px 520px at 85% -10%,rgba(60,140,255,.32),transparent 62%),
+  radial-gradient(640px 380px at -6% 105%,rgba(95,212,255,.14),transparent 60%),
+  linear-gradient(180deg,#07142a 0%,#0a1d3b 100%)}
+.abre::before{background-image:linear-gradient(rgba(127,220,255,.07) 1px,transparent 1px),linear-gradient(90deg,rgba(127,220,255,.07) 1px,transparent 1px);background-size:48px 48px}
+.abre h1 em{background:linear-gradient(90deg,#7fdcff,#9aa8ff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.selos li{background:rgba(127,220,255,.06);border-color:rgba(127,220,255,.22)}
+
+/* o exemplo que responde ao toque ganha uma borda de luz que gira devagar */
+.sim{position:relative;background:var(--bg);border:1px solid transparent;
+  background:linear-gradient(var(--bg),var(--bg)) padding-box,conic-gradient(from var(--ang),rgba(95,212,255,.0),rgba(95,212,255,.9) 18%,rgba(122,140,255,.0) 38%,rgba(122,140,255,.0) 60%,rgba(70,227,165,.55) 78%,rgba(95,212,255,.0)) border-box;
+  box-shadow:0 30px 80px rgba(0,0,0,.55),0 0 90px rgba(60,140,255,.18)}
+@media (prefers-reduced-motion:no-preference){
+  .sim{animation:chega .8s cubic-bezier(.2,.7,.2,1) both,gira 9s linear infinite}
+  @keyframes gira{to{--ang:360deg}}
+}
+.venc,.sim-lim{background:var(--surface);border-color:var(--line)}
+.custo{background:linear-gradient(135deg,#0b2d5c,#0a2145);border-color:rgba(127,220,255,.25)}
+.custo .n,.venc .v,.cartao-oferta .preco,.email td:last-child{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.04em}
+.custo .n{font-weight:700;color:#fff;text-shadow:0 0 28px rgba(95,212,255,.45)}
+.medidor i{background:linear-gradient(90deg,#3d8bff,var(--luz));box-shadow:0 0 14px rgba(95,212,255,.6)}
+.venc .dt b{font-family:var(--mono);font-weight:700}
+.chips button{background:var(--accent-soft);border-color:rgba(95,212,255,.45);color:var(--ink)}
+.mini{background:var(--sunk);color:var(--ink)}
+
+/* cartões: contorno fino que acende ao passar */
+.dor li,.grade div,.paraquem div,.casal-lista li,.plat,.faq details,.barra-app,.inst-topo,.notif,.email{
+  background:linear-gradient(180deg,rgba(255,255,255,.035),rgba(255,255,255,0) 60%),var(--surface);border-color:var(--line)}
+.dor li:hover,.grade div:hover{border-color:rgba(95,212,255,.6);box-shadow:0 0 0 1px rgba(95,212,255,.25),0 18px 44px rgba(0,0,0,.45)}
+.dor li .ic{color:var(--bad)}
+.inst-topo{background:radial-gradient(520px 300px at 0% 0%,rgba(60,140,255,.22),transparent 65%),var(--surface)}
+.passo{border-left-color:var(--line)}
+.passo.ativo{border-left-color:var(--accent);box-shadow:-10px 0 24px -14px rgba(95,212,255,.6)}
+.passo li::before,.uso-txt li::before{background:var(--accent);box-shadow:0 0 10px rgba(95,212,255,.7)}
+.pontos i.on,.pontos-cel i.on{box-shadow:0 0 10px rgba(95,212,255,.8)}
+.fone,.uso-video,.usar-lista .tela{border-color:var(--frame);box-shadow:0 0 0 1px rgba(127,220,255,.18),var(--shadow)}
+.como li::before,.usar-lista .n{box-shadow:0 0 0 6px var(--bg),0 0 18px rgba(95,212,255,.45)}
+.como::before{background:linear-gradient(90deg,var(--accent),var(--line))}
+.barra-app svg{stroke:var(--luz)}
+.barra-app li.meio i{background:var(--accent)} .barra-app li.meio svg{stroke:var(--accent-ink)}
+.plat ol li::before{color:var(--accent)}
+.faq details[open]{border-color:rgba(95,212,255,.6)}
+.larga{box-shadow:0 0 0 1px rgba(127,220,255,.16),var(--shadow);border-color:var(--line)}
+
+/* oferta */
+.oferta{background:radial-gradient(760px 420px at 90% 0%,rgba(60,140,255,.34),transparent 62%),linear-gradient(180deg,#07142a,#0a1d3b)}
+.cartao-oferta{border:1px solid rgba(127,220,255,.28);box-shadow:0 30px 80px rgba(0,0,0,.5),0 0 70px rgba(60,140,255,.2)}
+.cookies,.ver-mais{background:var(--surface)}
+a.lk-inst,.faq a,.plat a,footer a,.paraquem a,.casal-tx a:not(.btn),p a{color:var(--link)}
+.abre a:not(.btn),.oferta .txt a{color:inherit}
