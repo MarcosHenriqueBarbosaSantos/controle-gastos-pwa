@@ -2383,14 +2383,15 @@ function mostraContasSemCobrir() {
 function confirmaSemCobrir(r) {
   return new Promise((responde) => {
     let resp = "voltar";
-    openDlg(`<h3>Esse gasto deixa conta sem cobrir</h3>
-      <p class="hint" style="margin:0 0 10px;font-size:14px">Pelo que você já lançou, com este gasto o dinheiro do mês não chega para: <b>${listaDeContas(r.com)}</b>. Faltam ${brl(r.com.totalQueFalta)}.</p>
-      <p class="hint" style="margin:0 0 12px;font-size:14px">Se o gasto é necessário, lance e veja em <b>Pôr o mês em ordem</b> um jeito leve de fechar essa conta. Se dá para adiar, o mês agradece.</p>
-      <div class="actions"><button class="btn primary" type="button" id="scSim">Lançar mesmo assim</button><button class="btn" type="button" id="scNao">Voltar</button></div>`);
+    openDlg(`<h3>Cuidado: o dinheiro do mês não cobre tudo</h3>
+      <p class="hint" style="margin:0 0 8px;font-size:15px">Com este gasto, vão faltar <b>${brl(r.com.totalQueFalta)}</b> para pagar:</p>
+      <ul class="itens" style="margin:0 0 12px">${r.com.naoFecham.map((x) => `<li><span></span><span>${esc(x.titulo)}</span><b>${ddmm(x.data)}</b></li>`).join("")}</ul>
+      <p class="hint" style="margin:0 0 12px;font-size:15px">Se você quer cumprir suas metas, evite gastar assim agora. Se dá para adiar, adie. Se é necessário, lance e veja em <b>Pôr o mês em ordem</b> um jeito leve de fechar essa conta.</p>
+      <div class="actions"><button class="btn" type="button" id="scSim">Lançar mesmo assim</button><button class="btn primary" type="button" id="scNao">Voltar</button></div>`);
     $("scSim").onclick = () => { resp = "lancar"; $("dlg").close(); };
     $("scNao").onclick = () => { resp = "voltar"; $("dlg").close(); };
     $("dlg").addEventListener("close", () => responde(resp), { once: true });
-    $("scSim").focus();
+    $("scNao").focus();
   });
 }   // atualiza o valor de cada parcela e o total do prazo
 $("fRepete").addEventListener("change", renderForm);
