@@ -16,7 +16,7 @@ import { entendeFala } from "./voz.js";
 import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
-import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -4012,7 +4012,7 @@ function paneMot() {
   // Regra para decorar: com o outro app na tela não dá para abrir este e calcular no tempo da corrida.
   const r30 = resumoTurnos(m.turnos, toISO(new Date(Date.now() - 30 * 864e5)), hj, veicD), kmh = r30.ms >= 3600000 && r30.km > 0 ? r30.km / (r30.ms / 3600000) : 0;
   const regra = regraDeAceite({ custoKm: cvk, minimoHora: liqRef > 0 && m.horasDia > 0 ? round2(liqRef / m.horasDia) : 0, kmPorHora: kmh });
-  const htmlRegraDeAceite = regra ? `<div class="mot-regra" role="note"><small>Regra para decorar</small><p>Aceite se pagar <b>${brl(regra.aceita)} por km</b> ou mais. Abaixo de <b>${brl(regra.recusa)} por km</b>, recuse.</p><span>${regra.base === "meta" ? `Feita com a sua meta do dia e a sua média de ${virg(Math.round(kmh))} km por hora.` : "Feita só com o custo do seu carro por km. Com a meta e uns dias rodados, ela fica mais certa."} Conte o caminho até o passageiro nos km.</span></div>` : "";
+  const htmlRegraDeAceite = regra ? `<div class="mot-regra" role="note"><small>Regra para decorar</small><p>Aceite se pagar <b>${brl(regra.aceita)} por km</b> ou mais. Abaixo de <b>${brl(regra.recusa)} por km</b>, recuse.</p><span>${regra.base === "meta" ? `Feita com a sua meta do dia e a sua média de ${virg(Math.round(kmh))} km por hora.` : regra.base === "minimo" ? "Feita só com o mínimo de R$ 1,00 por km. Preencha o Meu carro ou moto e rode alguns dias para ela ficar mais certa." : "Feita só com o custo do seu carro por km. Com a meta e uns dias rodados, ela fica mais certa."} Conte o caminho até o passageiro nos km.</span></div>` : "";
   const ganhoHoje = round2(doDia.ganho + (m.ativo ? m.ativo.parcial : 0));   // inclui o turno que ainda está rolando
   const pctHoje = meta.brutoDia > 0 ? Math.min(100, Math.round((ganhoHoje / meta.brutoDia) * 100)) : 100;
   const de = motPer === "dia" ? hj : motPer === "semana" ? toISO(new Date(agora - 6 * 864e5)) : `${mes}-01`;
@@ -4041,7 +4041,6 @@ function paneMot() {
       <div class="mot-rapidos">
         <button class="mot-rap" type="button" data-mot-sub="ganho"><small>Ganho do dia</small><b>${a.parcial ? brl(a.parcial) : "Informar"}</b></button>
         <button class="mot-rap" type="button" data-mot-acao="lancar"><small>Gastos da jornada · lançar</small><b>${gastosTot ? brl(gastosTot) : "Lançar gasto"}</b></button>
-        <button class="mot-rap larga" type="button" data-mot-sub="vale"><b>Vale a pena essa corrida?</b></button>
         <button class="mot-rap larga" type="button" data-mot-acao="ler"><b>Escanear nota ou QR code</b></button>
       </div>
       <div class="mot-fim"><button class="btn mot-grande parar" type="button" id="motParar">Encerrar jornada</button>
@@ -4074,7 +4073,6 @@ function paneMot() {
   host.innerHTML = `<div id="motRoot"><p class="mot-sub">Seu painel de corrida: horas, ganho e quanto sobra de verdade.</p>
     ${turno}${metaHtml}
     ${htmlRegraDeAceite}
-    <button class="mot-rap larga" type="button" data-mot-sub="vale"><small>Antes de aceitar</small><b>Vale a pena essa corrida?</b></button>
     <button class="mot-rap larga" type="button" data-mot-sub="ajustes"><small>Minha meta</small><b>Ajustar dias, horas e quanto quero sobrar</b></button>
     <h4 class="mot-h">Seu resultado</h4>
     <div class="mot-per" role="group" aria-label="Período">${[["dia", "Hoje"], ["semana", "7 dias"], ["mes", nomeMes(mes)]].map(([k, n]) => `<button type="button" data-per="${k}" aria-pressed="${motPer === k}">${n}</button>`).join("")}</div>
@@ -4125,30 +4123,7 @@ function fecharTurno() {
 function paneMotSub(host) {
   const m = motDados(), volta = motSai;
   const topo = (t, intro) => `<div id="motRoot"><button class="mot-voltar" type="button" id="motVolta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Voltar</button><h3 class="mot-h" style="margin:6px 0 4px">${t}</h3><p class="hint" style="margin:0 0 14px">${intro}</p>`;
-  if (motSub === "vale") {
-    const hj = hoje(), c = calcMes(S.data, mKey(hj), hj), veicD = S.prefs.veiculo || {}, cvk = custoVariavelPorKm(veicD) || 0;
-    const caixaHoje = round2(m.turnos.filter((t) => t.fim && isoLocal(t.ini) === hj).reduce((s2, t) => s2 + ganhoDoTurno(t) - (Number(t.comb) || 0), 0));
-    const meta = metaDoDia({ saldoSemHoje: round2(c.saldo - caixaHoje), extra: m.extra, restam: c.n - c.dias + 1, diasSemana: m.diasSemana, kmDia: kmPorDia(m.turnos, veicD, m.diasSemana), custoKm: cvk });
-    const alc = alcanceDaMeta({ meta, hist: ritmoHistorico(m.turnos, hj), custoDia: meta.custoDia });
-    const liqRef = alc.nivel === "fora" && alc.liquidoMedioDia > 0 ? alc.liquidoMedioDia : meta.liquidoDia, normal = alc.nivel === "fora" && alc.liquidoMedioDia > 0;
-    const minimoHora = liqRef > 0 && m.horasDia > 0 ? round2(liqRef / m.horasDia) : 0;
-    host.innerHTML = topo("Vale a pena essa corrida?", "Digite o que o app mostra. Conte o caminho até o passageiro nos km. Quem aceita ou recusa é sempre você.") +
-      `<form id="mvForm" class="dlg-form" autocomplete="off" onsubmit="return false"><label class="f">Valor da corrida (R$)<input class="in money" id="mvVal" inputmode="decimal" placeholder="0,00"></label>
-      <label class="f">Km no total (busca + corrida)<input class="in" id="mvKm" inputmode="decimal" placeholder="ex.: 8,5"></label>
-      <label class="f wide">Minutos no total<input class="in" id="mvMin" inputmode="numeric" placeholder="ex.: 22"></label></form>
-      <div id="mvRes" class="mot-vale" aria-live="polite"></div>
-      <p class="hint" style="margin:10px 0 0">${cvk > 0 ? `Desconta ${brl(cvk)} por km rodado (combustível, manutenção e pneus do seu <b>Meu carro ou moto</b>).` : `Para descontar o gasto do carro, preencha o <b>Meu carro ou moto</b> com os km por mês.`}${minimoHora > 0 ? ` Compara com os ${brl(minimoHora)} líquidos por hora ${normal ? "do seu ritmo normal (a meta do mês pede mais do que você costuma fazer)" : "que a sua meta do dia pede"}.` : ""}</p></div>`;
-    const calc = () => {
-      const r = valeAPena({ valor: nm($("mvVal").value), km: nm($("mvKm").value), min: nm($("mvMin").value), custoKm: cvk, minimoHora }), box = $("mvRes");
-      if (!r) { box.className = "mot-vale"; box.innerHTML = `<p class="hint" style="margin:0">Preencha o valor e os km para ver a conta.</p>`; return; }
-      const T = { boa: ["Boa corrida", "✓"], media: ["Corrida média", "●"], ruim: ["Corrida ruim", "▲"], "sem-base": ["Veja os números", "●"] }[r.nivel];
-      box.className = `mot-vale ${r.nivel}`;
-      box.innerHTML = `<b class="mot-vale-t"><span aria-hidden="true">${T[1]}</span> ${T[0]}</b>
-        <div class="mot-vale-g"><span><small>Por km</small><b>${brl(r.porKm)}</b></span><span><small>Sobra</small><b>${brl(r.liquido)}</b></span><span><small>Sobra por hora</small><b>${r.liquidoPorHora === null ? "—" : brl(r.liquidoPorHora)}</b></span></div>
-        <p>${r.nivel === "ruim" && r.liquido <= 0 ? "Não cobre nem o que o carro gasta nesse trajeto." : r.nivel === "ruim" ? "Rende menos do que você precisa por hora." : r.nivel === "boa" ? "Rende acima do que você precisa por hora." : r.nivel === "media" ? "Está perto do que você precisa por hora." : "Sem meta ou custo do carro, só dá para mostrar os números."}</p>`;
-    };
-    ["mvVal", "mvKm", "mvMin"].forEach((id) => $(id).addEventListener("input", calc)); calc(); $("mvVal").focus();
-  } else if (motSub === "ajustes" || !m.ativo) {
+  if (motSub === "ajustes" || !m.ativo) {
     host.innerHTML = topo("Minha meta", "O app usa isso para dizer quanto você precisa rodar por dia e quanto precisa render por hora.") +
       `<form id="motAjForm" class="dlg-form" autocomplete="off"><label class="f">Dias rodando por semana<select class="in" id="motDias">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option${n === m.diasSemana ? " selected" : ""}>${n}</option>`).join("")}</select></label>
       <label class="f">Horas por dia<select class="in" id="motHoras">${[4, 5, 6, 7, 8, 9, 10, 11, 12, 14].map((n) => `<option${n === m.horasDia ? " selected" : ""}>${n}</option>`).join("")}</select></label>

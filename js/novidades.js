@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "143", itens: ["Modo motorista: tirei o \"Vale a pena essa corrida?\", que pedia digitar no meio da viagem. Ficou só a \"Regra para decorar\", que agora nunca fica abaixo de R$ 1,00 por km: ganhar menos que isso não compensa."] },
   { versao: "142", itens: ["No Modo motorista, \"Faturamento\" passou a se chamar \"Ganho\", como no resto do app, e o aviso da demonstração cabe numa linha só no celular. Por trás, o app agora avisa a equipe quando algo quebra, sem mandar nenhum dado seu."] },
   { versao: "141", itens: ["Lista de mercado: o app lembra a categoria que você deu a cada item (ex.: areia do gato em Animais) e já sugere nas próximas listas. No celular, deslize o item para a direita para colocá-lo no carrinho."] },
   { versao: "140", itens: ["Lista de mercado: o app avisa quando o item já está na lista, em vez de anotar de novo. Cada item sugere a categoria pelo nome (ex.: areia do gato) e você pode escolher \"+ Nova categoria…\" e escrever a sua. E ao lado do preço há um botão de câmera: fotografe a etiqueta ou o cupom e o app lê o valor para você conferir."] },

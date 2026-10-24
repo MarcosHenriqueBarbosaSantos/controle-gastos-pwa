@@ -125,11 +125,16 @@ export function valeAPena({ valor, km, min, custoKm = 0, minimoHora = 0 }) {
  * (boa a 115% do que precisa, ruim abaixo de 85%). `kmPorHora` é a média real do motorista (km rodados / horas); sem ela,
  * a regra olha só o custo do carro por km. Devolve null se não há base nenhuma.
  */
+/** Ganhar menos que isto por km não compensa: a regra nunca manda aceitar nem recusar abaixo dele. */
+export const PISO_POR_KM = 1;
 export function regraDeAceite({ custoKm = 0, minimoHora = 0, kmPorHora = 0 }) {
   custoKm = Number(custoKm) || 0; minimoHora = Number(minimoHora) || 0; kmPorHora = Number(kmPorHora) || 0;
-  if (minimoHora > 0 && kmPorHora >= 5) { const preciso = custoKm + minimoHora / kmPorHora; return { aceita: r2(preciso * 1.15), recusa: r2(preciso * 0.85), base: "meta" }; }
-  if (custoKm > 0) return { aceita: r2(custoKm * 2), recusa: r2(custoKm * 1.3), base: "carro" };
-  return null;
+  let r;
+  if (minimoHora > 0 && kmPorHora >= 5) { const preciso = custoKm + minimoHora / kmPorHora; r = { aceita: r2(preciso * 1.15), recusa: r2(preciso * 0.85), base: "meta" }; }
+  else if (custoKm > 0) r = { aceita: r2(custoKm * 2), recusa: r2(custoKm * 1.3), base: "carro" };
+  else r = { aceita: r2(PISO_POR_KM * 1.3), recusa: PISO_POR_KM, base: "minimo" };
+  if (r.recusa < PISO_POR_KM) { r.recusa = PISO_POR_KM; r.aceita = Math.max(r.aceita, r2(PISO_POR_KM * 1.3)); }
+  return r;
 }
 
 /**

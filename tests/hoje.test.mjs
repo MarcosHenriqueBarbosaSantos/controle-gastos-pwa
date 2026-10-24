@@ -74,8 +74,9 @@ test("regraDeAceite: valor mínimo por km para decorar", () => {
   assert.equal(r.aceita, 1.96); assert.equal(r.recusa, 1.45); assert.equal(r.base, "meta");
   // sem média de km por hora, só o custo do carro
   const c = regraDeAceite({ custoKm: 0.5, minimoHora: 30, kmPorHora: 0 });
-  assert.equal(c.aceita, 1); assert.equal(c.recusa, 0.65); assert.equal(c.base, "carro");
-  assert.equal(regraDeAceite({}), null);
+  assert.equal(c.aceita, 1.3); assert.equal(c.recusa, 1); assert.equal(c.base, "carro", "o piso de R$ 1 por km sobe a recusa");
+  const d = regraDeAceite({ custoKm: 1.2 }); assert.equal(d.aceita, 2.4); assert.equal(d.recusa, 1.56);
+  const p = regraDeAceite({}); assert.equal(p.recusa, 1); assert.equal(p.aceita, 1.3); assert.equal(p.base, "minimo");
 });
 
 test("valorDaHora e horasDeTrabalho: informado, turnos, sem dados e formatos", async () => {
