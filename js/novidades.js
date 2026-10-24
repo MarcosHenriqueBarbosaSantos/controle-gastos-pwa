@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "139", itens: ["Novo: \"Ganho contra gasto\" (em Análise do seu dinheiro). Mostra no mês as horas trabalhadas, quanto você ganhou, quanto gastou, quanto sobrou e em que dia o que entrou já cobria todo o gasto. São só contas com o que você já lançou."] },
   { versao: "138", itens: ["Valor digitado com letras ou em formato estranho (como 1e3 ou 0x10) agora é recusado em vez de virar um número. No cadastro, o link para assinar ficou mais claro."] },
   { versao: "137", itens: ["Na lista de lançamentos do celular, o total gasto de cada dia mostra também quanto tempo de trabalho ele custou (ex.: − R$ 120,00 · 3h20 de trabalho)."] },
   { versao: "136", itens: ["Teste grátis de 7 dias: quem cria a conta usa o app completo por 7 dias, sem cartão. O app avisa quantos dias faltam, e depois dos 7 dias os seus dados continuam guardados até você assinar."] },

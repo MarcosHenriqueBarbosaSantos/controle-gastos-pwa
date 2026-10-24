@@ -14,6 +14,7 @@ import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefo
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas, contasQueSeRepetem, proximasRepetidas } from "./arrumar.js";
 import { entendeFala } from "./voz.js";
 import { NOVIDADES } from "./novidades.js";
+import { ganhoContraGasto } from "./ganhogasto.js";
 import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
@@ -2571,6 +2572,7 @@ const GRUPOS_FERR = [
     { id: "dica", k: "habito economia ideia", ico: "luz", t: "Dica do dia", s: "Um hábito pequeno por dia para guardar dinheiro" }] },
   { titulo: "Entender e comemorar", itens: [
     { id: "graficos", k: "graficos grafico analise mes custo categoria sobra evolucao ultimos meses", ico: "grafico", t: "Gráficos do mês", s: "Sobra, custo acumulado, categorias e últimos meses" },
+    { id: "ganhogasto", k: "ganho contra gasto horas trabalhadas quanto sobrou quanto trabalhei sobra mes quitado", ico: "grafico", t: "Ganho contra gasto", s: "Horas trabalhadas, ganho, gasto e quanto sobrou no mês" },
     { id: "pof", k: "para onde foi dinheiro gastei categoria mes anterior onde errei melhorar compara", ico: "grafico", t: "Para onde foi o dinheiro", s: "Quanto gastou, o que mudou desde o mês passado e o que fazer" },
     { id: "desemp", k: "comparar evolucao", ico: "rumo", t: "Meu desempenho", s: "O seu mês em frases, comparado com os outros" },
     { id: "ano", k: "anual relatorio ano", ico: "grafico", t: "Resumo do ano", s: "Mês a mês, melhor e pior mês e para onde foi o dinheiro" },
@@ -2589,7 +2591,7 @@ const HUBS = {
   conferir: { ico: "lupa", t: "Conferir meus lançamentos", s: "Tirar o que está repetido e dar categoria ao que ficou em \"Outros\"", k: "arrumar limpar corrigir revisar conferir repetido duplicado outros categoria transferencia",
     intro: "Deixe os lançamentos certos para os números do app baterem com a sua vida.", itens: ["arrumar", "revisar"] },
   analise: { ico: "rumo", t: "Análise do seu dinheiro", s: "Para onde foi, como você está indo, o ano e as assinaturas", k: "analise relatorio comparar evolucao ano assinaturas conquistas onde gastei",
-    intro: "Escolha o que você quer entender.", itens: ["graficos", "pof", "desemp", "ano", "assin", "conq"] },
+    intro: "Escolha o que você quer entender.", itens: ["graficos", "pof", "ganhogasto", "desemp", "ano", "assin", "conq"] },
   baixar: { ico: "baixar", t: "Baixar e guardar", s: "Relatório em Excel, PDF ou CSV e cópia de segurança", k: "excel pdf csv planilha exportar baixar backup restaurar seguranca",
     intro: "Leve os seus dados com você ou guarde uma cópia.", itens: ["btnExport", "copia"] },
 };
@@ -2685,7 +2687,7 @@ const DESTINOS = [
 function vaiPara(k) {
   if (HUBS[k]) return hubTela(k);
   if (k === "novidades") return novidadesTela();
-  const FER = { ordem: () => equilibrioTela(), graficos: () => (noCelular() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, hora: minhaHoraTela, casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  const FER = { ordem: () => equilibrioTela(), graficos: () => (noCelular() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, hora: minhaHoraTela, ganhogasto: () => ganhoGastoTela(S.mes), casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
   if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
 }
 /* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
@@ -3821,6 +3823,26 @@ function ferramentaDeConta({ titulo, intro, grupos, chave, semDinheiro = [], cal
   conta();
 }
 const barrasDe = (partes) => `<h4 class="sub-h">Para onde vai o dinheiro</h4><div class="ve-partes">${partes.map((p) => `<div class="ve-p"><span>${esc(p.nome)}</span><b>${brl(p.valor)}</b><i style="width:${Math.max(3, p.pct)}%"></i></div>`).join("")}</div>`;
+/** Ganho contra gasto do mês: o que entrou, o que saiu, as horas de trabalho e quanto sobrou. Só lê, não grava. */
+function ganhoGastoTela(mes) {
+  if (!S.loaded) return;
+  const hj = hoje(), c = calcMes(S.data, mes, hj), m = motDados();
+  const entradas = [...c.fr.map((f) => ({ data: f.data, valor: f.valor })), ...c.it.filter((x) => x.tipo === "Receita").map((x) => ({ data: x.data, valor: x.valor }))];
+  const custos = itensDoCusto(c).map((i) => ({ data: i.data, valor: i.valor }));
+  const horasTurnos = m.turnos.filter((t) => t.fim && mKey(isoLocal(t.ini)) === mes).reduce((s, t) => s + duracaoMs(t), 0) / 36e5;
+  const r = ganhoContraGasto({ entradas, custos, horasTurnos, horasSemana: Number(S.prefs.hora?.horasSemana) || 0, mes, hojeISO: hj });
+  const nome = nomeMes(mes);
+  if (!r) return openDlg(`<h3>Ganho contra gasto</h3><p class="hint">Em ${nome} ainda não há entradas nem gastos. Quando houver, o app mostra aqui quanto você ganhou, quanto gastou e quanto sobrou.</p><div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  const frase = `Em ${nome} ${r.horas ? `você trabalhou <b>${horasCurtas(r.horas * 36e5)}</b>, ` : ""}ganhou <b>${brl(r.ganho)}</b> e gastou <b>${brl(r.gasto)}</b>. ${r.sobra >= 0 ? `Sobraram <b>${brl(r.sobra)}</b>.` : `Faltaram <b>${brl(-r.sobra)}</b>.`}`;
+  const quitado = r.diaQuitado ? `Dia ${Number(r.diaQuitado.slice(8, 10))}${r.previsto ? " (previsto)" : ""}: a partir daí, o que entrou já cobria todo o gasto do mês.` : (r.gasto > 0 && r.ganho > 0 ? "O que entrou ainda não cobriu todo o gasto do mês." : "");
+  const li = (t, v) => `<li><span></span><span>${t}</span><b>${v}</b></li>`;
+  openDlg(`<h3>Ganho contra gasto</h3><p class="rc-vazio" style="margin:0 0 12px">${frase}</p>
+    <ul class="itens">${r.horas ? li(r.origemHoras === "turnos" ? "Horas trabalhadas (turnos)" : "Horas trabalhadas (estimadas)", horasCurtas(r.horas * 36e5)) : ""}${li("Ganho", "+ " + brl(r.ganho))}${li("Gasto", "− " + brl(r.gasto))}${li(r.sobra >= 0 ? "Sobra" : "Falta", sgn(r.sobra))}</ul>
+    ${r.horasDoGasto != null ? `<p class="hint">O gasto do mês custou ${horasCurtas(r.horasDoGasto * 36e5)} de trabalho${r.horasDaSobra != null ? `; a sobra equivale a ${horasCurtas(r.horasDaSobra * 36e5)}` : ""}. Sua hora rendeu ${brl(r.valorHora)} em ${nome}.</p>` : `<p class="hint">Para ver tudo em horas de trabalho, use o Modo motorista ou informe as horas por semana em "Quanto vale minha hora".</p>`}
+    ${quitado ? `<p class="hint">${quitado}</p>` : ""}
+    <p class="hint">São só contas com o que você já lançou. Não é promessa de renda.</p>
+    <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+}
 function minhaHoraTela() {
   const r30 = () => { const m = motDados(); return m.turnos.length ? resumoTurnos(m.turnos, toISO(new Date(Date.now() - 30 * 864e5)), hoje(), S.prefs.veiculo || {}) : null; };
   ferramentaDeConta({ titulo: "Quanto vale minha hora", chave: "hora", semDinheiro: ["horasSemana"],
