@@ -1820,3 +1820,4 @@ tr.toca-linha{cursor:pointer} tr.toca-linha:hover td{background:var(--sunk)}
 .mot-regra span{font-size:12.5px;color:var(--ink-2)}
 .horas-dia{font-weight:400;color:var(--muted);font-size:12px}
 .ml-preco{max-width:230px}.ml-foto{flex:none;display:grid;place-items:center;width:32px;height:32px;margin-right:-6px;border:0;border-radius:50%;background:var(--surface);color:var(--ink-2);cursor:pointer}.ml-foto .ic{width:18px;height:18px}
+.venc-tit{background:none;border:0;padding:0;margin:0;font:inherit;color:inherit;text-align:left;cursor:pointer;display:block;min-width:0;max-width:100%;overflow:hidden}.venc-tit:focus-visible{outline:2px solid var(--brand);outline-offset:2px;border-radius:4px}

@@ -1629,16 +1629,16 @@ function renderVenc() {
     ? [atras.length ? `<b class="txt-bad">${atras.length} ${atras.length === 1 ? "atrasada" : "atrasadas"}: ${soma(atras)}</b>` : "", em7.length ? `${em7.length} ${em7.length === 1 ? "vence" : "vencem"} em 7 dias: <b>${soma(em7)}</b>` : ""].filter(Boolean).join(" · ")
     : `${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`;
   host.innerHTML = cab(resumo) +
-    `<ul class="venc">${alerta}${vis.map((x, i) => `<li class="toca" role="button" tabindex="0" data-vd="${i}" data-u="${cls(x.dias)}" aria-label="${esc(x.titulo)}: ver detalhes">
+    `<ul class="venc">${alerta}${vis.map((x, i) => `<li class="toca" data-vd="${i}" data-u="${cls(x.dias)}">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
-      <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<b>${esc(x.titulo)}</b><span>${x.semValor ? "Fatura de cartão · falta informar o valor" : x.tipo === "repetida" ? "Parece se repetir todo mês" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa"}</span></span>
+      <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<button type="button" class="venc-tit" data-vda="${i}" aria-label="${esc(x.titulo)}: ver detalhes"><b>${esc(x.titulo)}</b></button><span>${x.semValor ? "Fatura de cartão · falta informar o valor" : x.tipo === "repetida" ? "Parece se repetir todo mês" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa"}</span></span>
       <span class="quando ${cls(x.dias)}">${quandoVence(x.dias)}</span>
       <span class="valor">${x.semValor ? "?" : x.tipo === "repetida" ? "~ " + brl(x.valor) : brl(x.valor)}</span>
       ${x.semValor ? `<button class="btn sm" type="button" data-iv="${i}">Informar valor</button>` : x.tipo === "repetida" ? `<button class="btn sm" type="button" data-vf="${i}">Virar conta fixa</button>` : `<button class="btn sm" type="button" data-pg="${i}">Já paguei</button>`}</li>`).join("")}${combHtml}
       ${l.length > MAX ? `<li class="vazio"><button class="link" type="button" id="vencMais">${S.vencTodas ? "Mostrar só as próximas" : `Ver todas as ${l.length} contas`}</button></li>` : ""}</ul>`;
   host.querySelectorAll("[data-vd]").forEach((li) => {
-    const abre = (e) => { if (e.target.closest("button")) return; detalheVencimento(vis[Number(li.dataset.vd)]); };
-    li.onclick = abre; li.onkeydown = (e) => { if ((e.key === "Enter" || e.key === " ") && e.target === li) { e.preventDefault(); detalheVencimento(vis[Number(li.dataset.vd)]); } };
+    // A linha toda abre o detalhe no toque; para teclado e leitor de tela, o nome da conta é o botão.
+    li.onclick = (e) => { const b = e.target.closest("button"); if (b && !b.classList.contains("venc-tit")) return; detalheVencimento(vis[Number(li.dataset.vd)]); };
   });
   host.querySelectorAll("[data-pg]").forEach((b) => (b.onclick = () => { b.disabled = true; pagarConta(vis[Number(b.dataset.pg)]); }));
   host.querySelectorAll("[data-iv]").forEach((b) => (b.onclick = () => { const x = vis[Number(b.dataset.iv)]; editarFatura({ ...x, vencimento: x.data, itens: [], calculado: 0, valor: 0, valor_fixo: false, status: "Aberta" }); }));
@@ -3618,7 +3618,7 @@ function htmlCartoesIni() {
   const fats = new Map(faturasDoMes(S.data, S.mes).filter((f) => f.cartao_id).map((f) => [f.cartao_id, f]));
   return `<section class="cart-ini" aria-label="Seus cartões"><ul class="cart-lista">${ks.map((k) => {
     const f = fats.get(k.id), n = diasParaFechar(k), quando = n === 0 ? "fecha hoje" : n === 1 ? "fecha amanhã" : `fecha em ${n} dias`;
-    return `<li><button type="button" class="cart-card" data-cartao-ini="${esc(k.id)}" aria-label="${esc(k.nome)}: fatura de ${esc(nomeMes(S.mes))} ${brl(f ? f.valor : 0)}, ${quando}. Abrir cartões">
+    return `<li><button type="button" class="cart-card" data-cartao-ini="${esc(k.id)}">
       <span class="cart-nome">${ava("", "Cartao")}${esc(k.nome)}</span><b class="ocultavel">${brl(f ? f.valor : 0)}</b><small>Fatura de ${esc(nomeMes(S.mes))} · ${quando}</small></button></li>`;
   }).join("")}</ul></section>`;
 }
