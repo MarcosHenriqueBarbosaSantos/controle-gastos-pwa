@@ -458,6 +458,10 @@ footer button.lk-cookies{border:0;background:none;padding:0;color:inherit;text-d
   .venc .dir{grid-column:2;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 }
 picture{display:contents}
+/* No celular a página fica curta: listas longas mostram os primeiros itens e um botão para ver o resto; "Seus primeiros 5 minutos" repete "O seu dia" e fica só no computador. */
+.fica-oculto{display:none!important}
+.ver-mais{display:block;margin:18px auto 0;min-height:44px;padding:10px 22px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
+@media (max-width:700px){.so-largo{display:none} #recursos~section .larga{display:none} .usar .barra-app{display:none}}
 </style>
 </head>
 <body>
@@ -730,7 +734,7 @@ picture{display:contents}
 <section><div class="col">
   <span class="rot">E também</span>
   <h2 class="sobe" style="margin-top:10px">O resto do que você precisa para acompanhar o mês.</h2>
-  <div class="grade">
+  <div class="grade" data-recolhe="6" data-mais="Ver mais {n} recursos">
     <div class="sobe"><h3>Caixinhas à parte</h3><p>Reserva de emergência, investimentos e outros destinos ficam em um quadro separado do saldo, cada um com a sua meta.</p></div>
     <div class="sobe d1"><h3>Saldo que passa de mês</h3><p>O que sobrou ou faltou segue para o mês seguinte, partindo do valor que você já tinha.</p></div>
     <div class="sobe d2"><h3>Relatório de gastos</h3><p>Baixe uma planilha do Excel com os lançamentos, os fixos, as faturas e o resumo de cada mês do ano.</p></div>
@@ -753,7 +757,7 @@ picture{display:contents}
   <div class="larga sobe"><picture><source srcset="img/tela-computador.webp" type="image/webp"><img src="img/tela-computador.png" alt="O app no computador: R$ 810,60 livres para gastar em outubro, os botões rápidos e o resumo do mês" loading="lazy" width="1600" height="825"></picture></div>
 </div></section>
 
-<section id="como" style="padding-top:20px"><div class="col">
+<section id="como" class="so-largo" style="padding-top:20px"><div class="col">
   <span class="rot">Como funciona</span>
   <h2 class="sobe" style="margin-top:10px">Seus primeiros 5 minutos.</h2>
   <p class="sobe" style="color:var(--ink-2);margin-top:12px">O que você faz logo depois de instalar. No fim, o app já mostra o seu mês.</p>
@@ -847,7 +851,7 @@ picture{display:contents}
     <p class="sobe">O Meus Gastos é um caderno inteligente: ele só sabe o que você anota ou importa. Não se conecta ao seu banco e não pede a senha dele. Dá para conferir tudo na política de privacidade, escrita em português claro.</p>
     <a class="btn pri sobe" href="privacidade.html">Ler a política de privacidade</a>
   </div>
-  <ul class="casal-lista">
+  <ul class="casal-lista" data-recolhe="3" data-mais="Ver mais {n} garantias">
     <li class="sobe"><b>Sem senha de banco</b><span>Você importa o extrato em arquivo ou lê o comprovante. O app não se conecta a banco nenhum.</span></li>
     <li class="sobe d1"><b>Dados não são vendidos</b><span>Sem anúncios e sem uso para marketing. Só você vê os seus registros, a não ser que convide alguém para a conta de casal.</span></li>
     <li class="sobe d1"><b>Cada conta só abre a sua</b><span>A senha é guardada embaralhada, nem nós conseguimos ler. A regra de quem acessa o quê é aplicada no banco de dados, e não só na tela.</span></li>
@@ -878,7 +882,8 @@ picture{display:contents}
 <section id="perguntas"><div class="col">
   <span class="rot">Perguntas frequentes</span>
   <h2 class="sobe" style="margin-top:10px">Antes de começar.</h2>
-  <div class="faq">
+  <div class="faq" data-recolhe="7" data-mais="Ver mais {n} perguntas">
+    <details data-venda hidden><summary>Como funciona o teste grátis?</summary><p>Você cria a conta com e-mail e senha e usa tudo por 7 dias, sem cartão. O app mostra quantos dias faltam. Depois, para continuar lançando, é só assinar o plano anual; os seus dados ficam guardados mesmo se você não assinar.</p></details>
     <details data-venda hidden><summary>Quanto custa?</summary><p><b data-preco></b>. É um plano anual: você paga uma vez por ano, pela Hotmart, no cartão, Pix ou boleto. A demonstração é grátis e não pede cadastro.</p></details>
     <details data-venda hidden><summary>Posso parcelar?</summary><p>No cartão de crédito, sim. As opções de parcelas aparecem na página de pagamento, antes de você confirmar. No Pix e no boleto o pagamento é à vista.</p></details>
     <details data-venda hidden><summary>Como recebo o acesso depois de comprar?</summary><p>O acesso é liberado para o e-mail usado na compra, em geral em menos de um minuto depois do pagamento aprovado. Abra o app, crie a sua conta com esse mesmo e-mail e pronto. No boleto, a liberação pode levar até 3 dias úteis.</p></details>
@@ -1116,6 +1121,15 @@ function pintaInstalar() {
     : so === "android" ? "Se o botão de instalar não aparecer aqui, siga os passos abaixo."
     : "Aponte a câmera do celular para o código ao lado. Para instalar neste computador, veja os passos abaixo.";
 }
+// Listas longas no celular: mostra os primeiros itens e um botão "Ver mais".
+if (matchMedia("(max-width:700px)").matches) qa("[data-recolhe]").forEach((box) => {
+  const n = Number(box.dataset.recolhe) || 6, itens = [...box.children].filter((e) => !e.hidden), resto = itens.slice(n);
+  if (!resto.length) return;
+  resto.forEach((e) => e.classList.add("fica-oculto"));
+  const bt = document.createElement("button"); bt.type = "button"; bt.className = "ver-mais"; bt.textContent = box.dataset.mais.replace("{n}", resto.length);
+  bt.onclick = () => { resto.forEach((e) => e.classList.remove("fica-oculto")); bt.remove(); resto[0].querySelector("summary, h3")?.focus?.(); };
+  box.after(bt);
+});
 qa("#plats .plat").forEach((p) => { const aqui = p.dataset.so === so; p.classList.toggle("aqui-so", aqui); if (!aqui && matchMedia("(max-width:900px)").matches) p.open = false; });
 if (so === "xiaomi") { const px = q("#plat-xiaomi"); px.open = true; px.style.order = "-1"; q("#instChrome").hidden = false; }
 // "Abrir no Chrome" e "Copiar o endereço" (passo 1 do Xiaomi). Fora do Android, o link do Chrome não serve: vira o endereço normal.
