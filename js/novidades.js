@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "156", itens: ["Modo motorista, jornada em andamento: o líquido por hora virou o destaque no topo, e Pausar e Encerrar jornada ficam fixos embaixo da tela, fáceis de tocar com o carro parado. O botão redondo grande saiu para dar espaço."] },
   { versao: "155", itens: ["Início com cara de painel: o topo ganhou grade fina, brilho no canto e o saldo em fonte técnica, nos temas claro e escuro. Novo bloco \"Esta semana\", uma linha do tempo com seus últimos lançamentos; toque em um para abrir."] },
   { versao: "154", itens: ["Transições: as telas entram com um deslize curto e suave, os grupos do menu Mais aparecem em sequência, os botões respondem ao toque e as barras do gráfico crescem. Quem desliga as animações no celular (Acessibilidade) continua sem movimento nenhum."] },
   { versao: "153", itens: ["Modo motorista: novo gráfico \"Ganho dos últimos 7 dias\", com uma barra por dia: a parte clara é o ganho e a parte cheia é o que sobrou depois dos gastos. Dá para ver de relance quais dias valeram a pena."] },

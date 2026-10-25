@@ -4050,7 +4050,6 @@ function paneMot() {
     const a = m.ativo, pausada = Boolean(a.pausaIni), gastosTot = gastosDaJornada(a);
     host.innerHTML = `<div id="motRoot" class="mot-jornada${pausada ? " em-pausa" : ""}">
       <h3 class="mot-estado">${pausada ? "Jornada pausada" : "Em jornada"}</h3>
-      <button class="mot-bola" type="button" id="motPausa" aria-label="${pausada ? "Continuar a jornada" : "Pausar a jornada"}">${pausada ? "Continuar" : "Pausar"}</button>
       <b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b><span class="mot-cron-leg">Tempo decorrido de trabalho · começou às ${hhmm(a.ini)}</span>
       <div id="motVivo" class="mot-vivo-box">${vivo()}</div>
       <div class="mot-rapidos">
@@ -4058,8 +4057,10 @@ function paneMot() {
         <button class="mot-rap" type="button" data-mot-acao="lancar"><small>Gastos da jornada · lançar</small><b>${gastosTot ? brl(gastosTot) : "Lançar gasto"}</b></button>
         <button class="mot-rap larga" type="button" data-mot-acao="ler"><b>Escanear nota ou QR code</b></button>
       </div>
-      <div class="mot-fim"><button class="btn mot-grande parar" type="button" id="motParar">Encerrar jornada</button>
-      <button class="link" type="button" id="motDescartar">Descartar esta jornada</button></div></div>`;
+      <div class="mot-fim"><button class="link" type="button" id="motDescartar">Descartar esta jornada</button></div>
+      <div class="mot-barra-fixa" role="group" aria-label="Controle da jornada">
+        <button class="btn mot-pausa" type="button" id="motPausa" aria-label="${pausada ? "Continuar a jornada" : "Pausar a jornada"}">${pausada ? "Continuar" : "Pausar"}</button>
+        <button class="btn mot-grande parar" type="button" id="motParar">Encerrar jornada</button></div></div>`;
     host.querySelectorAll("[data-mot-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.motAcao)));
     host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
     $("motPausa").onclick = () => {

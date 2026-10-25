@@ -1890,3 +1890,14 @@ dialog{overscroll-behavior:contain}
 .hero.banco .estado b{border:1px solid rgba(255,255,255,.22)}
 :root[data-tema="claro"] .acoes-rap,:root[data-tema="claro"] .tl-item:hover{box-shadow:0 10px 30px rgba(11,37,69,.12)}
 .acoes-rap button .forte{box-shadow:0 0 0 1px rgba(95,212,255,.5),0 8px 22px rgba(58,167,240,.35)}
+
+/* Jornada do motorista: o líquido por hora é o destaque, e Pausar e Encerrar ficam fixos embaixo, ao alcance do polegar. */
+.mot-jornada{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
+.mot-jornada .mot-vivo .forte{order:-1;padding:16px 14px;border-radius:18px;background:var(--hero);box-shadow:0 12px 34px rgba(30,100,255,.28)}
+.mot-jornada .mot-vivo .forte small{font-size:13px}
+.mot-jornada .mot-vivo .forte b{font-size:40px;font-family:var(--mono);letter-spacing:-.04em;line-height:1.05}
+.mot-jornada .mot-cron{font-size:34px}
+.mot-barra-fixa{position:fixed;left:0;right:0;bottom:0;z-index:45;display:grid;grid-template-columns:1fr 1.4fr;gap:10px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--border)}
+.mot-barra-fixa .btn{min-height:56px;margin:0;font-size:18px;font-weight:700;border-radius:16px;justify-content:center;width:100%}
+.mot-pausa{background:var(--series);border-color:transparent;color:#04121f}
+.em-pausa .mot-pausa{box-shadow:0 0 0 3px var(--series-soft)}
