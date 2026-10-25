@@ -92,3 +92,14 @@ test("valorDaHora e horasDeTrabalho: informado, turnos, sem dados e formatos", a
   assert.equal(horasDeTrabalho(100, 0), null);
   assert.equal(horasDeTrabalho(0, 20), null);
 });
+
+test("ganhosPorDia: sete dias em ordem, com zero no dia sem turno", async () => {
+  const { ganhosPorDia } = await import("../js/motorista.js");
+  const t = (dia, h, uber, comb = 0) => { const ini = new Date(2026, 9, dia, h).getTime(); return { ini, fim: ini + 3600000, apps: { uber }, comb }; };
+  const l = ganhosPorDia([t(20, 8, 150, 40), t(22, 9, 200), t(22, 15, 50)], "2026-10-24", {});
+  assert.equal(l.length, 7);
+  assert.equal(l[0].iso, "2026-10-18"); assert.equal(l[6].iso, "2026-10-24");
+  assert.deepEqual(l.find((x) => x.iso === "2026-10-20"), { iso: "2026-10-20", ganho: 150, lucro: 110, n: 1 });
+  assert.equal(l.find((x) => x.iso === "2026-10-22").ganho, 250);
+  assert.equal(l.find((x) => x.iso === "2026-10-21").ganho, 0);
+});

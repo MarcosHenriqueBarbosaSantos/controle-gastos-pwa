@@ -160,6 +160,13 @@ export function horasDeTrabalho(valor, vh) {
 }
 
 /** Quanto cada aplicativo rendeu no período, do maior para o menor, com a parte de cada um no total. */
+/** Os últimos `n` dias até `ate` ("AAAA-MM-DD"), do mais antigo ao mais novo: ganho e lucro de cada dia (zero no dia sem turno). */
+export function ganhosPorDia(turnos, ate, veic, n = 7) {
+  const [a, m, d] = ate.split("-").map(Number), dias = [];
+  for (let i = n - 1; i >= 0; i--) { const dt = new Date(a, m - 1, d - i); dias.push(isoLocal(dt.getTime())); }
+  return dias.map((iso) => { const r = resumoTurnos(turnos, iso, iso, veic); return { iso, ganho: r.ganho, lucro: r.lucro, n: r.n }; });
+}
+
 export function ganhoPorApp(turnos, de, ate) {
   const por = {};
   (turnos || []).filter((t) => t.fim && isoLocal(t.ini) >= de && isoLocal(t.ini) <= ate).forEach((t) => { for (const [k, v] of Object.entries(t.apps || {})) if (Number(v) > 0) por[k] = r2((por[k] || 0) + Number(v)); });

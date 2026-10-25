@@ -16,7 +16,7 @@ import { entendeFala } from "./voz.js";
 import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
-import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -4069,6 +4069,14 @@ function paneMot() {
         ${blocoRealidade(alc, ritmo, meta)}
         <div class="tbar"><i style="width:${pctHoje}%"></i></div><small>Hoje: ${brl(ganhoHoje)} de ${brl(meta.brutoDia)} (${pctHoje}%)</small></section>`;
   const tile = (rot, v, cls = "") => `<div class="mot-t ${cls}"><small>${rot}</small><b>${v}</b></div>`;
+  // Ganho dos últimos 7 dias em barras: a parte cheia é o lucro, para ver de relance os dias que valeram a pena.
+  const dias7 = ganhosPorDia(m.turnos, hj, veicD), max7 = Math.max(1, ...dias7.map((x) => x.ganho)), pct = (v) => Math.max(0, Math.round((v / max7) * 100));
+  const grafico7 = dias7.some((x) => x.n) ? `<section class="mot-graf"><h4 class="mot-h">Ganho dos últimos 7 dias</h4>
+    <ol class="mg-barras">${dias7.map((x) => `<li aria-label="${DIAS3[diaDaSemana(x.iso)]}, ${ddmm(x.iso)}: ${x.n ? `ganho ${brl(x.ganho)}, lucro ${brl(x.lucro)}` : "sem turno"}">
+      <span class="mg-v" aria-hidden="true">${x.n ? brl0(x.ganho).replace("R$ ", "") : ""}</span>
+      <span class="mg-col" aria-hidden="true"><i class="g" style="height:${pct(x.ganho)}%"></i><i class="l" style="height:${pct(Math.max(0, x.lucro))}%"></i></span>
+      <span class="mg-d${x.iso === hj ? " hoje" : ""}" aria-hidden="true">${x.iso === hj ? "hoje" : DIAS3[diaDaSemana(x.iso)]}</span></li>`).join("")}</ol>
+    <p class="hint mg-leg"><i class="g"></i>ganho <i class="l"></i>lucro</p></section>` : "";
   const hist = m.turnos.filter((t) => t.fim).slice(-8).reverse().map((t) => { const rr = resumoTurnos([t], isoLocal(t.ini), isoLocal(t.ini), veicD);
     return `<li><span class="d">${ddmm(isoLocal(t.ini))}</span><span>${horasCurtas(duracaoMs(t))}${Number(t.km) > 0 ? ` · ${virg(t.km)} km` : ""}<small>lucro ${brl(rr.lucro)}${rr.lucroPorHora !== null ? ` · ${brl(rr.lucroPorHora)} por hora` : ""}</small></span><b>${brl(ganhoDoTurno(t))}</b>
       <button class="del x" type="button" data-mdel="${esc(t.id)}" aria-label="Apagar o turno de ${ddmm(isoLocal(t.ini))}" title="Apaga o turno e os lançamentos que ele criou">×</button></li>`; }).join("");
@@ -4085,6 +4093,7 @@ function paneMot() {
       ${tile("Km rodados", virg(r.km))}${tile("Lucro por km", tracos(r.lucroPorKm, brl))}
       ${tile("Viagens", String(r.viagens))}${tile("Ganho por viagem", tracos(r.ganhoPorViagem, brl))}
     </div>
+    ${grafico7}
     ${blocoPorApp(m.turnos, de, hj)}
     ${temCarro ? `<p class="hint">O lucro já desconta o custo do carro, ${brl(custoDoVeiculo(veicD)?.total || 0)} por mês, do <b>Meu carro ou moto</b>.</p>`
       : `<p class="hint">Por enquanto o lucro desconta só os gastos que você lança no turno. Preencha o <b>Meu carro ou moto</b>, com os km por mês, e o app desconta o custo real do carro. <button class="link" type="button" id="motVeic">Preencher agora</button></p>`}
