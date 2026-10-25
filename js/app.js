@@ -6947,13 +6947,19 @@ $("btnInstall").hidden = appInstalado();
 $("btnInstall").onclick = () => instalarApp();
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
   navigator.serviceWorker.register("sw.js").catch(() => {});
-  // O app abre com a cópia guardada (sw.js). Quando uma versão nova termina de baixar, a pessoa escolhe a hora de atualizar:
-  // nada recarrega sozinho no meio de um lançamento.
-  const tinhaVersao = Boolean(navigator.serviceWorker.controller);
+  // O app abre com a cópia guardada (sw.js) e a versão nova baixa por trás. Para ninguém ficar para sempre na versão velha:
+  //  - se ela chega logo depois de abrir (a pessoa ainda não fez nada), o app recarrega sozinho;
+  //  - senão, avisa e recarrega quando a pessoa voltar ao app depois de largá-lo, e só se não houver quadro aberto nem lançamento em andamento.
+  const tinhaVersao = Boolean(navigator.serviceWorker.controller), abriuEm = Date.now();
+  let versaoNova = false;
+  const ocupado = () => document.querySelector("dialog[open]") || document.body.classList.contains("lancando") || (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
   navigator.serviceWorker.addEventListener("controllerchange", () => {
     if (!tinhaVersao) return;   // primeira instalação: a tela já é a mais nova
+    versaoNova = true;
+    if (Date.now() - abriuEm < 15000 && !ocupado()) return location.reload();
     toastAcao("Tem uma versão nova do app.", "Atualizar", () => location.reload(), 0);
   });
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && versaoNova && !ocupado()) location.reload(); });
   // Tocou numa notificação com o app já aberto: o lembrete do fim do dia leva direto para o lançamento.
   navigator.serviceWorker.addEventListener("message", (e) => {
     if (e.data?.tipo !== "notificacao" || !/[?&]atalho=lancar\b/.test(String(e.data.url || ""))) return;
