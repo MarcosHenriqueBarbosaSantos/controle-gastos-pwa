@@ -4023,6 +4023,33 @@ function blocoRealidade(alc, hist, meta) {
   return "";
 }
 /** Quanto cada aplicativo rendeu e qual dia da semana rende mais por hora (só aparece com dados suficientes). */
+/** O dia de trabalho por inteiro: ganho, lucro, por hora, por km, por aplicativo e cada turno (com editar). Setas levam ao dia anterior e ao próximo com turno. */
+function diaMotorista(iso) {
+  const m = motDados(), veic = S.prefs.veiculo || {}, r = resumoTurnos(m.turnos, iso, iso, veic), apps = ganhoPorApp(m.turnos, iso, iso), nomeApp = Object.fromEntries(APPS);
+  const dias = [...new Set(m.turnos.filter((t) => t.fim).map((t) => isoLocal(t.ini)))].sort(), ant = [...dias].reverse().find((d) => d < iso), prox = dias.find((d) => d > iso);
+  const tr = (v, f) => (v === null || v === undefined ? "—" : f(v)), temCarro = custoTotalPorKm(veic) !== null;
+  const tile = (rot, v, cls = "") => `<div class="mot-t ${cls}"><small>${rot}</small><b>${v}</b></div>`;
+  const hora = (ms) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+  const turnos = m.turnos.filter((t) => t.fim && isoLocal(t.ini) === iso).sort((a, b) => a.ini - b.ini).map((t) => { const rr = resumoTurnos([t], iso, iso, veic);
+    return `<li><button type="button" class="hist-abrir" data-dia-edit="${esc(t.id)}" aria-label="Editar o turno das ${hora(t.ini)}"><span>${hora(t.ini)} às ${hora(t.fim)} · ${horasCurtas(duracaoMs(t))}${Number(t.km) > 0 ? ` · ${virg(t.km)} km` : ""}<small>lucro ${brl(rr.lucro)}${rr.lucroPorHora !== null ? ` · ${brl(rr.lucroPorHora)} por hora` : ""} · toque para editar</small></span></button><b>${brl(ganhoDoTurno(t))}</b></li>`; }).join("");
+  openDlg(`<h3>${esc(rotuloDia(iso))}</h3>
+    ${r.n ? `<div class="mot-grid">
+      ${tile("Ganho", brl(r.ganho), "fat")}${tile(temCarro ? "Custo do carro" : "Gastos do turno", brl(r.custo), "gasto")}
+      ${tile("Lucro", brl(r.lucro), "luc")}${tile("Horas", horasCurtas(r.ms))}
+      ${tile("Ganho por hora", tr(r.ganhoPorHora, brl))}${tile("Lucro por hora", tr(r.lucroPorHora, brl))}
+      ${tile("Km rodados", virg(r.km))}${tile("Viagens", String(r.viagens))}
+      ${tile("Ganho por km", tr(r.ganhoPorKm, brl))}${tile("Lucro por km", tr(r.lucroPorKm, brl))}
+      ${r.viagens ? tile("Ganho por viagem", tr(r.ganhoPorViagem, brl)) : ""}
+    </div>
+    ${apps.length ? `<h4 class="mot-h">Por aplicativo</h4><ul class="mot-apps">${apps.map((a) => `<li><span>${esc(nomeApp[a.app] || a.app)}</span><b>${brl(a.ganho)}</b><small>${a.pct}%</small><i style="width:${Math.max(3, a.pct)}%"></i></li>`).join("")}</ul>` : ""}
+    <h4 class="mot-h">${m.turnos.filter((t) => t.fim && isoLocal(t.ini) === iso).length > 1 ? "Turnos do dia" : "Turno do dia"}</h4><ul class="itens mot-hist">${turnos}</ul>`
+    : `<p class="hint">Sem turno neste dia.</p>`}
+    <div class="actions dia-nav"><button class="btn" type="button" id="diaAnt"${ant ? "" : " disabled"}>← ${ant ? ddmm(ant) : "Antes"}</button><button class="btn" type="button" id="diaProx"${prox ? "" : " disabled"}>${prox ? ddmm(prox) : "Depois"} →</button></div>
+    <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  if (ant) $("diaAnt").onclick = () => diaMotorista(ant);
+  if (prox) $("diaProx").onclick = () => diaMotorista(prox);
+  document.querySelectorAll("#dlgBody [data-dia-edit]").forEach((b) => (b.onclick = () => { $("dlg").close(); motEntra("edit-" + b.dataset.diaEdit); }));
+}
 function blocoPorApp(turnos, de, ate) {
   const apps = ganhoPorApp(turnos, de, ate), nomeApp = Object.fromEntries(APPS), melhor = melhorDiaDaSemana(turnos, "0000-01-01", ate);
   const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
@@ -4105,13 +4132,13 @@ function paneMot() {
   // Ganho dos últimos 7 dias em barras: a parte cheia é o lucro, para ver de relance os dias que valeram a pena.
   const dias7 = ganhosPorDia(m.turnos, hj, veicD), max7 = Math.max(1, ...dias7.map((x) => x.ganho)), pct = (v) => Math.max(0, Math.round((v / max7) * 100));
   const grafico7 = dias7.some((x) => x.n) ? `<section class="mot-graf"><h4 class="mot-h">Ganho dos últimos 7 dias</h4>
-    <ol class="mg-barras">${dias7.map((x) => `<li aria-label="${DIAS3[diaDaSemana(x.iso)]}, ${ddmm(x.iso)}: ${x.n ? `ganho ${brl(x.ganho)}, lucro ${brl(x.lucro)}` : "sem turno"}">
+    <ol class="mg-barras">${dias7.map((x) => `<li>${x.n ? `<button type="button" class="mg-bt" data-dia-mot="${x.iso}" aria-label="${DIAS3[diaDaSemana(x.iso)]}, ${ddmm(x.iso)}: ganho ${brl(x.ganho)}, lucro ${brl(x.lucro)}. Toque para ver o dia">` : `<span class="mg-bt" aria-label="${DIAS3[diaDaSemana(x.iso)]}, ${ddmm(x.iso)}: sem turno">`}
       <span class="mg-v" aria-hidden="true">${x.n ? brl0(x.ganho).replace("R$ ", "") : ""}</span>
       <span class="mg-col" aria-hidden="true"><i class="g" style="height:${pct(x.ganho)}%"></i><i class="l" style="height:${pct(Math.max(0, x.lucro))}%"></i></span>
-      <span class="mg-d${x.iso === hj ? " hoje" : ""}" aria-hidden="true">${x.iso === hj ? "hoje" : DIAS3[diaDaSemana(x.iso)]}</span></li>`).join("")}</ol>
-    <p class="hint mg-leg"><i class="g"></i>ganho <i class="l"></i>lucro</p></section>` : "";
+      <span class="mg-d${x.iso === hj ? " hoje" : ""}" aria-hidden="true">${x.iso === hj ? "hoje" : DIAS3[diaDaSemana(x.iso)]}</span>${x.n ? "</button>" : "</span>"}</li>`).join("")}</ol>
+    <p class="hint mg-leg"><i class="g"></i>ganho <i class="l"></i>lucro · toque numa barra para ver o dia</p></section>` : "";
   const hist = m.turnos.filter((t) => t.fim).slice(-8).reverse().map((t) => { const rr = resumoTurnos([t], isoLocal(t.ini), isoLocal(t.ini), veicD);
-    return `<li><span class="d">${ddmm(isoLocal(t.ini))}</span><button type="button" class="hist-abrir" data-medit="${esc(t.id)}" aria-label="Editar o turno de ${ddmm(isoLocal(t.ini))}"><span>${horasCurtas(duracaoMs(t))}${Number(t.km) > 0 ? ` · ${virg(t.km)} km` : ""}<small>lucro ${brl(rr.lucro)}${rr.lucroPorHora !== null ? ` · ${brl(rr.lucroPorHora)} por hora` : ""}</small></span></button><b>${brl(ganhoDoTurno(t))}</b>
+    return `<li><button type="button" class="d link" data-dia-mot="${isoLocal(t.ini)}" aria-label="Ver o dia ${ddmm(isoLocal(t.ini))}">${ddmm(isoLocal(t.ini))}</button><button type="button" class="hist-abrir" data-medit="${esc(t.id)}" aria-label="Editar o turno de ${ddmm(isoLocal(t.ini))}"><span>${horasCurtas(duracaoMs(t))}${Number(t.km) > 0 ? ` · ${virg(t.km)} km` : ""}<small>lucro ${brl(rr.lucro)}${rr.lucroPorHora !== null ? ` · ${brl(rr.lucroPorHora)} por hora` : ""}</small></span></button><b>${brl(ganhoDoTurno(t))}</b>
       <button class="del x" type="button" data-mdel="${esc(t.id)}" aria-label="Apagar o turno de ${ddmm(isoLocal(t.ini))}" title="Apaga o turno e os lançamentos que ele criou">×</button></li>`; }).join("");
   host.innerHTML = `<div id="motRoot"><p class="mot-sub">Seu painel de corrida: horas, ganho e quanto sobra de verdade.</p>
     ${turno}${metaHtml}
@@ -4140,6 +4167,7 @@ function paneMot() {
   if ($("motVeic")) $("motVeic").onclick = () => meuVeiculo();
   if ($("motImagem")) $("motImagem").onclick = () => compartilharResultadoMot(motPer === "dia" ? "Hoje" : motPer === "semana" ? "Últimos 7 dias" : `${nomeMes(mes)[0].toUpperCase()}${nomeMes(mes).slice(1)}`, r);
   host.querySelectorAll("[data-medit]").forEach((b) => (b.onclick = () => motEntra("edit-" + b.dataset.medit)));
+  host.querySelectorAll("[data-dia-mot]").forEach((b) => (b.onclick = () => diaMotorista(b.dataset.diaMot)));
   host.querySelectorAll("[data-mdel]").forEach((b) => armDelete(b, async () => {
     const mm = motDados(), t = mm.turnos.find((x) => x.id === b.dataset.mdel); if (!t) return;
     for (const id of [t.rid, ...(t.cids || [t.cid])].filter(Boolean)) if (lancPorId(id)) await apagaLancamento(id);
