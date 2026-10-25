@@ -1844,3 +1844,23 @@ dialog{overscroll-behavior:contain}
 .mg-col i.l{background:var(--series)}
 .mg-d{font-size:12px;color:var(--muted)} .mg-d.hoje{color:var(--ink);font-weight:700}
 .mg-leg{display:flex;gap:6px 12px;align-items:center;margin:8px 0 0} .mg-leg i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:-6px} .mg-leg i.g{background:var(--series-soft);box-shadow:inset 0 0 0 1px var(--series)} .mg-leg i.l{background:var(--series)}
+
+/* Transições: cada tela entra com um deslize curto e suave (só quando a pessoa não pediu menos movimento);
+   o que é tocado responde na hora; o quadro que fecha sai para o lado em vez de sumir de uma vez. */
+@media (prefers-reduced-motion:no-preference){
+  @keyframes telaEntra{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  @keyframes cardEntra{from{opacity:.0;transform:translateY(6px)}to{opacity:1;transform:none}}
+  .wrap[data-view="inicio"] .v-inicio:not(.fora),.wrap[data-view="mais"] .v-mais,.wrap[data-view="listas"] .v-listas{animation:telaEntra .24s cubic-bezier(.2,.8,.2,1) both}
+  .wrap[data-view="mais"] .mais-grupo{animation:cardEntra .28s cubic-bezier(.2,.8,.2,1) both}
+  .wrap[data-view="mais"] .mais-grupo:nth-of-type(2){animation-delay:.04s} .wrap[data-view="mais"] .mais-grupo:nth-of-type(3){animation-delay:.08s}
+  .wrap[data-view="mais"] .mais-grupo:nth-of-type(4){animation-delay:.12s} .wrap[data-view="mais"] .mais-grupo:nth-of-type(5){animation-delay:.16s}
+  button,.btn,.mais-item,.cal-d,.chip,[role=button]{transition:transform .12s ease-out,background-color .15s,border-color .15s,box-shadow .15s,opacity .15s}
+  button:active:not(:disabled),.mais-item:active,[role=button]:active{transform:scale(.97)}
+  .bnav button svg{transition:transform .18s cubic-bezier(.2,.8,.2,1),background-color .18s,box-shadow .18s}
+  .bnav button[aria-current="page"] svg{transform:translateY(-1px) scale(1.06)}
+  .toast{transition:opacity .2s,transform .2s}
+  details>summary::after,details>summary::before{transition:transform .15s}
+  .mot-bola{transition:transform .15s,box-shadow .2s}
+  .mg-col i{animation:barraSobe .5s cubic-bezier(.2,.8,.2,1) both;transform-origin:bottom} @keyframes barraSobe{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+  .hero .bar i,.tbar i,.barra i{transition:width .5s cubic-bezier(.2,.8,.2,1)}
+}
