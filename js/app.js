@@ -4092,7 +4092,7 @@ function paneMot() {
       <span class="mg-d${x.iso === hj ? " hoje" : ""}" aria-hidden="true">${x.iso === hj ? "hoje" : DIAS3[diaDaSemana(x.iso)]}</span></li>`).join("")}</ol>
     <p class="hint mg-leg"><i class="g"></i>ganho <i class="l"></i>lucro</p></section>` : "";
   const hist = m.turnos.filter((t) => t.fim).slice(-8).reverse().map((t) => { const rr = resumoTurnos([t], isoLocal(t.ini), isoLocal(t.ini), veicD);
-    return `<li><span class="d">${ddmm(isoLocal(t.ini))}</span><span>${horasCurtas(duracaoMs(t))}${Number(t.km) > 0 ? ` · ${virg(t.km)} km` : ""}<small>lucro ${brl(rr.lucro)}${rr.lucroPorHora !== null ? ` · ${brl(rr.lucroPorHora)} por hora` : ""}</small></span><b>${brl(ganhoDoTurno(t))}</b>
+    return `<li><span class="d">${ddmm(isoLocal(t.ini))}</span><button type="button" class="hist-abrir" data-medit="${esc(t.id)}" aria-label="Editar o turno de ${ddmm(isoLocal(t.ini))}"><span>${horasCurtas(duracaoMs(t))}${Number(t.km) > 0 ? ` · ${virg(t.km)} km` : ""}<small>lucro ${brl(rr.lucro)}${rr.lucroPorHora !== null ? ` · ${brl(rr.lucroPorHora)} por hora` : ""}</small></span></button><b>${brl(ganhoDoTurno(t))}</b>
       <button class="del x" type="button" data-mdel="${esc(t.id)}" aria-label="Apagar o turno de ${ddmm(isoLocal(t.ini))}" title="Apaga o turno e os lançamentos que ele criou">×</button></li>`; }).join("");
   host.innerHTML = `<div id="motRoot"><p class="mot-sub">Seu painel de corrida: horas, ganho e quanto sobra de verdade.</p>
     ${turno}${metaHtml}
@@ -4120,6 +4120,7 @@ function paneMot() {
   $("motIniciar").onclick = () => { const ini = Date.now(); gravaMot({ ...motDados(), ativo: { ini, parcial: 0, antes: S.data.lancamentos.filter((x) => x.data >= isoLocal(ini)).map((x) => x.id), pausado: 0, pausaIni: null } }); vibra(30); render(); scrollTo(0, 0); };
   if ($("motVeic")) $("motVeic").onclick = () => meuVeiculo();
   if ($("motImagem")) $("motImagem").onclick = () => compartilharResultadoMot(motPer === "dia" ? "Hoje" : motPer === "semana" ? "Últimos 7 dias" : `${nomeMes(mes)[0].toUpperCase()}${nomeMes(mes).slice(1)}`, r);
+  host.querySelectorAll("[data-medit]").forEach((b) => (b.onclick = () => motEntra("edit-" + b.dataset.medit)));
   host.querySelectorAll("[data-mdel]").forEach((b) => armDelete(b, async () => {
     const mm = motDados(), t = mm.turnos.find((x) => x.id === b.dataset.mdel); if (!t) return;
     for (const id of [t.rid, ...(t.cids || [t.cid])].filter(Boolean)) if (lancPorId(id)) await apagaLancamento(id);
@@ -4148,6 +4149,46 @@ function fecharTurno() {
 function paneMotSub(host) {
   const m = motDados(), volta = motSai;
   const topo = (t, intro) => `<div id="motRoot"><button class="mot-voltar" type="button" id="motVolta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Voltar</button><h3 class="mot-h" style="margin:6px 0 4px">${t}</h3><p class="hint" style="margin:0 0 14px">${intro}</p>`;
+  if (String(motSub).startsWith("edit-")) {
+    const t = m.turnos.find((x) => x.id === motSub.slice(5));
+    if (!t) { motSub = null; return render(); }
+    const hm = (ms) => `${pad(new Date(ms).getHours())}:${pad(new Date(ms).getMinutes())}`;
+    host.innerHTML = topo("Editar o turno", `Turno de ${ddmm(isoLocal(t.ini))}. Corrija o que faltou ou errou; o ganho também muda no extrato. Os gastos lançados nesse turno ficam como estão (mude-os no Extrato).`) +
+      `<form id="meForm" class="dlg-form" autocomplete="off">
+      ${APPS.map(([k, n]) => `<label class="f">${n} (R$)<input class="in money" data-eapp="${k}" inputmode="decimal" placeholder="0,00" value="${t.apps?.[k] > 0 ? esc(String(t.apps[k]).replace(".", ",")) : ""}"></label>`).join("")}
+      <p class="hint wide mt-tot" id="meTot" aria-live="polite"></p>
+      <label class="f">Viagens<input class="in" id="meViag" inputmode="numeric" maxlength="3" placeholder="ex.: 12" value="${Number(t.viagens) > 0 ? t.viagens : ""}"></label>
+      <label class="f">Km rodados<input class="in" id="meKm" inputmode="decimal" maxlength="6" placeholder="ex.: 140" value="${Number(t.km) > 0 ? esc(String(t.km).replace(".", ",")) : ""}"></label>
+      <label class="f wide">Dia<input class="in" type="date" id="meDia" max="${hoje()}" value="${isoLocal(t.ini)}"></label>
+      <label class="f">Começou às<input class="in" type="time" id="meDe" value="${hm(t.ini)}"></label>
+      <label class="f">Terminou às<input class="in" type="time" id="meAte" value="${hm(t.fim)}"></label>
+      <p class="auth-msg err wide" id="meMsg"></p>
+      <div class="actions wide"><button class="btn primary" type="submit">Salvar alterações</button><button class="btn" type="button" id="meVolta">Cancelar</button></div></form></div>`;
+    $("motVolta").onclick = motSai; $("meVolta").onclick = motSai;
+    const soma = () => { const v = round2([...host.querySelectorAll("[data-eapp]")].reduce((a, i) => a + (nm(i.value) > 0 ? nm(i.value) : 0), 0)); $("meTot").innerHTML = `Total do dia: <b>${brl(v)}</b>`; };
+    host.querySelectorAll("[data-eapp]").forEach((i) => i.addEventListener("input", soma)); soma();
+    $("meForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const erro = (x) => { $("meMsg").textContent = x; };
+      const apps = {}; host.querySelectorAll("[data-eapp]").forEach((i) => { const v = nm(i.value); if (v > 0) apps[i.dataset.eapp] = round2(v); });
+      const ganho = somaValores(apps), km = Math.max(0, nm($("meKm").value)), viagens = Math.max(0, Math.round(nm($("meViag").value)));
+      if (ganho <= 0 && !(km > 0)) return erro("Informe o total que ganhou em cada app, ou os km rodados.");
+      if (ganho > VALOR_MAX) return erro(ALTO_DEMAIS);
+      if (km > 3000) return erro("Esse turno tem km demais. Confira o número.");
+      const dia = $("meDia").value, [h1, m1] = $("meDe").value.split(":").map(Number), [h2, m2] = $("meAte").value.split(":").map(Number);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || [h1, m1, h2, m2].some((n) => !Number.isFinite(n))) return erro("Confira o dia e os horários.");
+      const [ya, ma, da] = dia.split("-").map(Number), a = new Date(ya, ma - 1, da, h1, m1, 0, 0), b = new Date(ya, ma - 1, da, h2, m2, 0, 0); if (b <= a) b.setDate(b.getDate() + 1);
+      if (b - a > 24 * 3600 * 1000 || b.getTime() > Date.now() + 60000) return erro("Confira o horário: o turno passou de 24 horas ou termina no futuro.");
+      const catR = cats("Receita").find((x) => /extra|app|motor/i.test(x)) || cats("Receita")[0], desc = "Ganhos: " + APPS.filter(([k]) => apps[k]).map(([, n]) => n).join(" + ");
+      let rid = t.rid || null; const l = rid ? lancPorId(rid) : null;
+      if (ganho > 0 && l) { const patch = { valor: ganho, descricao: desc, data: dia }; if (!(await grava(() => S.store.updateLancamento(l.id, patch)))) return; Object.assign(l, patch); }
+      else if (ganho > 0) { let criados = []; if (!(await grava(async () => { criados = await S.store.addLancamentos([{ data: dia, import_key: null, cartao_id: null, parcelas: 1, descricao: desc, tipo: "Receita", categoria: catR, forma: "", valor: ganho }]); }))) return; criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) })); rid = criados[0]?.id || null; }
+      else if (l) { if (!(await grava(() => S.store.deleteLancamento(l.id)))) return; S.data.lancamentos = S.data.lancamentos.filter((z) => z.id !== l.id); rid = null; }
+      const mm = motDados(); gravaMot({ ...mm, turnos: mm.turnos.map((x) => (x.id === t.id ? { ...x, ini: a.getTime(), fim: b.getTime(), apps, viagens, km: round2(km), rid } : x)) });
+      motSai(); toast("Turno atualizado.");
+    });
+    return;
+  }
   if (motSub === "ajustes" || !m.ativo) {
     host.innerHTML = topo("Minha meta", "O app usa isso para dizer quanto você precisa rodar por dia e quanto precisa render por hora.") +
       `<form id="motAjForm" class="dlg-form" autocomplete="off"><label class="f">Dias rodando por semana<select class="in" id="motDias">${[1, 2, 3, 4, 5, 6, 7].map((n) => `<option${n === m.diasSemana ? " selected" : ""}>${n}</option>`).join("")}</select></label>
