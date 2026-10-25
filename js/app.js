@@ -857,7 +857,7 @@ function renderForm() {
     $("fNovo").hidden = fk.value !== NOVO_CARTAO;
     $("fParc").innerHTML = optsParcelas(valorDoCampo(), fixo ? 1 : $("fParc").value || 1);
   }
-  mostraEfeito(); chipsDoForm();
+  mostraEfeito(); chipsDoForm(); mostraParcDica();
 }
 /* ---------- Lançar rápido: categoria e forma de pagamento em botões (um toque, sem abrir lista) ---------- */
 // Os seletores continuam sendo a fonte da verdade (o resto do app lê e grava neles); os botões só os acompanham.
@@ -911,6 +911,24 @@ function dicaDoExtrato() {
     if (!sessionStorage.getItem("cg-dica-extrato-sessao")) { sessionStorage.setItem("cg-dica-extrato-sessao", "1"); localStorage.setItem("cg-dica-extrato", String(n + 1)); return n + 1 <= 4; }
     return n <= 4;
   } catch { return true; }
+}
+/** Embaixo das parcelas: em qual fatura (mês e vencimento) a compra cai, antes de lançar. Com o cartão novo sem os dias, avisa que usou os padrões. */
+function mostraParcDica() {
+  const el = $("fParcDica"); if (!el) return;
+  const cc = S.tipo === "Despesa" && $("fForma").value === CARTAO && !$("fFixo").checked, data = $("fData").value || hoje();
+  let k = null, padrao = false;
+  if (cc) {
+    if ($("fCartao").value === NOVO_CARTAO) {
+      const f = Math.round(Number($("fNFech").value)), v = Math.round(Number($("fNVenc").value)), ok = f >= 1 && f <= 31 && v >= 1 && v <= 31;
+      k = { fechamento: ok ? f : 3, vencimento: ok ? v : 10 }; padrao = !ok;
+    } else k = cartoesAtivos().find((z) => String(z.id) === String($("fCartao").value)) || null;
+  }
+  el.hidden = !k; if (!k) { el.textContent = ""; return; }
+  const n = Math.max(1, Number($("fParc").value) || 1), m1 = mesDaFatura(k, data), mN = addM(m1, n - 1);
+  const dm = (m) => { const dd = Math.min(Number(k.vencimento), new Date(Number(m.slice(0, 4)), Number(m.slice(5)), 0).getDate()); return `${pad(dd)}/${m.slice(5)}`; };
+  const nome = (m) => `${nomeMes(m).toLowerCase()}${m.slice(0, 4) !== hoje().slice(0, 4) ? " de " + m.slice(0, 4) : ""}`;
+  el.textContent = (n === 1 ? `Entra na fatura de ${nome(m1)} (vence ${dm(m1)}).` : `${n} parcelas: da fatura de ${nome(m1)} (vence ${dm(m1)}) até a de ${nome(mN)}, uma por mês.`)
+    + (padrao ? " Você não preencheu os dias do cartão: usei fecha dia 3 e vence dia 10. Se for diferente, preencha acima, senão as parcelas podem cair no mês errado." : "");
 }
 /** Cartão e parcelas escolhidos no formulário de lançar. Sem cartão cadastrado não devolve nada: o lançamento segue como sempre foi. */
 function cartaoDoForm() {
@@ -2351,6 +2369,7 @@ $("fContaWrap").addEventListener("click", (e) => {
 });
 $("fValor").addEventListener("change", normalizaConta);
 $("fValor").addEventListener("input", () => { mostraConta(); });
+["fParc", "fCartao", "fData", "fNFech", "fNVenc", "fFixo"].forEach((id) => { const e = $(id); if (e) { e.addEventListener("change", mostraParcDica); e.addEventListener("input", mostraParcDica); } });
 $("fValor").addEventListener("input", () => { rotuloDoOk(); mostraEfeito(); if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });
 /** "Livre agora → depois": o efeito do gasto na sobra do mês, antes de confirmar (só no mês atual, e só para gasto fora do cartão). */
 function mostraEfeito() {
