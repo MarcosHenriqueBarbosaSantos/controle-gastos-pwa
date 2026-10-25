@@ -4489,6 +4489,7 @@ const nomesDoParceiro = () => (casalAtivo() ? [nomeDoOutro(), nomeDoEmail(S.casa
 function arrumarTela() {
   const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, ls = S.data.lancamentos, nome = S.prefs.meuNome || "";
   const a = entreMinhasContas(ls, [nome, nomeDoEmail($("whoName").textContent)].filter(Boolean), nomesDoParceiro()), b = pixComoCartao(ls), c = gruposEmOutros(ls), d = repetidosDeImportacao(ls), nCopias = d.reduce((s, g) => s + g.copias.length, 0), fixas = contasQueSeRepetem(ls, S.data.fixos, hoje());
+  const nImp = ls.filter((x) => x.import_key).length;
   openDlg(`<h3>Arrumar lançamentos</h3>
     <p class="hint" style="margin:0 0 12px">Veja o que atrapalha as suas contas e arrume de uma vez. Nada muda sem você confirmar.</p>
     <div class="caixa-mais">
@@ -4496,9 +4497,38 @@ function arrumarTela() {
       ${opFerr("arB", "cartao", "Pix e débito que entraram como cartão", b.length ? `${plural(b.length, "lançamento", "lançamentos")} que não são compra de cartão` : "Nenhum encontrado")}
       ${opFerr("arC", "lupa", "Categorias em \"Outros\", por nome", c.length ? `${plural(c.length, "nome se repete", "nomes se repetem")}: escolha a categoria uma vez só` : "Nada repetido em Outros")}</div>
       ${opFerr("arE", "fixo", "Contas que se repetem todo mês", fixas.length ? `${plural(fixas.length, "achada", "achadas")}: deixe como conta fixa e pare de lançar` : "Nenhuma encontrada")}
+      ${opFerr("arI", "lixo", "Remover o que veio de importação", nImp ? `${plural(nImp, "lançamento", "lançamentos")} de extrato ou fatura importados` : "Nenhum lançamento importado")}
       ${opFerr("arD", "lixo", "Lançamentos em dobro", nCopias ? `${plural(nCopias, "cópia", "cópias")} de importação com o mesmo valor e dia` : "Nenhum em dobro")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
-  $("arA").onclick = arrumarMinhasContas; $("arB").onclick = arrumarPixComoCartao; $("arC").onclick = arrumarOutros; $("arD").onclick = arrumarRepetidos; $("arE").onclick = arrumarFixas;
+  $("arA").onclick = arrumarMinhasContas; $("arB").onclick = arrumarPixComoCartao; $("arC").onclick = arrumarOutros; $("arD").onclick = arrumarRepetidos; $("arE").onclick = arrumarFixas; $("arI").onclick = removerImportados;
+}
+/** Tira de uma vez tudo o que veio de importação de extrato ou fatura (os lançamentos que o app marcou com chave de importação). Lançados à mão ficam. Dá para desfazer logo depois. */
+function removerImportados() {
+  const plural = (n, s, p) => `${n} ${n === 1 ? s : p}`, lista = S.data.lancamentos.filter((x) => x.import_key);
+  if (!lista.length) return openDlg(`<h3>Remover o que veio de importação</h3><p class="hint">Nenhum lançamento importado. O que você lançou à mão fica como está.</p><div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  const datas = lista.map((x) => x.data).sort(), gasto = round2(lista.filter((x) => x.tipo === "Despesa").reduce((t, x) => t + Number(x.valor), 0)), entrada = round2(lista.filter((x) => x.tipo === "Receita").reduce((t, x) => t + Number(x.valor), 0));
+  openDlg(`<h3>Remover o que veio de importação</h3>
+    <p style="margin:0 0 10px"><b>${plural(lista.length, "lançamento", "lançamentos")}</b> de extrato ou fatura importados, de ${ddmmaaaa(datas[0])} a ${ddmmaaaa(datas[datas.length - 1])}: gastos de ${brl(gasto)}${entrada > 0 ? ` e entradas de ${brl(entrada)}` : ""}.</p>
+    <ul class="dicas"><li>Os lançamentos que você fez à mão <b>não</b> são tocados.</li><li>Contas fixas que você criou a partir deles continuam.</li><li>Depois de remover, aparece o botão <b>Desfazer</b> por alguns segundos. Se preferir ter uma cópia antes, baixe a cópia de segurança.</li></ul>
+    <p class="auth-msg err" id="riMsg" style="margin:8px 0 0"></p>
+    <div class="actions"><button class="btn" type="button" id="riCopia">Baixar cópia antes</button><button class="btn primary" type="button" id="riOk">Remover ${plural(lista.length, "lançamento", "lançamentos")}</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
+  $("riCopia").onclick = () => copiaDeSeguranca();
+  $("riOk").onclick = async () => {
+    $("riOk").disabled = true; const salvos = lista.map((x) => ({ ...x })), feitos = new Set();
+    for (let i = 0; i < lista.length; i += 5) {
+      $("riOk").textContent = `Removendo ${Math.min(i + 5, lista.length)} de ${lista.length}…`;
+      const lote = lista.slice(i, i + 5);
+      await grava(async () => { for (const x of lote) { await S.store.deleteLancamento(x.id); feitos.add(x.id); } });
+      if (lote.some((x) => !feitos.has(x.id))) break;
+    }
+    S.data.lancamentos = S.data.lancamentos.filter((x) => !feitos.has(x.id)); render();
+    if (feitos.size < lista.length) { $("riMsg").textContent = `Removi ${feitos.size} de ${lista.length}. Não consegui o resto agora; tente de novo.`; $("riOk").disabled = false; $("riOk").textContent = "Tentar de novo"; if (!feitos.size) return; }
+    else $("dlg").close();
+    const voltam = salvos.filter((x) => feitos.has(x.id)).map(({ id, created_at, enviando, pendente, user_id, ...r }) => r);
+    toastDesfazer(`${plural(feitos.size, "lançamento importado removido", "lançamentos importados removidos")}.`, async () => {
+      let novos = []; if (await grava(async () => { novos = await S.store.addLancamentos(voltam); })) { S.data.lancamentos.push(...(novos || [])); render(); toast("Os lançamentos voltaram."); }
+    });
+  };
 }
 /**
  * Contas que se repetem todo mês (achadas nos lançamentos, sobretudo nos que vieram do extrato): a pessoa escolhe quais viram conta fixa.
