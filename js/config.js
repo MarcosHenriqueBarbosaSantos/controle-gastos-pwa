@@ -27,4 +27,8 @@ export const PLAY_PACOTE = "";
 
 // Número da versão do app (o mesmo de sw.js). Vai junto com os pedidos de melhoria e correção, para saber qual versão estava aberta.
 // Ao mudar a VERSAO em sw.js, mude aqui também: um teste confere se os dois batem.
-export const APP_VERSAO = "158";
+// Importar extrato ou fatura de arquivo (CSV, OFX, Excel, PDF): desligado porque cada banco exporta de um jeito, o arquivo falha e
+// a pessoa nem sempre acha onde baixar. O código fica guardado; para religar, troque para true.
+export const IMPORTA_EXTRATO = false;
+
+export const APP_VERSAO = "159";

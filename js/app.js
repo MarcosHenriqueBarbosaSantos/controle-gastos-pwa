@@ -1,5 +1,5 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
-import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO } from "./config.js";
+import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO, IMPORTA_EXTRATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, periodoDaFatura,
@@ -755,7 +755,7 @@ async function aoChegar() {
     if (rt) texto = (await rt.text()).trim();
     await c.delete("./__compartilhado/arquivo"); await c.delete("./__compartilhado/texto");
   } catch { /* sem o que ler: abre o formulário */ }
-  if (arquivo) { S.lerComo = ""; return !ehPdf(arquivo) && !/^image\//.test(arquivo.type) && ehExtrato(arquivo) ? importarExtrato(arquivo) : processaLeitura(arquivo); }
+  if (arquivo) { S.lerComo = ""; return !ehPdf(arquivo) && !/^image\//.test(arquivo.type) && ehExtrato(arquivo) ? (IMPORTA_EXTRATO ? importarExtrato(arquivo) : (abrirLancar(), toast("Esse tipo de arquivo não é lido. Lance a compra à mão ou use a foto ou o PDF do comprovante."))) : processaLeitura(arquivo); }
   if (texto) { if (!usaCodigo(texto)) { S.lerComo = ""; conferirLeitura(interpretaTexto(texto, hoje()), texto, ""); } return; }
   abrirLancar(); toast("Não consegui abrir o que foi compartilhado. Tente de novo, ou lance por aqui.");
 }
@@ -959,12 +959,12 @@ function renderKpis(c) {
     <div class="acoes-rap" role="group" aria-label="Ações rápidas">
       <button type="button" data-acao="lancar"><span class="forte">${ico("mais")}</span>Lançar gasto</button>
       ${Reconhecedor ? `<button type="button" data-acao="voz"><span>${ico("mic")}</span>Por voz</button>` : `<button type="button" data-acao="cal"><span>${ico("agenda")}</span>Calendário</button>`}
-      <button type="button" data-acao="ler"><span>${ico("qr")}</span>Escanear e importar</button>
+      <button type="button" data-acao="ler"><span>${ico("qr")}</span>Ler comprovante</button>
       <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
     </div>
     ${guiaVisivel() ? "" : `<div class="convite-card"><b>Comece em 2 minutos</b><span>São três perguntas: quanto você recebe, as contas de todo mês e o cartão.</span>
       <button type="button" class="btn primary" id="conviteComecar">Começar agora</button>
-      <button type="button" class="btn" id="conviteExtrato">Já tenho o extrato do banco</button></div>`}`;
+      ${IMPORTA_EXTRATO ? `<button type="button" class="btn" id="conviteExtrato">Já tenho o extrato do banco</button>` : ""}</div>`}`;
     $("grafSobraSec").innerHTML = ""; $("resumo2").innerHTML = "";
     $("resumo").querySelectorAll("[data-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.acao)));
     if ($("conviteComecar")) $("conviteComecar").onclick = () => guiaPasso("renda", true);
@@ -988,7 +988,7 @@ function renderKpis(c) {
   <div class="acoes-rap" role="group" aria-label="Ações rápidas">
     <button type="button" data-acao="lancar"><span class="forte">${ico("mais")}</span>Lançar gasto</button>
     ${Reconhecedor ? `<button type="button" data-acao="voz"><span>${ico("mic")}</span>Por voz</button>` : `<button type="button" data-acao="cal"><span>${ico("agenda")}</span>Calendário</button>`}
-    <button type="button" data-acao="ler"><span>${ico("qr")}</span>Escanear e importar</button>
+    <button type="button" data-acao="ler"><span>${ico("qr")}</span>Ler comprovante</button>
     <button type="button" data-acao="recebi"><span>${ico("entra")}</span>Recebi</button>
   </div>
   ${atualM ? htmlHoje(c) : ""}
@@ -1973,7 +1973,7 @@ function listaL(c) {
   if (!it.length && deQuem) { host.innerHTML = `<div class="welcome"><p><b>${deQuem === "eu" ? "Você não lançou nada" : `${esc(nomeDoOutro())} não lançou nada`} em ${nomeMes(S.mes)}.</b></p></div>`; return; }
   if (!it.length && filtrando) { host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)} com esse filtro.</b> Mude o tipo ou a categoria, ou toque em Limpar filtros.</p></div>`; return; }
   if (!it.length) {
-    host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)}.</b> Anote cada gasto no formulário lá em cima assim que ele acontecer. O custo do mês e a projeção se atualizam na hora.</p><p>Usa cartão? Na aba <b>Cartões</b> dá para importar o extrato do banco e lançar todas as compras de uma vez.</p></div>`;
+    host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)}.</b> Anote cada gasto no formulário lá em cima assim que ele acontecer. O custo do mês e a projeção se atualizam na hora.</p><p>Usa cartão? Ao lançar uma compra, escolha <b>Cartão de crédito</b> e o cartão: ela entra na fatura certa, com parcelas.</p></div>`;
     return;
   }
   // No celular a lista é separada por dia, com o total gasto em cada um.
@@ -2134,7 +2134,7 @@ function paneC(c) {
      <button class="btn primary" type="submit">Adicionar cartão</button>
      ${soltos.length ? `<label class="check"><input type="checkbox" id="kLigar" ${cartoes.length ? "" : "checked"}> Usar este cartão nas ${soltos.length} ${soltos.length === 1 ? "compra no cartão que já lancei" : "compras no cartão que já lancei"} sem cartão escolhido</label>` : ""}
    </form>${cartoes.length ? `</details>` : ""}
-   <h3 class="sub-h">Faturas de ${nomeMes(S.mes)}</h3><div class="fat-acoes"><button class="btn sm ler" type="button" id="lerFatura">${ico("camera")}Ler fatura</button><button class="btn sm ler" type="button" id="impExtrato">${ico("subir")}Importar extrato</button><button class="btn sm ler" type="button" id="expCartao">${ico("baixar")}Exportar</button></div>
+   <h3 class="sub-h">Faturas de ${nomeMes(S.mes)}</h3><div class="fat-acoes"><button class="btn sm ler" type="button" id="lerFatura">${ico("camera")}Ler fatura</button>${IMPORTA_EXTRATO ? `<button class="btn sm ler" type="button" id="impExtrato">${ico("subir")}Importar extrato</button>` : ""}<button class="btn sm ler" type="button" id="expCartao">${ico("baixar")}Exportar</button></div>
    ${vis.length ? `<div class="tbl"><table class="cards"><thead><tr><th>Vence</th><th>Cartão</th><th class="hide-sm">Origem</th><th class="num">Fatura</th><th>Situação</th><th></th></tr></thead><tbody>${vis.map(linhaFatura).join("")}</tbody>
      <tfoot><tr><td class="d"></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} de meses anteriores</span>` : ""}</td></tr></tfoot></table></div>`
      : `<div class="empty">Nenhuma fatura com vencimento em ${nomeMes(S.mes)}.</div>`}
@@ -2159,7 +2159,7 @@ function paneC(c) {
   host.querySelectorAll("[data-fat]").forEach((b) => (b.onclick = () => editarFatura(vis[Number(b.dataset.fat)])));
   host.querySelectorAll("tr[data-frow2]").forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest("button,a")) editarFatura(vis[Number(tr.dataset.frow2)]); }));
   $("lerFatura").onclick = () => abrirLeitor("fatura");
-  $("impExtrato").onclick = abrirExtrato;
+  if ($("impExtrato")) $("impExtrato").onclick = abrirExtrato;
   $("expCartao").onclick = () => exportarCartao("", "fatura");
   host.querySelectorAll("[data-cdel]").forEach((b) => armDelete(b, async () => {
     const id = b.dataset.cdel;
@@ -3006,7 +3006,7 @@ const AJUDA = [
   ["Tem jeito mais rápido de lançar o que se repete?", `Tem. Em Lançar, os gastos que você mais repete aparecem em <b>Você costuma lançar</b>: um toque preenche tudo e você só confirma. E, ao abrir qualquer lançamento, <b>Lançar de novo hoje</b> cria uma cópia com a data de hoje. A categoria também se ajusta sozinha: o app usa a que você escolheu da última vez para aquele nome.`],
   ["Como vejo se estou melhorando?", `Em <b>Análise do mês</b> (no celular, dentro de <b>Planejar</b>), o quadro <b>Últimos meses</b> mostra o que entrou, o custo e quanto sobrou em cada mês. Em <b>Por categoria</b>, o app diz quando uma categoria está mais alta ou mais baixa do que no mês anterior.`],
   ["Errei um lançamento. Como corrijo?", `No <b>Lançamentos</b>, toque no lançamento para mudar o valor, a data, a categoria ou para excluir.`],
-  ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Câmera</b>: ela lê ao vivo o QR code do Pix ou do cupom de mercado e, no mesmo quadro, o botão <b>Foto ou PDF do comprovante</b> lê boleto, conta, fatura ou holerite; também dá para colar o Pix copia e cola. No cupom de mercado, o app busca o valor, a loja e os itens no site da Fazenda (testado com notas de São Paulo; em outros estados pode pedir o valor). Na aba <b>Cartões</b>, use <b>Importar extrato</b> para trazer de uma vez as compras do arquivo que o banco gera. Você sempre confere antes de salvar.`],
+  ["Tem como não digitar tudo?", `Tem. Em Lançar, toque em <b>Câmera</b>: ela lê ao vivo o QR code do Pix ou do cupom de mercado e, no mesmo quadro, o botão <b>Foto ou PDF do comprovante</b> lê boleto, conta, fatura ou holerite; também dá para colar o Pix copia e cola. No cupom de mercado, o app busca o valor, a loja e os itens no site da Fazenda (testado com notas de São Paulo; em outros estados pode pedir o valor). Você sempre confere antes de salvar.`],
   ["Dá para mandar o comprovante direto do aplicativo do banco?", `No Android, com o app instalado: no comprovante, toque em <b>Compartilhar</b> e escolha <b>Meus Gastos</b>. O app abre já lendo o comprovante. Segurando o ícone do app também aparecem os atalhos <b>Lançar gasto</b> e <b>Ler QR code</b>. No iPhone esse caminho não existe: use Lançar → Ler foto ou PDF.`],
   ["E se eu estiver sem internet?", `Pode lançar normalmente. O gasto fica guardado no aparelho, aparece como <b>aguardando internet</b> e é enviado sozinho quando a conexão voltar. Alterar ou excluir o que já estava salvo precisa de conexão.`],
   ["O que é o resumo da semana e o lembrete das 20h?", `No <b>domingo à noite</b> o app manda um resumo: quanto você gastou na semana, onde pesou mais e as contas dos próximos 7 dias. O <b>lembrete das 20h</b> é uma notificação que só aparece nos dias em que você não anotou nada. Os dois se ligam e desligam em <b>Ajustes</b>, na parte Resumo e lembrete.`],
@@ -4396,7 +4396,7 @@ function assinaturasTela() {
       <ul class="assin-lista">${r.itens.map(linha).join("")}</ul>
       <p class="hint">O app acha cobranças com o mesmo nome, uma por mês, nos últimos 3 meses ou mais. Se uma delas não é assinatura, toque em "Não é assinatura".</p>`
       : `<p class="hint" style="margin:0 0 10px">Ainda não achei nenhuma assinatura.</p>
-      <p class="hint">Para aparecer aqui, a cobrança precisa ter sido lançada com o mesmo nome (por exemplo, "Netflix") em 3 meses seguidos, uma vez por mês. Importar o extrato do cartão já faz isso por você.</p>`}
+      <p class="hint">Para aparecer aqui, a cobrança precisa ter sido lançada com o mesmo nome (por exemplo, "Netflix") em 3 meses seguidos, uma vez por mês.</p>`}
     ${r.ocultas.length ? `<h4 class="sub-h">Que você tirou da lista</h4><ul class="assin-lista">${r.ocultas.map((a) => `<li class="assin-linha oculta"><span class="assin-tx"><b>${esc(a.nome)}</b><span class="t">${brl(a.mensal)} por mês</span></span><span class="assin-val"><button class="link" type="button" data-volta="${esc(a.chave)}">Mostrar de novo</button></span></li>`).join("")}</ul>` : ""}
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
   const muda = async (chave, lista) => { S.prefs.naoAssinaturas = lista; await salvaPrefs(); assinaturasTela(); };
@@ -4989,8 +4989,8 @@ document.body.classList.toggle("ocultar", valoresOcultos());
 /** "Escanear e importar": tudo o que traz gastos de fora, num lugar só. */
 function escanearEImportar() {
   const op = (id, icone, t, s) => `<button class="mais-item" type="button" id="${id}"><span class="ic-box">${ico(icone)}</span><span class="tx"><b>${t}</b><span>${s}</span></span>${ico("chev")}</button>`;
-  openDlg(`<h3>Escanear, importar e exportar</h3><p class="hint" style="margin:0 0 12px">O app lê no próprio aparelho e mostra tudo para você conferir antes de lançar.</p>
-    <div class="caixa-mais">${op("esExtrato", "subir", "Importar extrato do banco", "Fatura do cartão ou extrato da conta. O app descobre qual é.")}
+  openDlg(`<h3>Ler comprovante e exportar</h3><p class="hint" style="margin:0 0 12px">O app lê no próprio aparelho e mostra tudo para você conferir antes de lançar.</p>
+    <div class="caixa-mais">${IMPORTA_EXTRATO ? op("esExtrato", "subir", "Importar extrato do banco", "Fatura do cartão ou extrato da conta. O app descobre qual é.") : ""}
       ${op("esQr", "camera", "Ler com a câmera", "QR code, boleto, nota fiscal, comprovante ou fatura")}
       ${op("esMsg", "clipe", "Colar mensagem do banco", "a notificação ou o SMS de uma compra, Pix ou pagamento")}</div>
     <h4 class="ferr-h" style="margin:16px 0 6px">Exportar</h4>
@@ -4998,7 +4998,7 @@ function escanearEImportar() {
       ${op("esExpCartao", "baixar", "Cartão", "A fatura do mês ou todas as compras, em Excel, PDF ou CSV")}</div>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
   $("esQr").onclick = () => { $("dlg").close(); setTimeout(() => { abrirLancar(); abrirQr(); }, 200); };
-  $("esExtrato").onclick = () => { $("dlg").close(); setTimeout(() => abrirExtrato(), 200); };
+  if ($("esExtrato")) $("esExtrato").onclick = () => { $("dlg").close(); setTimeout(() => abrirExtrato(), 200); };
   $("esMsg").onclick = () => colarMensagem();
   $("esExpMes").onclick = () => exportarExtratoMes(escanearEImportar);
   $("esExpCartao").onclick = () => exportarCartao("", "fatura", escanearEImportar);
@@ -6132,11 +6132,11 @@ function abrirLeitor(preferido = "") {
   openDlg(`<h3>${preferido === "fatura" ? "Ler fatura" : "Ler foto ou PDF"}</h3>
     <p class="hint" style="margin:0 0 10px;font-size:13px">${preferido === "fatura" ? "Fotografe a fatura do cartão ou escolha o PDF que o banco mandou." : "Fotografe ou escolha o arquivo de um comprovante de pagamento, da fatura do cartão ou do holerite."} O app lê o valor e a data e deixa tudo preenchido para você conferir.</p>
     <ul class="dicas"><li>PDF e print de tela leem melhor do que foto de papel.</li><li>Na foto de papel: chegue perto, enquadre só o documento e segure o celular reto por cima dele, com boa luz.</li><li>Em boleto e conta, deixe o código de barras e a fileira de números aparecendo: o valor também está escrito ali.</li><li>Da fatura o app pega só o total e o vencimento; do holerite, o valor líquido.</li><li>A leitura é feita no seu aparelho. O arquivo não é enviado para nenhum servidor.</li></ul>
-    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="lerFoto">${ico("camera")}Tirar foto</button><button class="btn" type="button" id="lerEscolher">${ico("imagem")}Escolher imagem ou PDF</button><button class="btn" type="button" id="lerQr">${ico("qr")}Ler QR code do Pix ou da nota</button><button class="btn" type="button" id="lerExtrato">${ico("subir")}Importar extrato do banco</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
+    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="lerFoto">${ico("camera")}Tirar foto</button><button class="btn" type="button" id="lerEscolher">${ico("imagem")}Escolher imagem ou PDF</button><button class="btn" type="button" id="lerQr">${ico("qr")}Ler QR code do Pix ou da nota</button>${IMPORTA_EXTRATO ? `<button class="btn" type="button" id="lerExtrato">${ico("subir")}Importar extrato do banco</button>` : ""}<button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
   $("lerFoto").onclick = () => $("lerCamera").click();
   $("lerEscolher").onclick = () => $("lerGaleria").click();
   $("lerQr").onclick = abrirQr;
-  $("lerExtrato").onclick = abrirExtrato;
+  if ($("lerExtrato")) $("lerExtrato").onclick = abrirExtrato;
 }
 
 /* ---------- QR code: Pix, nota fiscal e boleto, pela câmera, por uma imagem ou colando o código ---------- */
@@ -6281,10 +6281,10 @@ function pdfDeVariasLinhas(tipo, arquivo) {
   const fatura = tipo === "fatura";
   openDlg(`<h3>Este PDF tem várias linhas</h3>
     <p style="color:var(--ink-2);margin:0 0 10px">Parece ${fatura ? "uma <b>fatura de cartão</b>" : "um <b>extrato da conta</b>"}, com várias compras ou movimentos. Um comprovante tem um valor só; aqui o app não consegue separar cada linha com segurança.</p>
-    <p class="hint" style="margin:0 0 12px">Para lançar tudo de uma vez, baixe ${fatura ? "a fatura" : "o extrato"} em <b>CSV</b> ou <b>OFX</b> no app do seu banco (procure Exportar ou Enviar por e-mail) e escolha esse arquivo em Importar extrato do banco.</p>
-    <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="pdfImportar">${ico("subir")}Importar CSV ou OFX</button>
-      <button class="btn" type="button" id="pdfUnico">Ler só o total como comprovante</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
-  $("pdfImportar").onclick = abrirExtrato;
+    ${IMPORTA_EXTRATO ? `<p class="hint" style="margin:0 0 12px">Para lançar tudo de uma vez, baixe ${fatura ? "a fatura" : "o extrato"} em <b>CSV</b> ou <b>OFX</b> no app do seu banco (procure Exportar ou Enviar por e-mail) e escolha esse arquivo em Importar extrato do banco.</p>` : `<p class="hint" style="margin:0 0 12px">Você pode lançar ${fatura ? "o total da fatura de uma vez" : "cada movimento"} à mão, ou ler só o total deste PDF.</p>`}
+    <div class="menu-lista" style="display:grid;gap:8px">${IMPORTA_EXTRATO ? `<button class="btn primary" type="button" id="pdfImportar">${ico("subir")}Importar CSV ou OFX</button>` : ""}
+      <button class="btn ${IMPORTA_EXTRATO ? "" : "primary"}" type="button" id="pdfUnico">Ler só o total como comprovante</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
+  if ($("pdfImportar")) $("pdfImportar").onclick = abrirExtrato;
   $("pdfUnico").onclick = () => processaLeitura(arquivo, "", false, true);
 }
 async function processaLeitura(arquivo, senha = "", semCodigo = false, comoUnico = false) {
@@ -6306,6 +6306,7 @@ async function processaLeitura(arquivo, senha = "", semCodigo = false, comoUnico
       if (!r.tela) {
         const todas = await textoDoPdf(arquivo, { senha, aoProgredir: anda("Lendo o extrato, todas as páginas…") });
         if (vez !== leitura) return;
+        if (!IMPORTA_EXTRATO) return pdfDeVariasLinhas(documentoDeVariasLinhas(todas) || "extrato", arquivo);
         const ex = ehExtratoDeContaPdf(todas) ? leExtratoDeContaPdf(todas) : ehExtratoNubankPdf(todas) ? leExtratoNubankPdf(todas) : null;
         if (ex && ex.linhas.length > 1) return conferirConta({ linhas: ex.linhas, titular: ex.titular }, arquivo.name || "extrato.pdf");
         const tipo = documentoDeVariasLinhas(todas) || "extrato";

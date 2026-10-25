@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "159", itens: ["Mais simples para quem usa cartão: tiramos a opção de importar extrato e fatura de arquivo, porque cada banco entrega o arquivo de um jeito e a leitura falhava. Agora o caminho é lançar a compra: escolha Cartão de crédito, o cartão e as parcelas, e ela entra na fatura certa. A foto ou o PDF de um comprovante e o QR code continuam funcionando."] },
   { versao: "158", itens: ["Modo motorista: agora dá para editar um turno que já foi salvo. Em \"Últimos turnos\", toque na linha e corrija os ganhos de cada app, os km, as viagens, o dia e os horários. O ganho também muda no extrato."] },
   { versao: "157", itens: ["O app agora se atualiza sozinho: quando sai uma versão nova, ele recarrega logo que você abre (se ainda não mexeu em nada) ou quando você volta ao app depois de largá-lo. Antes, só aparecia um aviso que dava para perder, e muita gente ficava numa versão antiga."] },
   { versao: "156", itens: ["Modo motorista, jornada em andamento: o líquido por hora virou o destaque no topo, e Pausar e Encerrar jornada ficam fixos embaixo da tela, fáceis de tocar com o carro parado. O botão redondo grande saiu para dar espaço."] },
