@@ -16,6 +16,7 @@ import { entendeFala } from "./voz.js";
 import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
+import { linhaDaSemana } from "./semana.js";
 import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
@@ -738,7 +739,7 @@ function render() {
   $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? "Modo motorista" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   $("listaVoltar").hidden = !sub;
-  renderForm(); renderInstalar(); renderFechamento(); renderRepetidos(); renderVenc(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
+  renderForm(); renderInstalar(); renderFechamento(); renderRepetidos(); renderVenc(); renderSemanaIni(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
   avisoDaFila();
 }
 
@@ -1588,6 +1589,18 @@ function detalheVencimento(x) {
     if (x.semValor) return editarFatura({ ...x, vencimento: x.data, itens: [], calculado: 0, valor: 0, valor_fixo: false, status: "Aberta" });
     if (await transformaEmFixas([x.achada])) toast(`${x.titulo} virou conta fixa. Os meses anteriores ficaram como pagos.`);
   };
+}
+/** "Esta semana": os últimos movimentos lançados, em linha do tempo. Toque abre o lançamento; "Ver extrato" abre a lista inteira. */
+function renderSemanaIni() {
+  const host = $("semanaIni"); if (!host) return;
+  const l = S.loaded && S.mes === mKey(hoje()) ? linhaDaSemana(S.data.lancamentos, hoje()) : [];
+  host.hidden = !l.length; if (!l.length) { host.innerHTML = ""; return; }
+  host.innerHTML = `<div class="semana"><div class="semana-topo"><h2>Esta semana</h2><button type="button" class="link" id="semanaExtrato">Ver extrato</button></div>
+    <ol class="tl-sem">${l.map((x) => `<li class="${x.tipo === "Receita" ? "entra" : x.tipo === "Reserva" ? "guarda" : "sai"}"><button type="button" class="tl-item" data-sem="${esc(x.id)}">
+      <span class="tl-ponto" aria-hidden="true"></span><span class="tl-txt"><b>${esc(x.descricao)}</b><small>${x.rotulo}${x.categoria ? " · " + esc(x.categoria) : ""}</small></span>
+      <span class="tl-val ocultavel">${x.tipo === "Receita" ? "+" : x.tipo === "Reserva" ? "" : "−"} ${brl(x.valor)}</span></button></li>`).join("")}</ol></div>`;
+  host.querySelectorAll("[data-sem]").forEach((b) => (b.onclick = () => editarLancamento(b.dataset.sem)));
+  $("semanaExtrato").onclick = () => abrirSub("l");
 }
 function renderVenc() {
   const host = $("venc"), reais = S.loaded ? proximosVencimentos(S.data, hoje(), 30) : [];
