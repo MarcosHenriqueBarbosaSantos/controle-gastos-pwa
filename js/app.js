@@ -3736,7 +3736,7 @@ function concluiLista() {
 function mercado() {
   trazListaAntiga(); S.listaFinalizando = null;
   const catsD = cats("Despesa"), padrao = catsD.includes("Mercado") ? "Mercado" : catsD[0];
-  let timer = null, confirmaLimpar = false;
+  let timer = null, confirmaLimpar = false, busca = "";
   const muda = (fn) => { const l = listaDe(); fn(l); gravaLista(l); };
   const agora = () => Date.now(), tarde = (f) => setTimeout(f, 0);   // redesenhar no meio de um "change" quebra o foco do campo
   const desenha = () => {
@@ -3769,12 +3769,13 @@ function mercado() {
       </div>
       ${tk.n > 0 ? `<p class="ml-hist">Você já lançou <b>${brl(noMes)}</b> em ${esc(padrao)} neste mês. Sua compra média é <b>${brl(tk.media)}</b> e o gasto, cerca de <b>${brl(tk.porMes)}</b> por mês.</p>` : ""}
       <form id="mlForm" class="ml-add" autocomplete="off">
-        <input class="in" id="mlNome" maxlength="40" list="mlSug" placeholder="Adicionar item (ex.: arroz)" aria-label="Nome do item" enterkeyhint="done">
+        <input class="in" id="mlNome" maxlength="40" list="mlSug" placeholder="Procurar ou adicionar item (ex.: arroz)" aria-label="Procurar na lista ou adicionar um item" enterkeyhint="done" value="${esc(busca)}">
         <input class="in money ml-add-preco" id="mlPreco" inputmode="decimal" placeholder="Preço" aria-label="Preço do item, opcional. Com preço, o item já entra no carrinho" enterkeyhint="done">
         <button class="ml-mais ml-foto-add" type="button" id="mlFotoAdd" aria-label="Ler o nome e o preço da etiqueta pela câmera">${ico("camera")}</button>
         <button class="ml-mais" type="submit" aria-label="Adicionar à lista">${ico("mais")}</button>
         <datalist id="mlSug">${Object.keys(precos).slice(-60).map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
       </form>
+      <p class="hint ml-busca-info" id="mlBuscaInfo" role="status" aria-live="polite" hidden></p>
       ${repetir.length ? `<button class="btn sm ml-repete" type="button" id="mlRepete">Repetir a última compra · ${repetir.length} ${repetir.length === 1 ? "item" : "itens"}</button>` : ""}
       ${falta.length ? `<h4 class="ml-h">Falta pegar <span>${falta.length}</span></h4>${falta.length >= 6 ? agrupaPorCorredor(falta).map((g) => `<h5 class="ml-corr">${esc(g.corredor)}</h5><ul class="ml-lista">${g.itens.map(linha).join("")}</ul>`).join("") : `<ul class="ml-lista">${falta.map(linha).join("")}</ul>`}` : l.itens.length ? `<p class="ml-vazio">Tudo no carrinho. Toque em Finalizar compra.</p>` : `<p class="ml-vazio">A lista está vazia.<br>Digite o que precisa comprar e toque em +.</p>`}
       ${nocar.length ? `<h4 class="ml-h">No carrinho <span>${nocar.length}</span></h4><ul class="ml-lista">${nocar.map(linha).join("")}</ul>` : ""}
@@ -3788,6 +3789,16 @@ function mercado() {
       <div class="ml-barra"><span><small>No carrinho</small><b>${brl(e.noCarrinho)}</b></span><button class="btn primary" type="button" id="mlOk"${e.noCarrinho > 0 ? "" : " disabled"}>Finalizar compra</button></div>
       <div class="actions"><button class="btn" type="button" id="mlManda"${falta.length ? "" : " disabled"}>Mandar a lista por mensagem</button><button class="btn" type="button" data-close>Fechar</button></div></div>`);
     raiz.scrollTop = rolou;
+    // Escrever no campo do topo também filtra a lista (sem acento e sem diferenciar maiúscula); o + continua adicionando.
+    const aplicaBusca = () => {
+      const q = norm(busca).trim(), itens = [...$("dlgBody").querySelectorAll(".ml-item")]; let ach = 0;
+      itens.forEach((li) => { const ok = !q || norm(li.querySelector(".ml-nome b, .ml-nome-in")?.textContent || "").includes(q); li.hidden = !ok; if (ok) ach++; });
+      $("dlgBody").querySelectorAll(".ml-lista").forEach((ul) => { const algum = [...ul.children].some((li) => !li.hidden); ul.hidden = !algum; const h = ul.previousElementSibling; if (h && h.tagName === "H5") h.hidden = !algum; });
+      const info = $("mlBuscaInfo"); info.hidden = !q;
+      if (q) info.textContent = ach ? `${ach} de ${itens.length} ${itens.length === 1 ? "item" : "itens"} na lista. Para adicionar "${busca.trim().slice(0, 40)}" como item novo, toque em +.` : `Nenhum item na lista com "${busca.trim().slice(0, 40)}". Toque em + para adicionar.`;
+    };
+    $("mlNome").addEventListener("input", () => { busca = $("mlNome").value; aplicaBusca(); });
+    aplicaBusca();
     const edita = (id, fn) => muda((m) => { const x = m.itens.find((z) => z.id === id); if (x) { fn(x); x.t = agora(); } });
     $("mlForm").addEventListener("submit", (ev) => {
       ev.preventDefault();
@@ -3798,7 +3809,7 @@ function mercado() {
       const pv = $("mlPreco").value.trim() ? (avaliaConta($("mlPreco").value) ?? parseMoney($("mlPreco").value)) : 0, comPreco = pv > 0 && pv <= VALOR_MAX;
       if ($("mlPreco").value.trim() && !comPreco) { toast("Confira o preço. Deixe em branco se ainda não sabe."); return $("mlPreco").focus(); }
       muda((m) => { m.itens.push({ id: crypto.randomUUID(), nome: nome.slice(0, 40), qtd: 1, preco: comPreco ? round2(pv) : 0, pego: comPreco, t: agora() }); });
-      desenha(); $("mlNome").focus();
+      busca = ""; desenha(); $("mlNome").focus();
       if (comPreco) toast(`${nome.slice(0, 40)} já está no carrinho: ${brl(pv)}.`);
     });
     // Câmera ao lado do preço: aponta para a etiqueta (peça pesada ou placa da prateleira) e o app preenche nome e preço; a pessoa confere e toca em +.

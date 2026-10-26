@@ -1922,3 +1922,5 @@ button.mg-bt:active{background:var(--sunk)}
 .ml-corpo .ml-nome{display:block;padding:0;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:text;min-height:32px}
 .ml-corpo .ml-nome b{border-bottom:1px dashed var(--border)}
 .ml-nome-in{width:100%;min-height:40px;border-radius:10px}
+.ml-item[hidden],.ml-lista[hidden],.ml-corr[hidden]{display:none!important}
+.ml-busca-info{margin:4px 2px 8px;font-size:13px}
