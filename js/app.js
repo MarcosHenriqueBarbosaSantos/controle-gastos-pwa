@@ -5,6 +5,7 @@ import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
+import { leEtiquetaDePreco } from "./etiqueta.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
 import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
@@ -3770,6 +3771,7 @@ function mercado() {
       <form id="mlForm" class="ml-add" autocomplete="off">
         <input class="in" id="mlNome" maxlength="40" list="mlSug" placeholder="Adicionar item (ex.: arroz)" aria-label="Nome do item" enterkeyhint="done">
         <input class="in money ml-add-preco" id="mlPreco" inputmode="decimal" placeholder="Preço" aria-label="Preço do item, opcional. Com preço, o item já entra no carrinho" enterkeyhint="done">
+        <button class="ml-mais ml-foto-add" type="button" id="mlFotoAdd" aria-label="Ler o nome e o preço da etiqueta pela câmera">${ico("camera")}</button>
         <button class="ml-mais" type="submit" aria-label="Adicionar à lista">${ico("mais")}</button>
         <datalist id="mlSug">${Object.keys(precos).slice(-60).map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
       </form>
@@ -3799,6 +3801,25 @@ function mercado() {
       desenha(); $("mlNome").focus();
       if (comPreco) toast(`${nome.slice(0, 40)} já está no carrinho: ${brl(pv)}.`);
     });
+    // Câmera ao lado do preço: aponta para a etiqueta (peça pesada ou placa da prateleira) e o app preenche nome e preço; a pessoa confere e toca em +.
+    $("mlFotoAdd").onclick = () => {
+      const f = document.createElement("input"); f.type = "file"; f.accept = "image/*"; f.setAttribute("capture", "environment");
+      f.onchange = async () => {
+        const arq = f.files?.[0]; if (!arq) return;
+        toastOuFlash("Lendo a etiqueta…");
+        try {
+          const { texto, leitura } = await lerImagem(arq, () => {}, hoje()), etq = leEtiquetaDePreco(texto);
+          const v = etq?.valor || Number(leitura?.valor) || 0;
+          if (!(v > 0 && v <= VALOR_MAX)) return void toastOuFlash("Não consegui ler o preço. Chegue mais perto da etiqueta, com boa luz, ou digite.");
+          if (etq?.nome && !$("mlNome").value.trim()) $("mlNome").value = etq.nome;
+          $("mlPreco").value = v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+          const extra = etq?.tipo === "pesado" ? ` (${String(etq.peso).replace(".", ",")} kg${etq.porKg ? ` a ${brl(etq.porKg)} o kg` : ""})` : etq?.unidade === "kg" ? " o kg" : "";
+          toastOuFlash(`Li ${etq?.nome ? etq.nome + ": " : ""}${brl(v)}${extra}. Confira e toque em +.`);
+          if (!$("mlNome").value.trim()) $("mlNome").focus();
+        } catch { toastOuFlash("Não consegui ler a foto agora. Digite o nome e o preço."); }
+      };
+      f.click();
+    };
     $("dlgBody").querySelectorAll("[data-pega]").forEach((b) => (b.onclick = () => { edita(b.dataset.pega, (x) => { x.pego = !x.pego; }); vibra?.(); desenha(); }));
     $("dlgBody").querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { muda((m) => { m.itens = m.itens.filter((x) => x.id !== b.dataset.x); m.apagados = [...m.apagados, { id: b.dataset.x, t: agora() }]; }); desenha(); }));
     $("dlgBody").querySelectorAll("[data-menos]").forEach((b) => (b.onclick = () => { edita(b.dataset.menos, (x) => { x.qtd = Math.max(1, Math.round((Number(x.qtd) || 1) - 1)); }); desenha(); }));
@@ -3832,7 +3853,7 @@ function mercado() {
         const arq = f.files?.[0]; if (!arq) return;
         toastOuFlash("Lendo o preço da foto…");
         try {
-          const { leitura } = await lerImagem(arq, () => {}, hoje()), v = Number(leitura?.valor) || 0;
+          const { texto, leitura } = await lerImagem(arq, () => {}, hoje()), etq = leEtiquetaDePreco(texto), v = etq?.valor || Number(leitura?.valor) || 0;
           if (v > 0 && v <= VALOR_MAX) { edita(b.dataset.foto, (x) => { x.preco = round2(v); }); toastOuFlash(`Li ${brl(v)}. Confira o preço e ajuste se precisar.`); }
           else toastOuFlash("Não consegui ler o valor nessa foto. Digite o preço ou tente de perto, com boa luz.");
         } catch { toastOuFlash("Não consegui ler a foto agora. Digite o preço."); }

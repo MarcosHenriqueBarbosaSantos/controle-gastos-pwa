@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "167", itens: ["Lista de mercado: o botão da câmera ao lado do preço lê a etiqueta e já preenche o nome e o preço. Funciona com etiqueta de peça pesada (acém, costela: pega o total e confere peso × preço por kg) e com placa de prateleira (alface, cebola: pega o preço de varejo). Você confere e toca em +. Se o app não conseguir ler, é só digitar."] },
   { versao: "166", itens: ["Lista de mercado mais rápida na hora de comprar: ao adicionar um item, já dá para escrever o preço ao lado. Com preço, o item entra direto no carrinho, sem tocar na bolinha. E ao digitar o preço de um item que já está na lista, ele também vai para o carrinho (com Desfazer, caso tenha sido só para estimar)."] },
   { versao: "165", itens: ["Regra para decorar mais simples: um número só, o custo do seu carro por km mais R$ 1,00. Abaixo disso, recuse. Separado, o app mostra a partir de quanto por km a corrida é boa (uns R$ 2,00, ou mais se a sua meta pedir)."] },
   { versao: "164", itens: ["Modo motorista: no resultado, agora aparecem lado a lado quanto você faz por hora no bruto (o que entra) e no líquido (depois do custo do carro), junto com o total de horas trabalhadas. O mesmo vale para o km."] },

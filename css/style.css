@@ -1917,3 +1917,4 @@ button.mg-bt:active{background:var(--sunk)}
 
 /* v166: preço junto com o item na lista de mercado. */
 .ml-add .ml-add-preco{flex:0 0 96px;max-width:96px;text-align:right}
+.ml-add .ml-foto-add{background:var(--sunk);color:var(--ink);box-shadow:none;border:1px solid var(--border)}

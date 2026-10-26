@@ -31,4 +31,4 @@ export const PLAY_PACOTE = "";
 // a pessoa nem sempre acha onde baixar. O código fica guardado; para religar, troque para true.
 export const IMPORTA_EXTRATO = false;
 
-export const APP_VERSAO = "166";
+export const APP_VERSAO = "167";
