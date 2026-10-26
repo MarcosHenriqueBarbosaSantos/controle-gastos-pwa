@@ -22,6 +22,7 @@ import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_G
 import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
+import { conferirListaComNota, valoresDaLinha as valoresDaLinhaNota } from "./notamercado.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
 import { pareceConta, leConta, arrumaNome, nomeDoEmail, CATEGORIA_PIX_PESSOA, CATEGORIA_CASAL } from "./conta.js";
@@ -3786,6 +3787,7 @@ function mercado() {
         ${outro ? "" : `<p class="hint">Para outra pessoa ver e marcar a lista junto com você dentro do app, use a <button class="link" type="button" id="mlCasal">Conta de casal</button>.</p>`}
         ${l.itens.length ? `<button class="btn" type="button" id="mlLimpa">${confirmaLimpar ? "Toque de novo para apagar tudo" : "Limpar a lista"}</button>` : ""}
       </details>
+      <button class="btn" type="button" id="mlConf" style="width:100%;margin:8px 0 0"${l.itens.some((x) => x.pego) ? "" : " disabled"}>${ico("camera")}Conferir com a nota (QR code)</button>
       <div class="ml-barra"><span><small>No carrinho</small><b>${brl(e.noCarrinho)}</b></span><button class="btn primary" type="button" id="mlOk"${e.noCarrinho > 0 ? "" : " disabled"}>Finalizar compra</button></div>
       <div class="actions"><button class="btn" type="button" id="mlManda"${falta.length ? "" : " disabled"}>Mandar a lista por mensagem</button><button class="btn" type="button" data-close>Fechar</button></div></div>`);
     raiz.scrollTop = rolou;
@@ -3903,6 +3905,7 @@ function mercado() {
       const texto = textoDaLista(listaDe().itens);
       try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast("Lista copiada. Cole no WhatsApp ou onde preferir."); } } catch { /* a pessoa desistiu */ }
     };
+    $("mlConf").onclick = () => { clearInterval(timer); aoLerNota = conferirMercadoComNota; abrirQr(); };
     $("mlOk").onclick = () => {
       const lista = listaDe(), pr = S.prefs.precosMercado || {}, compra = compraDoCarrinho(lista.itens, pr, padrao), tk0 = ticketMedioMercado(S.data.lancamentos, hoje(), padrao);
       if (!(compra.total > 0)) return void toast("Marque no carrinho ao menos um item com preço.");
@@ -6265,11 +6268,12 @@ function abrirLeitor(preferido = "") {
     <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="lerFoto">${ico("camera")}Tirar foto</button><button class="btn" type="button" id="lerEscolher">${ico("imagem")}Escolher imagem ou PDF</button><button class="btn" type="button" id="lerQr">${ico("qr")}Ler QR code do Pix ou da nota</button>${IMPORTA_EXTRATO ? `<button class="btn" type="button" id="lerExtrato">${ico("subir")}Importar extrato do banco</button>` : ""}<button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
   $("lerFoto").onclick = () => $("lerCamera").click();
   $("lerEscolher").onclick = () => $("lerGaleria").click();
-  $("lerQr").onclick = abrirQr;
+  $("lerQr").onclick = () => { aoLerNota = null; abrirQr(); };
   if ($("lerExtrato")) $("lerExtrato").onclick = abrirExtrato;
 }
 
 /* ---------- QR code: Pix, nota fiscal e boleto, pela câmera, por uma imagem ou colando o código ---------- */
+let aoLerNota = null;   // quando a lista de mercado pede a nota: recebe a nota lida do QR code
 let camera = null;   // a câmera aberta pelo leitor de QR code; é desligada sempre que o quadro fecha ou muda
 function desligaCamera() { camera?.getTracks().forEach((t) => t.stop()); camera = null; }
 $("dlg").addEventListener("close", desligaCamera);
@@ -6278,6 +6282,10 @@ function usaCodigo(texto, previa = "") {
   const r = interpretaQr(texto, hoje());
   if (!r) return false;
   desligaCamera(); S.lerComo = "";
+  if (aoLerNota) {   // veio de "Conferir com a nota" na lista de mercado
+    if (r.origem === "nota" && r.valor === null && r.link && NOTA_URL && S.store?.kind === "supabase") { consultaNota(r, String(texto), previa); return true; }
+    aoLerNota = null; toast("Para conferir a lista, preciso do QR code da nota fiscal e de você logado no app."); setTimeout(mercado, 300); return true;
+  }
   // Nota de mercado: o código só tem o endereço da Fazenda. Com a pessoa logada, o servidor do app busca o valor lá.
   if (r.origem === "nota" && r.valor === null && r.link && NOTA_URL && S.store?.kind === "supabase") consultaNota(r, String(texto), previa);
   else conferirLeitura(r, String(texto), previa);
@@ -6289,7 +6297,7 @@ async function consultaNota(r, texto, previa, seFalhar = null) {
   const vez = ++leitura;
   openDlg(`<h3>Consultando a nota…</h3><p class="hint" style="margin:0;font-size:13px">Buscando o valor, a loja e os itens no site da Fazenda. Leva alguns segundos.</p>
     <div class="barra vai"><i></i></div><div class="actions"><button class="btn" type="button" id="notaPular">Digitar o valor eu mesmo</button></div>`);
-  $("notaPular").onclick = () => { leitura++; conferirLeitura(r, texto, previa); };
+  $("notaPular").onclick = () => { leitura++; if (aoLerNota) { aoLerNota = null; return mercado(); } conferirLeitura(r, texto, previa); };
   $("dlg").addEventListener("close", () => { if (vez === leitura) leitura++; }, { once: true });   // fechou no meio: o resultado é descartado
   let nota = null, motivo = "";
   const corta = new AbortController(), relogio = setTimeout(() => corta.abort(), 15000);
@@ -6299,6 +6307,7 @@ async function consultaNota(r, texto, previa, seFalhar = null) {
     if (j?.ok && j.nota?.valor > 0) nota = j.nota; else motivo = j?.motivo || "erro";
   } catch { motivo = "sem-resposta"; } finally { clearTimeout(relogio); }
   if (vez !== leitura) return;
+  if (aoLerNota) { const f = aoLerNota; aoLerNota = null; if (nota) return f(nota); toast("Não consegui ler a nota agora. Tente de novo."); return void setTimeout(mercado, 300); }
   if (nota) return conferirLeitura(leituraDaNota(nota, r, hoje()), itensEmTexto(nota) || texto, previa);
   if (seFalhar) return seFalhar();   // veio de uma foto: o leitor de texto ainda pode achar o total impresso
   const porque = motivo === "limite" ? "Foram muitas consultas seguidas. Espere alguns minutos e tente de novo"
@@ -6306,6 +6315,25 @@ async function consultaNota(r, texto, previa, seFalhar = null) {
     : "O site da Fazenda não respondeu agora";
   conferirLeitura({ ...r, aviso: `${porque}. Digite o valor, ou volte e fotografe o cupom inteiro para o app ler o total.` }, texto, previa);
 }
+/** Compara a lista de mercado com a nota fiscal lida: mostra o que bate, o que mudou de preço, o que faltou e o que sobrou. */
+function conferirMercadoComNota(nota) {
+  const lista = listaDe(), c = conferirListaComNota(lista.itens, nota), dif = Math.round((c.totalNota - c.totalLista) * 100) / 100;
+  const linha = (p) => `<li class="ml-conf-l"><span>${esc(p.item.nome)}<small>${esc(p.linha.nome)}</small></span><span class="${Math.abs(p.diferenca) < 0.005 ? "" : p.diferenca > 0 ? "neg" : "pos"}">${brl(p.totalNota)}${Math.abs(p.diferenca) < 0.005 ? "" : `<small>${p.diferenca > 0 ? "+" : "−"}${brl(Math.abs(p.diferenca))} na nota</small>`}</span></li>`;
+  openDlg(`<h3>Conferir com a nota</h3>
+    <p class="hint" style="margin:0 0 8px;font-size:13px">${esc(nota.loja || "Nota fiscal")}: nota ${brl(c.totalNota)}, carrinho ${brl(c.totalLista)}. ${Math.abs(dif) < 0.005 ? "Bateu certinho." : dif > 0 ? `A nota deu ${brl(dif)} a mais.` : `A nota deu ${brl(-dif)} a menos.`}</p>
+    ${c.pares.length ? `<h4 class="ml-h">Itens que bateram <span>${c.pares.length}</span></h4><ul class="ml-lista">${c.pares.map(linha).join("")}</ul>` : ""}
+    ${c.soNaNota.length ? `<h4 class="ml-h">Só na nota <span>${c.soNaNota.length}</span></h4><ul class="ml-lista">${c.soNaNota.map((l) => `<li class="ml-conf-l"><span>${esc(l.nome)}</span><span>${brl(l.valor)}</span></li>`).join("")}</ul>` : ""}
+    ${c.soNaLista.length ? `<h4 class="ml-h">No carrinho e não veio na nota <span>${c.soNaLista.length}</span></h4><ul class="ml-lista">${c.soNaLista.map((x) => `<li class="ml-conf-l"><span>${esc(x.nome)}</span><span>${brl((x.preco || 0) * (x.qtd || 1))}</span></li>`).join("")}</ul>` : ""}
+    <div class="actions"><button class="btn primary" type="button" id="cnUsa">Usar os valores da nota</button><button class="btn" type="button" id="cnVolta">Voltar para a lista</button></div>`);
+  $("cnVolta").onclick = () => mercado();
+  $("cnUsa").onclick = () => {
+    const l = listaDe(), t = Date.now();
+    c.pares.forEach((p) => { const x = l.itens.find((i) => i.id === p.item.id); if (x) { x.qtd = p.novo.qtd; x.preco = p.novo.preco; x.pego = true; x.t = t; } });
+    c.soNaNota.forEach((ln) => { const v = valoresDaLinhaNota(ln); if (l.itens.length < 300) l.itens.push({ id: crypto.randomUUID(), nome: String(ln.nome).slice(0, 40), qtd: v.qtd, preco: v.preco, pego: true, t }); });
+    gravaLista(l); mercado(); toast("Lista atualizada com os valores da nota. Toque em Finalizar compra.");
+  };
+}
+if (S.store?.kind === "local" || sessionStorage.getItem("cg-modo") === "demo") window.__conferirNota = conferirMercadoComNota;   // só na demonstração: permite testar a tela sem a Fazenda
 const QR_NAO_SERVE = "Esse código não é de Pix, de nota fiscal nem de boleto. Aponte para o QR code do pagamento ou do cupom.";
 function abrirQr() {
   const vez = ++leitura;
@@ -6392,7 +6420,7 @@ function abrirExtrato() {
     <div class="menu-lista" style="display:grid;gap:8px"><button class="btn primary" type="button" id="extEscolher">${ico("subir")}Escolher o arquivo</button><button class="btn ghost" type="button" data-close>Cancelar</button></div>`);
   $("extEscolher").onclick = () => $("extratoIn").click();
 }
-$("btnLer").onclick = () => abrirQr();   // uma câmera só: QR code ao vivo e, no mesmo quadro, foto ou PDF do comprovante
+$("btnLer").onclick = () => { aoLerNota = null; abrirQr(); };   // uma câmera só: QR code ao vivo e, no mesmo quadro, foto ou PDF do comprovante
 ["lerCamera", "lerGaleria"].forEach((id) => $(id).addEventListener("change", (e) => { const f = e.target.files[0]; e.target.value = ""; if (!f) return; if (!ehPdf(f) && !/^image\//.test(f.type) && ehExtrato(f)) importarExtrato(f); else processaLeitura(f); }));
 
 /** PDF protegido: pede a senha. Ela só é usada aqui, para abrir o arquivo no aparelho; não é guardada nem enviada. */

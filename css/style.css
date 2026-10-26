@@ -1924,3 +1924,6 @@ button.mg-bt:active{background:var(--sunk)}
 .ml-nome-in{width:100%;min-height:40px;border-radius:10px}
 .ml-item[hidden],.ml-lista[hidden],.ml-corr[hidden]{display:none!important}
 .ml-busca-info{margin:4px 2px 8px;font-size:13px}
+.ml-conf-l{display:flex;justify-content:space-between;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border);list-style:none}
+.ml-conf-l small{display:block;color:var(--muted);font-size:11px}
+.ml-conf-l>span:last-child{text-align:right;font-variant-numeric:tabular-nums}
