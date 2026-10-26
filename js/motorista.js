@@ -133,14 +133,12 @@ export const EXTRA_POR_KM = 1;
 export const BOA_POR_KM = 2;
 export function regraDeAceite({ custoKm = 0, minimoHora = 0, kmPorHora = 0 }) {
   custoKm = Number(custoKm) || 0; minimoHora = Number(minimoHora) || 0; kmPorHora = Number(kmPorHora) || 0;
-  const piso = custoKm > 0 ? r2(custoKm + EXTRA_POR_KM) : PISO_POR_KM;   // o que o km precisa pagar, no mínimo
-  let r;
-  if (minimoHora > 0 && kmPorHora >= 5) { const preciso = custoKm + minimoHora / kmPorHora; r = { aceita: r2(preciso * 1.15), recusa: r2(preciso * 0.85), base: "meta" }; }
-  else if (custoKm > 0) r = { aceita: r2(piso * 1.2), recusa: piso, base: "carro" };
-  else r = { aceita: r2(PISO_POR_KM * 1.2), recusa: PISO_POR_KM, base: "minimo" };
-  if (r.recusa < piso) { r.recusa = piso; r.aceita = Math.max(r.aceita, r2(piso * 1.2)); }
-  r.aceita = Math.max(r.aceita, BOA_POR_KM, r2(r.recusa * 1.1));
-  return { ...r, custoKm: r2(custoKm), piso };
+  // O mínimo é só isto: o custo do carro por km mais R$ 1,00 (sem custo do carro, o piso de R$ 1,00 por km).
+  const minimo = custoKm > 0 ? r2(custoKm + EXTRA_POR_KM) : PISO_POR_KM;
+  // "Corrida boa": o que a meta do dia pede por km (se der para calcular) ou R$ 2,00, o que for maior.
+  const daMeta = minimoHora > 0 && kmPorHora >= 5 ? r2((custoKm + minimoHora / kmPorHora)) : 0;
+  let boa = Math.max(BOA_POR_KM, daMeta); if (boa <= minimo) boa = minimo + 0.2;   // a faixa boa fica sempre acima do mínimo
+  return { minimo, boa: r2(boa), custoKm: r2(custoKm), base: custoKm > 0 ? (daMeta ? "meta" : "carro") : "minimo" };
 }
 
 /**

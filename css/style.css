@@ -1817,6 +1817,7 @@ tr.toca-linha{cursor:pointer} tr.toca-linha:hover td{background:var(--sunk)}
 .mot-regra{border:1px solid var(--border);background:var(--surface);border-radius:16px;padding:12px 14px;margin:10px 0;display:grid;gap:4px}
 .mot-regra small{color:var(--muted);font-size:12px}
 .mot-regra p{margin:0;font-size:1rem;line-height:1.4}
+.mot-regra .mot-regra-conta{font-size:.9rem;color:var(--ink-2)}
 .mot-regra span{font-size:12.5px;color:var(--ink-2)}
 .horas-dia{font-weight:400;color:var(--muted);font-size:12px}
 .ml-preco{max-width:230px}.ml-foto{flex:none;display:grid;place-items:center;width:32px;height:32px;margin-right:-6px;border:0;border-radius:50%;background:var(--surface);color:var(--ink-2);cursor:pointer}.ml-foto .ic{width:18px;height:18px}
