@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "164", itens: ["Modo motorista: no resultado, agora aparecem lado a lado quanto você faz por hora no bruto (o que entra) e no líquido (depois do custo do carro), junto com o total de horas trabalhadas. O mesmo vale para o km."] },
   { versao: "163", itens: ["Regra para decorar do motorista, mais certa: ela parte do custo do seu carro por km (o mesmo de \"Meu carro ou moto\") e exige pelo menos R$ 1,00 a mais por km. Abaixo disso, recuse; de uns R$ 2,00 por km para cima (ou o que a sua meta pedir), é corrida boa. A tela mostra a conta."] },
   { versao: "162", itens: ["Quem já importou extrato ou fatura pode tirar tudo de uma vez: em Ferramentas, Arrumar lançamentos, toque em \"Remover o que veio de importação\". O app mostra quantos são e de que período, o que você lançou à mão fica, e dá para desfazer logo depois (ou baixar uma cópia antes)."] },
   { versao: "161", itens: ["Modo motorista: toque numa barra do gráfico dos últimos 7 dias (ou na data de um turno) para ver aquele dia por inteiro: ganho, lucro, ganho e lucro por hora, por km e por viagem, o que cada aplicativo rendeu e cada turno, que você pode editar. As setas levam ao dia anterior e ao próximo."] },

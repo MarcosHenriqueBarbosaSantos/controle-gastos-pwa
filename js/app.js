@@ -4149,8 +4149,9 @@ function paneMot() {
     <div class="mot-grid">
       ${tile("Ganho", brl(r.ganho), "fat")}
       ${tile(temCarro ? "Custo do carro" : "Gastos do turno", brl(r.custo), "gasto")}${tile("Lucro", brl(r.lucro), "luc")}
-      ${tile("Horas", horasCurtas(r.ms))}${tile("Lucro por hora", tracos(r.lucroPorHora, brl))}
-      ${tile("Km rodados", virg(r.km))}${tile("Lucro por km", tracos(r.lucroPorKm, brl))}
+      ${tile("Horas trabalhadas", horasCurtas(r.ms))}${tile("Km rodados", virg(r.km))}
+      ${tile("Ganho por hora (bruto)", tracos(r.ganhoPorHora, brl))}${tile("Lucro por hora (líquido)", tracos(r.lucroPorHora, brl))}
+      ${tile("Ganho por km", tracos(r.ganhoPorKm, brl))}${tile("Lucro por km", tracos(r.lucroPorKm, brl))}
       ${tile("Viagens", String(r.viagens))}${tile("Ganho por viagem", tracos(r.ganhoPorViagem, brl))}
     </div>
     ${grafico7}
