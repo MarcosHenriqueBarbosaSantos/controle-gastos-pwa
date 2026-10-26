@@ -68,15 +68,18 @@ test("sem entrada no mês: com contas ou gastos e sem nenhuma entrada, o Início
 });
 
 import { regraDeAceite } from "../js/motorista.js";
-test("regraDeAceite: valor mínimo por km para decorar", () => {
-  // custo 0,50/km, precisa de R$ 30 líquidos por hora, roda 25 km por hora: preciso = 0,5 + 1,2 = 1,7 por km
-  const r = regraDeAceite({ custoKm: 0.5, minimoHora: 30, kmPorHora: 25 });
-  assert.equal(r.aceita, 1.96); assert.equal(r.recusa, 1.45); assert.equal(r.base, "meta");
-  // sem média de km por hora, só o custo do carro
-  const c = regraDeAceite({ custoKm: 0.5, minimoHora: 30, kmPorHora: 0 });
-  assert.equal(c.aceita, 1.3); assert.equal(c.recusa, 1); assert.equal(c.base, "carro", "o piso de R$ 1 por km sobe a recusa");
-  const d = regraDeAceite({ custoKm: 1.2 }); assert.equal(d.aceita, 2.4); assert.equal(d.recusa, 1.56);
-  const p = regraDeAceite({}); assert.equal(p.recusa, 1); assert.equal(p.aceita, 1.3); assert.equal(p.base, "minimo");
+test("regraDeAceite: custo do carro por km mais R$ 1,00 no mínimo", () => {
+  // custo 0,80/km: o piso é 1,80. Pela meta: preciso = 0,8 + 30/25 = 2,0 por km → aceita 2,3 e recusa 1,7, que sobe para o piso.
+  const r = regraDeAceite({ custoKm: 0.8, minimoHora: 30, kmPorHora: 25 });
+  assert.equal(r.base, "meta"); assert.equal(r.aceita, 2.3); assert.equal(r.recusa, 1.8); assert.equal(r.piso, 1.8);
+  // sem média de km por hora: só o custo do carro, mais R$ 1,00
+  const c = regraDeAceite({ custoKm: 0.82, minimoHora: 30, kmPorHora: 0 });
+  assert.equal(c.recusa, 1.82); assert.equal(c.aceita, 2.18); assert.ok(regraDeAceite({ custoKm: 0.4 }).aceita === 2, "com custo baixo, R$ 2,00 por km já é boa corrida"); assert.equal(c.base, "carro"); assert.equal(c.custoKm, 0.82);
+  // meta baixa: nunca fica abaixo do custo + R$ 1,00
+  const m = regraDeAceite({ custoKm: 0.6, minimoHora: 5, kmPorHora: 20 });
+  assert.ok(m.recusa >= 1.6 && m.aceita >= 2 && m.aceita > m.recusa);
+  // sem custo do carro: piso de R$ 1,00 por km
+  const p = regraDeAceite({}); assert.equal(p.recusa, 1); assert.equal(p.aceita, 2); assert.equal(p.base, "minimo");
 });
 
 test("valorDaHora e horasDeTrabalho: informado, turnos, sem dados e formatos", async () => {
