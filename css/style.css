@@ -1918,3 +1918,7 @@ button.mg-bt:active{background:var(--sunk)}
 /* v166: preço junto com o item na lista de mercado. */
 .ml-add .ml-add-preco{flex:0 0 96px;max-width:96px;text-align:right}
 .ml-add .ml-foto-add{background:var(--sunk);color:var(--ink);box-shadow:none;border:1px solid var(--border)}
+/* v168: o nome do item da lista de mercado se toca para mudar. */
+.ml-corpo .ml-nome{display:block;padding:0;border:0;background:none;font:inherit;color:inherit;text-align:left;cursor:text;min-height:32px}
+.ml-corpo .ml-nome b{border-bottom:1px dashed var(--border)}
+.ml-nome-in{width:100%;min-height:40px;border-radius:10px}

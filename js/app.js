@@ -3750,7 +3750,7 @@ function mercado() {
       const pr = precoDoItem(x, precos), q = Number(x.qtd) > 0 ? Number(x.qtd) : 1, id = esc(x.id), qt = String(q).replace(".", ",");
       return `<li class="ml-item${x.pego ? " pego" : ""}">
         <button class="ml-check" type="button" data-pega="${id}" aria-pressed="${Boolean(x.pego)}" aria-label="${x.pego ? "Tirar do carrinho" : "Colocar no carrinho"}: ${esc(x.nome || "item")}">${ico("ok")}</button>
-        <span class="ml-corpo"><b>${esc(x.nome || "Item")}</b><small>${pr.valor > 0 ? `${brl(pr.valor * q)}${q > 1 ? ` (${qt} × ${brl(pr.valor)})` : ""}${pr.de === "ultimo" ? " · último preço" : ""}${(() => { const vr = variacaoDoPreco(hist[chaveDoItem(x.nome)], pr.valor); return vr ? ` · ${vr.pct > 0 ? "subiu" : "baixou"} ${Math.abs(vr.pct)}% desde ${ddmm(vr.desde)}` : ""; })()}` : "informe o preço"}</small></span>
+        <span class="ml-corpo"><button type="button" class="ml-nome" data-renomeia="${id}" aria-label="Mudar o nome de ${esc(x.nome || "item")}"><b>${esc(x.nome || "Item")}</b></button><small>${pr.valor > 0 ? `${brl(pr.valor * q)}${q > 1 ? ` (${qt} × ${brl(pr.valor)})` : ""}${pr.de === "ultimo" ? " · último preço" : ""}${(() => { const vr = variacaoDoPreco(hist[chaveDoItem(x.nome)], pr.valor); return vr ? ` · ${vr.pct > 0 ? "subiu" : "baixou"} ${Math.abs(vr.pct)}% desde ${ddmm(vr.desde)}` : ""; })()}` : "informe o preço"}</small></span>
         <button class="mc-x" type="button" data-x="${id}" aria-label="Tirar da lista: ${esc(x.nome || "item")}">×</button>
         <span class="ml-ajuste">
           <span class="ml-qtd" role="group" aria-label="Quantidade de ${esc(x.nome || "item")}"><button type="button" data-menos="${id}" aria-label="Menos um">−</button><output>${qt}</output><button type="button" data-mais="${id}" aria-label="Mais um">+</button></span>
@@ -3820,6 +3820,21 @@ function mercado() {
       };
       f.click();
     };
+    // Tocar no nome do item deixa mudar o nome na hora (a marca ou o tipo que a pessoa pegou de fato); Enter ou sair do campo confirma, Esc cancela.
+    $("dlgBody").querySelectorAll("[data-renomeia]").forEach((bt) => (bt.onclick = () => {
+      const id = bt.dataset.renomeia, x = listaDe().itens.find((z) => z.id === id); if (!x) return;
+      const inp = document.createElement("input"); inp.className = "in ml-nome-in"; inp.maxLength = 40; inp.value = x.nome || ""; inp.setAttribute("aria-label", "Nome do item"); inp.enterKeyHint = "done";
+      bt.replaceWith(inp); inp.focus(); inp.select();
+      let feito = false;
+      const fim = (salva) => {
+        if (feito) return; feito = true;
+        const n = inp.value.trim().slice(0, 40);
+        if (salva && n && n !== x.nome) { if (itemNaLista(listaDe().itens.filter((z) => z.id !== id), n)) toast(`${n} já está na lista.`); else edita(id, (z) => { z.nome = n; }); }
+        tarde(desenha);
+      };
+      inp.onkeydown = (e) => { if (e.key === "Enter") { e.preventDefault(); fim(true); } else if (e.key === "Escape") fim(false); };
+      inp.onblur = () => fim(true);
+    }));
     $("dlgBody").querySelectorAll("[data-pega]").forEach((b) => (b.onclick = () => { edita(b.dataset.pega, (x) => { x.pego = !x.pego; }); vibra?.(); desenha(); }));
     $("dlgBody").querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { muda((m) => { m.itens = m.itens.filter((x) => x.id !== b.dataset.x); m.apagados = [...m.apagados, { id: b.dataset.x, t: agora() }]; }); desenha(); }));
     $("dlgBody").querySelectorAll("[data-menos]").forEach((b) => (b.onclick = () => { edita(b.dataset.menos, (x) => { x.qtd = Math.max(1, Math.round((Number(x.qtd) || 1) - 1)); }); desenha(); }));
