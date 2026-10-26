@@ -3769,6 +3769,7 @@ function mercado() {
       ${tk.n > 0 ? `<p class="ml-hist">Você já lançou <b>${brl(noMes)}</b> em ${esc(padrao)} neste mês. Sua compra média é <b>${brl(tk.media)}</b> e o gasto, cerca de <b>${brl(tk.porMes)}</b> por mês.</p>` : ""}
       <form id="mlForm" class="ml-add" autocomplete="off">
         <input class="in" id="mlNome" maxlength="40" list="mlSug" placeholder="Adicionar item (ex.: arroz)" aria-label="Nome do item" enterkeyhint="done">
+        <input class="in money ml-add-preco" id="mlPreco" inputmode="decimal" placeholder="Preço" aria-label="Preço do item, opcional. Com preço, o item já entra no carrinho" enterkeyhint="done">
         <button class="ml-mais" type="submit" aria-label="Adicionar à lista">${ico("mais")}</button>
         <datalist id="mlSug">${Object.keys(precos).slice(-60).map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
       </form>
@@ -3792,14 +3793,18 @@ function mercado() {
       if (!nome) { toast("Digite o nome do item, por exemplo arroz."); return $("mlNome").focus(); }
       if (listaDe().itens.length >= 300) return void toast("A lista chegou a 300 itens. Finalize ou limpe antes de adicionar mais.");
       if (itemNaLista(listaDe().itens, nome)) { toast(`${nome.slice(0, 40)} já está na lista.`); $("mlNome").select(); return; }
-      muda((m) => { m.itens.push({ id: crypto.randomUUID(), nome: nome.slice(0, 40), qtd: 1, preco: 0, pego: false, t: agora() }); });
+      const pv = $("mlPreco").value.trim() ? (avaliaConta($("mlPreco").value) ?? parseMoney($("mlPreco").value)) : 0, comPreco = pv > 0 && pv <= VALOR_MAX;
+      if ($("mlPreco").value.trim() && !comPreco) { toast("Confira o preço. Deixe em branco se ainda não sabe."); return $("mlPreco").focus(); }
+      muda((m) => { m.itens.push({ id: crypto.randomUUID(), nome: nome.slice(0, 40), qtd: 1, preco: comPreco ? round2(pv) : 0, pego: comPreco, t: agora() }); });
       desenha(); $("mlNome").focus();
+      if (comPreco) toast(`${nome.slice(0, 40)} já está no carrinho: ${brl(pv)}.`);
     });
     $("dlgBody").querySelectorAll("[data-pega]").forEach((b) => (b.onclick = () => { edita(b.dataset.pega, (x) => { x.pego = !x.pego; }); vibra?.(); desenha(); }));
     $("dlgBody").querySelectorAll("[data-x]").forEach((b) => (b.onclick = () => { muda((m) => { m.itens = m.itens.filter((x) => x.id !== b.dataset.x); m.apagados = [...m.apagados, { id: b.dataset.x, t: agora() }]; }); desenha(); }));
     $("dlgBody").querySelectorAll("[data-menos]").forEach((b) => (b.onclick = () => { edita(b.dataset.menos, (x) => { x.qtd = Math.max(1, Math.round((Number(x.qtd) || 1) - 1)); }); desenha(); }));
     $("dlgBody").querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => { edita(b.dataset.mais, (x) => { x.qtd = Math.min(99, Math.round((Number(x.qtd) || 1) + 1)); }); desenha(); }));
-    $("dlgBody").querySelectorAll("[data-preco]").forEach((i) => (i.onchange = () => { const v = avaliaConta(i.value) ?? parseMoney(i.value); edita(i.dataset.preco, (x) => { x.preco = v > 0 && v <= VALOR_MAX ? round2(v) : 0; }); tarde(desenha); }));
+    $("dlgBody").querySelectorAll("[data-preco]").forEach((i) => (i.onchange = () => { const v = avaliaConta(i.value) ?? parseMoney(i.value); const id = i.dataset.preco, jaPego = listaDe().itens.find((z) => z.id === id)?.pego; edita(id, (x) => { x.preco = v > 0 && v <= VALOR_MAX ? round2(v) : 0; if (x.preco > 0 && !x.pego) x.pego = true; }); tarde(desenha);
+      if (v > 0 && v <= VALOR_MAX && !jaPego) toastDesfazer("Preço salvo e item no carrinho.", () => { edita(id, (x) => { x.pego = false; }); desenha(); }); }));
     $("dlgBody").querySelectorAll("[data-cat]").forEach((s) => {
       const item = () => listaDe().itens.find((z) => z.id === s.dataset.cat);
       const lembra = (cat) => { const k = chaveDoItem(item()?.nome); if (k && cat) { const m = { ...(S.prefs.catItens || {}) }; delete m[k]; m[k] = cat; for (const o of Object.keys(m).slice(0, Math.max(0, Object.keys(m).length - 300))) delete m[o]; S.prefs.catItens = m; } };

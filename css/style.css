@@ -1914,3 +1914,6 @@ button.mg-bt{cursor:pointer;min-height:44px;border-radius:10px}
 button.mg-bt:active{background:var(--sunk)}
 .mot-hist .d.link{min-height:44px;padding:0 6px;background:none;border:0;font:inherit;color:var(--brand);text-decoration:underline;cursor:pointer}
 .dia-nav{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:12px}
+
+/* v166: preço junto com o item na lista de mercado. */
+.ml-add .ml-add-preco{flex:0 0 96px;max-width:96px;text-align:right}
