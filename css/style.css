@@ -65,6 +65,7 @@ button{cursor:pointer}
 .btn.sm{padding:6px 12px;font-size:12.5px;border-radius:999px}
 .btn.perigo{color:var(--bad);margin-left:auto} .btn.perigo:hover{background:var(--bad-soft)} .btn.perigo.arm{background:var(--bad);border-color:transparent;color:#fff}
 .link{border:0;background:none;color:var(--series);font-weight:600;padding:2px;text-decoration:underline;text-underline-offset:3px}
+.link-toque{display:block;min-height:44px;padding:10px 0;text-align:left}
 .banner{border-radius:var(--r-sm);padding:10px 14px;font-size:13px;border:1px solid var(--border);background:var(--warn-soft);display:flex;gap:10px;flex-wrap:wrap;align-items:center;justify-content:space-between}
 .panel{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:18px 20px;min-width:0;box-shadow:var(--shadow-sm)}
 .panel h2{font-family:var(--display);font-size:17px;margin:0;font-weight:700;letter-spacing:-.01em}
@@ -781,6 +782,7 @@ input.in.cod::placeholder{color:var(--axis)}
   .wrap[data-view="mais"] .v-mais{display:grid;gap:18px}
   .mais-quem{display:flex;align-items:center;gap:14px;padding:6px 2px}
   .mais-quem .ava{width:52px;height:52px;border-radius:50%;font-size:20px;background:var(--series-soft);color:var(--series)} .mais-quem .ava .ic{width:24px;height:24px}
+  .mais-quem .iconbtn{flex:none;width:44px;height:44px;margin-left:auto}
   .mais-quem .tx{display:grid;gap:2px;min-width:0} .mais-quem .tx b{font-size:16px;overflow-wrap:anywhere} .mais-quem .tx span{font-size:13px;color:var(--muted)}
   .mais-grupo{display:grid;gap:8px} .mais-grupo h2{margin:0 2px;font-size:13px;font-weight:600;color:var(--muted)}
   .mais-lista{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-sm)}

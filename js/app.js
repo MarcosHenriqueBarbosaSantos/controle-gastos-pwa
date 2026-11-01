@@ -1587,12 +1587,15 @@ function entendaAConta(c) {
 /** Tocar numa conta de "Próximos vencimentos": o dia, o tipo, se o dinheiro cobre na data e os atalhos para pagar, editar e ver no calendário. */
 function detalheVencimento(x) {
   const hj = hoje(), r = contasQueNaoFecham(S.data, hj), it = r.itens.find((y) => y.titulo === x.titulo && y.data === x.data && y.tipo === x.tipo);
+  // contasQueNaoFecham soma as entradas do mês inteiro: uma conta que vence antes do salário precisa olhar o dinheiro dia a dia.
+  const ac = S.loaded && !semEntradaNoMes(calcMes(S.data, mKey(hj), hj)) ? quandoOsDinheiroAcaba(S.data, hj) : null, aperto = apertoAteAEntrada(ac);
   const tipo = x.semValor ? "Fatura de cartão sem valor informado" : x.tipo === "repetida" ? "Parece se repetir todo mês (ainda não é conta fixa)" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa";
   const dt = `${x.data.slice(8, 10)}/${x.data.slice(5, 7)}/${x.data.slice(0, 4)}`;
   let cobre = "";
   if (x.semValor || x.tipo === "repetida") cobre = `<p class="hint">${x.semValor ? "Informe o valor da fatura para o app saber se o dinheiro cobre." : "Vire conta fixa para o app contar essa despesa todo mês e avisar antes do vencimento."}</p>`;
   else if (!S.loaded || mKey(x.data) !== mKey(hj)) cobre = `<p class="hint">A conta de cobertura vale para o mês atual. Esse vencimento é de outro mês.</p>`;
-  else if (it?.falta > 0) cobre = `<p class="det-cobre bad"><b>Faltam ${brl(it.falta)}</b> para pagar essa conta no dia ${dt.slice(0, 5)}. O dinheiro que você tem hoje (${brl(Math.max(0, r.caixa))}) já está contando as contas que vencem antes dela.</p><p class="hint">Dá para segurar o dia a dia, esperar uma entrada ou ver o jeito leve em Mais > Pôr o mês em ordem.</p>`;
+  else if (aperto && ac.diaZero <= x.data && x.data < ac.proximaEntrada.data) cobre = `<p class="det-cobre bad"><b>Essa conta vence antes da entrada do dia ${aperto.dia}.</b> Até lá, faltam ${brl(aperto.falta)}.</p><p class="hint">Dá para segurar o dia a dia ou combinar outra data de pagamento.</p><button class="link link-toque" type="button" id="dvOrdem">Ver um jeito leve de fechar</button>`;
+  else if (it?.falta > 0) cobre = `<p class="det-cobre bad"><b>Faltam ${brl(it.falta)}</b> para pagar essa conta no dia ${dt.slice(0, 5)}. O dinheiro que você tem hoje (${brl(Math.max(0, r.caixa))}) já está contando as contas que vencem antes dela.</p><p class="hint">Dá para segurar o dia a dia ou esperar uma entrada.</p><button class="link link-toque" type="button" id="dvOrdem">Ver um jeito leve de fechar</button>`;
   else cobre = `<p class="det-cobre ok"><b>O dinheiro cobre essa conta.</b> Mesmo pagando antes as que vencem primeiro, sobra para ela no dia ${dt.slice(0, 5)}.</p>`;
   const f = x.tipo === "fixo" ? S.data.fixos.find((z) => z.id === x.id) : null;
   openDlg(`<h3>${esc(x.titulo)}</h3>
@@ -1605,6 +1608,7 @@ function detalheVencimento(x) {
     <div class="actions">
       ${x.semValor ? `<button class="btn primary" type="button" id="dvAcao">Informar valor</button>` : x.tipo === "repetida" ? `<button class="btn primary" type="button" id="dvAcao">Virar conta fixa</button>` : `<button class="btn primary" type="button" id="dvPagar">Já paguei</button>${x.tipo === "fixo" || x.tipo === "fatura" ? `<button class="btn" type="button" id="dvEditar">Editar${x.tipo === "fixo" ? " conta" : " fatura"}</button>` : ""}`}
       <button class="btn" type="button" id="dvCal">Ver no calendário</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+  if ($("dvOrdem")) $("dvOrdem").onclick = () => equilibrioTela();
   if ($("dvPagar")) $("dvPagar").onclick = () => { $("dvPagar").disabled = true; $("dlg").close(); pagarConta(x); };
   if ($("dvEditar")) $("dvEditar").onclick = () => abrirItem(x.tipo === "fixo" ? { k: "fixo", id: x.id } : { k: "fatura", id: x.id || null, cartao_id: x.cartao_id || null, cartao: x.cartao, venc: x.data });
   if ($("dvCal")) $("dvCal").onclick = () => calendario(mKey(x.data), x.data);
@@ -1638,7 +1642,7 @@ function renderVenc() {
   const ac = S.loaded && !semEntradaNoMes(calcMes(S.data, mKey(hoje()), hoje())) ? quandoOsDinheiroAcaba(S.data, hoje()) : null, faltaAte = ac?.minimo ? round2(-ac.minimo.saldo) : 0, aperto = apertoAteAEntrada(ac);
   const alerta = !ac?.diaZero ? "" : `<li class="alerta ${ac.diasAteZero === 0 && !aperto ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
       <span class="oque"><b>${aperto ? `Falta dinheiro até a entrada do dia ${aperto.dia}` : ac.diasAteZero === 0 ? "O dinheiro deste mês já acabou" : `No ritmo de agora, o dinheiro do mês acaba dia ${ac.diaZero.slice(8, 10)}`}</b>
-      <span>${aperto ? `Faltam ${brl(aperto.falta)} até entrar ${brl(ac.proximaEntrada.valor)} no dia ${aperto.dia}.` : `Até o fim do mês faltam ${brl(faltaAte)}.`}${!aperto && ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""} Em Mais > Pôr o mês em ordem tem um jeito leve de fechar.</span></span></li>`;
+      <span>${aperto ? `Faltam ${brl(aperto.falta)} até entrar ${brl(ac.proximaEntrada.valor)} no dia ${aperto.dia}.` : `Até o fim do mês faltam ${brl(faltaAte)}.`}${!aperto && ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""}</span><button class="link link-toque" type="button" data-ordem>Ver um jeito leve de fechar</button></span></li>`;
   // Combinados das metas: aparecem junto, mas não são contas. Não entram no total e nunca ficam atrasados.
   const comb = S.loaded ? combinadosDoMes(S.data, S.prefs.metas, hoje()) : [];
   const combHtml = comb.map((x, i) => `<li class="comb" data-u="ok">
@@ -1689,7 +1693,7 @@ function renderVenc() {
   ligaComb();
 }
 /* ---------- calendário de vencimentos: o mês inteiro, com o que vence e o que entra em cada dia ---------- */
-$("venc").addEventListener("click", (e) => { if (e.target.closest("#vencCal")) calendario(mKey(hoje())); });
+$("venc").addEventListener("click", (e) => { if (e.target.closest("#vencCal")) calendario(mKey(hoje())); if (e.target.closest("[data-ordem]")) equilibrioTela(); });
 const SIT = { atrasada: ["!", "atrasada"], hoje: ["●", "vence hoje"], "a vencer": ["●", "a vencer"], paga: ["✓", "paga"] };
 function calendario(m, escolhido = "") {
   const cal = calendarioDoMes(S.data, m, hoje()), hj = hoje(), ano = m.slice(0, 4);
@@ -2784,7 +2788,8 @@ function renderMais(c) {
   const linha = (id, icone, titulo, sub = "", cls = "") => `<button class="mais-item" type="button" data-mais="${id}"><span class="ava ${cls}">${ico(icone)}</span><span class="tx"><b>${titulo}</b>${sub ? `<span>${sub}</span>` : ""}</span>${ico("chev")}</button>`;
   const grupo = (titulo, linhas) => `<div class="mais-grupo"><h2>${titulo}</h2><div class="mais-lista">${linhas.filter(Boolean).join("")}</div></div>`;
   host.innerHTML = `<div class="mais-quem"><span class="ava">${naDemo ? ico("pessoa") : esc(quem.trim().charAt(0).toUpperCase() || "?")}</span>
-      <div class="tx"><b>${esc(naDemo ? "Demonstração" : quem)}</b><span>${naDemo ? "Dados de exemplo, guardados só neste aparelho." : esc(textoDoAcesso())}</span></div></div>
+      <div class="tx"><b>${esc(naDemo ? "Demonstração" : quem)}</b><span>${naDemo ? "Dados de exemplo, guardados só neste aparelho." : esc(textoDoAcesso())}</span></div>
+      <button class="iconbtn" type="button" data-mais="btnAjustes" aria-label="Ajustes e categorias">${ico("ajustes")}</button></div>
     ${grupo("Contas e cartões", [
       linha("f", "fixo", "Contas e entradas fixas", contas.length || c.fr.length ? `${n(contas.length, "conta", "contas")} (${brl(round2(contas.reduce((t, o) => t + Number(o.valor), 0)))}) e entradas de ${brl(c.frT)} em ${nomeMes(S.mes)}` : "Aluguel, internet, salário e o que se repete todo mês"),
       linha("c", "cartao", "Cartões e faturas", cartoes.length ? `${n(cartoes.length, "cartão", "cartões")}${c.fatT ? `, ${brl(c.fatT)} em faturas neste mês` : ""}` : "Cadastre o cartão e a fatura se monta sozinha", "card"),
