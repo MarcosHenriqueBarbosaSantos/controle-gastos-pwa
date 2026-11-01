@@ -859,6 +859,17 @@ export function quandoOsDinheiroAcaba(st, hoje) {
 }
 
 /**
+ * Aperto passageiro: o dinheiro acaba antes da próxima entrada e o pior momento do mês fica antes dela.
+ * Recebe o resultado de quandoOsDinheiroAcaba. Devolve null se não falta dinheiro ou se a falta continua depois da entrada.
+ * @returns {{dia:string, falta:number}|null}
+ */
+export function apertoAteAEntrada(ac) {
+  if (!ac?.diaZero || !ac.minimo || !ac.proximaEntrada) return null;
+  if (ac.proximaEntrada.data <= ac.diaZero || ac.minimo.data >= ac.proximaEntrada.data) return null;
+  return { dia: ac.proximaEntrada.data.slice(8, 10), falta: round2(-ac.minimo.saldo) };
+}
+
+/**
  * Cartões cadastrados cuja fatura vai vencer em breve mas ainda não tem nenhuma compra nem valor informado.
  * Sem isso o cartão sumia dos vencimentos até a primeira compra ser lançada. A pessoa vê a data e informa o valor da fatura.
  * Só olha o dia de hoje em diante (fatura sem valor não "atrasa"). Não entra no servidor de avisos.

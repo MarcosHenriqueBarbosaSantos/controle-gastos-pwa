@@ -1,7 +1,7 @@
 // Pôr o mês em ordem: mês virado, contas em atraso e o plano para sobrar dinheiro.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { saldoAcumulado, saldoAnterior, contasEmAtraso, planoDoMes, contasQueNaoFecham, quandoOsDinheiroAcaba } from "../js/calc.js";
+import { saldoAcumulado, saldoAnterior, contasEmAtraso, planoDoMes, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada } from "../js/calc.js";
 
 const L = (id, data, tipo, valor, extra = {}) => ({ id, data, tipo, categoria: tipo === "Receita" ? "Salário" : tipo === "Reserva" ? "Reserva" : "Mercado", forma: "Pix", valor, descricao: "x", ...extra });
 const base = () => ({ lancamentos: [], fixos: [], pagos: [], faturas: [], cartoes: [] });
@@ -130,4 +130,18 @@ test("quando o dinheiro acaba: anda dia a dia com as contas, as entradas e a mé
   assert.equal(r.diaZero, "2026-10-25");      // 1000 - 5x100 (dias 21 a 25) - 800 de aluguel = -300 no dia 25
   assert.equal(r.diasAteZero, 5);
   assert.equal(r.minimo.saldo, -300 - 100 * 6);  // até o dia 31 continua gastando a média
+});
+
+test("aperto até a entrada: falta antes do salário, mas o mês se acerta depois", () => {
+  const ac = { diaZero: "2026-11-01", minimo: { data: "2026-11-01", saldo: -133.5 }, proximaEntrada: { data: "2026-11-05", valor: 3900 } };
+  assert.deepEqual(apertoAteAEntrada(ac), { dia: "05", falta: 133.5 });
+});
+
+test("aperto até a entrada: não vale sem falta, sem entrada ou se a falta continua depois dela", () => {
+  const entrada = { data: "2026-11-05", valor: 3900 };
+  assert.equal(apertoAteAEntrada(null), null);
+  assert.equal(apertoAteAEntrada({ diaZero: null, minimo: { data: "2026-11-02", saldo: 10 }, proximaEntrada: entrada }), null);
+  assert.equal(apertoAteAEntrada({ diaZero: "2026-11-02", minimo: { data: "2026-11-02", saldo: -10 }, proximaEntrada: null }), null);
+  assert.equal(apertoAteAEntrada({ diaZero: "2026-11-02", minimo: { data: "2026-11-20", saldo: -900 }, proximaEntrada: entrada }), null);
+  assert.equal(apertoAteAEntrada({ diaZero: "2026-11-08", minimo: { data: "2026-11-08", saldo: -50 }, proximaEntrada: entrada }), null);
 });

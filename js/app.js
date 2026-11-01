@@ -1,7 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO, IMPORTA_EXTRATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
+  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
@@ -533,7 +533,7 @@ function startDemo() {
   let mot = false; try { mot = sessionStorage.getItem("cg-demo-mot") === "1"; } catch { /* nada */ }
   const store = mot ? createLocalStore("cg-demo-mot-v1", demoMotorista()) : createLocalStore("cg-demo-v12", demoSeed(hoje()));
   startApp(store, "Demonstração");
-  showBanner("Demonstração (dados de exemplo)",
+  showBanner("Demonstração",
     [...(S.semLogin ? [] : [["Criar conta", contaAPartirDaDemo]]), ["Recomeçar", () => { store.reset(); startDemo(); }]], "fina");
 }
 
@@ -947,7 +947,11 @@ function renderKpis(c) {
   const resLinhas = destinos.length > 1 ? `<ul class="dest">${destinos.map(([k, v]) => `<li><span>${esc(k)}</span><b>${brl0(v)}</b></li>`).join("")}</ul>` : destinos.length === 1 ? `<span class="n">${esc(destinos[0][0])}</span>` : "";
   // Resumo no alto: um número só em destaque (quanto sobra ou falta), com a cor dizendo como o mês está,
   // e ao lado o custo até agora e a previsão. A régua de para onde vai o dinheiro fica em "Entenda essa conta".
-  const rx = raioX(c), livre = livrePorDia(c), mesNome = nomeMes(S.mes), falta = rx.sobra < 0, est = estadoDoMes(c, S.prefs.teto);
+  const rx = raioX(c), mesNome = nomeMes(S.mes), falta = rx.sobra < 0, estDoMes = estadoDoMes(c, S.prefs.teto);
+  // O mês pode fechar com sobra e, mesmo assim, faltar dinheiro antes da próxima entrada: o resumo diz isso em vez de "Tudo certo".
+  const acMes = S.loaded && c.fase === "atual" && !semEntradaNoMes(c) ? quandoOsDinheiroAcaba(S.data, hoje()) : null, aperto = apertoAteAEntrada(acMes);
+  const est = estDoMes.nivel === "ok" && acMes?.diaZero ? { ...estDoMes, nivel: "atencao", rotulo: aperto ? `Aperto até o dia ${aperto.dia}` : "",
+    motivo: aperto ? `Faltam ${brl(aperto.falta)} até a entrada do dia ${aperto.dia}. Depois, o mês fecha com sobra.` : `No ritmo de agora, o dinheiro do mês acaba dia ${acMes.diaZero.slice(8, 10)}.` } : estDoMes;
   const verbo = c.fase === "passado" ? (falta ? "Faltaram" : "Sobraram") : c.fase === "futuro" ? (falta ? "Devem faltar" : "Devem sobrar") : falta ? "Faltam" : "Sobram";
   const ROTULO = { ok: "Tudo certo", atencao: "Atenção", estourado: falta ? "No vermelho" : "Passou do limite" };
   const entra = c.rec > 0 ? `Entram <button type="button" class="ln" data-det="entradas">${brl(c.rec)}</button>` : `<button type="button" class="ln" data-det="entradas">Nenhuma entrada lançada</button>`;
@@ -961,7 +965,7 @@ function renderKpis(c) {
   // Topo com cara de banco: o valor livre em destaque, a barra do quanto da sobra já foi usado (na cor do estado do mês),
   // o olho para esconder os valores e, logo abaixo, as ações rápidas e o resumo em três números.
   const sb = sobraDoMes(c), atualM = c.fase === "atual";
-  const rotulo = atualM ? (falta ? `Gastou além do que entrou em ${mesNome}` : `Livre para gastar em ${mesNome}`) : `${verbo} em ${mesNome}`;
+  const rotulo = atualM ? (falta ? `Gastou além do que entrou em ${mesNome}` : acMes?.diaZero && acMes.proximaEntrada ? `Livre em ${mesNome}, contando o que vai entrar` : `Livre para gastar em ${mesNome}`) : `${verbo} em ${mesNome}`;
   const usado = sb.livre > 0 ? Math.min(100, Math.round((sb.usado / sb.livre) * 100)) : 100;
   const ocultos = valoresOcultos();
   // O traço na barra mostra onde o mês está (quantos dias já passaram); a barra, quanto da folga já foi usado.
@@ -1001,8 +1005,8 @@ function renderKpis(c) {
       <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
     <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
     ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
-    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span>${livre && livre.valor > 0 ? `<span>${brl(livre.valor)}/dia</span>` : ""}</div>` : ""}
-    ${est.nivel !== "neutro" ? `<span class="estado"><b>${ROTULO[est.nivel]}</b>${est.motivo && est.nivel !== "estourado" ? `<span>${est.motivo}</span>` : ""}</span>` : ""}
+    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span></div>` : ""}
+    ${est.nivel !== "neutro" ? `<span class="estado"><b>${est.rotulo || ROTULO[est.nivel]}</b>${est.motivo && est.nivel !== "estourado" ? `<span class="ocultavel">${est.motivo}</span>` : ""}</span>` : ""}
   </div>`}
   ${!semEnt && (rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
   <div class="acoes-rap" role="group" aria-label="Ações rápidas">
@@ -1128,7 +1132,7 @@ function htmlHoje(c) {
   const lista = itens.map((x, i) => `<li class="hoje-item t-${x.tipo}"><button type="button" data-hoje="${i}"><span class="tx"><b>${esc(x.titulo)}</b><span>${esc(x.sub)}</span></span>${x.valor ? `<span class="valor ocultavel">${brl(x.valor)}</span>` : ""}${ico("chev")}</button>${x.tipo === "dia" ? `<button type="button" class="btn sm" id="hojeZero">Não gastei nada</button>` : ""}</li>`).join("");
   const rodape = [ult && !g.n ? `<button class="link" type="button" id="hojeRepetir">Repetir: ${esc(ult.descricao || ult.categoria)} · ${brl(ult.valor)}</button>` : "", seq.feitoHoje && seq.dias > 1 ? `<span class="seq">${ico("fogo")}${seq.dias} dias seguidos anotando</span>` : ""].filter(Boolean).join("");
   S.hojeItens = itens;
-  return `<section class="hoje-card" aria-label="Hoje">${topo}${lista ? `<ul class="hoje-lista">${lista}</ul>` : `<p class="hoje-ok">${ico("ok")}Nada pendente por agora. Tudo em dia.</p>`}${rodape ? `<div class="hoje-rod">${rodape}</div>` : ""}</section>`;
+  return `<section class="hoje-card" aria-label="Hoje">${topo}${lista ? `<ul class="hoje-lista">${lista}</ul>` : `<p class="hoje-ok">${ico("ok")}Nenhuma conta atrasada ou vencendo hoje.</p>`}${rodape ? `<div class="hoje-rod">${rodape}</div>` : ""}</section>`;
 }
 function ligaHoje() {
   const host = $("resumo");
@@ -1631,10 +1635,10 @@ function renderVenc() {
   const cab = (dir) => `<div class="sec-head"><h2>Próximos vencimentos</h2><span>${dir}</span></div>${S.loaded ? `<button class="link venc-cal" type="button" id="vencCal">${ico("agenda")}Ver no calendário</button>` : ""}`;
   // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
   const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
-  const ac = S.loaded && !semEntradaNoMes(calcMes(S.data, mKey(hoje()), hoje())) ? quandoOsDinheiroAcaba(S.data, hoje()) : null, faltaAte = ac?.minimo ? round2(-ac.minimo.saldo) : 0;
-  const alerta = !ac?.diaZero ? "" : `<li class="alerta ${ac.diasAteZero === 0 ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
-      <span class="oque"><b>${ac.diasAteZero === 0 ? "O dinheiro deste mês já acabou" : `No ritmo de agora, o dinheiro do mês acaba dia ${ac.diaZero.slice(8, 10)}`}</b>
-      <span>Até o fim do mês faltam ${brl(faltaAte)}.${ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""} Em Mais > Pôr o mês em ordem tem um jeito leve de fechar.</span></span></li>`;
+  const ac = S.loaded && !semEntradaNoMes(calcMes(S.data, mKey(hoje()), hoje())) ? quandoOsDinheiroAcaba(S.data, hoje()) : null, faltaAte = ac?.minimo ? round2(-ac.minimo.saldo) : 0, aperto = apertoAteAEntrada(ac);
+  const alerta = !ac?.diaZero ? "" : `<li class="alerta ${ac.diasAteZero === 0 && !aperto ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
+      <span class="oque"><b>${aperto ? `Falta dinheiro até a entrada do dia ${aperto.dia}` : ac.diasAteZero === 0 ? "O dinheiro deste mês já acabou" : `No ritmo de agora, o dinheiro do mês acaba dia ${ac.diaZero.slice(8, 10)}`}</b>
+      <span>${aperto ? `Faltam ${brl(aperto.falta)} até entrar ${brl(ac.proximaEntrada.valor)} no dia ${aperto.dia}.` : `Até o fim do mês faltam ${brl(faltaAte)}.`}${!aperto && ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""} Em Mais > Pôr o mês em ordem tem um jeito leve de fechar.</span></span></li>`;
   // Combinados das metas: aparecem junto, mas não são contas. Não entram no total e nunca ficam atrasados.
   const comb = S.loaded ? combinadosDoMes(S.data, S.prefs.metas, hoje()) : [];
   const combHtml = comb.map((x, i) => `<li class="comb" data-u="ok">
