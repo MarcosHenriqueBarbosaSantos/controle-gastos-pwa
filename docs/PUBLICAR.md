@@ -7,6 +7,7 @@ Por enquanto o app **não ganha funções novas**. O trabalho é melhorar o que 
 
 **Aprovadas pelo dono:**
 - 21/10/2026, Marcos pediu por escrito o **Modo motorista de aplicativo** (v101): tela própria, aberta por Mais > Modo motorista ou por `#motorista`, para controlar turnos, ganhos e gastos de quem roda de Uber, 99 ou inDrive, ligada ao "Meu carro ou moto". Seção para motoristas no site.
+- 01/11/2026, aprovado por escrito na conversa de melhorias: **Simulador de liberdade financeira** (v171), em Mais > Calculadoras.
 
 ## Antes de publicar
 1. `npm run validar` precisa terminar com "Validação ok: pode publicar". Ele roda os testes, confere se `APP_VERSAO` (js/config.js) e `VERSAO` (sw.js) são a mesma, checa a sintaxe de cada arquivo de js/ e se todo módulo está na lista offline do service worker.

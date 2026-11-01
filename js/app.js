@@ -19,7 +19,7 @@ import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
 import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
-import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
+import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { conferirListaComNota, valoresDaLinha as valoresDaLinhaNota } from "./notamercado.js";
@@ -2374,6 +2374,14 @@ $("fContaWrap").addEventListener("click", (e) => {
   $("fValor").value = v.replace(/\s*[+\-×÷x*/]$/, "") + " " + b.dataset.op + " "; mostraConta(); $("fValor").focus();
 });
 $("fValor").addEventListener("change", normalizaConta);
+/* O erro do valor fica colado no campo: o aviso de baixo do formulário fica longe, fora da tela no celular. */
+function erroNoValor(t) {
+  const c = $("fValor");
+  $("fValorErro").textContent = t; $("fValorErro").hidden = false; c.setAttribute("aria-invalid", "true");
+  c.focus(); c.scrollIntoView({ block: "center" });
+}
+function limpaErroDoValor() { $("fValorErro").hidden = true; $("fValor").removeAttribute("aria-invalid"); }
+$("fValor").addEventListener("input", limpaErroDoValor);
 $("fValor").addEventListener("input", () => { mostraConta(); });
 ["fParc", "fCartao", "fData", "fNFech", "fNVenc", "fFixo"].forEach((id) => { const e = $(id); if (e) { e.addEventListener("change", mostraParcDica); e.addEventListener("input", mostraParcDica); } });
 $("fValor").addEventListener("input", () => { rotuloDoOk(); mostraEfeito(); if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });
@@ -3320,6 +3328,29 @@ function resumoAno(ano = S.mes.slice(0, 4)) {
 /* ---------- Calculadoras ---------- */
 const nm = (v) => { const n = parseMoney(String(v ?? "").replace("%", "")); return Number.isFinite(n) ? n : 0; };
 const linhaRes = (rot, v, forte = false) => `<div${forte ? ' class="forte"' : ""}><dt>${rot}</dt><dd>${v}</dd></div>`;
+const tempoLegivel = (r) => [r.anos ? `${r.anos} ${r.anos === 1 ? "ano" : "anos"}` : "", r.mesesResto ? `${r.mesesResto} ${r.mesesResto === 1 ? "mês" : "meses"}` : ""].filter(Boolean).join(" e ");
+const dadosDaLiberdade = (v) => liberdadeFinanceira({ patrimonio: v.patrimonio, aporte: v.aporte, gastoMes: v.gasto, retornoAnual: v.retorno, reajusteAnual: v.reajuste, inflacaoAnual: v.inflacao });
+function resultadoDaLiberdade(v) {
+  const r = dadosDaLiberdade(v); if (!r) return "";
+  if (!r.temGanhoReal) return linhaRes("Resultado", "Sem ganho real", true) + linhaRes("Por quê", "O retorno não passa da inflação");
+  const fim = linhaRes("Meta em dinheiro de hoje", brl(r.alvoHoje));
+  if (!r.atingiu) return linhaRes("Em 60 anos", "Ainda não chega", true) + fim + linhaRes("Patrimônio em 60 anos", brl(r.patrimonioFinal)) + linhaRes("Em dinheiro de hoje", brl(r.poderDeCompra));
+  if (!r.meses) return linhaRes("Resultado", "Você já chegou", true) + fim + linhaRes("Renda por mês", brl(r.rendaMes));
+  return linhaRes("Liberdade financeira em", tempoLegivel(r), true) + fim + linhaRes(`Patrimônio em ${Number(hoje().slice(0, 4)) + Math.ceil(r.meses / 12)}`, brl(r.patrimonioFinal)) + linhaRes("Em dinheiro de hoje", brl(r.poderDeCompra)) + linhaRes("Renda por mês, valor de hoje", brl(r.rendaMes));
+}
+function graficoDaLiberdade(v) {
+  const r = dadosDaLiberdade(v); if (!r || !r.temGanhoReal || r.meses === 0 || r.pontos.length < 2) return "";
+  const W = 340, H = 170, topo = 12, base = 22, anoHoje = Number(hoje().slice(0, 4)), p = r.pontos, ultimo = p.at(-1).ano, max = Math.max(...p.map((x) => x.nominal), 1);
+  const X = (a) => ((a / ultimo) * W).toFixed(1), Y = (n) => (topo + (1 - n / max) * (H - topo - base)).toFixed(1), linha = (k) => p.map((x) => `${X(x.ano)},${Y(x[k])}`).join(" ");
+  const anoMeta = r.atingiu ? r.meses / 12 : null, anoDaMeta = r.atingiu ? anoHoje + Math.ceil(anoMeta) : null;
+  const marca = r.atingiu ? `<line x1="${X(anoMeta)}" x2="${X(anoMeta)}" y1="${topo}" y2="${H - base}" class="lib-marca"/><circle cx="${X(anoMeta)}" cy="${Y(r.patrimonioFinal)}" r="5" class="lib-ponto"/>` : "";
+  return `<figure class="lib-graf" role="img" aria-label="Evolução do patrimônio ao longo de ${ultimo} anos${r.atingiu ? `. A liberdade financeira chega em ${anoDaMeta}` : ""}">
+    <figcaption><b>Evolução do patrimônio</b>${r.atingiu ? `<span class="lib-ano">Liberdade em ${anoDaMeta}</span>` : ""}</figcaption>
+    <svg viewBox="0 0 ${W} ${H}" aria-hidden="true"><line x1="0" x2="${W}" y1="${H - base}" y2="${H - base}" class="gs-zero"/>
+      <polyline points="${linha("real")}" class="lib-real"/><polyline points="${linha("nominal")}" class="lib-nominal"/>${marca}
+      <text x="0" y="${H - 6}" class="lib-eixo">${anoHoje}</text><text x="${W}" y="${H - 6}" text-anchor="end" class="lib-eixo">${anoHoje + ultimo}</text></svg>
+    <p class="gs-leg"><span><i style="background:var(--series)"></i>Patrimônio</span><span><i class="l2"></i>Em dinheiro de hoje</span></p></figure>`;
+}
 const CALCS = [
   { id: "rende", ico: "sobe", curto: "Rendimento", pergunta: "Quanto rende guardar todo mês?", titulo: "Quanto rende guardar todo mês", campos: [["porMes", "Guardar por mês (R$)", "m", "200"], ["inicial", "Já tenho guardado (R$, opcional)", "m", ""], ["meses", "Por quantos meses", "n", "24"], ["taxa", "Taxa ao ano (%)", "n", "10"]],
     nota: "É só a conta da taxa que você digitou, para simular. Não é promessa de ganho nem indicação de investimento.",
@@ -3327,6 +3358,10 @@ const CALCS = [
   { id: "quanto", ico: "alvo", curto: "Quanto guardar", pergunta: "Quanto guardar por mês para juntar um valor?", titulo: "Quanto guardar por mês para chegar lá", campos: [["alvo", "Quanto quer juntar (R$)", "m", "6000"], ["meses", "Em quantos meses", "n", "12"], ["inicial", "Já tenho guardado (R$, opcional)", "m", ""], ["taxa", "Taxa ao ano (%, pode deixar 0)", "n", "0"]],
     nota: "Com taxa 0, a conta é só o que falta dividido pelos meses.",
     calc: (v) => { const r = quantoGuardarPorMes({ alvo: v.alvo, meses: v.meses, inicial: v.inicial, taxaAnual: v.taxa }); return r && (r.jaBasta ? linhaRes("Resultado", "O que você já tem basta", true) : linhaRes("Guarde por mês", brl(r.porMes), true)); } },
+  { id: "liberdade", ico: "alvo", curto: "Liberdade financeira", pergunta: "Em quantos anos meu patrimônio paga meus gastos?", titulo: "Simulador de liberdade financeira",
+    campos: [["gasto", "Gastos por mês (R$)", "m", () => String(Math.round(calcMes(S.data, mKey(hoje()), hoje()).proj) || 3000)], ["patrimonio", "Já tenho guardado (R$)", "m", () => String(Math.round(reservaAcumulada(S.data, mKey(hoje()))))], ["aporte", "Guardar por mês (R$)", "m", "500"], ["retorno", "Retorno ao ano (%)", "n", "10"], ["reajuste", "Aumento do valor guardado ao ano (%)", "n", "5"], ["inflacao", "Inflação ao ano (%)", "n", "4,5"]],
+    nota: "É uma estimativa com as taxas que você digitou, sem imposto ou taxas de investimento. Não é promessa de ganho nem indicação de investimento. Só conta como renda o que rende acima da inflação, para o patrimônio não perder valor.",
+    calc: resultadoDaLiberdade, extra: graficoDaLiberdade },
   { id: "parcela", ico: "cartao", curto: "Parcelado com juros", pergunta: "Quanto custa de verdade uma compra parcelada?", titulo: "Parcelado com juros: quanto custa", campos: [["valor", "Valor da compra (R$)", "m", "1000"], ["parcelas", "Número de parcelas", "n", "10"], ["taxa", "Juros ao mês (%)", "n", "2"]],
     nota: "Parcelas iguais. A taxa de juros está no contrato ou na simulação da loja.",
     calc: (v) => { const r = parcelaComJuros({ valor: v.valor, parcelas: v.parcelas, taxaMes: v.taxa }); return r && linhaRes("Cada parcela", brl(r.parcela), true) + linhaRes("Total pago", brl(r.total)) + linhaRes("Só de juros", brl(r.juros)); } },
@@ -3352,15 +3387,16 @@ function calculadoras(id = null) {
   }
   const campo = ([k, rot, t, pad_]) => t === "c"
     ? `<label class="check wide"><input type="checkbox" data-k="${k}"> ${rot}</label>`
-    : `<label class="f">${rot}<input class="in${t === "m" ? " money" : ""}" data-k="${k}" inputmode="decimal" value="${pad_}"></label>`;
+    : `<label class="f">${rot}<input class="in${t === "m" ? " money" : ""}" data-k="${k}" inputmode="decimal" value="${typeof pad_ === "function" ? pad_() : pad_}"></label>`;
   openDlg(`<button class="link calc-volta" type="button" id="calcVolta">${ico("esq")}Todas as calculadoras</button>
     <h3 style="margin-top:4px">${c.titulo}</h3>
     <div class="rc-card calc-topo" aria-live="polite"><dl class="calc-res" id="calcRes"></dl></div>
+    <div id="calcExtra"></div>
     <div class="rc-campos" id="calcCampos">${c.campos.map(campo).join("")}</div>
     <p class="hint" style="margin:12px 0 0">${c.nota}</p>
     <div class="actions"><button class="btn" type="button" id="calcOutra">Outra calculadora</button><button class="btn primary" type="button" data-close>Fechar</button></div>`);
   const le = () => Object.fromEntries([...document.querySelectorAll("#calcCampos [data-k]")].map((i) => [i.dataset.k, i.type === "checkbox" ? i.checked : nm(i.value)]));
-  const conta = () => { const html = c.calc(le()); $("calcRes").innerHTML = html || `<p class="rc-vazio">Preencha os campos com números para ver o resultado.</p>`; };
+  const conta = () => { const html = c.calc(le()); $("calcRes").innerHTML = html || `<p class="rc-vazio">Preencha os campos com números para ver o resultado.</p>`; $("calcExtra").innerHTML = c.extra?.(le()) || ""; };
   document.querySelectorAll("#calcCampos [data-k]").forEach((i) => i.addEventListener("input", conta));
   document.querySelectorAll("#calcCampos [data-k][type=checkbox]").forEach((i) => i.addEventListener("change", conta));
   $("calcVolta").onclick = $("calcOutra").onclick = () => calculadoras();
@@ -5376,10 +5412,11 @@ function naoLancouRepetido() {
 $("formLanc").addEventListener("submit", async (e) => {
   e.preventDefault();
   const flash = $("flash"); normalizaConta(); let v = parseMoney($("fValor").value);
-  if (avisoValor(v)) { flash.style.color = "var(--bad)"; flash.textContent = avisoValor(v); $("fValor").focus(); return; }
+  if (avisoValor(v)) return erroNoValor(avisoValor(v));
+  limpaErroDoValor();
   // Data com ano digitado errado (ex.: 2062 em vez de 2026): o lançamento sumiria para um mês que ninguém olha.
   const dtForm = $("fData").value || hoje(), anoForm = Number(dtForm.slice(0, 4)), anoHoje = Number(hoje().slice(0, 4));
-  if (anoForm > anoHoje + 2 || anoForm < anoHoje - 10) { flash.style.color = "var(--bad)"; flash.textContent = `A data ${ddmm(dtForm)}/${dtForm.slice(0, 4)} parece errada (ano ${anoForm}). Confira o ano.`; $("fData").hidden = false; $("fData").focus(); return; }
+  if (anoForm > anoHoje + 2 || anoForm < anoHoje - 10) { toastOuFlash(`A data ${ddmm(dtForm)}/${dtForm.slice(0, 4)} parece errada (ano ${anoForm}). Confira o ano.`, true); $("fData").hidden = false; $("fData").focus(); return; }
   // Valor muito acima do costume (ex.: 3890 em vez de 38,90): confere antes de lançar.
   const fora = valorForaDoComum(S.data.lancamentos, { tipo: S.tipo, valor: round2(v), categoria: $("fCat").value }, hoje(), $("fValor").value);
   if (fora) {
@@ -5495,10 +5532,13 @@ function carregaXLSX() {
   return carregandoXLSX;
 }
 $("btnExport").onclick = baixarRelatorio;   // o quadro pergunta o formato: Excel, PDF ou CSV
+/** Fecha o quadro pelos botões de sair, a não ser que ele peça para segurar (edição com mudanças ainda não salvas). */
+function fechaDlg() { if (!S.seguraFechar?.()) $("dlg").close(); }
 function openDlg(html) {
   $("dlgBody").innerHTML = html;
   const tit = $("dlgBody").querySelector("h3"); if (tit) { tit.id = "dlgTitulo"; $("dlg").setAttribute("aria-labelledby", "dlgTitulo"); } else $("dlg").removeAttribute("aria-labelledby");
-  $("dlgBody").querySelectorAll("[data-close]").forEach((b) => (b.onclick = () => $("dlg").close()));
+  S.seguraFechar = null;
+  $("dlgBody").querySelectorAll("[data-close]").forEach((b) => (b.onclick = fechaDlg));
   // Um "Fechar" sozinho embaixo repete o "Fechar" do canto de cima: some, para a tela ter uma saída só.
   $("dlgBody").querySelectorAll(".actions").forEach((a) => { const f = a.children; if (f.length === 1 && f[0].matches("[data-close]") && f[0].textContent.trim() === "Fechar") a.classList.add("so-fecha"); });
   if (!$("dlg").open) {   // trocar o conteúdo de um quadro já aberto não precisa abrir de novo
@@ -5522,7 +5562,7 @@ $("dlgBody").addEventListener("click", (e) => {
   setTimeout(() => { if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } }, 200);   // depois de o Voltar do quadro terminar
 });
 // Todo quadro tem o mesmo "Fechar" no canto de cima, além do botão de baixo.
-$("dlgX").onclick = () => $("dlg").close();
+$("dlgX").onclick = fechaDlg;
 $("dlg").addEventListener("close", () => {
   // Fechado e aberto de novo no mesmo instante (um quadro que leva a outro): a entrada do histórico fica para o novo.
   if ($("dlg").open) { S.dlgPeloVoltar = false; return; }
@@ -5618,6 +5658,14 @@ function editarLancamento(id) {
   };
   $("eCat").addEventListener("change", enchMeta); $("eMetaValor").addEventListener("input", contaMeta); $("eMetaAte").onchange = contaMeta;
   sync(x.forma); enchMeta();
+  // Sair sem salvar depois de mudar algo pede um segundo toque, para a correção não se perder sem querer.
+  const fotoDoForm = () => [...$("edForm").elements].map((c) => (c.type === "checkbox" ? c.checked : c.value)).join("|"), fotoInicial = fotoDoForm();
+  let avisouSaida = false;
+  S.seguraFechar = () => {
+    if (avisouSaida || fotoDoForm() === fotoInicial) return false;
+    avisouSaida = true; $("edMsg").textContent = "Você mudou este lançamento. Toque de novo para sair sem salvar."; $("edMsg").scrollIntoView({ block: "center" });
+    return true;
+  };
   $("edForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const v = parseMoney($("eValor").value);
@@ -5632,6 +5680,7 @@ function editarLancamento(id) {
       import_key: String(x.import_key || "").startsWith("ext|") ? x.import_key : null,   // compra vinda do extrato continua marcada, para não voltar na próxima importação
       ...(S.data.cartoes.length || x.cartao_id ? { cartao_id: noCartao() ? $("eCartao").value || null : null, parcelas: noCartao() && $("eCartao").value ? Number($("eParc").value) || 1 : 1 } : {}) };
     if (await grava(() => S.store.updateLancamento(id, patch))) {
+      toast("Alteração salva.");
       Object.assign(x, patch);
       if (mv > 0) {   // só cria ou muda a meta quando há valor; apagar a meta continua na tela da meta
         const cx = patch.categoria, m = metasDe()[cx] || {}, nova = { ...m, valor: round2(mv), ate: $("eMetaAte").value };

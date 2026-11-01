@@ -103,6 +103,29 @@ export function quantoGuardarPorMes({ alvo, meses, inicial = 0, taxaAnual = 0 })
   const v = i === 0 ? (alvo - inicial) / meses : ((alvo - inicial * f) * i) / (f - 1);
   return { porMes: round2(Math.max(0, v)), jaBasta: v <= 0 };
 }
+/**
+ * Liberdade financeira: quando o patrimônio passa a pagar os gastos do mês, para sempre.
+ * Só conta como renda o que rende acima da inflação: o resto precisa ficar investido para o patrimônio não perder valor.
+ * Por isso a meta é gastoMes dividido pelo rendimento real do mês, em dinheiro de hoje. O aporte sobe uma vez por ano.
+ * Procura por até 60 anos; os pontos do gráfico seguem 5 anos depois de chegar, para mostrar o ano no meio da curva.
+ */
+export function liberdadeFinanceira({ patrimonio = 0, aporte = 0, gastoMes, retornoAnual = 0, reajusteAnual = 0, inflacaoAnual = 0 }) {
+  patrimonio = num(patrimonio); aporte = num(aporte); gastoMes = num(gastoMes); retornoAnual = num(retornoAnual); reajusteAnual = num(reajusteAnual); inflacaoAnual = num(inflacaoAnual);
+  const taxas = [retornoAnual, reajusteAnual, inflacaoAnual];
+  if (![patrimonio, aporte, ...taxas].every(Number.isFinite) || !(gastoMes > 0) || patrimonio < 0 || aporte < 0 || taxas.some((t) => t < 0 || t > 100)) return null;
+  const LIMITE = 60 * 12, i = taxaMensal(retornoAnual), inf = taxaMensal(inflacaoAnual), iReal = (1 + i) / (1 + inf) - 1;
+  const temGanhoReal = iReal > 1e-9, alvoHoje = temGanhoReal ? gastoMes / iReal : null, deHoje = (v, m) => v / Math.pow(1 + inf, m);
+  const pontos = [{ ano: 0, nominal: round2(patrimonio), real: round2(patrimonio) }];
+  let saldo = patrimonio, parcela = aporte, meses = temGanhoReal && patrimonio >= alvoHoje ? 0 : null, saldoFinal = patrimonio;
+  for (let m = 1; m <= (meses === null ? LIMITE : Math.min(LIMITE, meses + 60)); m++) {
+    saldo = saldo * (1 + i) + parcela;
+    if (m % 12 === 0) { parcela *= 1 + reajusteAnual / 100; pontos.push({ ano: m / 12, nominal: round2(saldo), real: round2(deHoje(saldo, m)) }); }
+    if (meses === null && temGanhoReal && deHoje(saldo, m) >= alvoHoje) { meses = m; saldoFinal = saldo; }
+  }
+  const atingiu = meses !== null, mesFinal = atingiu ? meses : LIMITE, poder = deHoje(atingiu ? saldoFinal : saldo, mesFinal);
+  return { atingiu, temGanhoReal, meses, anos: atingiu ? Math.floor(meses / 12) : null, mesesResto: atingiu ? meses % 12 : null, alvoHoje: alvoHoje === null ? null : round2(alvoHoje),
+    patrimonioFinal: round2(atingiu ? saldoFinal : saldo), poderDeCompra: round2(poder), rendaMes: temGanhoReal ? round2(poder * iReal) : 0, pontos };
+}
 /** Compra parcelada com juros (parcelas iguais): quanto é cada parcela, o total pago e quanto foi de juros. */
 export function parcelaComJuros({ valor, parcelas, taxaMes = 0 }) {
   valor = num(valor); parcelas = Math.round(num(parcelas)); taxaMes = num(taxaMes);

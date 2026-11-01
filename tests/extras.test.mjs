@@ -1,7 +1,7 @@
 // Testes das ferramentas extras: desempenho, calculadoras, desafio, resumo do ano, subcategorias, outra moeda, mensagem do banco, CSV e PDF.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, criaDesafio, valorDaSemana, totalDoDesafio,
+import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, criaDesafio, valorDaSemana, totalDoDesafio,
   andamentoDoDesafio, resumoDoAno, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, paiDaCategoria, filhoDaCategoria, nomeDeSub, agrupaPorPai, moeda } from "../js/extras.js";
 
 const L = (data, categoria, valor, tipo = "Despesa", forma = "Pix", descricao = "") => ({ id: data + categoria + valor, data, descricao, tipo, categoria, forma, valor });
@@ -42,6 +42,41 @@ test("desempenho: categoria sem gasto no mês não vira \"100% menos\"", () => {
 test("desempenho: sem mês anterior não inventa comparação", () => {
   const f = desempenhoDoMes({ ...base([L("2026-10-05", "Mercado", 200)]), fixos: [] }, "2026-10", HOJE);
   assert.ok(f.every((x) => !/que o de/.test(x.texto)));
+});
+
+test("liberdade financeira: acha o primeiro mês em que o rendimento real paga os gastos", () => {
+  const r = liberdadeFinanceira({ aporte: 1000, gastoMes: 1000, retornoAnual: 12, inflacaoAnual: 0 });
+  const i = Math.pow(1.12, 1 / 12) - 1; let saldo = 0, m = 0;
+  while (saldo * i < 1000) { saldo = saldo * (1 + i) + 1000; m++; }
+  assert.equal(r.atingiu, true);
+  assert.equal(r.meses, m);
+  assert.equal(r.patrimonioFinal, Math.round(saldo * 100) / 100);
+  assert.equal(r.poderDeCompra, r.patrimonioFinal);          // sem inflação, os dois são iguais
+  assert.equal(r.pontos[0].ano, 0);
+  assert.equal(r.pontos.at(-1).ano, Math.floor((m + 60) / 12));   // o gráfico segue 5 anos depois
+});
+
+test("liberdade financeira: inflação tira poder de compra e aumentar o aporte adianta a data", () => {
+  const base = { aporte: 1000, gastoMes: 2000, retornoAnual: 10, inflacaoAnual: 4 };
+  const r = liberdadeFinanceira(base), mais = liberdadeFinanceira({ ...base, reajusteAnual: 5 });
+  assert.ok(r.atingiu && r.poderDeCompra < r.patrimonioFinal);
+  assert.ok(Math.abs(r.poderDeCompra / Math.pow(1.04, -r.meses / 12) - r.patrimonioFinal) < 1);
+  assert.ok(r.poderDeCompra >= r.alvoHoje);
+  assert.ok(Math.abs(r.rendaMes - 2000) < 30);                // no mês em que chega, a renda real cobre o gasto
+  assert.ok(mais.meses < r.meses);
+});
+
+test("liberdade financeira: casos sem conta normal", () => {
+  assert.equal(liberdadeFinanceira({ gastoMes: 0, aporte: 100 }), null);
+  assert.equal(liberdadeFinanceira({ gastoMes: 100, aporte: -1 }), null);
+  assert.equal(liberdadeFinanceira({ gastoMes: 100, retornoAnual: 101 }), null);
+  const ja = liberdadeFinanceira({ patrimonio: 1000000, gastoMes: 1000, retornoAnual: 12 });
+  assert.deepEqual([ja.atingiu, ja.meses], [true, 0]);
+  const semReal = liberdadeFinanceira({ patrimonio: 1000, aporte: 100, gastoMes: 1000, retornoAnual: 5, inflacaoAnual: 5 });
+  assert.deepEqual([semReal.atingiu, semReal.temGanhoReal, semReal.rendaMes, semReal.alvoHoje], [false, false, 0, null]);
+  const longe = liberdadeFinanceira({ aporte: 1, gastoMes: 100000, retornoAnual: 6, inflacaoAnual: 2 });
+  assert.equal(longe.atingiu, false);
+  assert.equal(longe.pontos.at(-1).ano, 60);
 });
 
 test("calculadoras: rendimento, quanto guardar, parcela com juros, juros compostos", () => {

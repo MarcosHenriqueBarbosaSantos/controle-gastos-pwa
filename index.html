@@ -190,7 +190,8 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
     <div class="copiado" id="fCopiado" hidden></div>
     <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
     <form id="formLanc" class="fields" autocomplete="off" novalidate>
-      <label class="f">Valor (R$)<span class="efeito" id="fEfeito" hidden></span><input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" required></label>
+      <label class="f">Valor (R$)<span class="efeito" id="fEfeito" hidden></span><input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" aria-describedby="fValorErro" required></label>
+      <p class="erro-campo" id="fValorErro" role="alert" hidden></p>
       <p class="hint horas-trab" id="fHoras" role="status" hidden></p>
       <p class="aviso-contas" id="fContas" role="status" aria-live="polite" hidden></p>
       <details class="moeda-fora mais-op"><summary>Outra moeda, dividir, fazer conta</summary><p><button class="link" id="fMoedaBtn" type="button">Gastei em outra moeda (viagem)</button><button class="link" id="fDividirBtn" type="button">Dividir em categorias</button><button class="link" id="fContaBtn" type="button">Fazer uma conta</button></p></details>
