@@ -57,3 +57,15 @@ test("salário de autônomo: o que guardar por mês e por dia rodado", () => {
   assert.equal(reservasDoMotorista(veic, { lucroMes: 0 }).semLucro, true);
   assert.equal(reservasDoMotorista(veic, { veiculo: "moto" }).itens[0].nome, "Manutenção da moto");
 });
+
+import { corridasPrevistas } from "../js/motorista.js";
+test("previsão do motorista conta as corridas que faltam", () => {
+  const turno = (dia, ganho) => { const ini = new Date(dia + "T08:00:00").getTime(); return { ini, fim: ini + 8 * 36e5, apps: { uber: ganho } }; };
+  const turnos = [turno("2026-10-30", 300), turno("2026-10-31", 500)];
+  assert.deepEqual(corridasPrevistas(turnos, "2026-11-02", 7), { valor: 11600, dias: 29, porDia: 400 });
+  assert.equal(corridasPrevistas([...turnos, turno("2026-11-02", 400)], "2026-11-02", 7).dias, 28);
+  assert.equal(corridasPrevistas([turnos[0]], "2026-11-02", 6).valor, 0);
+  const st = { lancamentos: [], pagos: [], faturas: [], cartoes: [], corridasPrevistas: 1000, fixos: [{ id: "a", descricao: "Aluguel", categoria: "Moradia", tipo: "Despesa", valor: 1000, dia: 10, desde: "2026-09-01", repete: "mensal" }] };
+  assert.equal(calcMes(st, "2026-11", "2026-11-02").entraPrevisto, 1000);
+  assert.equal(calcMes(st, "2026-10", "2026-11-02").entraPrevisto, 0);
+});

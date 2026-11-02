@@ -111,10 +111,11 @@ export function calcMes(st, m, hoje) {
   const cur = mKey(hoje), n = dim(m);
   const fase = m < cur ? "passado" : m > cur ? "futuro" : "atual";
   const dias = fase === "atual" ? Number(hoje.slice(8, 10)) : fase === "passado" ? n : 0;
+  const entraPrevisto = fase === "atual" ? Number(st.corridasPrevistas) || 0 : 0;
   const proj = fase === "atual" && dias > 0
     ? round2(projetaDiaADia(st, m, desp.filter((x) => !noCartao(x)), dias, n) + fxCusto + fatT) : custo;
   const frAReceber = fase === "futuro" ? frT : fase === "atual" ? sum(fr.filter((o) => Number(o.data.slice(8, 10)) > dias)) : 0;
-  return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, foraFx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
+  return { it, rec, entraPrevisto, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, foraFx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
     fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj };
 }
 export function sequenciaDeDias(st, hoje, semGasto = []) {

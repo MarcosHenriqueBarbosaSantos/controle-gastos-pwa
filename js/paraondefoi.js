@@ -37,7 +37,7 @@ export function paraOndeFoi(st, m, hoje, { teto = 0 } = {}) {
   if (!(c.custo > 0) && !(c.rec > 0)) return null;
   const atual = c.fase === "atual", base = atual ? c.proj : c.custo;   // no mês em andamento, compara o que o mês vai custar
   const temAnterior = a.custo > 0, antes = a.custo, dif = round2(base - antes), difPct = temAnterior ? Math.round((dif / antes) * 100) : null;
-  const entra = c.rec, sobra = round2(entra - base);
+  const entra = round2(c.rec + (c.entraPrevisto || 0)), sobra = round2(entra - base);
 
   // Para onde foi: do maior para o menor, com o que mudou desde o mês anterior.
   const agora = catMap(c), antC = new Map(catMap(a)), total = agora.reduce((t, x) => t + x[1], 0) || 1;

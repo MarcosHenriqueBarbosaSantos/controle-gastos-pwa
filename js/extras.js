@@ -60,7 +60,7 @@ export function desempenhoDoMes(st, m, hoje) {
   const antes = ultimosMeses(st, ant, hoje, 3).filter((x) => x.fase === "passado" && (x.rec > 0 || x.custo > 0));
   if (antes.length >= 2) {
     const media = round2(antes.reduce((t, x) => t + x.sobra, 0) / antes.length);
-    const sobra = c.fase === "atual" ? round2(c.rec - c.proj - Math.max(0, c.res)) : c.saldo, dif = round2(sobra - media);
+    const sobra = c.fase === "atual" ? round2(c.rec + (c.entraPrevisto || 0) - c.proj - Math.max(0, c.res)) : c.saldo, dif = round2(sobra - media);
     if (Math.abs(dif) >= 1) out.push({ tom: dif > 0 ? "good" : "warn",
       texto: `${c.fase === "atual" ? "A sobra prevista para o mês" : "A sobra do mês"} (${moeda(sobra)}) ${c.fase === "atual" ? "fica" : "ficou"} ${moeda(Math.abs(dif))} ${dif > 0 ? "acima" : "abaixo"} da média dos últimos ${antes.length} meses (${moeda(media)}).` });
   }

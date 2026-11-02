@@ -363,6 +363,17 @@ export function ritmoHistorico(turnos, ate, janela = 30) {
 }
 
 /**
+ * Quanto as corridas do resto do mês devem trazer: a média dos dias rodados vezes os dias de trabalho que faltam.
+ * Com jornada hoje, a conta começa amanhã. Sem pelo menos dois dias rodados no último mês, não há base: fica em zero.
+ */
+export function corridasPrevistas(turnos, hoje, diasSemana = 6) {
+  const ritmo = ritmoHistorico(turnos, hoje); if (!ritmo) return { valor: 0, dias: 0, porDia: 0 };
+  const [a, m, d] = hoje.split("-").map(Number), fim = new Date(a, m, 0).getDate(), rodouHoje = (turnos || []).some((t) => t.fim && isoLocal(t.ini) === hoje);
+  const dias = Math.ceil(((fim - d + (rodouHoje ? 0 : 1)) * Math.max(1, Math.min(7, Number(diasSemana) || 6))) / 7);
+  return { valor: r2(dias * ritmo.ganhoMedioDia), dias, porDia: ritmo.ganhoMedioDia };
+}
+
+/**
  * A meta do dia cabe no seu ritmo? Compara o bruto por dia que a meta pede com a média e o melhor dia da pessoa.
  *  ok: até 10% acima da média · puxado: acima da média, mas dentro do melhor dia · fora: acima do melhor dia · sem-historico: poucos turnos.
  * Também diz quanto sobraria até o fim do mês no ritmo atual (líquido = bruto médio menos o que o carro gasta por dia).

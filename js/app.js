@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -733,6 +733,8 @@ function mesesNoTopo(mostrar) {
 /* ================= render ================= */
 function render() {
   S.data.foraDoMes = S.prefs.foraDoMes || [];
+  const prevCorridas = S.loaded && S.prefs.motorista?.usa ? corridasPrevistas(motDados().turnos, hoje(), motDados().diasSemana) : null;
+  S.prevCorridas = prevCorridas; S.data.corridasPrevistas = prevCorridas?.valor || 0;
   const [y, mo] = S.mes.split("-").map(Number);
   if ((S.view === "mais" || S.view === "analise") && !noCelular() && !comMenuLateral()) S.view = "inicio";   // em tela média não há Mais nem Análise: tudo fica à vista
   const naMais = S.view === "mais", sub = S.view === "listas" && SUBS.includes(S.tab);
@@ -3355,21 +3357,22 @@ function metaNota(c) {
 }
 /** "Como o mês vai fechar": uma barra só (o que já gastou, o que falta gastar pela previsão e onde está a entrada) e três números. */
 function projecaoDoMes(c, est, rx, acum) {
-  const atualM = c.fase === "atual", entra = c.rec, gasto = c.custo, previsto = atualM ? c.proj : c.custo;
+  const atualM = c.fase === "atual", entra = round2(c.rec + (c.entraPrevisto || 0)), gasto = c.custo, previsto = atualM ? c.proj : c.custo, mot = atualM && S.prefs.motorista?.usa;
   const topo = Math.max(entra, previsto, gasto, 1), p = (v) => Math.max(0, Math.min(100, (v / topo) * 100));
   const sobra = round2(entra - previsto), falta = sobra < 0 && entra > 0;
-  const pill = entra > 0 ? `<span class="pof-pill ${falta ? "ruim" : "bom"}">${atualM ? (falta ? "Previsão: fecha " + brl0(-sobra) + " no vermelho" : "Previsão: sobram " + brl0(sobra)) : (falta ? "Fechou " + brl0(-sobra) + " no vermelho" : "Sobraram " + brl0(sobra))}</span>` : `<span class="pof-pill neutro">Sem entradas lançadas</span>`;
+  const pill = entra > 0 ? `<span class="pof-pill ${falta ? "ruim" : "bom"}">${atualM ? (falta ? (mot ? "Faltam " + brl0(-sobra) + " para fechar" : "Previsão: fecha " + brl0(-sobra) + " no vermelho") : "Previsão: sobram " + brl0(sobra)) : (falta ? "Fechou " + brl0(-sobra) + " no vermelho" : "Sobraram " + brl0(sobra))}</span>` : `<span class="pof-pill neutro">Sem entradas lançadas</span>`;
   const titulo = c.fase === "futuro" ? "Como o mês deve ser" : atualM ? "Como o mês vai fechar" : "Como o mês fechou";
-  const legenda = atualM ? `Gasto até hoje <b>${brl0(gasto)}</b> · previsão <b>${brl0(previsto)}</b>` : `${c.fase === "futuro" ? "Gasto previsto" : "Gasto do mês"} <b>${brl0(gasto)}</b>`;
+  const legenda = atualM ? `Contas e gastos do mês <b>${brl0(gasto)}</b> · previsão <b>${brl0(previsto)}</b>` : `${c.fase === "futuro" ? "Gasto previsto" : "Gasto do mês"} <b>${brl0(gasto)}</b>`;
   const trilho = `<div class="proj-trilho" role="img" aria-label="${esc(`${legenda.replace(/<[^>]+>/g, "")}. ${entra > 0 ? "Entradas " + brl0(entra) + "." : ""}`)}">
       <i class="gasto${atualM ? "" : " fechado"}" style="width:${p(gasto)}%"></i>${atualM && previsto > gasto ? `<i class="falta" style="left:${p(gasto)}%;width:${p(previsto) - p(gasto)}%"></i>` : ""}
       ${entra > 0 ? `<u class="entra" style="left:${p(entra)}%"><s>entra</s></u>` : ""}</div>`;
   return `<div class="proj-topo"><b>${titulo}</b>${pill}</div>${trilho}
     <div class="proj-nums">
       <button type="button" data-det="entradas"><small>${atualM || c.fase === "futuro" ? "Entra" : "Entrou"}</small><b class="pos">${brl0(entra)}</b></button>
-      <button type="button" data-det="custo"><small>${atualM ? "Gasto até hoje" : c.fase === "futuro" ? "Previsto" : "Gastou"}</small><b>${brl0(gasto)}</b></button>
+      <button type="button" data-det="custo"><small>${atualM ? "Contas e gastos" : c.fase === "futuro" ? "Previsto" : "Gastou"}</small><b>${brl0(gasto)}</b></button>
       ${atualM ? `<button type="button" data-det="custo"><small>Previsão do mês</small><b>${brl0(previsto)}</b></button>` : `<button type="button" data-det="saldo"><small>${falta ? "Faltou" : "Sobrou"}</small><b class="${falta ? "neg" : "pos"}">${brl0(Math.abs(sobra))}</b></button>`}
     </div>${c.res > 0 ? `<p class="proj-nota">Guardado no mês: <button type="button" class="ln" data-det="guardado">${brl0(c.res)}</button></p>` : ""}
+    ${mot ? `<p class="proj-nota">${c.entraPrevisto > 0 ? `Inclui ${brl0(c.entraPrevisto)} de corridas previstas: ${brl0(S.prevCorridas.porDia)} por dia, sua média, nos ${S.prevCorridas.dias} dias de trabalho que faltam.` : "Depois de dois dias rodados, a previsão passa a contar as corridas."}</p>` : ""}
     ${metaNota(c)}
     ${acum !== c.saldo ? `<p class="proj-nota">Com os meses anteriores, o saldo acumulado é <b>${sgn(acum)}</b>.</p>` : ""}`;
 }

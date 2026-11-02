@@ -232,11 +232,12 @@ export function calcMes(st, m, hoje) {
   const cur = mKey(hoje), n = dim(m);
   const fase = m < cur ? "passado" : m > cur ? "futuro" : "atual";
   const dias = fase === "atual" ? Number(hoje.slice(8, 10)) : fase === "passado" ? n : 0;
+  const entraPrevisto = fase === "atual" ? Number(st.corridasPrevistas) || 0 : 0;   // motorista: o que as corridas do resto do mês devem trazer
   const proj = fase === "atual" && dias > 0
     ? round2(projetaDiaADia(st, m, desp.filter((x) => !noCartao(x)), dias, n) + fxCusto + fatT) : custo;
   // Entradas fixas que ainda não chegaram: no mês atual, as de dia posterior a hoje; em mês futuro, todas.
   const frAReceber = fase === "futuro" ? frT : fase === "atual" ? sum(fr.filter((o) => Number(o.data.slice(8, 10)) > dias)) : 0;
-  return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, foraFx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
+  return { it, rec, entraPrevisto, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, foraFx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
     fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj };
 }
 
@@ -267,7 +268,7 @@ export function raioX(c) {
  * @returns {{nivel:"ok"|"atencao"|"estourado"|"neutro", motivo:string, projSobra:number|null}}
  */
 export function estadoDoMes(c, teto = 0) {
-  const sobra = raioX(c).sobra, atual = c.fase === "atual", projSobra = atual ? round2(c.rec - c.proj - c.res) : null, u = usoDoTeto(c, teto);
+  const sobra = raioX(c).sobra, atual = c.fase === "atual", projSobra = atual ? round2(c.rec + (c.entraPrevisto || 0) - c.proj - c.res) : null, u = usoDoTeto(c, teto);
   const real = (v) => `R$ ${Math.round(Math.abs(v)).toLocaleString("pt-BR")}`;
   if (!(c.rec > 0) && !(c.custo > 0) && !(c.res > 0)) return { nivel: "neutro", motivo: "", projSobra };
   if (sobra < 0) return { nivel: "estourado", motivo: `As saídas passaram das entradas em ${real(sobra)}.`, projSobra };
