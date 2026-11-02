@@ -93,3 +93,65 @@ button,a,summary,.btn{touch-action:manipulation}
 @media (prefers-reduced-motion:no-preference){
   .mais-item{transition:background .15s}
 }
+
+/* v179: no computador, menu lateral fixo e uma tela por vez, como no celular. Nada aqui vale para o celular. */
+.bnav-marca{display:none}
+@media (min-width:901px){
+  body:has(#app:not([hidden])){padding-left:236px}
+  .wrap{padding-block:26px 56px}
+  .bnav:not([hidden]){display:flex;flex-direction:column;gap:4px;position:fixed;inset:0 auto 0 0;width:236px;z-index:30;padding:22px 14px;background:var(--surface);border:0;border-right:1px solid var(--border);backdrop-filter:none;-webkit-backdrop-filter:none}
+  .bnav-marca{display:flex;align-items:center;gap:10px;order:-2;padding:0 8px 18px;font-family:var(--display);font-size:20px;font-weight:800;letter-spacing:-.02em;color:var(--ink)}
+  .bnav-marca img{border-radius:9px}
+  .bnav button{display:flex;align-items:center;gap:12px;width:100%;min-height:46px;padding:0 14px;border:0;border-radius:12px;background:none;color:var(--ink-2);font-size:15px;font-weight:600;cursor:pointer}
+  .bnav button:hover{background:var(--surface-2)}
+  .bnav svg{flex:none;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+  .bnav button[aria-current="page"]{background:var(--series-soft);color:var(--ink)}
+  .bnav button[aria-current="page"] svg{color:var(--series);background:none}
+  .bnav .mais,.bnav .mais:hover{order:-1;justify-content:center;min-height:52px;margin-bottom:12px;border-radius:14px;background:var(--btn);color:#17140a;font-weight:700}
+  :root[data-tema="claro"] .bnav .mais{color:#ffb81c}
+  .bnav .mais span{display:contents}
+  .bnav .mais svg{stroke-width:2.4}
+  .top .actions>*:not(#btnBuscar){display:none}
+  .wrap[data-view="inicio"] .v-listas,.wrap[data-view="listas"] .v-inicio,.wrap[data-view="mais"] .v-inicio,.wrap[data-view="mais"] .v-listas,.wrap[data-view="inicio"] .v-analise,.wrap[data-view="listas"] .v-analise,.wrap[data-view="mais"] .v-analise,.wrap[data-view="analise"] .v-inicio:not(.v-analise),.wrap[data-view="analise"] .v-listas{display:none!important}
+  .wrap[data-view="analise"] .analise-topo{display:flex;align-items:center;gap:12px}
+  .wrap[data-view="mais"] .v-mais{display:grid;gap:18px;grid-template-columns:repeat(2,minmax(0,1fr));align-items:start}
+  .wrap[data-view="mais"] .mais-quem{grid-column:1/-1}
+  .wrap:is([data-tab="l"],[data-tab="c"],[data-tab="m"],[data-tab="mot"]) .tabs{display:none}
+  .wrap:is([data-tab="f"],[data-tab="r"]) .tabs>:not(#tab-f,#tab-r){display:none}
+  #listaVoltar:not([hidden]),#lancFechar{display:inline-flex}
+  .pl-analise{display:block}
+  .wrap[data-view="inicio"]{grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);align-items:start}
+  .wrap[data-view="inicio"]>*{grid-column:1/-1}
+  .wrap[data-view="inicio"]>#venc{grid-column:1}
+  .wrap[data-view="inicio"]>#semanaIni{grid-column:2}
+  .hero.cheia .hero-ver{display:none}
+  .panel.quick{display:none;position:fixed;top:0;right:0;bottom:0;width:480px;z-index:40;margin:0;border:0;border-left:1px solid var(--border);border-radius:0;overflow:auto;align-content:start;gap:14px;padding:22px;background:var(--bg);box-shadow:-20px 0 60px rgba(0,0,0,.35)}
+  body.lancando .panel.quick{display:grid}
+  .panel.quick .fields{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
+  .panel.quick .fields>*{grid-column:1/-1}
+  .mais-quem{display:flex;align-items:center;gap:14px;padding:6px 2px}
+  .mais-quem .ava{width:52px;height:52px;border-radius:50%;font-size:20px;background:var(--series-soft);color:var(--series)} .mais-quem .ava .ic{width:24px;height:24px}
+  .mais-quem .iconbtn{flex:none;width:44px;height:44px;margin-left:auto}
+  .mais-quem .tx{display:grid;gap:2px;min-width:0} .mais-quem .tx b{font-size:16px;overflow-wrap:anywhere} .mais-quem .tx span{font-size:13px;color:var(--muted)}
+  .mais-grupo{display:grid;gap:8px} .mais-grupo h2{margin:0 2px;font-size:13px;font-weight:600;color:var(--muted)}
+  .mais-lista{background:var(--surface);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow-sm)}
+  .mais-item{display:flex;align-items:center;gap:13px;width:100%;min-height:62px;padding:11px 12px 11px 14px;border:0;border-top:1px solid var(--border);background:none;color:var(--ink);text-align:left}
+  .mais-item:first-child{border-top:0} .mais-item:active{background:var(--series-soft)}
+  .mais-item .ava{width:38px;height:38px;border-radius:12px;flex:none;background:var(--series-soft);color:var(--series)} .mais-item .ava .ic{width:20px;height:20px}
+  .mais-item .tx{display:grid;gap:1px;flex:1;min-width:0} .mais-item .tx b{font-size:15px;font-weight:600} .mais-item .tx span{font-size:12.5px;color:var(--muted)}
+  .mais-item>.ic{width:18px;height:18px;flex:none;color:var(--muted)}
+  .mais-item{cursor:pointer}
+  .mais-item:hover{background:var(--series-soft)}
+  .wrap[data-view="mais"] .monthnav .iconbtn{visibility:hidden;width:0;padding:0;border:0}
+  .wrap[data-view="mais"] .monthnav h1{margin-left:-8px}
+  #lFiltros .tela-frase{flex:1 0 100%}
+  #lFiltros .seg button{padding-inline:12px;font-size:14px}
+  /* Jornada: sem mês no alto, sem faixa de obra e no fundo do tema */
+  body:has(#app[data-view="listas"][data-tab="mot"]){background:var(--bg)}
+  #app[data-view="listas"][data-tab="mot"] .top,#app[data-view="listas"][data-tab="mot"] #banner{display:none!important}
+  .wrap[data-tab="mot"] #listas::before{display:none}
+  .wrap[data-tab="mot"] #listas{padding:18px}
+  #listas:has(.mot-dia.cheia) #listaVoltar,#listas:has(.mot-jornada) #listaVoltar{display:none}
+  .wrap[data-tab="mot"] .mot-jornada{min-height:calc(100vh - 120px)}
+  .toast:not(.com-acao):not([hidden]){display:block;position:fixed;right:24px;bottom:24px;max-width:420px;z-index:50;padding:12px 16px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:14px;box-shadow:var(--shadow)}
+}

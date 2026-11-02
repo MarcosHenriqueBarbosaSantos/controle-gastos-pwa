@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "179", itens: ["No computador, o app ganhou menu lateral e uma tela por vez."] },
   { versao: "178", itens: ["O Extrato agora mostra as contas fixas e faturas do mês, pagas ou a pagar, junto com as entradas.", "Novo filtro Fixas no Extrato.", "Agora dá para deixar uma conta fora de um mês, sem apagar nada.", "Modo motorista: a tela mostra o valor por km para buscar e o seu mínimo.", "Combustível, pedágio e alimentação ficam separados, e o veículo aceita álcool e gasolina."] },
   { versao: "177", itens: ["O app agora confere se há versão nova sempre que você volta para ele."] },
   { versao: "176", itens: ["Início mais limpo, com uma tela inteira que responde como está o seu mês.", "Extrato e Planejar abrem com uma frase, e o tema claro agora é preto e amarelo.", "Quem usa o modo motorista já abre o app direto na Jornada."] },

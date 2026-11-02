@@ -134,6 +134,8 @@ function cats(tipo) {
   return S.prefs.categorias?.[tipo]?.length ? S.prefs.categorias[tipo] : CATS_PADRAO[tipo];
 }
 const noCelular = () => matchMedia("(max-width:700px)").matches;
+/** No computador a barra de baixo vira menu lateral: uma tela por vez, como no celular, com a largura aproveitada. */
+const comMenuLateral = () => matchMedia("(min-width:901px)").matches;
 /* Preferências (metas, limites, categorias, fotos, ajustes): a tela muda na hora e o envio vai por trás, em fila,
    para dois toques seguidos não chegarem fora de ordem. Antes a tela esperava a internet a cada mudança — com sinal
    fraco parecia que "não atualizava". Uma cópia fica no aparelho e vale se for mais nova que a do servidor (store.js). */
@@ -732,7 +734,7 @@ function mesesNoTopo(mostrar) {
 function render() {
   S.data.foraDoMes = S.prefs.foraDoMes || [];
   const [y, mo] = S.mes.split("-").map(Number);
-  if ((S.view === "mais" || S.view === "analise") && !noCelular()) S.view = "inicio";   // a tela Mais só existe no celular; no computador tudo fica à vista
+  if ((S.view === "mais" || S.view === "analise") && !noCelular() && !comMenuLateral()) S.view = "inicio";   // em tela média não há Mais nem Análise: tudo fica à vista
   const naMais = S.view === "mais", sub = S.view === "listas" && SUBS.includes(S.tab);
   $("mesTitulo").textContent = naMais ? "Mais" : `${MESES[mo - 1]} ${y}`;
   $("hoje").hidden = naMais || S.mes === mKey(hoje());
@@ -740,7 +742,7 @@ function render() {
   const c = calcMes(S.data, S.mes, hoje());
   // No celular aparece uma tela por vez; a barra de baixo mostra onde a pessoa está.
   // Barra de baixo: Início · Extrato · + · Planejar · Mais (as ferramentas moram no Mais; o Mercado abre por lá e pela busca). Cartões e Contas fixas ficam na faixa "Ir para" do Início.
-  if ($("bnav").offsetHeight) document.documentElement.style.setProperty("--bnav-h", `${$("bnav").offsetHeight}px`);
+  if ($("bnav").offsetHeight && !comMenuLateral()) document.documentElement.style.setProperty("--bnav-h", `${$("bnav").offsetHeight}px`);
   const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab; app.dataset.jornada = S.prefs.motorista?.ativo?.ini ? "1" : "0";
   const telaAgora = `${S.view}|${S.tab}`;
   if (S.telaAntes && S.telaAntes !== telaAgora) { app.classList.remove("entra"); void app.offsetWidth; app.classList.add("entra"); }
@@ -1411,7 +1413,7 @@ function guardarParaMeta(destino, valor = 0, mov = "Guardar") {
   $("fForma").value = mov; $("fData").value = hoje(); $("fFixo").checked = false;
   $("fValor").value = valor > 0 ? valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "";
   renderForm(); mostraEfeito();
-  if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
+  if (noCelular() || comMenuLateral()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
 }
 
 /** Exclui a meta (e o combinado de todo mês, que faz parte dela). O dinheiro guardado não muda: ele é dos lançamentos. */
@@ -2663,6 +2665,7 @@ function toastAcao(t, rotulo, acao, dura = 7000) {
   clearTimeout(toastT); if (dura) toastT = setTimeout(() => (el.hidden = true), dura);
 }
 const toastDesfazer = (t, desfazer) => toastAcao(t, "Desfazer", desfazer);
+document.addEventListener("keydown", (e) => { if (e.key === "Escape" && comMenuLateral() && !$("dlg").open) fecharLancar(); });
 function abrirLancar() {
   document.body.classList.add("lancando"); ofereceCopiado(); $("flash").textContent = ""; diaOutroAberto = false; formaDoCostume(); syncDiaChips();
   try { if (!history.state?.lanc) history.pushState({ lanc: true }, ""); } catch { /* sem histórico: o ✕ fecha */ }   // o botão Voltar do celular fecha a tela
@@ -2696,10 +2699,10 @@ addEventListener("popstate", (e) => {
   if (S.view === "listas" && S.tab === "mot" && (motSub || motFechando)) { motSub = null; motFechando = false; render(); scrollTo(0, 0); return; }   // Voltar do celular dentro de uma subtela da jornada
   // Toque em Início com telas abertas por cima: volta o histórico até o começo, uma entrada por vez.
   if (S.paraInicio) { if (e.state?.aba || e.state?.sub) return history.back(); S.paraInicio = false; S.view = "inicio"; render(); scrollTo(0, 0); return; }
-  if (!e.state?.sub && noCelular() && S.view === "analise") { sairDaAnalise(); return; }
-  if (!e.state?.sub && noCelular() && S.view === "listas" && SUBS.includes(S.tab)) { S.view = S.origem === "mais" ? "mais" : "inicio"; render(); scrollTo(0, 0); }   // volta para onde a pessoa estava
+  if (!e.state?.sub && (noCelular() || comMenuLateral()) && S.view === "analise") { sairDaAnalise(); return; }
+  if (!e.state?.sub && (noCelular() || comMenuLateral()) && S.view === "listas" && SUBS.includes(S.tab)) { S.view = S.origem === "mais" ? "mais" : "inicio"; render(); scrollTo(0, 0); }   // volta para onde a pessoa estava
   // Em Extrato, Planejar ou Mais, o Voltar leva ao Início (como nos apps de banco); só no Início ele sai do app.
-  else if (!e.state?.sub && noCelular() && S.view !== "inicio" && !(e.state?.aba && S.view === "mais")) { S.view = "inicio"; render(); scrollTo(0, 0); }
+  else if (!e.state?.sub && (noCelular() || comMenuLateral()) && S.view !== "inicio" && !(e.state?.aba && S.view === "mais")) { S.view = "inicio"; render(); scrollTo(0, 0); }
 });
 $("lancFechar").onclick = () => fecharLancar();
 $("bnav").addEventListener("click", (e) => {
@@ -2876,7 +2879,7 @@ const DESTINOS = [
 function vaiPara(k) {
   if (HUBS[k]) return hubTela(k);
   if (k === "novidades") return novidadesTela();
-  const FER = { ordem: () => equilibrioTela(), graficos: () => (noCelular() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, hora: minhaHoraTela, ganhogasto: () => ganhoGastoTela(S.mes), casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  const FER = { ordem: () => equilibrioTela(), graficos: () => (noCelular() || comMenuLateral() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, hora: minhaHoraTela, ganhogasto: () => ganhoGastoTela(S.mes), casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
   if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
 }
 /* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
@@ -3144,7 +3147,7 @@ const QUADROS = [["dia", "Seu dia", "O que você gastou hoje e a sequência de d
   ["conq", "Conquistas", "As medalhas ganhas e a próxima", ["conqIni"]]];
 const NO_INICIO_CEL = ["dia", "venc", "desemp", "conq"];   // no celular, o resto fica em Planejar → Análise do mês
 /** "Mais do seu mês" abre sozinho no computador (tem espaço) e fica fechado no celular. */
-if ($("maisDoMes")) $("maisDoMes").open = !noCelular();
+if ($("maisDoMes")) $("maisDoMes").open = !noCelular() && !comMenuLateral();
 function aplicaInicio() {
   const fora = new Set(S.prefs.inicioFora || []);
   QUADROS.forEach(([k, , , ids]) => ids.forEach((id) => $(id)?.classList.toggle("fora", fora.has(k))));
@@ -3679,7 +3682,7 @@ function colarMensagem() {
     if (!txt) return void ($("cmMsg").textContent = "Cole a mensagem do banco no campo acima.");
     if (!f.valor) return void ($("cmMsg").textContent = "Não achei um valor em reais (R$) nessa mensagem. Confira o texto ou lance à mão.");
     $("dlg").close(); S.view = "inicio";
-    setTimeout(() => { if (noCelular()) abrirLancar(); aplicaEntendido(f, txt, "mensagem"); }, 250);
+    setTimeout(() => { if (noCelular() || comMenuLateral()) abrirLancar(); aplicaEntendido(f, txt, "mensagem"); }, 250);
   });
 }
 
@@ -4093,7 +4096,7 @@ function mercado() {
       clearInterval(timer); $("dlg").close(); S.tipo = "Despesa"; renderForm();
       $("fValor").value = compra.total.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); $("fDesc").value = "Compra no mercado"; $("fCat").value = umaSo ? partes[0][0] : padrao; S.catManual = true; $("fData").value = hoje();
       S.divisaoPronta = umaSo ? null : partes; renderForm(); mostraEfeito();
-      setTimeout(() => { if (noCelular()) abrirLancar(); else $("fValor").scrollIntoView({ block: "center" });
+      setTimeout(() => { if (noCelular() || comMenuLateral()) abrirLancar(); else $("fValor").scrollIntoView({ block: "center" });
         const f = $("flash"); f.style.color = "var(--good)";
         f.textContent = umaSo ? `${brl(compra.total)} no formulário. Escolha a forma de pagamento e toque em Lançar.` : `${brl(compra.total)} no formulário. Escolha a forma de pagamento e toque em "Dividir em categorias" para separar como você marcou.`; }, 200);
     };
@@ -4946,7 +4949,7 @@ function revisaoTela(m = S.mes) {
       if (!dest) { $("dlg").close(); return void toast("Crie uma caixinha em Planejar para guardar."); }
       $("dlg").close(); S.tipo = "Reserva"; renderForm(); $("fCat").value = dest; $("fForma").value = "Guardar"; S.catManual = true; renderForm();
       $("fValor").value = valorGuardar.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); mostraEfeito();
-      setTimeout(() => { if (noCelular()) abrirLancar(); else $("fValor").scrollIntoView({ block: "center" }); }, 200);
+      setTimeout(() => { if (noCelular() || comMenuLateral()) abrirLancar(); else $("fValor").scrollIntoView({ block: "center" }); }, 200);
     };
   };
   desenha();
@@ -5615,7 +5618,7 @@ function htmlCaixinhas() {
 function abrirCaixa(nome) {
   const v = (guardadoPorDestino(S.data, mKey(hoje())).find(([k]) => k === nome) || [0, 0])[1], foto = fotoDe("dest", nome);
   const guardar = (mov) => { $("dlg").close(); S.tipo = "Reserva"; renderForm(); $("fCat").value = nome; $("fForma").value = mov; S.catManual = true; renderForm(); mostraEfeito();
-    setTimeout(() => { if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } }, 200); };
+    setTimeout(() => { if (noCelular() || comMenuLateral()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } }, 200); };
   openDlg(`<div class="caixa-capa${foto ? " com" : ""}" style="${foto ? `background-image:url('${foto}')` : ""}"><h3>${esc(nome)}</h3></div>
     <p class="caixa-valor ocultavel">${brl(v)}</p><p class="hint" style="margin:0 0 12px">guardados nesta caixinha</p>
     <div class="caixa-acoes"><button class="btn primary" type="button" id="cxGuardar">Guardar</button><button class="btn" type="button" id="cxRetirar">Retirar</button></div>
@@ -5664,7 +5667,7 @@ function acaoRapida(a) {
   if (a === "cal") return calendario(mKey(hoje()));
   if (a === "ler") return escanearEImportar();
   S.tipo = a === "recebi" ? "Receita" : "Despesa"; S.catManual = false; S.formaManual = false; renderForm();
-  if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
+  if (noCelular() || comMenuLateral()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
   if (a === "voz") ouvirGasto();
 }
 
@@ -6044,7 +6047,7 @@ $("dlg").addEventListener("close", () => {
 $("dlgBody").addEventListener("click", (e) => {
   if (!e.target.closest("[data-ja-lancar]")) return;
   $("dlg").close(); S.tipo = "Despesa"; renderForm();
-  setTimeout(() => { if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } }, 200);   // depois de o Voltar do quadro terminar
+  setTimeout(() => { if (noCelular() || comMenuLateral()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } }, 200);   // depois de o Voltar do quadro terminar
 });
 // Todo quadro tem o mesmo "Fechar" no canto de cima, além do botão de baixo.
 $("dlgX").onclick = fechaDlg;
@@ -7542,7 +7545,7 @@ function renderGuia() {
 /** Abre o formulário de lançar já no tipo Gasto. */
 function guiaLancar() {
   S.tipo = "Despesa"; S.view = "inicio"; render();
-  if (noCelular()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
+  if (noCelular() || comMenuLateral()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
 }
 /** Depois de um passo: vai para o próximo que falta (ou para todos, no primeiro uso) e, no fim, mostra o resultado. */
 function guiaProximo(k, todos) {
