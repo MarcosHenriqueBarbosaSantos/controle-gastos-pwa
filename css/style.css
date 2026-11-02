@@ -826,7 +826,9 @@ input.in.cod::placeholder{color:var(--axis)}
   input.in,select.in{padding:12px}
   #fOk{padding:15px;font-size:16px;order:5;border-radius:14px}
   .fixo-linha{order:4} .fixo-linha .check{font-size:14px} .fixo-linha select{width:100%}
-  .cartao-linha{grid-template-columns:1fr 1fr;gap:14px;order:3}
+  .cartao-linha{grid-template-columns:1fr 1fr;gap:12px;order:2}
+  .cartao-linha>.f{grid-column:auto}
+  .quick .data-f{order:3}
   .addrow.kc{grid-template-columns:1fr 1fr}
   /* quadros */
   .kpis{grid-template-columns:1fr 1fr;gap:10px}
@@ -2021,12 +2023,13 @@ button.mg-bt:active{background:var(--sunk)}
   #app[data-view="listas"][data-tab="mot"] #listas:has(.mot-dia.cheia,.mot-jornada)::before,
   #listas:has(.mot-dia.cheia,.mot-jornada) #listaVoltar,#listas:has(.mot-dia.cheia,.mot-jornada) #listaTitulo{display:none!important}
   .mot-dia.cheia{min-height:calc(100dvh - var(--bnav-h,69px));margin:0 -18px 16px;padding:calc(18px + env(safe-area-inset-top,0px)) 20px 10px;border-radius:0;grid-template-rows:auto auto auto 1fr;align-content:start;gap:10px}
-  .mot-dia.cheia:has(> p:nth-of-type(2)){grid-template-rows:auto auto auto auto 1fr}
+  .mot-dia.cheia{grid-template-rows:none}
+  .mot-dia.cheia .mot-dia-base{margin-top:auto}
+  .mot-dia.cheia{display:flex;flex-direction:column}
   .mot-dia.cheia .mot-dia-topo{min-height:24px}
   .mot-dia.cheia small{font-size:15px;font-weight:500}
   .mot-dia.cheia h2,.wrap[data-tab="mot"] #listas .mot-dia.cheia h2{font-size:clamp(34px,10.5vw,44px);font-weight:700;line-height:1.1}
-  .mot-dia.cheia .mot-dia-regra{padding-top:4px;border-top:0;font-size:17px}
-  .mot-dia.cheia .mot-dia-base{align-self:end}
+  .mot-dia.cheia .mot-dia-regra{padding-top:4px;border-top:0;font-size:20px}
   .mot-dia.cheia .ds-chips{flex-wrap:nowrap;gap:6px;margin:0 0 4px}
   .mot-dia.cheia .ds-chips button{padding-inline:12px;min-height:44px;font-size:14px}
   .mot-dia.cheia .mot-cat-mais{flex:0 1 92px;min-width:0;width:92px;min-height:44px;font-size:14px}
@@ -2047,6 +2050,16 @@ button.mg-bt:active{background:var(--sunk)}
 #auth .hint a,#auth p a{color:var(--series);display:inline;padding:0}
 .hero .v.convite{font-family:var(--display);letter-spacing:-.02em}
 .novo-cartao summary{grid-column:1/-1}
+#lFiltros .seg button{padding-inline:2px;min-width:0;font-size:13px;letter-spacing:-.01em}
+.hero-liga{align-self:flex-start;min-height:44px;margin-top:4px;padding:0;border:0;background:none;color:inherit;font:inherit;font-weight:700;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.mot-dia .mot-dia-minimo{font-size:15px}
+.dica-lancar{display:grid;gap:4px;padding:12px 14px;border-radius:14px;background:var(--series-soft)}
+.dica-lancar[hidden]{display:none}
+.dica-lancar b{font-size:15px}
+.dica-lancar p{margin:0;font-size:14px;line-height:1.4;color:var(--ink-2)}
+.dica-lancar .link{justify-self:start;min-height:44px}
+#fNovoHost{display:contents}
+#fNovoHost>.novo-cartao{grid-column:1/-1}
 .tela-frase{display:grid;gap:4px;margin:0 0 14px}
 .tela-frase h2,.sobra-pl .tela-frase h2{margin:0;font-family:var(--display);font-size:clamp(28px,8.4vw,36px);line-height:1.1;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
 .tela-frase p{margin:0;font-size:15px;color:var(--ink-2)}

@@ -18,10 +18,10 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
+  avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { conferirListaComNota, valoresDaLinha as valoresDaLinhaNota } from "./notamercado.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
@@ -730,6 +730,7 @@ function mesesNoTopo(mostrar) {
 }
 /* ================= render ================= */
 function render() {
+  S.data.foraDoMes = S.prefs.foraDoMes || [];
   const [y, mo] = S.mes.split("-").map(Number);
   if ((S.view === "mais" || S.view === "analise") && !noCelular()) S.view = "inicio";   // a tela Mais só existe no celular; no computador tudo fica à vista
   const naMais = S.view === "mais", sub = S.view === "listas" && SUBS.includes(S.tab);
@@ -823,7 +824,17 @@ function rotuloDoOk() {
   const b = $("fOk"), base = b.dataset.base || b.textContent, v = valorDoCampo();
   b.textContent = (base === "Lançar gasto" || base === "Lançar entrada") && v > 0 && v <= VALOR_MAX ? `${base} de ${brl(v)}` : base;
 }
+/** Na primeira vez em Lançar: em poucas palavras, por que anotar todo dia. Depois de entendido, some. */
+function dicaDoLancar() {
+  const host = $("fDica"); if (!host) return;
+  host.hidden = Boolean(S.prefs.dicaLancar) || !S.loaded;
+  if (host.hidden || host.childElementCount) return;
+  const mot = S.prefs.motorista?.usa;
+  host.innerHTML = `<b>Por que anotar todo dia?</b><p>${mot ? "Anote combustível, pedágio e comida na hora. Leva 5 segundos, e o app mostra quanto sobrou de verdade no dia." : "Anote na hora. Leva 5 segundos, e o app mostra quanto ainda dá para gastar hoje e avisa antes de faltar dinheiro."}</p><button class="link" type="button" id="fDicaOk">Entendi</button>`;
+  $("fDicaOk").onclick = () => { S.prefs.dicaLancar = true; salvaPrefs(); host.hidden = true; };
+}
 function renderForm() {
+  dicaDoLancar();
   document.querySelectorAll("#tipoSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.t === S.tipo));
   // Gastos que a pessoa mais repete: um toque preenche o formulário.
   const rap = S.tipo === "Despesa" && S.loaded ? maisUsados(S.data.lancamentos, hoje()) : [], fr2 = $("fRapidos"), k2 = JSON.stringify(rap);
@@ -1012,8 +1023,9 @@ function renderKpis(c) {
   $("resumo").innerHTML = `${S.prefs.motorista?.ativo?.ini ? `<button type="button" class="mot-faixa" data-atalho="motorista"><span class="mot-pulso" aria-hidden="true"></span><span>Jornada em andamento desde ${hhmm(Number(S.prefs.motorista.ativo.ini))}</span><b>Parar</b></button>` : ""}${dMot ? `<div class="hero banco cheia est-neutro">
       <div class="hero-top"><span class="l">Seu dinheiro em ${mesNome}</span>
         <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
-      <h2 class="hero-frase ocultavel">${dMot.meta.coberto ? "Suas contas do mês estão cobertas." : `Faltam ${brl(dMot.meta.falta)} para cobrir as contas.`}</h2>
-      <span class="n ocultavel">Entraram ${brl(c.rec)} e saíram ${brl(c.custo)} até agora. O ganho entra quando você encerra a jornada.</span>
+      <h2 class="hero-frase ocultavel">${dMot.meta.coberto ? `As contas de ${mesNome} estão cobertas.` : `Faltam ${brl(dMot.meta.falta)} para cobrir as contas de ${mesNome}.`}</h2>
+      <span class="n ocultavel">${fraseContasMot(c)}</span>
+      ${dMot.meta.coberto ? "" : `<button type="button" class="hero-liga" id="heroFora">Deixar alguma conta de fora</button>`}
       <button type="button" class="hero-ver" id="heroVer">Ver meu mês</button>
     </div>` : semEnt ? `<div class="hero banco est-neutro hero-vazio hero-sem-entrada">
       <div class="hero-top"><span class="l">Seu mês em ${mesNome}</span>
@@ -1131,6 +1143,7 @@ function htmlMotoristaIni() {
 function ligaMotoristaIni() {
   // A tela inteira do Início termina na barra de baixo, seja qual for o aviso que apareceu acima dela.
   const hc = document.querySelector(".hero.cheia"); if (hc && noCelular()) hc.style.minHeight = `calc(100dvh - ${Math.round(hc.getBoundingClientRect().top + scrollY)}px - var(--bnav-h,69px))`;
+  if ($("heroFora")) $("heroFora").onclick = () => { S.fTipo = "Fixas"; S.view = "listas"; S.tab = "l"; render(); scrollTo(0, 0); };
   if ($("heroVer")) $("heroVer").onclick = () => ($("heroVer").closest(".hero").nextElementSibling || $("resumo2")).scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
   $("resumo").querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra(b.dataset.motSub); }));
   $("resumo").querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
@@ -1680,10 +1693,14 @@ function htmlAlertaMot() {
 function atrasadasTela() {
   const at = contasEmAtraso(S.data, hoje(), S.prefs.saldoDesde);
   if (!at.itens.length) { if ($("dlg").open) $("dlg").close(); render(); return toast("Nenhuma conta atrasada."); }
+  const esquecer = at.itens.filter((x) => x.tipo === "fixo");
   openDlg(`<h3>Contas atrasadas</h3><p class="hint" style="margin:0 0 12px">Já pagou alguma? Marque aqui e ela sai da lista. No total, ${brl(at.total)}.</p>
-    <ul class="itens atras-lista">${at.itens.map((x, i) => `<li><span><b>${esc(x.titulo)}</b><small>venceu ${ddmm(x.data)}${mKey(x.data) !== mKey(hoje()) ? `, ${nomeMes(mKey(x.data))}` : ""}</small></span><b>${brl(x.valor)}</b><button class="btn sm" type="button" data-pg="${i}">Já paguei</button></li>`).join("")}</ul>
+    <ul class="itens atras-lista">${at.itens.map((x, i) => `<li><span><b>${esc(x.titulo)}</b><small>venceu ${ddmm(x.data)}${mKey(x.data) !== mKey(hoje()) ? `, ${nomeMes(mKey(x.data))}` : ""}</small></span><b>${brl(x.valor)}</b><button class="btn sm" type="button" data-pg="${i}">Já paguei</button>${x.tipo === "fixo" ? `<button class="link" type="button" data-esq="${i}">Deixar de fora</button>` : ""}</li>`).join("")}</ul>
+    ${esquecer.length > 1 ? `<button class="btn" type="button" id="atrEsquecer">Deixar de fora todas as contas fixas atrasadas</button>` : ""}
     <div class="actions">${at.itens.length > 1 ? `<button class="btn primary" type="button" id="atrTodas">Já paguei todas</button>` : ""}<button class="btn" type="button" id="atrOrdem">Não dá para pagar agora</button><button class="btn" type="button" data-close>Fechar</button></div>`);
   document.querySelectorAll("#dlgBody [data-pg]").forEach((b) => (b.onclick = async () => { b.disabled = true; await pagarConta(at.itens[Number(b.dataset.pg)]); atrasadasTela(); }));
+  document.querySelectorAll("#dlgBody [data-esq]").forEach((b) => (b.onclick = () => { const x = at.itens[Number(b.dataset.esq)]; mudaFora([`${x.id}|${x.chave}`], true); atrasadasTela(); }));
+  if ($("atrEsquecer")) armDelete($("atrEsquecer"), () => { const ks = esquecer.map((x) => `${x.id}|${x.chave}`); mudaFora(ks, true); atrasadasTela(); toastDesfazer(`${ks.length} contas ficaram de fora. Nada foi apagado.`, () => mudaFora(ks, false)); }, "Toque de novo para confirmar");
   $("atrOrdem").onclick = () => equilibrioTela();
   if ($("atrTodas")) armDelete($("atrTodas"), async () => {
     for (const x of at.itens) await mudaPago(x, true);
@@ -2010,10 +2027,48 @@ function armDelete(b, fn, rotulo = "Confirmar") {
 /** O tipo do lançamento em letras pequenas no extrato, como nos bancos: de onde ele vem. */
 const tipoDoLanc = (x) => x.tipo === "Receita" ? "Entrada" : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "Retirada" : x.forma === JA_TINHA ? "Já tinha" : "Guardado")
   : Number(x.parcelas) > 1 ? `${x.parcelas}x no cartão` : x.forma === CARTAO ? "No cartão" : "Dia a dia";
-/** Conta fixa ou fatura paga no Extrato. Não é um lançamento: tocar abre a conta fixa, quando há uma. */
+/** O que compõe o número do Início do motorista: contas do mês, o que já foi pago e o que entra. */
+function fraseContasMot(c) {
+  const pagar = contasDoExtrato(c).filter((x) => x.aPagar).reduce((t, x) => t + x.valor, 0), pago = round2(c.custo - pagar);
+  return `Contas do mês: ${brl(c.custo)}${pago > 0 ? `, com ${brl(pago)} já pagos` : ""}. Entradas do mês: ${brl(c.rec)}. O ganho das corridas entra quando você encerra a jornada.`;
+}
+/** Deixa uma conta de fora só daquele mês, ou traz de volta. Nada é apagado e a conta segue nos próximos meses. */
+function mudaFora(chaves, fora) {
+  const lista = new Set(S.prefs.foraDoMes || []);
+  chaves.forEach((k) => (fora ? lista.add(k) : lista.delete(k)));
+  S.prefs.foraDoMes = [...lista]; salvaPrefs(); render();
+}
+function opcoesDaConta(id, chave, venc) {
+  const f = S.data.fixos.find((x) => x.id === id); if (!f) return;
+  const k = `${id}|${chave}`, fora = (S.prefs.foraDoMes || []).includes(k), mes = nomeMes(mKey(venc));
+  openDlg(`<h3>${esc(f.descricao)}</h3><p class="hint">${brl(f.valor)} · vence ${ddmm(venc)}</p>
+    <p class="hint">${fora ? `Esta conta está fora de ${mes}.` : `Deixar de fora tira a conta só de ${mes}. Ela volta no mês seguinte e nada é apagado.`}</p>
+    <div class="mot-opcoes">${fora ? `<button class="btn primary" type="button" id="ctVolta">Voltar a contar em ${mes}</button>` : `<button class="btn primary" type="button" id="ctPaguei">Já paguei</button><button class="btn" type="button" id="ctFora">Deixar fora de ${mes}</button>`}<button class="btn" type="button" id="ctEdita">Editar a conta</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+  const nome = f.descricao;
+  if ($("ctVolta")) $("ctVolta").onclick = () => { $("dlg").close(); mudaFora([k], false); toast(`${nome} voltou a contar em ${mes}.`); };
+  if ($("ctPaguei")) $("ctPaguei").onclick = () => { $("dlg").close(); pagarConta({ tipo: "fixo", id, chave, titulo: nome, valor: Number(f.valor), data: venc, mes: mKey(venc) }); };
+  if ($("ctFora")) $("ctFora").onclick = () => { $("dlg").close(); mudaFora([k], true); toastDesfazer(`${nome} ficou fora de ${mes}.`, () => mudaFora([k], false)); };
+  $("ctEdita").onclick = () => { $("dlg").close(); editarFixo(id); };
+}
+/** A frase do Extrato: o que já saiu e já entrou. O que ainda vai acontecer fica separado, para o número bater com a lista. */
+function fraseDoExtrato(c) {
+  const mes = nomeMes(S.mes), faltaPagar = round2(contasDoExtrato(c).filter((x) => x.aPagar).reduce((t, x) => t + x.valor, 0));
+  if (c.fase === "futuro") return `<h2 class="ocultavel">Devem sair ${brl(c.custo)} em ${mes}.</h2><p class="ocultavel">${c.rec > 0 ? `Devem entrar ${brl(c.rec)}.` : "Nenhuma entrada prevista."}</p>`;
+  const entrou = round2(c.rec - c.frAReceber);
+  return `<h2 class="ocultavel">Saíram ${brl(round2(c.custo - faltaPagar))} em ${mes}.</h2><p class="ocultavel">${entrou > 0 ? `Entraram ${brl(entrou)}.` : "Nenhuma entrada ainda."}${faltaPagar > 0 ? ` Faltam pagar ${brl(faltaPagar)}.` : ""}</p>`;
+}
+/** As contas fixas e as faturas do mês no Extrato, pagas ou não. Conta no cartão fica de fora: ela já está dentro da fatura. */
+function contasDoExtrato(c) {
+  return [...(c.foraFx || []).filter((o) => o.forma !== CARTAO).map((o) => ({ auto: true, pagaFixa: true, fora: true, chave: o.chave, id: o.id, data: o.data, descricao: o.descricao, categoria: o.categoria, tipo: "Despesa", valor: Number(o.valor) })),
+    ...c.fx.filter((o) => o.forma !== CARTAO).map((o) => ({ auto: true, pagaFixa: true, aPagar: !c.pagosSet.has(o.id + "|" + o.chave), chave: o.chave, id: o.id, data: o.data, descricao: o.descricao, categoria: o.categoria, tipo: "Despesa", valor: Number(o.valor) })),
+    ...c.fat.filter((f) => Number(f.valor) > 0).map((f) => ({ auto: true, pagaFixa: true, aPagar: f.status !== "Paga", id: "", data: String(f.vencimento).slice(0, 10), descricao: `Fatura ${f.cartao}`, categoria: "Cartão", tipo: "Despesa", valor: Number(f.valor) }))];
+}
+/** Conta fixa ou fatura no Extrato. Não é um lançamento: tocar abre a conta fixa, quando há uma. */
 function linhaPaga(x, toque) {
-  return `<tr${x.id ? ` data-fixa="${esc(x.id)}"${toque}` : ""}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Despesa")}<span class="tx">${esc(x.descricao)} <span class="tag">paga</span><span class="sub show-sm">${esc(x.categoria)}</span></span></td>
-      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${esc(x.categoria)}</td><td class="hide-sm" style="color:var(--ink-2);font-size:13px">Conta do mês</td><td class="num">− ${brl(x.valor)}</td><td class="acts"></td></tr>`;
+  const atrasada = x.aPagar && x.data < hoje();
+  const opcoes = (x.aPagar || x.fora) && x.id;   // conta que ainda pode mudar: o toque abre as opções daquele mês
+  return `<tr class="${x.aPagar || x.fora ? "previsto" : ""}"${x.id ? ` data-fixa="${esc(x.id)}"${opcoes ? ` data-chave="${esc(x.chave)}" data-venc="${esc(x.data)}"` : ""}${toque}` : ""}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Despesa")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.fora ? "fora do mês" : atrasada ? "atrasada" : x.aPagar ? "a pagar" : "paga"}</span><span class="sub show-sm">${x.aPagar ? `Vence ${ddmm(x.data)} · ` : ""}${esc(x.categoria)}</span></span></td>
+      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${esc(x.categoria)}</td><td class="hide-sm" style="color:var(--ink-2);font-size:13px">Conta do mês</td><td class="num">− ${brl(x.valor)}</td><td class="acts">${opcoes ? `<button class="act" type="button" data-conta>Opções</button>` : ""}</td></tr>`;
 }
 function linhaLanc(x, toque, comAno = false) {
   return `<tr data-id="${esc(x.id)}"${toque}><td class="d">${comAno ? ddmm(x.data) + "/" + x.data.slice(2, 4) : ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}${x.pendente ? ` <span class="tag espera">aguardando internet</span>` : ""}${quemTag(x)}${marcaComprovante(x)}<span class="sub"><span class="tp">${tipoDoLanc(x)}</span>${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
@@ -2045,7 +2100,7 @@ function listaL(c) {
   // Filtros: por tipo e por categoria, valem para o mês e também para a busca em todos os meses.
   const filtro = { tipo: S.fTipo || "", categoria: S.fCat || "" }, filtrando = Boolean(filtro.tipo || filtro.categoria);
   const catsDoExtrato = [...new Set(S.data.lancamentos.map((x) => x.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  $("lFiltros").innerHTML = `${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase"><h2 class="ocultavel">Saíram ${brl(c.custo)} em ${nomeMes(S.mes)}.</h2><p class="ocultavel">${c.rec > 0 ? `Entraram ${brl(c.rec)}.` : "Nenhuma entrada lançada."}</p></div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
+  $("lFiltros").innerHTML = `${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
     <details class="manual lf-mais"${filtro.categoria ? " open" : ""}><summary>Mais filtros${filtro.categoria ? ": " + esc(filtro.categoria) : ""}</summary>
     <label class="so-leitor" for="fCatSel">Categoria</label><select class="in" id="fCatSel"><option value="">Todas as categorias</option>${catsDoExtrato.map((c) => `<option${c === filtro.categoria ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></details>
     ${filtrando ? `<button class="link" type="button" id="fLimpa">Limpar filtros</button>` : ""}`;
@@ -2055,7 +2110,7 @@ function listaL(c) {
   const cab = `<thead><tr><th>Dia</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="hide-sm">Pagamento</th><th class="num">Valor</th><th></th></tr></thead>`;
   if (q.length >= 2) {
     // Busca: todos os meses, do mais recente para o mais antigo, separados por mês.
-    const r = buscaLancamentos(filtraLancamentos(S.data.lancamentos.filter(doQuem), filtro), q);
+    const r = buscaLancamentos(filtraLancamentos(S.data.lancamentos.filter(doQuem), { ...filtro, tipo: filtro.tipo === "Fixas" ? "" : filtro.tipo }), q);
     if (!r.total) host.innerHTML = `<div class="welcome"><p><b>Nada encontrado para "${esc(q)}".</b> A busca olha a descrição, a categoria, a forma de pagamento e o valor, em todos os meses.</p></div>`;
     else {
       const mes = (x, i) => i && mKey(r.itens[i - 1].data) === mKey(x.data) ? "" : `<tr class="dia"><td colspan="6"><span>${nomeMes(mKey(x.data))} de ${x.data.slice(0, 4)}</span></td></tr>`;
@@ -2067,10 +2122,7 @@ function listaL(c) {
   const auto = c.fr.map((f) => { const d = Number(f.data.slice(8, 10));
     return { auto: true, id: f.id, data: f.data, descricao: f.descricao, categoria: f.categoria, tipo: "Receita", valor: f.valor,
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
-  // Contas fixas e faturas pagas também aparecem: quem marcou "Já paguei" procura aqui. Ficam no dia do vencimento.
-  const pagas = [...c.fx.filter((o) => o.forma !== CARTAO && c.pagosSet.has(o.id + "|" + o.chave)).map((o) => ({ auto: true, pagaFixa: true, id: o.id, data: o.data, descricao: o.descricao, categoria: o.categoria, tipo: "Despesa", valor: Number(o.valor) })),
-    ...c.fat.filter((f) => f.status === "Paga").map((f) => ({ auto: true, pagaFixa: true, id: "", data: String(f.vencimento).slice(0, 10), descricao: `Fatura ${f.cartao}`, categoria: "Cartão", tipo: "Despesa", valor: Number(f.valor) }))];
-  const it = filtraLancamentos([...c.it, ...auto, ...pagas].filter(doQuem), filtro).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  const it = filtraLancamentos([...c.it, ...auto, ...contasDoExtrato(c)].filter(doQuem), filtro).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
   if (!it.length && deQuem) { host.innerHTML = `<div class="welcome"><p><b>${deQuem === "eu" ? "Você não lançou nada" : `${esc(nomeDoOutro())} não lançou nada`} em ${nomeMes(S.mes)}.</b></p></div>`; return; }
   if (!it.length && filtrando) { host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)} com esse filtro.</b> Mude o tipo ou a categoria, ou toque em Limpar filtros.</p></div>`; return; }
   if (!it.length) {
@@ -2080,18 +2132,24 @@ function listaL(c) {
   // No celular a lista é separada por dia, com o total gasto em cada um.
   const gastoDoDia = (d) => round2(it.filter((x) => !x.auto && x.tipo === "Despesa" && x.data === d).reduce((t, x) => t + x.valor, 0));
   const vhLista = minhaHora(), horasDoDia = (v) => { const t = vhLista && horasDeTrabalho(v, vhLista.valor); return t ? ` <small class="horas-dia">· ${t} de trabalho</small>` : ""; };
-  const dia = (x, i) => i && it[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}${horasDoDia(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
-  host.innerHTML = `${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
-    it.map((x, i) => dia(x, i) + (x.pagaFixa ? linhaPaga(x, toque) : x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub"><span class="tp">Entrada fixa</span>${esc(x.categoria)}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
+  // O que já aconteceu vem por dia. O que falta (contas a pagar e entradas previstas) fica junto no fim, da data mais próxima para a mais longe.
+  const falta = it.filter((x) => x.aPagar || x.previsto).sort((a, b) => a.data.localeCompare(b.data)), deFora = it.filter((x) => x.fora), feitos = it.filter((x) => !x.aPagar && !x.previsto && !x.fora);
+  const totalFalta = round2(falta.filter((x) => x.aPagar).reduce((t, x) => t + x.valor, 0));
+  const tituloFalta = `${c.fase === "futuro" ? "Previsto para" : c.fase === "passado" ? "Ficou sem pagar em" : "Ainda falta em"} ${nomeMes(S.mes)}`;
+  const dia = (x, i) => i && feitos[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}${horasDoDia(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
+  const linha = (x) => (x.pagaFixa ? linhaPaga(x, toque) : x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub"><span class="tp">Entrada fixa</span>${x.previsto ? `Dia ${ddmm(x.data)} · ` : ""}${esc(x.categoria)}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(x.id)}">Alterar</button></td></tr>`
-    : linhaLanc(x, toque))).join("")}</tbody></table></div>`;
+    : linhaLanc(x, toque));
+  host.innerHTML = `${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
+    feitos.map((x, i) => dia(x, i) + linha(x)).join("")}${falta.length ? `<tr class="dia falta"><td colspan="6"><span>${tituloFalta}</span>${totalFalta ? `<b>− ${brl(totalFalta)}</b>` : ""}</td></tr>${falta.map(linha).join("")}` : ""}${deFora.length ? `<tr class="dia falta"><td colspan="6"><span>Fora de ${nomeMes(S.mes)}</span></td></tr>${deFora.map(linha).join("")}` : ""}</tbody></table></div>`;
   }
   $("pane-l").querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { S.view = "listas"; S.tab = b.dataset.ir; render(); }));
   $("pane-l").querySelectorAll("[data-ed]").forEach((b) => (b.onclick = () => editarLancamento(b.dataset.ed)));
   $("pane-l").querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
   $("pane-l").querySelectorAll("tr[data-id],tr[data-fixa]").forEach((tr) => {
-    const abre = () => { if (tr.dataset.id) editarLancamento(tr.dataset.id); else if (tr.dataset.fixa && tr.dataset.fixa !== "1") editarFixo(tr.dataset.fixa); else { S.view = "listas"; S.tab = "r"; render(); } };
+    tr.querySelector("[data-conta]")?.addEventListener("click", () => opcoesDaConta(tr.dataset.fixa, tr.dataset.chave, tr.dataset.venc));
+    const abre = () => { if (tr.dataset.chave) opcoesDaConta(tr.dataset.fixa, tr.dataset.chave, tr.dataset.venc); else if (tr.dataset.id) editarLancamento(tr.dataset.id); else if (tr.dataset.fixa && tr.dataset.fixa !== "1") editarFixo(tr.dataset.fixa); else { S.view = "listas"; S.tab = "r"; render(); } };
     tr.addEventListener("click", (e) => { if (Date.now() - fimDeslizar < 450) return; if (noCelular() && !e.target.closest("button")) abre(); });
     tr.addEventListener("keydown", (e) => { if (noCelular() && e.target === tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abre(); } });
   });
@@ -4121,7 +4179,7 @@ function meuVeiculo() {
   ferramentaDeConta({ titulo: "Meus veículos", chave: "veiculo", semDinheiro: ["desvalPct", "restantes"], varios: { nome: "Meu veículo", rotulo: "Veículo", reabre: meuVeiculo },
     intro: "Descubra quanto o seu veículo custa de verdade. Preencha o que souber: o que ficar em branco não entra na conta, e o que você digitar fica salvo.",
     grupos: [
-      ["Combustível", [["kmMes", "Km rodados por mês", "1000"], ["consumo", "Km por litro", "10"], ["precoLitro", "Preço do litro (R$)", "6,00"]]],
+      ["Combustível", [["kmMes", "Km rodados por mês", "1000"], ["consumo", "Km por litro no álcool", "8"], ["precoLitro", "Preço do álcool (R$)", "4,00"], ["consumoGas", "Km por litro na gasolina", "11"], ["precoGas", "Preço da gasolina (R$)", "6,00"]]],
       ["Gastos do ano (R$)", [["ipvaAno", "IPVA", "1.200"], ["seguroAno", "Seguro", "2.400"], ["licAno", "Licenciamento", "180"], ["manutAno", "Manutenção e pneus", "2.000"]]],
       ["Gastos do mês (R$)", [["outrosMes", "Estacionamento, pedágio e lavagem", "150"]]],
       ["Financiamento (em branco se já quitou)", [["parcela", "Parcela por mês (R$)", "900"], ["restantes", "Parcelas que faltam", "24"]]],
@@ -4132,8 +4190,9 @@ function meuVeiculo() {
       const transp = new Map(catMap(c)).get("Transporte") || 0, pctRenda = c.rec > 0 ? Math.round((r.bolso / c.rec) * 100) : null;
       const real = kmRealPorMes(motDados().turnos, hoje()), usado = Number(v.kmMes) || 0;
       const aviso = real && Math.abs(real - usado) / Math.max(usado, 1) >= 0.1 ? `<p class="hint" style="margin:10px 0 0">Pelos seus turnos, você roda cerca de <b>${real.toLocaleString("pt-BR")} km por mês</b>${usado ? ` (aqui está ${usado.toLocaleString("pt-BR")})` : ""}. <button class="link" type="button" data-usa-km="${real}">Usar ${real.toLocaleString("pt-BR")} km</button></p>` : "";
+      const cb = combustivelPorKm(v), compara = cb.alcool !== null && cb.gasolina !== null ? `<p class="hint" style="margin:10px 0 0">Por km: álcool ${brl(cb.alcool)}, gasolina ${brl(cb.gasolina)}. A conta usa ${cb.melhor === "alcool" ? "o álcool" : "a gasolina"}, que está mais em conta.</p>` : "";
       return { rotulo: "Custa por mês", valor: brl(r.total), mini: [["Por dia", brl(r.porDia)], [r.porKm ? "Por km" : "Por ano", r.porKm ? brl(r.porKm) : brl(r.porAno)], ["Do seu bolso", brl(r.bolso)]],
-        fim: aviso + barrasDe(r.partes) + `<p class="hint" style="margin:10px 0 0">${r.desval > 0 ? `Dos ${brl(r.total)}, ${brl(r.desval)} é o valor que o veículo perde (não sai do bolso). ` : ""}${r.faltaFinanciamento > 0 ? `Ainda falta pagar ${brl(r.faltaFinanciamento)} do financiamento. ` : ""}${pctRenda !== null ? `O que sai do bolso equivale a <b>${pctRenda}%</b> do que entrou neste mês. ` : ""}${transp > 0 ? `No app, você lançou ${brl(transp)} em Transporte neste mês.` : ""}</p>` };
+        fim: aviso + compara + barrasDe(r.partes) + `<p class="hint" style="margin:10px 0 0">${r.desval > 0 ? `Dos ${brl(r.total)}, ${brl(r.desval)} é o valor que o veículo perde (não sai do bolso). ` : ""}${r.faltaFinanciamento > 0 ? `Ainda falta pagar ${brl(r.faltaFinanciamento)} do financiamento. ` : ""}${pctRenda !== null ? `O que sai do bolso equivale a <b>${pctRenda}%</b> do que entrou neste mês. ` : ""}${transp > 0 ? `No app, você lançou ${brl(transp)} em Transporte neste mês.` : ""}</p>` };
     } });
   // "Usar N km": atualiza o campo e a conta na hora, e guarda.
   $("rcFim").addEventListener("click", (e) => {
@@ -4275,7 +4334,7 @@ function htmlFraseMot({ hj, doDia, meta, alc, ritmo, regra }) {
   if (comemora) { S.metaBatida = hj; vibra(40); }
   return `<section class="mot-dia cheia${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${dataPorExtenso(hj)}</small><button type="button" class="mot-dia-pill" data-mot-sub="desafios">Desafios</button></div><h2 class="ocultavel">${f.titulo}</h2>
     ${!acima && !doDia.ganho ? "" : `<p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>`}
-    ${regra ? `<p class="mot-dia-regra">Aceite corridas a partir de <b>${brl(regra.minimo)} por km</b>.</p>` : ""}
+    ${regra ? `<p class="mot-dia-regra">Busque corridas de <b>${brl(regra.boa)} por km</b> ou mais.</p><p class="mot-dia-minimo">Seu mínimo: ${brl(regra.minimo)} por km${regra.custoKm > 0 ? ` (custo ${brl(regra.custoKm)} + ${brl(1)} de lucro)` : ""}.</p>` : ""}
     <div class="mot-dia-base">${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
     <button class="mot-dia-bt" type="button" id="motIniciar">Iniciar jornada</button>
     <div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver resultados</button></div></div></section>`;
@@ -4295,12 +4354,14 @@ function panePerfilMot(host) {
   const custo = () => {   // só na primeira vez: com o consumo e o preço do litro, o lucro já desconta o combustível
     const v = S.prefs.veiculo || {}, nome = veiculo === "moto" ? "a moto" : "o carro";
     host.innerHTML = `<div id="motRoot" class="mot-perfil"><h2 class="mot-frase">Quanto custa rodar?</h2><p class="mot-ver">Com esses números, o app mostra quanto sobra de verdade, não só quanto entrou.</p>
-      <div class="rc-campos"><label class="f">Km por litro que ${nome} faz<input class="in" id="pcConsumo" inputmode="decimal" placeholder="ex.: 12" value="${v.consumo || ""}"></label>
-      <label class="f">Preço do litro (R$)<input class="in money" id="pcLitro" inputmode="decimal" placeholder="ex.: 6,00" value="${v.precoLitro || ""}"></label>
+      <p class="mot-ver">Preencha o que ${nome} usa. Com os dois, o app usa o mais barato por km.</p><div class="rc-campos"><label class="f">Km por litro no álcool<input class="in" id="pcConsumo" inputmode="decimal" placeholder="ex.: 8" value="${v.consumo || ""}"></label>
+      <label class="f">Preço do álcool (R$)<input class="in money" id="pcLitro" inputmode="decimal" placeholder="ex.: 4,00" value="${v.precoLitro || ""}"></label>
+      <label class="f">Km por litro na gasolina<input class="in" id="pcConsumoG" inputmode="decimal" placeholder="ex.: 11" value="${v.consumoGas || ""}"></label>
+      <label class="f">Preço da gasolina (R$)<input class="in money" id="pcLitroG" inputmode="decimal" placeholder="ex.: 6,00" value="${v.precoGas || ""}"></label>
       <label class="f">Km rodados por mês<input class="in" id="pcKm" inputmode="numeric" placeholder="ex.: 4000" value="${v.kmMes || ""}"></label></div>
       <button class="mot-dia-bt" type="button" id="pcOk">Começar</button><button class="link link-toque" type="button" id="pcDepois">Preencher depois</button></div>`;
     $("pcDepois").onclick = fim;
-    $("pcOk").onclick = () => { S.prefs.veiculo = { ...v, consumo: nm($("pcConsumo").value), precoLitro: nm($("pcLitro").value), kmMes: nm($("pcKm").value) }; salvaPrefs(); fim(); };
+    $("pcOk").onclick = () => { S.prefs.veiculo = { ...v, consumo: nm($("pcConsumo").value), precoLitro: nm($("pcLitro").value), consumoGas: nm($("pcConsumoG").value), precoGas: nm($("pcLitroG").value), kmMes: nm($("pcKm").value) }; salvaPrefs(); fim(); };
   };
   const desenha = () => {
     const opcoes = veiculo ? appsDoPerfil({ veiculo, apps: APPS_POR_VEICULO[veiculo] }) : [];
@@ -4324,7 +4385,7 @@ async function enviaPlacar(dias) {
   const m = motDados();
   try { await S.store.placarEnviar?.(dias, placarDosDias(m.turnos, dias, S.prefs.veiculo || {}, m.perfil)); } catch { /* sem internet: vai de novo ao abrir os desafios */ }
 }
-const ERROS_DESAFIO = { codigo_invalido: "Esse código não existe. Confira com quem convidou.", encerrado: "Esse desafio já terminou.", cheio: "Esse desafio já está cheio.", falta_nome: "Preencha o nome e o apelido.", limite: "Você já tem 5 desafios em andamento." };
+const ERROS_DESAFIO = { categoria_fora: "Sua categoria não pode entrar nesse desafio.", codigo_invalido: "Esse código não existe. Confira com quem convidou.", encerrado: "Esse desafio já terminou.", cheio: "Esse desafio já está cheio.", falta_nome: "Preencha o nome e o apelido.", limite: "Você já tem 5 desafios em andamento." };
 const erroDoDesafio = (e) => Object.entries(ERROS_DESAFIO).find(([k]) => String(e?.message).includes(k))?.[1] || "Não deu para falar com o servidor. Tente de novo.";
 const NO_CRITERIO = { hora: "por hora", km: "por km", sobra: "no que sobrou", total: "em faturamento", dia: "no melhor dia", geral: "na pontuação geral" };
 const htmlRegras = (regras) => { const r = regrasEmTexto(regras); return `<ul class="ds-regras">${r.slice(0, 3).map((t) => `<li>${t}</li>`).join("")}</ul><p class="ds-letra">${r.slice(3).join(" ")}</p>`; };
@@ -4340,7 +4401,7 @@ function paneRanking(host) {
     })();
     return;
   }
-  const veiculo = motDados().perfil?.veiculo || "carro", cats_ = CATEGORIAS_POR_VEICULO[veiculo], minha = rkDados.lista.find((x) => x.eu);
+  const veiculo = motDados().perfil?.veiculo || "carro", cats_ = CATEGORIAS_DESAFIO[veiculo], minha = rkDados.lista.find((x) => x.eu);
   const crits = CRITERIOS_DESAFIO.filter(([k]) => k !== "dia"), nomeCrit = NO_CRITERIO[rkCrit], fmt = (v) => `${brl(v)}${rkCrit === "hora" ? "/h" : rkCrit === "km" ? "/km" : ""}`;
   const titulo = rkDados.erro ? "O ranking não está disponível agora." : minha ? `Você está em ${minha.pos}º ${nomeCrit}.` : rkDados.participo ? "Rode mais um pouco para entrar na lista." : "Quem está rendendo mais de verdade?";
   host.innerHTML = `<div id="motRoot" class="ds">${abasDesafio()}<h2 class="mot-frase">${titulo}</h2>
@@ -4382,11 +4443,12 @@ function paneDesafios(host) {
     const p = dsPrevia;
     host.innerHTML = `<div id="motRoot" class="ds"><small class="ds-quando">Convite · ${p.pessoas} ${p.pessoas === 1 ? "pessoa" : "pessoas"} no desafio</small><h2 class="mot-frase">${esc(p.nome)}</h2>
       <h3 class="mot-h">Regras do desafio</h3>${htmlRegras(p.regras)}
+      ${categoriaPodeEntrar(p.regras, p.dados.categoria) ? "" : `<label class="f">Sua categoria neste desafio<select class="in" id="dsCatPrev">${p.regras.categorias.map((k) => `<option>${esc(k)}</option>`).join("")}</select></label>`}
       <button class="btn primary mot-regra-ok" type="button" id="dsAceito">Aceito as regras e quero entrar</button><button class="link link-toque" type="button" id="dsRecusa">Agora não</button>
       <p class="auth-msg err" id="dsMsg" role="alert"></p></div>`;
     $("dsRecusa").onclick = () => { dsPrevia = null; paneDesafios(host); };
     $("dsAceito").onclick = async () => {
-      try { const r = await S.store.desafioEntrar(p.dados); gravaMot(motDados()); dsAberto = r?.id || ""; dsPrevia = null; dsLista = null; try { localStorage.removeItem("cg-desafio-cod"); } catch { /* nada */ } vibra(30); paneDesafios(host); }
+      try { const r = await S.store.desafioEntrar({ ...p.dados, categoria: $("dsCatPrev")?.value || p.dados.categoria }); gravaMot(motDados()); dsAberto = r?.id || ""; dsPrevia = null; dsLista = null; try { localStorage.removeItem("cg-desafio-cod"); } catch { /* nada */ } vibra(30); paneDesafios(host); }
       catch (e) { $("dsMsg").textContent = erroDoDesafio(e); }
     };
     return;
@@ -4397,7 +4459,7 @@ function paneDesafios(host) {
   const eu = atual?.membros.find((x) => x.eu), form = `
     <label class="f">Seu apelido<input class="in" id="dsApelido" maxlength="24" placeholder="ex.: Falcão" value="${esc(eu?.apelido || S.prefs.motorista?.apelido || "")}"></label>
     <label class="f">Veículo<input class="in" id="dsCarro" maxlength="30" value="${esc(eu?.carro || nomeCarro)}"></label>
-    <label class="f">Categoria<select class="in" id="dsCat">${CATEGORIAS_POR_VEICULO[veiculo].map((k) => `<option${k === (eu?.categoria || motDados().perfil?.categoria) ? " selected" : ""}>${k}</option>`).join("")}</select></label>`;
+    <label class="f">Categoria<select class="in" id="dsCat">${CATEGORIAS_DESAFIO[veiculo].map((k) => `<option${k === (eu?.categoria || motDados().perfil?.categoria) ? " selected" : ""}>${k}</option>`).join("")}</select></label>`;
   const novo = `<section class="ds-bloco"><h3 class="mot-h" style="margin-top:0">Entrar com um código</h3>${form}
       <label class="f">Código do desafio<input class="in ds-cod" id="dsCodigo" maxlength="8" autocapitalize="characters" value="${esc(codigoGuardado)}" placeholder="ex.: A1B2C3D4"></label>
       <button class="btn primary" type="button" id="dsEntrar">Ver as regras do desafio</button>
@@ -4405,6 +4467,7 @@ function paneDesafios(host) {
       <div class="ds-chips" role="group" aria-label="Duração">${[[1, "Hoje"], [7, "7 dias"], [30, "30 dias"]].map(([k, n]) => `<button type="button" data-dias="${k}" aria-pressed="${k === dsDias}">${n}</button>`).join("")}</div>
       <h3 class="mot-h">Regras do desafio</h3>
       <p class="mot-ver">Quem vence?</p><div class="ds-chips" role="group" aria-label="Quem vence">${VENCE_DESAFIO.map(([k, n]) => `<button type="button" data-vence="${k}" aria-pressed="${k === dsRegras.vence}">${n}</button>`).join("")}</div>
+      ${veiculo === "carro" ? `<p class="mot-ver">Quem pode entrar?</p><div class="ds-chips" role="group" aria-label="Categorias do desafio">${CATEGORIAS_DESAFIO.carro.map((k) => `<button type="button" data-ds-cat="${k}" aria-pressed="${(dsRegras.categorias || CATEGORIAS_DESAFIO.carro).includes(k)}">${k}</button>`).join("")}</div>` : ""}
       <label class="check"><input type="checkbox" id="dsRegraGastos"${dsRegras.gastos ? " checked" : ""}> Descontar combustível, pedágio e outros gastos lançados</label>
       <label class="check"><input type="checkbox" id="dsRegraCarro"${dsRegras.carro ? " checked" : ""}> Descontar o custo do carro por km</label>
       <p class="mot-ver">Depois de criado, as regras não mudam. Quem entrar vê e aceita antes.</p>
@@ -4448,7 +4511,14 @@ function paneDesafios(host) {
     try { dsPrevia = { ...(await S.store.desafioVer(codigo)), dados: { ...dados(), codigo } }; paneDesafios(host); }
     catch (e) { $("dsMsg").textContent = erroDoDesafio(e); }
   };
-  $("dsCriar").onclick = () => age(() => { const nome = $("dsNome").value.trim(); if (!nome) throw new Error("falta_nome"); dsRegras = { ...dsRegras, gastos: $("dsRegraGastos").checked, carro: $("dsRegraCarro").checked }; return S.store.desafioCriar({ ...dados(), nome, dias: dsDias, regras: dsRegras }); });
+  $("dsCriar").onclick = () => age(() => { const nome = $("dsNome").value.trim(); if (!nome) throw new Error("falta_nome"); dsRegras = { ...dsRegras, gastos: $("dsRegraGastos").checked, carro: $("dsRegraCarro").checked, ...(veiculo === "carro" ? { categorias: dsRegras.categorias || CATEGORIAS_DESAFIO.carro } : {}) }; if (!categoriaPodeEntrar(dsRegras, dados().categoria)) throw new Error("categoria_fora"); return S.store.desafioCriar({ ...dados(), nome, dias: dsDias, regras: dsRegras }); });
+  host.querySelectorAll("[data-ds-cat]").forEach((b) => (b.onclick = () => {
+    const lista = new Set(dsRegras.categorias || CATEGORIAS_DESAFIO.carro), k = b.dataset.dsCat;
+    if (lista.has(k) && lista.size === 1) return;   // pelo menos uma categoria
+    if (lista.has(k)) lista.delete(k); else lista.add(k);
+    dsRegras = { ...dsRegras, categorias: CATEGORIAS_DESAFIO.carro.filter((x) => lista.has(x)) };
+    host.querySelectorAll("[data-ds-cat]").forEach((x) => x.setAttribute("aria-pressed", lista.has(x.dataset.dsCat)));
+  }));
   host.querySelectorAll("[data-vence]").forEach((b) => (b.onclick = () => { dsRegras = { ...dsRegras, vence: b.dataset.vence }; host.querySelectorAll("[data-vence]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
   host.querySelectorAll("[data-dias]").forEach((b) => (b.onclick = () => { dsDias = Number(b.dataset.dias); host.querySelectorAll("[data-dias]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
 }
@@ -4511,6 +4581,36 @@ function paneLancarDia(host) {
 function categoriaAtual() { const p = motDados().perfil, l = categoriasDoPerfil(p); return l.includes(p?.categoria) ? p.categoria : l[0] || ""; }
 function escolheCategoria(categoria) { const m = motDados(); if (m.perfil) gravaMot({ ...m, perfil: { ...m.perfil, categoria } }); render(); }
 const campoCategoria = (id, atual) => { const l = [...new Set([...categoriasDoPerfil(motDados().perfil), ...(atual ? [atual] : [])])]; return l.length ? `<label class="f wide">Categoria<select class="in" id="${id}">${l.map((k) => `<option${k === atual ? " selected" : ""}>${esc(k)}</option>`).join("")}</select></label>` : ""; };
+/** A categoria certa para cada gasto da jornada: usa a que a pessoa já tem ou cria, para combustível, pedágio e alimentação ficarem separados. */
+function catDoGastoMot(desc) {
+  const lista = cats("Despesa"), acha = (re) => lista.find((x) => re.test(x));
+  const nova = (c) => { S.prefs.categorias = { ...(S.prefs.categorias || {}), Despesa: [...lista, c] }; salvaPrefs(); return c; };
+  if (/aliment/i.test(desc)) return acha(/aliment/i) || nova("Alimentação");
+  if (/ped[aá]gio/i.test(desc)) return acha(/ped[aá]gio/i) || nova("Transporte › Pedágio");
+  return acha(/combust|gasolina|[aá]lcool|etanol/i) || nova("Transporte › Combustível");
+}
+function lancaGastoMot(desc) {
+  const cat = catDoGastoMot(desc);
+  acaoRapida("lancar");
+  const d = $("fDesc");
+  d.value = desc; d.dispatchEvent(new Event("input", { bubbles: true }));
+  $("fCat").value = cat; $("fCat").dispatchEvent(new Event("change", { bubbles: true }));
+  setTimeout(() => $("fValor").focus(), 250);
+}
+/** Para onde foi o dinheiro do trabalho no período: combustível, pedágio, alimentação e o resto, cada um na sua linha. */
+function blocoGastosMot(de, ate) {
+  const tipoDe = (x) => { const t = `${x.categoria} ${x.descricao || ""}`;
+    if (/combust|gasolin|[aá]lcool|etanol|abastec/i.test(t)) return "Combustível";
+    if (/ped[aá]gio/i.test(t)) return "Pedágio";
+    if (/estacion/i.test(t)) return "Estacionamento";
+    if (/aliment|almo[cç]o|lanche|janta|marmita/i.test(t)) return "Alimentação";
+    return /^transporte/i.test(x.categoria) ? "Outros de transporte" : null; };
+  const por = new Map();
+  S.data.lancamentos.filter((x) => x.tipo === "Despesa" && x.data >= de && x.data <= ate).forEach((x) => { const k = tipoDe(x); if (k) por.set(k, round2((por.get(k) || 0) + Number(x.valor))); });
+  const lista = [...por].sort((a, b) => b[1] - a[1]), total = lista.reduce((t, [, v]) => t + v, 0);
+  if (!total) return "";
+  return `<h4 class="mot-h">Para onde foi</h4><ul class="mot-apps">${lista.map(([k, v]) => { const pct = Math.round((v / total) * 100); return `<li><span>${k}</span><b>${brl(v)}</b><small>${pct}%</small><i style="width:${Math.max(3, pct)}%"></i></li>`; }).join("")}</ul>`;
+}
 function iniciarJornada() {
   const ini = Date.now();
   gravaMot({ ...motDados(), ativo: { ini, categoria: categoriaAtual(), parcial: 0, antes: S.data.lancamentos.filter((x) => x.data >= isoLocal(ini)).map((x) => x.id), pausado: 0, pausaIni: null } });
@@ -4525,7 +4625,7 @@ function paneMot() {
   if (motSub === "dia") return paneLancarDia(host);
   if (motSub) return paneMotSub(host);
   const { m, hj, mes, veicD, doDia, meta, ritmo, alc, liqRef, refNormal, regra } = painelDoMotorista(), agora = Date.now();
-  const htmlRegraDeAceite = regra ? `<div class="mot-regra" role="note"><small>Regra para decorar</small><p>Aceite se pagar <b>${brl(regra.minimo)} por km</b> ou mais. Abaixo disso, recuse.</p>${regra.custoKm > 0 ? `<p class="mot-regra-conta">O seu carro custa ${brl(regra.custoKm)} por km. O mínimo é esse custo mais ${brl(1)}.</p>` : `<p class="mot-regra-conta">Preencha o <b>Meu carro ou moto</b> para o mínimo considerar o custo do seu carro. Por enquanto vale ${brl(1)} por km.</p>`}<span>De ${brl(regra.boa)} por km para cima é corrida boa${regra.base === "meta" ? ", pela sua meta do dia" : ""}. Conte o caminho até o passageiro nos km.</span></div>` : "";
+  const htmlRegraDeAceite = regra ? `<div class="mot-regra" role="note"><small>Regra para decorar</small><p>Busque corridas de <b>${brl(regra.boa)} por km</b> ou mais${regra.base === "meta" ? ", pela sua meta do dia" : ""}.</p><p>O mínimo do mínimo é <b>${brl(regra.minimo)} por km</b>. Abaixo disso, a corrida não paga o veículo e o lucro.</p>${regra.custoKm > 0 ? `<p class="mot-regra-conta">Seu veículo custa ${brl(regra.custoKm)} por km. O mínimo é esse custo mais ${brl(1)} de lucro.</p>` : `<p class="mot-regra-conta">Preencha o <b>Meu carro ou moto</b> para o mínimo considerar o custo do seu veículo. Por enquanto vale ${brl(1)} por km.</p>`}<span>Conte o caminho até o passageiro nos km.</span></div>` : "";
   const ganhoHoje = round2(doDia.ganho + (m.ativo ? m.ativo.parcial : 0));   // inclui o turno que ainda está rolando
   const pctHoje = meta.brutoDia > 0 ? Math.min(100, Math.round((ganhoHoje / meta.brutoDia) * 100)) : 100;
   const de = motPer === "dia" ? hj : motPer === "semana" ? toISO(new Date(agora - 6 * 864e5)) : motPer === "ano" ? `${hj.slice(0, 4)}-01-01` : `${mes}-01`;
@@ -4571,18 +4671,13 @@ function paneMot() {
     host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
     $("motMais").onclick = () => {
       openDlg(`<h3>Mais opções</h3><p class="hint">Começou às ${hhmm(a.ini)}${a.categoria ? ` · ${esc(a.categoria)}` : ""}${gastosTot ? ` · ${brl(gastosTot)} em gastos` : ""}</p>
-        <div class="mot-opcoes"><button class="btn" type="button" data-mot-op="lancar">Outro gasto</button><button class="btn" type="button" data-mot-op="ler">Escanear nota ou QR code</button><button class="btn" type="button" id="motIrInicio">Ir para o Início</button><button class="btn" type="button" id="motDescartar">Descartar esta jornada</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+        <div class="mot-opcoes"><button class="btn" type="button" id="motComida">Alimentação</button><button class="btn" type="button" data-mot-op="lancar">Outro gasto</button><button class="btn" type="button" data-mot-op="ler">Escanear nota ou QR code</button><button class="btn" type="button" id="motIrInicio">Ir para o Início</button><button class="btn" type="button" id="motDescartar">Descartar esta jornada</button><button class="btn" type="button" data-close>Fechar</button></div>`);
       $("dlgBody").querySelectorAll("[data-mot-op]").forEach((b) => (b.onclick = () => { $("dlg").close(); acaoRapida(b.dataset.motOp); }));
+      $("motComida").onclick = () => { $("dlg").close(); lancaGastoMot("Alimentação"); };
       $("motIrInicio").onclick = () => { $("dlg").close(); $("bnav").querySelector('[data-nav="inicio"]').click(); };
       armDelete($("motDescartar"), () => { $("dlg").close(); gravaMot({ ...motDados(), ativo: null }); render(); }, "Toque de novo para descartar");
     };
-    host.querySelectorAll("[data-mot-gasto]").forEach((b) => (b.onclick = () => {
-      acaoRapida("lancar");
-      const d = $("fDesc"), cat = cats("Despesa").find((x) => /transp/i.test(x));
-      d.value = b.dataset.motGasto; d.dispatchEvent(new Event("input", { bubbles: true }));
-      if (cat) { $("fCat").value = cat; $("fCat").dispatchEvent(new Event("change", { bubbles: true })); }
-      setTimeout(() => $("fValor").focus(), 250);
-    }));
+    host.querySelectorAll("[data-mot-gasto]").forEach((b) => (b.onclick = () => lancaGastoMot(b.dataset.motGasto)));
     $("motPausa").onclick = () => {
       const mm = motDados(), t = Date.now();
       if (mm.ativo.pausaIni) { mm.ativo.pausado += t - mm.ativo.pausaIni; mm.ativo.pausaIni = null; } else mm.ativo.pausaIni = t;
@@ -4628,6 +4723,7 @@ function paneMot() {
       ${tile("Viagens", String(r.viagens))}${tile("Ganho por viagem", tracos(r.ganhoPorViagem, brl))}
     </div>
     ${grafico7}
+    ${blocoGastosMot(de, hj)}
     ${blocoPorCategoria(m, de, hj, veicD)}
     ${blocoPorApp(m.turnos, de, hj)}
     ${temCarro ? `<p class="hint">O lucro já desconta o custo do carro, ${brl(custoDoVeiculo(veicD)?.total || 0)} por mês, do <b>Meu carro ou moto</b>.</p>`
@@ -5864,6 +5960,7 @@ $("formLanc").addEventListener("submit", async (e) => {
   const kc = cartaoPorId(row.cartao_id || "");
   flash.textContent = `Lançado: ${row.descricao || row.categoria} · ${brl(row.valor)} em ${ddmm(data)}${mKey(data) !== S.mes ? " (outro mês)" : ""}.`
     + (kc ? ` ${row.parcelas > 1 ? `Em ${row.parcelas}x no ${kc.nome}: a primeira parcela vem` : `No ${kc.nome}: vem`} na fatura de ${nomeMes(mesDaFatura(kc, data))}.` : "");
+  if (row.tipo === "Despesa" && !kc && data === hoje() && !S.prefs.motorista?.usa) { const pg = podeGastarHoje(calcMes(S.data, mKey(hoje()), hoje()), gastoAVistaDoDia(S.data, hoje())); if (pg) flash.textContent += pg.resta >= 0 ? ` Hoje ainda dá para gastar ${brl(pg.resta)}.` : ` Hoje passou ${brl(-pg.resta)} do combinado.`; }
   // Aviso na hora, quando este lançamento fez o mês chegar perto do limite ou passar dele.
   if (extraCartao) flash.textContent += extraCartao;
   const nivelDepois = nivelDoTeto();

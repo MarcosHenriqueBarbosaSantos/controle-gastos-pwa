@@ -30,6 +30,8 @@ export function ocorrencias(fixos, m, tipo = "Despesa") {
   });
   return out.sort((a, b) => a.data.localeCompare(b.data));
 }
+const foraDoMes = (st) => new Set(st.foraDoMes || []);
+const contasDoMes = (st, m) => { const fora = foraDoMes(st); return ocorrencias(st.fixos, m).filter((o) => !fora.has(o.id + "|" + o.chave)); };
 export const CARTAO = "Cartão de crédito";
 const noCartao = (x) => x.forma === CARTAO;
 const diaNoMes = (m, d) => `${m}-${pad(Math.min(dim(m), Math.max(1, Number(d) || 1)))}`;
@@ -94,7 +96,8 @@ export function calcMes(st, m, hoje) {
   const resIn = sum(it.filter((x) => x.tipo === "Reserva" && x.forma !== RETIRADA && x.forma !== JA_TINHA));
   const resOut = sum(it.filter((x) => x.tipo === "Reserva" && x.forma === RETIRADA));
   const res = round2(resIn - resOut);
-  const fx = ocorrencias(st.fixos, m);
+  const fx = contasDoMes(st, m);
+  const foraFx = ocorrencias(st.fixos, m).filter((o) => foraDoMes(st).has(o.id + "|" + o.chave));
   const fxT = sum(fx);
   const fxCartao = sum(fx.filter(noCartao));
   const fxCusto = round2(fxT - fxCartao);
@@ -111,7 +114,7 @@ export function calcMes(st, m, hoje) {
   const proj = fase === "atual" && dias > 0
     ? round2(projetaDiaADia(st, m, desp.filter((x) => !noCartao(x)), dias, n) + fxCusto + fatT) : custo;
   const frAReceber = fase === "futuro" ? frT : fase === "atual" ? sum(fr.filter((o) => Number(o.data.slice(8, 10)) > dias)) : 0;
-  return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
+  return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, foraFx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
     fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj };
 }
 export function sequenciaDeDias(st, hoje, semGasto = []) {
@@ -239,7 +242,7 @@ export function proximosVencimentos(st, hoje, janela = 30) {
   });
   const pagos = new Set(st.pagos.map((p) => p.fixo_id + "|" + p.mes));
   [cur, addM(cur, 1)].forEach((m) => {
-    ocorrencias(st.fixos, m).forEach((o) => {
+    contasDoMes(st, m).forEach((o) => {
       if (noCartao(o) || pagos.has(o.id + "|" + o.chave)) return;
       const dias = diasEntre(hoje, o.data);
       if (dias <= janela) out.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias, mes: m, chave: o.chave, semanal: o.repete === "semanal" });

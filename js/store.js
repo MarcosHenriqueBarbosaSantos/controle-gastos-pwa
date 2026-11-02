@@ -276,7 +276,7 @@ export function createLocalStore(key, seedFn) {
     async desafiosMeus() { return structuredClone(db.desafios || []); },
     async desafioCriar({ nome, apelido, carro, categoria, dias = 7, regras = { gastos: true, carro: false, vence: "km" } }) {
       const iso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
-      const amigo = (a, c, k, dias) => ({ apelido: a, carro: c, categoria: k, eu: false, dias: dias.map(([n, ganho, horas, km, viagens, gastos = Math.round(ganho * 0.22)]) => ({ dia: iso(n), ganho, gastos, custoCarro: Math.round(km * 0.55), km, ms: horas * 3600000, viagens, lucro: ganho * 0.6 })) });
+      const amigo = (a, c, k, dias) => ({ apelido: a, carro: c, categoria: regras.categorias?.length && !regras.categorias.includes(k) ? regras.categorias[0] : k, eu: false, dias: dias.map(([n, ganho, horas, km, viagens, gastos = Math.round(ganho * 0.22)]) => ({ dia: iso(n), ganho, gastos, custoCarro: Math.round(km * 0.55), km, ms: horas * 3600000, viagens, lucro: ganho * 0.6 })) });
       const d = { id: "demo-" + Date.now(), nome, codigo: "DEMO2026", regras, inicio: iso(dias === 1 ? 0 : -3), fim: iso(dias === 1 ? 0 : dias - 4), membros: [
         { apelido, carro, categoria, eu: true, dias: [] },
         amigo("Falcão", "Onix", "UberX", [[-3, 412, 12, 238, 19], [-2, 388, 11, 221, 17], [-1, 436, 13, 251, 21]]),

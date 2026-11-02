@@ -247,5 +247,6 @@ test("filtro do extrato: tipo e categoria juntos, vazio não filtra", () => {
   assert.equal(filtraLancamentos(l).length, 3);
   assert.equal(filtraLancamentos(l, { tipo: "Despesa" }).length, 2);
   assert.equal(filtraLancamentos(l, { tipo: "Despesa", categoria: "Lazer" }).length, 1);
+  assert.equal(filtraLancamentos([...l, { auto: true, tipo: "Despesa", categoria: "Casa" }, { auto: true, tipo: "Receita", categoria: "Salário" }], { tipo: "Fixas" }).length, 2);
   assert.equal(filtraLancamentos(l, { categoria: "Salário" })[0].tipo, "Receita");
 });

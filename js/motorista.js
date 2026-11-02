@@ -9,6 +9,10 @@ export const APPS = [["uber", "Uber"], ["99", "99"], ["indrive", "inDrive"], ["u
 /** Quem roda de carro não precisa ver os apps de entrega, e quem roda de moto não precisa ver os de carro. */
 export const APPS_POR_VEICULO = { carro: ["uber", "99", "indrive", "particular", "outros"], moto: ["ubermoto", "99moto", "ifood", "99food", "rappi", "particular", "outros"] };
 export const CATEGORIAS_POR_VEICULO = { carro: ["UberX", "Comfort", "Black", "99Pop", "99Comfort", "inDrive", "Particular"], moto: ["Uber Moto", "99Moto", "iFood", "99Food", "Rappi", "Particular"] };
+/** As categorias que competem nos desafios e no ranking. */
+export const CATEGORIAS_DESAFIO = { carro: ["UberX", "Comfort", "Black"], moto: CATEGORIAS_POR_VEICULO.moto };
+/** Quem pode entrar: sem lista nas regras, todas as categorias. */
+export const categoriaPodeEntrar = (regras, categoria) => !regras?.categorias?.length || regras.categorias.includes(categoria);
 const CATEGORIAS_POR_APP = { uber: ["UberX", "Comfort", "Black"], 99: ["99Pop", "99Comfort"], indrive: ["inDrive"], particular: ["Particular"], ubermoto: ["Uber Moto"], "99moto": ["99Moto"], ifood: ["iFood"], "99food": ["99Food"], rappi: ["Rappi"] };
 /** As categorias em que a pessoa pode rodar, pelos apps que ela escolheu. */
 export function categoriasDoPerfil(perfil) { return perfil?.veiculo ? appsDoPerfil(perfil).flatMap(([k]) => CATEGORIAS_POR_APP[k] || []) : []; }
@@ -162,6 +166,7 @@ export function regrasEmTexto(regras = {}) {
   const vence = VENCE_DESAFIO.find(([k]) => k === regras.vence)?.[1] || "Lucro por km";
   return [
     `Quem vence: ${vence}${regras.vence === "geral" ? " (soma os pontos de por hora, por km e o que sobrou)" : ""}.`,
+    regras.categorias?.length ? `Quem pode entrar: ${regras.categorias.join(", ").replace(/, ([^,]*)$/, " e $1")}.` : "Quem pode entrar: todas as categorias.",
     regras.gastos ? "Entra na conta: combustível, pedágio e os outros gastos lançados." : "Não entra na conta: combustível, pedágio e outros gastos.",
     regras.carro ? "Entra na conta: custo do carro por km (manutenção, seguro e desgaste)." : "Não entra na conta: custo do carro.",
     "Faturamento é sempre o valor bruto. Por hora, por km, o que sobrou e melhor dia seguem as regras acima.",
@@ -178,7 +183,7 @@ export function totaisDoDesafio(membros, regras = {}) {
   return (membros || []).map((m) => {
     // Quem rodou em duas categorias no mesmo dia tem duas linhas: o dia conta uma vez só.
     const porDia = new Map();
-    (m.dias || []).forEach((d, i) => {
+    (m.dias || []).filter((d) => !d.categoria || categoriaPodeEntrar(regras, d.categoria)).forEach((d, i) => {   // só conta o que foi rodado nas categorias do desafio
       const k = d.dia ?? i, a = porDia.get(k);
       porDia.set(k, a ? { ...a, ...Object.fromEntries(["ganho", "gastos", "custoCarro", "km", "ms", "viagens"].map((c) => [c, (Number(a[c]) || 0) + (Number(d[c]) || 0)])) } : d);
     });

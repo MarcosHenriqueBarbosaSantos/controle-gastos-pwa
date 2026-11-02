@@ -32,6 +32,11 @@ select t.confere(public.desafio_ver((select c from codigo))::text not like '%ext
 select t.confere(public.desafio_ver((select c from codigo))::text not like '%Ana%', 'mas não vê quem está nem os valores');
 select t.falha($$select public.desafio_entrar((select c from codigo), 'Bia')$$, 'aceite_regras', 'sem aceitar as regras não entra');
 select public.desafio_entrar(lower((select c from codigo)), 'Bia', 'HB20', 'Comfort', true);
+create temp table codigo2 as select (public.desafio_criar('Só Black', 'Bia', 'Civic', 'Black', 7, '{"gastos": true, "carro": false, "vence": "km", "categorias": ["Black", "99Pop"]}') ->> 'codigo') as c;
+select t.confere((public.desafio_ver((select c from codigo2)) -> 'regras' -> 'categorias')::text = '["Black"]', 'o desafio guarda só as categorias que competem');
+select public.desafio_entrar((select c from codigo2), 'Bia', 'Civic', 'Black', true);
+do $$ declare cod text := (select c from codigo2); begin perform public.desafio_entrar(cod, 'Bia', 'HB20', 'Comfort', true); raise exception 'deveria recusar'; exception when others then if sqlerrm <> 'categoria_fora' then raise; end if; end $$;
+select public.desafio_sair((public.desafio_entrar((select c from codigo2), 'Bia', 'Civic', 'Black', true) ->> 'id')::uuid);
 select t.confere(json_array_length(public.desafios_meus() -> 0 -> 'membros') = 2, 'a Bia entra pelo código e vê as duas pessoas');
 select t.confere((public.desafios_meus() -> 0 -> 'membros' -> 0 -> 'dias' -> 0 ->> 'ganho')::numeric = 300, 'a Bia vê o total do dia da Ana');
 select t.confere((public.desafios_meus() -> 0 -> 'membros' -> 0 -> 'dias' -> 0 ->> 'gastos')::numeric = 80, 'e os gastos, para a regra valer para todos');

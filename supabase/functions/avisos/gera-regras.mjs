@@ -3,7 +3,7 @@
 // O teste tests/avisos.test.mjs falha se o regras.js estiver desatualizado.
 import { readFileSync, writeFileSync } from "node:fs";
 
-const NOMES = ["pad", "mKey", "addM", "dim", "round2", "fixosDoMes", "diaDaSemana", "ocorrencias", "CARTAO", "noCartao", "diaNoMes", "mesesEntre",
+const NOMES = ["pad", "mKey", "addM", "dim", "round2", "fixosDoMes", "diaDaSemana", "ocorrencias", "foraDoMes", "contasDoMes", "CARTAO", "noCartao", "diaNoMes", "mesesEntre",
   "mesDaFatura", "valorDasParcelas", "faturasDoMes", "faturasAte", "diasEntre", "proximosVencimentos", "pendenciasParaAviso",
   "RETIRADA", "JA_TINHA", "calcMes", "projetaDiaADia", "usoDoTeto",
   "sinalRes", "guardadoPorMes", "andamentoDaMeta", "metasEmAndamento", "sugestaoDaMeta", "lembreteDaMeta", "parabensDaMeta",

@@ -522,12 +522,20 @@ export function avaliaConta(txt) {
 /* ======================= meu veículo =======================
    O que o carro (ou a moto) custa de verdade: o que sai do bolso todo mês e o que ele perde de valor.
    Tudo vem dos números que a pessoa digita; o app não busca preço de combustível nem tabela de IPVA. */
+/** Quanto custa 1 km no álcool e na gasolina. O custo do veículo usa o mais barato dos que estiverem preenchidos. */
+export function combustivelPorKm(d) {
+  const n = (k) => { const v = num(d?.[k]); return Number.isFinite(v) && v > 0 ? v : 0; };
+  const porKm = (consumo, litro) => (consumo > 0 && litro > 0 ? litro / consumo : null);
+  const alcool = porKm(n("consumo"), n("precoLitro")), gasolina = porKm(n("consumoGas"), n("precoGas"));
+  const melhor = alcool === null ? (gasolina === null ? null : "gasolina") : gasolina === null || alcool <= gasolina ? "alcool" : "gasolina";
+  return { alcool, gasolina, melhor, porKm: melhor ? (melhor === "alcool" ? alcool : gasolina) : null };
+}
 /** @returns {null | {partes:{k:string,nome:string,valor:number,pct:number,bolso:boolean}[], bolso:number, desval:number, total:number, porKm:number|null, porKmBolso:number|null, porDia:number, porAno:number, faltaFinanciamento:number}} */
 export function custoDoVeiculo(d) {
   const n = (k) => { const v = num(d?.[k]); return Number.isFinite(v) && v > 0 ? v : 0; };
-  const km = n("kmMes"), consumo = n("consumo"), litro = n("precoLitro");
+  const km = n("kmMes");
   const lista = [
-    ["comb", "Combustível", consumo > 0 ? (km / consumo) * litro : 0, true],
+    ["comb", "Combustível", km * (combustivelPorKm(d).porKm || 0), true],
     ["manut", "Manutenção e pneus", n("manutAno") / 12, true],
     ["ipva", "IPVA", n("ipvaAno") / 12, true],
     ["seguro", "Seguro", n("seguroAno") / 12, true],
@@ -806,9 +814,9 @@ export function buscaDeFuncoes(q, itens, limite = 8) {
   return itens.map((it, i) => ({ it, i, p: pontos(it) })).filter((x) => x.p > 0).sort((a, b) => b.p - a.p || a.i - b.i).slice(0, limite).map((x) => x.it);
 }
 
-/** Filtros do Extrato: por tipo (Despesa, Receita, Reserva) e por categoria. Vazio = não filtra. */
+/** Filtros do Extrato: por tipo (Despesa, Receita, Reserva, ou Fixas para contas e entradas que se repetem) e por categoria. Vazio = não filtra. */
 export const filtraLancamentos = (lancs, { tipo = "", categoria = "" } = {}) =>
-  lancs.filter((x) => (!tipo || x.tipo === tipo) && (!categoria || x.categoria === categoria));
+  lancs.filter((x) => (!tipo || (tipo === "Fixas" ? x.auto : x.tipo === tipo)) && (!categoria || x.categoria === categoria));
 
 /* ======================= Extrato do mês e do cartão (CSV, PDF e Excel) ======================= */
 const porData = (a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0);

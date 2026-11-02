@@ -82,6 +82,10 @@ export function ocorrencias(fixos, m, tipo = "Despesa") {
   return out.sort((a, b) => a.data.localeCompare(b.data));
 }
 
+/** Contas a pagar de um mês, sem as que a pessoa deixou de fora ("id|chave" em st.foraDoMes). */
+const foraDoMes = (st) => new Set(st.foraDoMes || []);
+const contasDoMes = (st, m) => { const fora = foraDoMes(st); return ocorrencias(st.fixos, m).filter((o) => !fora.has(o.id + "|" + o.chave)); };
+
 export const CARTAO = "Cartão de crédito";
 export const CAT_FATURA = "Faturas de cartão";
 const noCartao = (x) => x.forma === CARTAO;
@@ -212,7 +216,8 @@ export function calcMes(st, m, hoje) {
   const resIn = sum(it.filter((x) => x.tipo === "Reserva" && x.forma !== RETIRADA && x.forma !== JA_TINHA));
   const resOut = sum(it.filter((x) => x.tipo === "Reserva" && x.forma === RETIRADA));
   const res = round2(resIn - resOut);
-  const fx = ocorrencias(st.fixos, m);                          // cada vez que um gasto fixo acontece no mês
+  const fx = contasDoMes(st, m);                                // cada vez que um gasto fixo acontece no mês
+  const foraFx = ocorrencias(st.fixos, m).filter((o) => foraDoMes(st).has(o.id + "|" + o.chave));   // o que a pessoa deixou de fora deste mês
   const fxT = sum(fx);                                          // todos os fixos do mês
   const fxCartao = sum(fx.filter(noCartao));                    // fixos cobrados na fatura
   const fxCusto = round2(fxT - fxCartao);                       // fixos pagos fora do cartão
@@ -231,7 +236,7 @@ export function calcMes(st, m, hoje) {
     ? round2(projetaDiaADia(st, m, desp.filter((x) => !noCartao(x)), dias, n) + fxCusto + fatT) : custo;
   // Entradas fixas que ainda não chegaram: no mês atual, as de dia posterior a hoje; em mês futuro, todas.
   const frAReceber = fase === "futuro" ? frT : fase === "atual" ? sum(fr.filter((o) => Number(o.data.slice(8, 10)) > dias)) : 0;
-  return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
+  return { it, rec, recLanc, fr, frT, frAReceber, vari, comprasCartao, res, resIn, resOut, fx, foraFx, fxT, fxCartao, fxCusto, fxPend, pagosSet,
     fat, fatT, fatAberta, custo, saldo, fase, dias, n, proj };
 }
 
@@ -540,7 +545,7 @@ export function contasEmAtraso(st, hoje, desde = null) {
   const ini = desde && desde > first ? desde : first, itens = [];
   const pagos = new Set(st.pagos.map((p) => p.fixo_id + "|" + p.mes));
   for (let m = ini, g = 0; m <= cur && g < 600; m = addM(m, 1), g++) {
-    ocorrencias(st.fixos, m).forEach((o) => {
+    contasDoMes(st, m).forEach((o) => {
       if (noCartao(o) || pagos.has(o.id + "|" + o.chave) || o.data >= hoje) return;
       itens.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias: diasEntre(hoje, o.data), mes: m, chave: o.chave });
     });
@@ -795,7 +800,7 @@ export function proximosVencimentos(st, hoje, janela = 30) {
   });
   const pagos = new Set(st.pagos.map((p) => p.fixo_id + "|" + p.mes));
   [cur, addM(cur, 1)].forEach((m) => {
-    ocorrencias(st.fixos, m).forEach((o) => {
+    contasDoMes(st, m).forEach((o) => {
       if (noCartao(o) || pagos.has(o.id + "|" + o.chave)) return;   // fixo no cartão é pago junto com a fatura
       const dias = diasEntre(hoje, o.data);
       if (dias <= janela) out.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias, mes: m, chave: o.chave, semanal: o.repete === "semanal" });
