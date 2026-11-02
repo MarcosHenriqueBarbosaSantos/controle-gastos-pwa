@@ -1975,15 +1975,9 @@ dialog{overscroll-behavior:contain}
 .acoes-rap button .forte{box-shadow:0 0 0 1px rgba(95,212,255,.5),0 8px 22px rgba(58,167,240,.35)}
 
 /* Jornada do motorista: o líquido por hora é o destaque, e Pausar e Encerrar ficam fixos embaixo, ao alcance do polegar. */
-.mot-jornada{padding-bottom:calc(96px + env(safe-area-inset-bottom,0px))}
 .mot-jornada .mot-vivo .forte{order:-1;padding:16px 14px;border-radius:18px;background:var(--hero);box-shadow:0 12px 34px rgba(30,100,255,.28)}
 .mot-jornada .mot-vivo .forte small{font-size:13px}
 .mot-jornada .mot-vivo .forte b{font-size:40px;font-family:var(--mono);letter-spacing:-.04em;line-height:1.05}
-.mot-jornada .mot-cron{font-size:34px}
-.mot-barra-fixa{position:fixed;left:0;right:0;bottom:0;z-index:45;display:grid;grid-template-columns:1fr 1.4fr;gap:10px;padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px));background:var(--glass);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-top:1px solid var(--border)}
-.mot-barra-fixa .btn{min-height:56px;margin:0;font-size:18px;font-weight:700;border-radius:16px;justify-content:center;width:100%}
-.mot-pausa{background:var(--series);border-color:transparent;color:#04121f}
-.em-pausa .mot-pausa{box-shadow:0 0 0 3px var(--series-soft)}
 /* Últimos turnos: a linha abre a edição. */
 .mot-hist .hist-abrir{background:none;border:0;padding:0;margin:0;color:inherit;font:inherit;text-align:left;cursor:pointer;min-width:0;border-radius:8px}
 .mot-hist .hist-abrir:hover,.mot-hist .hist-abrir:focus-visible{background:var(--series-soft)}
@@ -2009,3 +2003,56 @@ button.mg-bt:active{background:var(--sunk)}
 .ml-conf-l{display:flex;justify-content:space-between;gap:10px;padding:8px 2px;border-bottom:1px solid var(--border);list-style:none}
 .ml-conf-l small{display:block;color:var(--muted);font-size:11px}
 .ml-conf-l>span:last-child{text-align:right;font-variant-numeric:tabular-nums}
+
+/* v175: as duas telas da jornada. Antes de rodar, amarela e inteira; rodando, escura, com um número só e os botões ao alcance do polegar. */
+.mot-dia-base{display:grid;gap:8px}
+.mot-dia-links{display:flex;justify-content:center;gap:16px;flex-wrap:wrap}
+.mot-jornada{display:flex;flex-direction:column;gap:0;min-height:560px;padding:8px 0 4px}
+.mot-jornada .mot-topo{align-items:center;min-height:36px}
+.mot-jornada .mot-estado{font-size:15px;letter-spacing:0;text-transform:none;font-weight:500;color:var(--ink-2)}
+.mot-jornada .mot-pulso{background:var(--series)}
+.mot-jornada .mot-cron{font-size:18px;font-weight:500;color:var(--ink-2)}
+.mot-jornada .mot-vivo-box{margin-top:18px}
+.mot-jornada .mot-frase,.wrap[data-tab="mot"] #listas .mot-jornada .mot-frase{margin:0;font-size:clamp(32px,9.5vw,40px)}
+.mot-jornada .mot-hora{margin:12px 0 0;font-size:18px;font-weight:600;color:var(--ink)}
+.mot-jornada .mot-hora b{display:inline;font-family:var(--display);font-size:clamp(46px,13.5vw,56px);font-weight:700;line-height:1.05;letter-spacing:-.02em}
+.mot-jornada .mot-barra{min-height:50px;margin-top:14px;border-radius:12px;background:var(--surface-2)}
+.mot-jornada .mot-barra i{display:flex;align-items:center;padding-inline:12px;overflow:hidden;white-space:nowrap;font-style:normal;font-weight:600;color:var(--ink);background:var(--surface-2)}
+.mot-jornada .mot-barra span{flex:1;font-weight:700;color:#17140a;background:var(--series)}
+.mot-jornada .mot-hora.neg b{color:var(--bad)}
+.mot-jornada .mot-barra-leg{display:block;margin-top:10px;font-size:14.5px}
+.mot-jornada .mot-ver{margin-top:12px;font-size:14.5px}
+.mot-comandos{display:grid;gap:10px;margin-top:auto;padding-top:20px}
+.mot-leves{display:grid;grid-template-columns:repeat(3,1fr)}
+.mot-leves button{min-height:44px;padding:0 4px;border:0;background:none;color:var(--ink-2);font-size:13.5px;font-weight:600;cursor:pointer}
+.mot-leves #motPausa{border-inline:1px solid var(--border);border-radius:0}
+.mot-comandos .mot-rapidos{gap:10px;margin:0}
+.mot-comandos .mot-rap.gasto{min-height:62px;border:0;border-radius:16px;background:var(--surface-2)}
+.mot-comandos .mot-rap.gasto b{font-size:17px;font-weight:600}
+.mot-para{width:100%;min-height:66px;border:0;border-radius:16px;background:#f5f1e6;color:#17140a;font-size:19px;font-weight:700;cursor:pointer}
+.mot-opcoes{display:grid;gap:8px;margin-top:12px}
+.mot-opcoes .btn{width:100%;min-height:50px;justify-content:center}
+@media (max-width:700px){
+  #app[data-view="listas"][data-tab="mot"] #listas:has(.mot-dia.cheia,.mot-jornada){padding-top:0}
+  #app[data-view="listas"][data-tab="mot"] #listas:has(.mot-dia.cheia,.mot-jornada)::before,
+  #listas:has(.mot-dia.cheia,.mot-jornada) #listaVoltar,#listas:has(.mot-dia.cheia,.mot-jornada) #listaTitulo{display:none!important}
+  .mot-dia.cheia{min-height:calc(100dvh - 69px - env(safe-area-inset-bottom,0px));margin:0 -18px 16px;padding:calc(18px + env(safe-area-inset-top,0px)) 20px 10px;border-radius:0;grid-template-rows:auto auto auto 1fr;align-content:start;gap:10px}
+  .mot-dia.cheia:has(> p:nth-of-type(2)){grid-template-rows:auto auto auto auto 1fr}
+  .mot-dia.cheia .mot-dia-topo{min-height:24px}
+  .mot-dia.cheia small{font-size:15px;font-weight:500}
+  .mot-dia.cheia h2,.wrap[data-tab="mot"] #listas .mot-dia.cheia h2{font-size:clamp(34px,10.5vw,44px);font-weight:700;line-height:1.1}
+  .mot-dia.cheia .mot-dia-regra{padding-top:4px;border-top:0;font-size:17px}
+  .mot-dia.cheia .mot-dia-base{align-self:end}
+  .mot-dia.cheia .ds-chips{flex-wrap:nowrap;gap:6px;margin:0 0 4px}
+  .mot-dia.cheia .ds-chips button{padding-inline:12px;min-height:44px;font-size:14px}
+  .mot-dia.cheia .mot-cat-mais{flex:0 1 92px;min-width:0;width:92px;min-height:44px;font-size:14px}
+  .mot-dia.cheia .mot-dia-bt{min-height:72px;margin-top:0;font-size:21px;border-radius:20px}
+  .mot-dia-links{justify-content:space-between}
+  #app[data-view="listas"][data-tab="mot"] #listas:has(.mot-jornada){padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
+  .mot-jornada{min-height:calc(100dvh - 16px - env(safe-area-inset-bottom,0px));padding:calc(14px + env(safe-area-inset-top,0px)) 0 0}
+}
+@media (prefers-reduced-motion:no-preference){
+  #listas:has(.mot-dia.cheia){scroll-behavior:smooth}
+  .mot-jornada.entra{animation:motEntra .32s cubic-bezier(.2,.8,.2,1)}
+  @keyframes motEntra{from{opacity:0;transform:translateY(14px)}}
+}

@@ -753,10 +753,10 @@ function render() {
   // Quem usa o Modo motorista vê Jornada no lugar de Planejar, que passa a ficar no Mais.
   const motUsa = Boolean(S.prefs.motorista?.usa), navPlano = $("bnav").querySelector("[data-slot]");
   navPlano.dataset.original ||= navPlano.innerHTML;
-  if (navPlano.dataset.nav !== (motUsa ? "mot" : "m")) { navPlano.dataset.nav = motUsa ? "mot" : "m"; navPlano.innerHTML = motUsa ? `${ico("carro")}Motorista` : navPlano.dataset.original; }
+  if (navPlano.dataset.nav !== (motUsa ? "mot" : "m")) { navPlano.dataset.nav = motUsa ? "mot" : "m"; navPlano.innerHTML = motUsa ? `${ico("carro")}Jornada` : navPlano.dataset.original; }
   const onde = S.view === "inicio" ? "inicio" : S.view === "analise" ? "m" : motUsa && S.view === "listas" && S.tab === "mot" ? "mot" : naMais || sub ? "menu" : S.tab;
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
-  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? "Motorista" : "";
+  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? "Jornada" : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   $("listaVoltar").hidden = !sub;
   renderForm(); renderInstalar(); renderFechamento(); renderRepetidos(); renderVenc(); renderSemanaIni(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
@@ -4168,6 +4168,7 @@ const hhmm = (ms) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit",
 const virg = (n) => String(n).replace(".", ",");
 /** Soma por chave do que foi lançado durante o turno: { uber: 120, ... } ou { comb: 60, ... }. */
 const somaPor = (lista, chave) => lista.reduce((o, x) => { o[x[chave]] = round2((o[x[chave]] || 0) + Number(x.valor)); return o; }, {});
+let motEntrou = false;   // a jornada acabou de começar: a tela entra com movimento uma vez só
 let motPer = "dia", motRelogio = 0, motFechando = false, motSub = null;   // motSub: a subtela aberta ("ganho", "gasto" ou "ajustes")
 /** A tela do Modo motorista (uma aba de Extrato/Planejar, no mesmo jeito): abre pelo Mais, pelo Início ou pela busca. */
 function motoristaTela() { motSub = null; abrirSub("mot"); if (!noCelular()) $("listas").scrollIntoView({ block: "start" }); }
@@ -4272,18 +4273,20 @@ function painelDoMotorista() {
   const regra = regraDeAceite({ custoKm: custoTotalPorKm(veicD) || cvk, minimoHora: liqRef > 0 && m.horasDia > 0 ? round2(liqRef / m.horasDia) : 0, kmPorHora: kmh });
   return { m, hj, mes, veicD, doDia, meta, ritmo, alc, liqRef, refNormal, regra };
 }
+/** "Domingo, 1º de novembro". */
+const dataPorExtenso = (iso) => { const d = Number(iso.slice(8, 10)), s = DIAS_SEMANA[diaDaSemana(iso)]; return `${s[0].toUpperCase()}${s.slice(1)}, ${d === 1 ? "1º" : d} de ${nomeMes(mKey(iso))}`; };
 /** O cartão do dia: uma frase, a regra por km e o botão de começar a jornada. Vale para o Início e para a tela Jornada. */
-function htmlFraseMot({ hj, doDia, meta, alc, ritmo, regra }, idBotao, comOlho = false) {
+function htmlFraseMot({ hj, doDia, meta, alc, ritmo, regra }, idBotao, comOlho = false, cheia = false) {
   const f = fraseDoDia({ meta, ganhoHoje: doDia.ganho, brl }), acima = alc.nivel === "fora" && ritmo;
   const comemora = !meta.coberto && doDia.ganho >= meta.brutoDia && S.metaBatida !== hj, cats_ = categoriasDoPerfil(motDados().perfil), catAtual = categoriaAtual();
   const catsVis = [catAtual, ...cats_.filter((k) => k !== catAtual)].filter(Boolean).slice(0, 3), catsResto = cats_.filter((k) => !catsVis.includes(k));
   if (comemora) { S.metaBatida = hj; vibra(40); }
-  return `<section class="mot-dia${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${DIAS_SEMANA[diaDaSemana(hj)]}, ${ddmm(hj)}</small>${comOlho ? `<button type="button" class="olho" id="olho" aria-pressed="${valoresOcultos()}" aria-label="${valoresOcultos() ? "Mostrar os valores" : "Esconder os valores"}">${ico(valoresOcultos() ? "olhoFechado" : "olho")}</button>` : ""}</div><h2 class="ocultavel">${f.titulo}</h2>
-    <p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>
+  return `<section class="mot-dia${cheia ? " cheia" : ""}${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${cheia ? dataPorExtenso(hj) : `${DIAS_SEMANA[diaDaSemana(hj)]}, ${ddmm(hj)}`}</small>${comOlho ? `<button type="button" class="olho" id="olho" aria-pressed="${valoresOcultos()}" aria-label="${valoresOcultos() ? "Mostrar os valores" : "Esconder os valores"}">${ico(valoresOcultos() ? "olhoFechado" : "olho")}</button>` : ""}</div><h2 class="ocultavel">${f.titulo}</h2>
+    ${cheia && !acima && !doDia.ganho ? "" : `<p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>`}
     ${regra ? `<p class="mot-dia-regra">Aceite corridas a partir de <b>${brl(regra.minimo)} por km</b>.</p>` : ""}
-    ${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
+    <div class="mot-dia-base">${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
     <button class="mot-dia-bt" type="button" id="${idBotao}">Iniciar jornada</button>
-    <button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button></section>`;
+    <div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button>${cheia ? `<button class="mot-dia-2" type="button" id="motVerMais">Ver resultados</button>` : ""}</div></div></section>`;
 }
 const htmlTresMot = (tit, hora, km, viagem, pe = "") => `<section class="mot-tres" aria-label="${tit}"><h3>${tit}</h3><div>${[["Por hora", hora], ["Por km", km], ["Por viagem", viagem]].map(([r, v]) => `<p><small>${r}</small><b class="ocultavel">${v === null ? "—" : brl(v)}</b></p>`).join("")}</div>${pe ? `<small class="ocultavel">${pe}</small>` : ""}</section>`;
 /** Quanto está rendendo: hoje, ou os últimos 7 dias enquanto hoje não tem jornada. */
@@ -4540,39 +4543,48 @@ function paneMot() {
   const vivo = () => {
     const ganho = m.ativo.parcial, gastos = gastosDaJornada(m.ativo), ms = msAndamento(m.ativo);
     const v = ritmoAoVivo({ ganho, gastos, ms, liquidoDia: liqRef, horasDia: m.horasDia });
-    const alvo = refNormal ? "o seu ritmo normal" : "o que você precisa";
-    const frase = v.veredito === "bom" ? `Acima de ${alvo}: ${brl(v.minimo)} por hora.`
+    const alvo = refNormal ? "do seu ritmo normal" : "do que você precisa";
+    const frase = v.veredito === "bom" ? `Acima ${alvo}: ${brl(v.minimo)} por hora.`
       : v.veredito === "abaixo" ? `Você precisa de ${brl(v.minimo)} por hora. Vale olhar horário e região.`
       : v.minimo > 0 ? `${refNormal ? "Seu ritmo normal" : "Meta do dia"}: ${brl(v.minimo)} líquidos por hora, rodando ${m.horasDia}h. Depois de 15 minutos o app diz se está valendo a pena.` : "Suas contas do mês estão cobertas: o que entrar agora é sobra.";
-    const totalHoje = round2(doDia.ganho + ganho), bateu = meta.brutoDia > 0 && totalHoje >= meta.brutoDia, cobriu = ganho > 0 && ganho >= gastos && gastos > 0;
+    const totalHoje = round2(doDia.ganho + ganho), bateu = meta.brutoDia > 0 && totalHoje >= meta.brutoDia && v.veredito !== "abaixo", cobriu = ganho > 0 && ganho >= gastos && gastos > 0;
     const aviso = bateu ? `<p class="mot-ver bom"><b>Meta do dia batida:</b> você fez ${brl(totalHoje)} e a meta era ${brl(meta.brutoDia)}. O que passar disso adianta os próximos dias.</p>`
       : cobriu ? `<p class="mot-ver bom"><b>Os gastos de hoje já estão pagos.</b> Daqui para a frente é lucro.${meta.brutoDia > 0 ? ` Faltam ${brl(round2(meta.brutoDia - totalHoje))} para a meta do dia.` : ""}</p>` : "";
-    const titulo = v.veredito === "bom" ? "Está valendo a pena." : v.veredito === "abaixo" ? `Abaixo de ${alvo}.` : ganho > 0 ? "Jornada em andamento." : "Boa jornada.";
+    const titulo = v.veredito === "bom" ? "Está valendo a pena." : v.veredito === "abaixo" ? `Abaixo ${alvo}.` : ganho > 0 ? "Jornada em andamento." : "Boa jornada.";
     const pctGastos = ganho > 0 ? Math.min(100, Math.round((gastos / ganho) * 100)) : 0, sobra = round2(ganho - gastos);
+    const txtSobra = sobra < 0 ? `Faltam ${brl(-sobra)}` : `Sobram ${brl(sobra)}`, apertado = pctGastos > 50;   // sem espaço na parte amarela, o valor desce para a legenda
     return `<h2 class="mot-frase">${titulo}</h2>
-      ${ganho > 0 ? `<p class="mot-hora ocultavel"><b>${tracos(v.liquidoPorHora, brl)}</b> líquidos por hora</p>
-      <div class="mot-barra ocultavel" role="img" aria-label="De ${brl(ganho)} ganhos, ${brl(gastos)} foram gastos e ${sobra < 0 ? `faltam ${brl(-sobra)}` : `sobram ${brl(sobra)}`}">${pctGastos ? `<i style="width:${pctGastos}%"></i>` : ""}<span>${sobra < 0 ? `Faltam ${brl(-sobra)}` : `Sobram ${brl(sobra)}`}</span></div>
-      <small class="mot-barra-leg ocultavel">De ${brl(ganho)} ganhos, ${brl(gastos)} em gastos</small>` : `<p class="mot-ver">Informe o ganho quando parar.</p>`}
+      ${ganho > 0 ? `<p class="mot-hora ocultavel${v.liquidoPorHora < 0 ? " neg" : ""}" aria-label="${tracos(v.liquidoPorHora, brl)} líquidos por hora"><b>${tracos(v.liquidoPorHora, brl)}</b> por hora</p>
+      <div class="mot-barra ocultavel" role="img" aria-label="De ${brl(ganho)} ganhos, ${brl(gastos)} foram gastos e ${sobra < 0 ? `faltam ${brl(-sobra)}` : `sobram ${brl(sobra)}`}">${pctGastos ? `<i style="width:${pctGastos}%">${sobra < 0 ? txtSobra : pctGastos >= 18 ? "Gastos" : ""}</i>` : ""}${sobra < 0 ? "" : `<span>${apertado ? "" : txtSobra}</span>`}</div>
+      <small class="mot-barra-leg ocultavel">${apertado && sobra >= 0 ? `${txtSobra} de` : "De"} ${brl(ganho)} ganhos ${doDia.n ? "nesta jornada" : "hoje"}</small>` : `<p class="mot-ver">Informe quanto já ganhou para ver se está valendo a pena.</p>`}
       ${aviso || (v.veredito ? `<p class="mot-ver ${v.veredito}">${frase}</p>` : "")}`;
   };
   if (m.ativo) {   // jornada em andamento: uma tela só com o cronômetro, no estilo "dirigindo"
     const a = m.ativo, pausada = Boolean(a.pausaIni), gastosTot = gastosDaJornada(a);
-    host.innerHTML = `<div id="motRoot" class="mot-jornada${pausada ? " em-pausa" : ""}">
-      <div class="mot-topo"><span class="mot-estado">${pausada ? "" : `<i class="mot-pulso" aria-hidden="true"></i>`}${pausada ? "Jornada pausada" : "Em jornada"}</span><b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b></div>
-      <span class="mot-cron-leg">Começou às ${hhmm(a.ini)}${a.categoria ? ` · ${esc(a.categoria)}` : ""}</span>
+    host.innerHTML = `<div id="motRoot" class="mot-jornada${pausada ? " em-pausa" : ""}${motEntrou ? " entra" : ""}">
+      <div class="mot-topo"><span class="mot-estado">${pausada ? "" : `<i class="mot-pulso" aria-hidden="true"></i>`}${pausada ? "Jornada pausada" : "Jornada ativa"}</span><b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b></div>
       <div id="motVivo" class="mot-vivo-box">${vivo()}</div>
-      <div class="mot-rapidos">
-        <button class="mot-rap gasto" type="button" data-mot-gasto="Combustível"><b>Abastecer</b></button>
-        <button class="mot-rap gasto" type="button" data-mot-gasto="Pedágio"><b>Pedágio</b></button>
-        <button class="mot-rap" type="button" data-mot-sub="ganho"><small>Ganho</small><b>${a.parcial ? brl(a.parcial) : "Informar"}</b></button>
-        <button class="mot-rap" type="button" data-mot-acao="lancar"><small>Gastos</small><b>${gastosTot ? brl(gastosTot) : "Outro gasto"}</b></button>
-      </div>
-      <div class="mot-fim"><button class="link" type="button" data-mot-acao="ler">Escanear nota ou QR code</button><button class="link" type="button" id="motDescartar">Descartar esta jornada</button></div>
-      <div class="mot-barra-fixa" role="group" aria-label="Controle da jornada">
-        <button class="btn mot-pausa" type="button" id="motPausa" aria-label="${pausada ? "Continuar a jornada" : "Pausar a jornada"}">${pausada ? "Continuar" : "Pausar"}</button>
-        <button class="btn mot-grande parar" type="button" id="motParar">Encerrar jornada</button></div></div>`;
-    host.querySelectorAll("[data-mot-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.motAcao)));
+      <div class="mot-comandos" role="group" aria-label="Controle da jornada">
+        <div class="mot-leves">
+          <button type="button" data-mot-sub="ganho">${a.parcial ? "Atualizar ganho" : "Informar ganho"}</button>
+          <button type="button" id="motPausa" aria-label="${pausada ? "Continuar a jornada" : "Pausar a jornada"}">${pausada ? "Continuar" : "Pausar"}</button>
+          <button type="button" id="motMais">Mais opções</button>
+        </div>
+        <div class="mot-rapidos">
+          <button class="mot-rap gasto" type="button" data-mot-gasto="Combustível"><b>Abastecer</b></button>
+          <button class="mot-rap gasto" type="button" data-mot-gasto="Pedágio"><b>Pedágio</b></button>
+        </div>
+        <button class="mot-para" type="button" id="motParar">Parar jornada</button>
+      </div></div>`;
+    motEntrou = false;
     host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
+    $("motMais").onclick = () => {
+      openDlg(`<h3>Mais opções</h3><p class="hint">Começou às ${hhmm(a.ini)}${a.categoria ? ` · ${esc(a.categoria)}` : ""}${gastosTot ? ` · ${brl(gastosTot)} em gastos` : ""}</p>
+        <div class="mot-opcoes"><button class="btn" type="button" data-mot-op="lancar">Outro gasto</button><button class="btn" type="button" data-mot-op="ler">Escanear nota ou QR code</button><button class="btn" type="button" id="motIrInicio">Ir para o Início</button><button class="btn" type="button" id="motDescartar">Descartar esta jornada</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+      $("dlgBody").querySelectorAll("[data-mot-op]").forEach((b) => (b.onclick = () => { $("dlg").close(); acaoRapida(b.dataset.motOp); }));
+      $("motIrInicio").onclick = () => { $("dlg").close(); $("bnav").querySelector('[data-nav="inicio"]').click(); };
+      armDelete($("motDescartar"), () => { $("dlg").close(); gravaMot({ ...motDados(), ativo: null }); render(); }, "Toque de novo para descartar");
+    };
     host.querySelectorAll("[data-mot-gasto]").forEach((b) => (b.onclick = () => {
       acaoRapida("lancar");
       const d = $("fDesc"), cat = cats("Despesa").find((x) => /transp/i.test(x));
@@ -4586,11 +4598,10 @@ function paneMot() {
       gravaMot(mm); vibra(30); render();
     };
     $("motParar").onclick = () => fecharTurno();
-    armDelete($("motDescartar"), () => { gravaMot({ ...motDados(), ativo: null }); render(); }, "Toque de novo para descartar");
     motRelogio = setInterval(() => { const el = $("motCron"); if (!el || S.view !== "listas" || S.tab !== "mot") return clearInterval(motRelogio); const ag = motDados().ativo; if (!ag) return clearInterval(motRelogio); el.textContent = relogio(msAndamento(ag)); $("motVivo").innerHTML = vivo(); }, 1000);
     return;
   }
-  const turno = `${htmlFraseMot(painelDoMotorista(), "motIniciar")}${htmlRitmoMot(painelDoMotorista())}
+  const turno = `${htmlFraseMot(painelDoMotorista(), "motIniciar", false, true)}${htmlRitmoMot(painelDoMotorista())}
     <button class="mot-desafios" type="button" data-mot-sub="desafios"><b>Desafios</b><span>Compare com os seus amigos</span></button>
     <div class="mot-atalhos"><button class="btn sm" type="button" data-mot-acao="ler">Escanear nota ou QR</button><button class="btn sm" type="button" data-mot-acao="lancar">Lançar um gasto</button></div>`;
   const metaHtml = meta.coberto ? ""
@@ -4636,7 +4647,8 @@ function paneMot() {
   host.querySelectorAll("[data-mot-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.motAcao)));
   host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
   host.querySelectorAll("[data-per]").forEach((b) => (b.onclick = () => { motPer = b.dataset.per; render(); }));
-  $("motIniciar").onclick = () => { iniciarJornada(); render(); scrollTo(0, 0); };
+  $("motIniciar").onclick = () => { motEntrou = true; iniciarJornada(); render(); scrollTo(0, 0); };
+  $("motVerMais").onclick = () => document.querySelector(".mot-dia.cheia").nextElementSibling?.scrollIntoView({ block: "start" });
   host.querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
   host.querySelectorAll("[data-mot-cat-mais]").forEach((s) => (s.onchange = () => s.value && escolheCategoria(s.value)));
   if ($("motVeic")) $("motVeic").onclick = () => meuVeiculo();
