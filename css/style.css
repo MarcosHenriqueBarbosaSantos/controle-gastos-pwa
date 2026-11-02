@@ -18,12 +18,12 @@
 /* Tema claro, com cara de banco: azul-marinho, branco e cinza-claro. É o padrão; o escuro continua em Ajustes → Aparência. */
 :root[data-tema="claro"]{
   --bg:#f3f5f8; --surface:#ffffff; --surface-2:#f6f8fb; --sunk:#eef2f7; --ink:#13253b; --ink-2:#3d4d61; --muted:#5c6b7d;
-  --grid:rgba(11,37,69,.08); --axis:rgba(11,37,69,.28); --border:#dde3ea; --brand:#0b2545;
+  --grid:rgba(23,20,10,.08); --axis:rgba(23,20,10,.28); --border:#dde3ea; --brand:#17140a;
   --series:#1e5fbf; --series-soft:rgba(30,95,191,.1); --entradas:#157347;
   --good:#157347; --good-soft:#e7f4ec; --bad:#b42318; --bad-soft:#fdecea; --warn:#9a4a06; --warn-soft:#fdf0e3;
-  --hero:#0b2545; --navy:#0b2545;
-  --btn:#0b2545; --glass:rgba(255,255,255,.96); --glow:transparent;
-  --shadow:0 10px 28px rgba(11,37,69,.12); --shadow-sm:0 2px 8px rgba(11,37,69,.06);
+  --hero:#17140a; --navy:#17140a;
+  --btn:#17140a; --glass:rgba(255,255,255,.96); --glow:transparent;
+  --shadow:0 10px 28px rgba(23,20,10,.12); --shadow-sm:0 2px 8px rgba(23,20,10,.06);
   color-scheme:light;
 }
 /* Uma fonte só, como num banco; números alinhados em coluna. */
@@ -148,8 +148,7 @@ input.in[aria-invalid="true"]{border-color:var(--bad)}
 }
 
 /* ---------- topo com cara de banco ---------- */
-.hero.banco{display:flex;flex-direction:column;align-items:stretch;text-align:left;gap:6px;border-radius:0 0 26px 26px;padding:18px 20px 56px;box-shadow:none}
-:root[data-tema="claro"] .hero.banco{background:var(--navy)}
+.hero.banco{display:flex;flex-direction:column;align-items:stretch;text-align:left;gap:6px;border-radius:0 0 26px 26px;padding:18px 20px 20px;box-shadow:none}
 .hero.banco::before{display:none}
 .hero-top{display:flex;align-items:center;justify-content:space-between;gap:10px}
 .hero-top .l{font-size:14px;opacity:.85}
@@ -162,11 +161,6 @@ input.in[aria-invalid="true"]{border-color:var(--bad)}
 .hsub{display:flex;justify-content:space-between;gap:10px;font-size:13px;opacity:.88}
 .hero.banco .estado{margin:6px 0 0}
 .hero.banco .estado b{background:rgba(255,255,255,.14)}
-.acoes-rap{position:relative;z-index:1;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px;margin:-42px 16px 0;background:var(--surface);border-radius:18px;padding:14px 6px 12px;box-shadow:var(--shadow)}
-.acoes-rap button{display:flex;flex-direction:column;align-items:center;gap:7px;border:0;background:none;color:var(--ink);font-size:12px;font-weight:500;line-height:1.25;text-align:center;padding:2px}
-.acoes-rap span{width:54px;height:54px;border-radius:50%;background:var(--sunk);color:var(--ink);display:grid;place-items:center}
-.acoes-rap span.forte{background:var(--btn);color:#fff}
-.acoes-rap .ic{width:23px;height:23px}
 .resumo3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:12px 16px 0;background:var(--surface);border-radius:18px;padding:12px 8px 10px;box-shadow:var(--shadow-sm);border:1px solid var(--border)}
 .resumo3>button{display:grid;gap:1px;align-content:start;border:0;background:none;text-align:left;padding:4px 8px;color:var(--ink);border-radius:10px}
 .resumo3>button:active{background:var(--sunk)}
@@ -174,9 +168,9 @@ input.in[aria-invalid="true"]{border-color:var(--bad)}
 .resumo3 .pos{color:var(--good)} .resumo3 .neg{color:var(--bad)}
 .resumo3-links{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 16px;padding:8px 8px 0;margin-top:4px;border-top:1px solid var(--border);font-size:13px}
 /* bloqueio com a digital ou o rosto */
-.trava{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;background:#0b2545;color:#fff}
+.trava{position:fixed;inset:0;z-index:100;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:32px;text-align:center;background:#17140a;color:#fff}
 .trava[hidden]{display:none} .trava img{border-radius:18px} .trava h2{margin:6px 0 0;font-size:22px} .trava p{margin:0;opacity:.85}
-.trava .btn.primary{background:#fff;color:#0b2545;min-width:220px;min-height:52px;font-size:16px} .trava .link{color:#fff;opacity:.85}
+.trava .btn.primary{background:#fff;color:#17140a;min-width:220px;min-height:52px;font-size:16px} .trava .link{color:#fff;opacity:.85}
 .trava-msg{min-height:1.4em;color:#ffb4ab}
 body.travado{overflow:hidden}
 /* gráfico da sobra dia a dia */
@@ -219,7 +213,7 @@ body.travado{overflow:hidden}
 body.ocultar .ocultavel,body.ocultar .kpi .v,body.ocultar .sobra-pl .v,body.ocultar .sobra-agora b{filter:blur(9px);user-select:none}
 #resumo,#resumo2,#grafSobraSec{margin-inline:-16px}
 #grafSobraSec:empty{display:none}
-@media (min-width:701px){#resumo,#resumo2,#grafSobraSec{margin-inline:0} #grafSobraSec .graf-sobra{width:100%;margin-inline:0} .hero.banco{border-radius:24px;padding:24px 28px 62px} .hero.banco .v{font-size:46px} .acoes-rap,.resumo3{margin-inline:24px} }
+@media (min-width:701px){#resumo,#resumo2,#grafSobraSec{margin-inline:0} #grafSobraSec .graf-sobra{width:100%;margin-inline:0} .hero.banco{border-radius:24px;padding:24px 28px} .hero.banco .v{font-size:46px} .resumo3{margin-inline:24px} }
 /* ---------- seu dia ---------- */
 .dia{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px 14px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:var(--r);padding:14px 16px;box-shadow:var(--shadow-sm)}
 .dia .ava{width:44px;height:44px;border-radius:14px} .dia .ava .ic{width:22px;height:22px}
@@ -523,7 +517,7 @@ button.teto{cursor:pointer} button.teto:hover{border-color:var(--series)}
   .como-antes{position:absolute;top:0;right:0;max-width:calc(100% - 70px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}   /* ao lado de "Descrição" */
 }
 /* gastos que a pessoa mais repete, no formulário de lançar */
-.rapidos{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0 0 12px}
+.rapidos{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0;grid-column:1/-1}
 .rapidos[hidden]{display:none}
 .rap-t{font-size:12px;color:var(--muted);width:100%}
 .rapidos button{display:inline-flex;align-items:baseline;gap:6px;border:1px solid var(--border);background:var(--sunk);color:var(--ink);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:500;max-width:100%}
@@ -910,7 +904,7 @@ input.in.cod::placeholder{color:var(--axis)}
   .bnav [data-nav="menu"] svg{stroke-width:3}
   /* Barra de baixo com cara de banco: 5 itens iguais, todos com nome; a aba ativa ganha um traço no topo.
      O Lançar fica no meio, num quadrado escuro, no mesmo alinhamento dos outros (nada flutuando por cima). */
-  :root[data-tema="claro"] .bnav{background:#ffffff;backdrop-filter:none;-webkit-backdrop-filter:none;border-top:1px solid var(--border);padding:0 4px env(safe-area-inset-bottom,0px)}
+  :root[data-tema="claro"] .bnav{background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none;border-top:1px solid var(--border);padding:0 4px env(safe-area-inset-bottom,0px)}
   .bnav button{position:relative;min-height:64px;font-size:12.5px}
   .bnav svg{padding:0;width:23px;height:23px}
   .bnav button>svg{margin-block:4.5px}   /* mesma altura do quadrado do Lançar: os nomes ficam na mesma linha */
@@ -1181,7 +1175,7 @@ table.lanc tr.desliza-d td{background:var(--good-soft)} table.lanc tr.desliza-e 
 
 /* ---------- acessibilidade: letra maior e contraste alto (Ajustes → Aparência) ---------- */
 html[data-letra="grande"] body{zoom:1.12} html[data-letra="maior"] body{zoom:1.25}
-:root[data-contraste="alto"]{--muted:#33445a;--ink-2:#1c2c40;--border:#7d8ba0;--axis:rgba(11,37,69,.6);--series:#0a3a8a}
+:root[data-contraste="alto"]{--muted:#33445a;--ink-2:#1c2c40;--border:#7d8ba0;--axis:rgba(23,20,10,.6);--series:#0a3a8a}
 :root[data-contraste="alto"]:not([data-tema="claro"]){--muted:#c9d3e0;--ink-2:#e3eaf3;--border:rgba(255,255,255,.4);--axis:rgba(255,255,255,.55);--series:#8fc0ff}
 :root[data-contraste="alto"] .hint,:root[data-contraste="alto"] small{color:var(--ink-2)}
 :root[data-contraste="alto"] a,:root[data-contraste="alto"] .link{text-decoration:underline;text-underline-offset:3px}
@@ -1400,7 +1394,7 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .merc-add button .ic{width:22px;height:22px}
 
 /* Acessibilidade e toque: alvos de 44 px, link para pular ao conteúdo e texto mínimo de 12 px */
-.pular{position:absolute;left:12px;top:-60px;z-index:100;background:var(--navy,#0b2545);color:#fff;padding:12px 16px;border-radius:12px;font-weight:700;text-decoration:none}
+.pular{position:absolute;left:12px;top:-60px;z-index:100;background:var(--navy,#17140a);color:#fff;padding:12px 16px;border-radius:12px;font-weight:700;text-decoration:none}
 .pular:focus{top:12px}
 .proj-trilho .entra s{font-size:12.5px}
 @media (max-width:700px),(pointer:coarse){
@@ -1439,18 +1433,14 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 
 /* Visual de banco: azul-marinho profundo, fundo frio e limpo, sombras suaves tingidas de azul, estados calmos */
 :root[data-tema="claro"]{
-  --bg:#f2f5fa; --surface-2:#f5f8fc; --sunk:#ebf0f7; --border:#d9e1ec; --grid:rgba(11,37,69,.07);
-  --navy:#0b2545; --navy-2:#13315c; --navy-3:#1b4079; --series:#1f5fbf; --series-soft:rgba(31,95,191,.09);
-  --shadow:0 12px 30px rgba(11,37,69,.10); --shadow-sm:0 1px 2px rgba(11,37,69,.05),0 4px 14px rgba(11,37,69,.06);
+  --bg:#f2f5fa; --surface-2:#f5f8fc; --sunk:#ebf0f7; --border:#d9e1ec; --grid:rgba(23,20,10,.07);
+  --navy:#17140a; --navy-2:#13315c; --navy-3:#1b4079; --series:#1f5fbf; --series-soft:rgba(31,95,191,.09);
+  --shadow:0 12px 30px rgba(23,20,10,.10); --shadow-sm:0 1px 2px rgba(23,20,10,.05),0 4px 14px rgba(23,20,10,.06);
 }
-:root[data-tema="claro"] .hero.banco{
-  background:radial-gradient(120% 90% at 100% 0%,rgba(74,134,224,.30) 0%,transparent 58%),linear-gradient(165deg,var(--navy) 0%,var(--navy-2) 58%,var(--navy-3) 100%);
-}
-:root[data-tema="claro"] .hbar{background:rgba(255,255,255,.16)}
 .hero.banco .estado b{backdrop-filter:blur(4px)}
-.acoes-rap,.merc-ini,.cart-card,.resumo3,.ir-para button{border-color:var(--border)}
+.merc-ini,.cart-card,.resumo3,.ir-para button{border-color:var(--border)}
 /* o botão Fechar das janelas ganha um halo da cor do fundo: não deixa texto aparecendo por baixo dele */
-.dlg-x{box-shadow:0 0 0 8px var(--surface),0 4px 14px rgba(11,37,69,.16)}
+.dlg-x{box-shadow:0 0 0 8px var(--surface),0 4px 14px rgba(23,20,10,.16)}
 /* respiro entre os blocos: cada tela respira do mesmo jeito */
 .v-inicio,.merc-ini,.cart-ini,.ir-para{--respiro:14px}
 
@@ -1753,8 +1743,6 @@ dialog:has(.tour) .dlg-barra{display:none}
 
 /* v105: pôr o mês em ordem */
 .ordem-card{position:relative;z-index:2;display:flex;align-items:center;gap:12px;width:calc(100% - 32px);text-align:left;margin:12px 16px 0;padding:14px 16px;min-height:56px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);color:var(--ink);font:inherit;cursor:pointer}
-.ordem-card + .acoes-rap{margin-top:12px}
-.mot-dia + .acoes-rap,.mot-faixa + .acoes-rap,.mot-tres + .acoes-rap{margin:0}
 .ordem-card>svg:first-child{flex:none;width:24px;height:24px;color:var(--accent,#2563eb)}
 .ordem-card>span{flex:1;display:grid;gap:2px}
 .ordem-card>span>b{font-size:15px}
@@ -1808,7 +1796,7 @@ dialog:has(.tour) .dlg-barra{display:none}
 .hoje-rod .seq{display:inline-flex;align-items:center;gap:4px;color:var(--muted)}
 
 /* v110: atalho "você copiou a mensagem do banco" na tela de lançar */
-.copiado{display:flex;align-items:stretch;gap:6px;margin:0 0 10px}
+.copiado{display:flex;align-items:stretch;gap:6px;margin:0;grid-column:1/-1}
 .copiado[hidden]{display:none}
 .copiado-bt{flex:1;display:flex;align-items:center;text-align:left;gap:10px;padding:10px 12px;min-height:48px;border-radius:12px;border:1px solid var(--series);background:var(--series-soft);color:var(--ink);font:inherit;cursor:pointer}
 .copiado-bt.leve{border-style:dashed;background:transparent}
@@ -1819,11 +1807,8 @@ dialog:has(.tour) .dlg-barra{display:none}
 
 /* v112: Início sem entrada cadastrada e card do Modo motorista */
 .hero-sem-entrada .v.convite{font-size:1.45rem;line-height:1.2}
-.hero-bt{margin-top:12px;min-height:46px;padding:0 18px;border-radius:12px;border:0;background:#fff;color:#0b2545;font:inherit;font-weight:700;cursor:pointer;justify-self:start}
+.hero-bt{margin-top:12px;min-height:46px;padding:0 18px;border-radius:12px;border:0;background:#17140a;color:#ffb81c;font:inherit;font-weight:700;cursor:pointer;justify-self:start}
 .mot-ini{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin:12px 0;display:grid;gap:8px}
-.mot-ini-topo{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.mot-ini-topo .l{display:flex;align-items:center;gap:8px}
-.mot-ini-res{margin:0;font-size:.88rem;color:var(--muted)}
 .mot-ini.convite{display:flex;align-items:stretch;gap:6px;padding:6px;border-style:dashed}
 .mot-ini-bt{flex:1;display:flex;align-items:center;gap:12px;text-align:left;background:none;border:0;padding:8px 10px;font:inherit;color:inherit;cursor:pointer;min-height:56px}
 .mot-ini-bt .tx{display:grid;gap:2px}
@@ -1971,8 +1956,7 @@ dialog{overscroll-behavior:contain}
 .hero.banco .v{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.045em;font-weight:700}
 .hero.banco .hbar i{box-shadow:0 0 14px rgba(93,202,165,.55)}
 .hero.banco .estado b{border:1px solid rgba(255,255,255,.22)}
-:root[data-tema="claro"] .acoes-rap,:root[data-tema="claro"] .tl-item:hover{box-shadow:0 10px 30px rgba(11,37,69,.12)}
-.acoes-rap button .forte{box-shadow:0 0 0 1px rgba(95,212,255,.5),0 8px 22px rgba(58,167,240,.35)}
+:root[data-tema="claro"] .tl-item:hover{box-shadow:0 10px 30px rgba(23,20,10,.12)}
 
 /* Jornada do motorista: o líquido por hora é o destaque, e Pausar e Encerrar ficam fixos embaixo, ao alcance do polegar. */
 .mot-jornada .mot-vivo .forte{order:-1;padding:16px 14px;border-radius:18px;background:var(--hero);box-shadow:0 12px 34px rgba(30,100,255,.28)}
@@ -2036,7 +2020,7 @@ button.mg-bt:active{background:var(--sunk)}
   #app[data-view="listas"][data-tab="mot"] #listas:has(.mot-dia.cheia,.mot-jornada){padding-top:0}
   #app[data-view="listas"][data-tab="mot"] #listas:has(.mot-dia.cheia,.mot-jornada)::before,
   #listas:has(.mot-dia.cheia,.mot-jornada) #listaVoltar,#listas:has(.mot-dia.cheia,.mot-jornada) #listaTitulo{display:none!important}
-  .mot-dia.cheia{min-height:calc(100dvh - 69px - env(safe-area-inset-bottom,0px));margin:0 -18px 16px;padding:calc(18px + env(safe-area-inset-top,0px)) 20px 10px;border-radius:0;grid-template-rows:auto auto auto 1fr;align-content:start;gap:10px}
+  .mot-dia.cheia{min-height:calc(100dvh - var(--bnav-h,69px));margin:0 -18px 16px;padding:calc(18px + env(safe-area-inset-top,0px)) 20px 10px;border-radius:0;grid-template-rows:auto auto auto 1fr;align-content:start;gap:10px}
   .mot-dia.cheia:has(> p:nth-of-type(2)){grid-template-rows:auto auto auto auto 1fr}
   .mot-dia.cheia .mot-dia-topo{min-height:24px}
   .mot-dia.cheia small{font-size:15px;font-weight:500}
@@ -2055,4 +2039,31 @@ button.mg-bt:active{background:var(--sunk)}
   #listas:has(.mot-dia.cheia){scroll-behavior:smooth}
   .mot-jornada.entra{animation:motEntra .32s cubic-bezier(.2,.8,.2,1)}
   @keyframes motEntra{from{opacity:0;transform:translateY(14px)}}
+}
+
+/* v176: o Início também tem uma tela inteira, e cada aba abre com uma frase que responde o principal. */
+.hero-ver{min-height:64px;margin-top:14px;border:0;border-radius:16px;background:#17140a;color:#ffb81c;font-size:19px;font-weight:700;cursor:pointer}
+.mot-dia-pill{min-height:40px;padding:0 14px;border:1.5px solid #17140a;border-radius:999px;background:none;color:#17140a;font-size:14px;font-weight:700;cursor:pointer}
+#auth .hint a,#auth p a{color:var(--series);display:inline;padding:0}
+.hero .v.convite{font-family:var(--display);letter-spacing:-.02em}
+.novo-cartao summary{grid-column:1/-1}
+.tela-frase{display:grid;gap:4px;margin:0 0 14px}
+.tela-frase h2,.sobra-pl .tela-frase h2{margin:0;font-family:var(--display);font-size:clamp(28px,8.4vw,36px);line-height:1.1;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
+.tela-frase p{margin:0;font-size:15px;color:var(--ink-2)}
+#resumo>*,#resumo2{scroll-margin-top:76px}
+@media (max-width:700px){
+  .hero.banco.cheia{gap:10px;border-radius:0}
+  .rapidos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}
+  .rapidos::-webkit-scrollbar{display:none}
+  .rapidos button{flex:none;white-space:nowrap}
+  .rap-t{display:none}
+  .hero.banco.cheia .hero-frase{font-size:clamp(34px,10.5vw,44px);font-weight:700;line-height:1.1}
+  .hero.banco.cheia .hero-frase + .v{font-size:24px}
+  .hero.banco.cheia .hero-ver{margin-top:auto}
+  .hero.banco.cheia .hbar{margin-top:4px}
+  .hero.banco.cheia .estado{margin-bottom:14px}
+  #app[data-view="listas"][data-tab="l"] #listas:has(#lFiltros .tela-frase) #listaTitulo,
+  #app[data-view="listas"][data-tab="m"] #listas:has(#pane-m .tela-frase) #listaTitulo,
+  #app[data-view="listas"][data-tab="c"] #listas:has(#pane-c .tela-frase) #listaTitulo{display:none}
+  .panel.quick{background:var(--bg)}
 }
