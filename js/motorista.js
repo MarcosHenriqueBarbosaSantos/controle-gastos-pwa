@@ -101,6 +101,29 @@ export function ritmoAoVivo({ ganho, gastos, ms, liquidoDia = 0, horasDia = 8 })
   return { liquido, porHora: ok ? r2(ganho / h) : null, liquidoPorHora, minimo, veredito };
 }
 
+/** Horas digitadas de um jeito simples ("8", "8:30", "8h30" ou "8,5") em milissegundos. Devolve null se não der para entender. */
+export function lerHoras(txt) {
+  const s = String(txt ?? "").trim().toLowerCase().replace(/\s/g, "");
+  const m = s.match(/^(\d{1,2})(?:[:h](\d{1,2})?)?$/), d = s.match(/^(\d{1,2})[.,](\d{1,2})$/);
+  const h = m ? Number(m[1]) + (Number(m[2]) || 0) / 60 : d ? Number(`${d[1]}.${d[2]}`) : NaN;
+  if (m && Number(m[2]) >= 60) return null;
+  return h > 0 && h <= 24 ? Math.round(h * 3600000) : null;
+}
+
+/** O resultado de um dia lançado: quanto rendeu por hora, por km e por viagem, antes de salvar. */
+export function contaDoDia({ ganho = 0, gasto = 0, km = 0, viagens = 0, ms = 0 }) {
+  const horas = ms / 3600000, sobra = r2(ganho - gasto);
+  return { sobra, porHora: horas > 0 ? r2(ganho / horas) : null, porKm: km > 0 ? r2(ganho / km) : null, porViagem: viagens > 0 ? r2(ganho / viagens) : null, sobraPorHora: horas > 0 ? r2(sobra / horas) : null };
+}
+
+/** A frase do dia do motorista: uma resposta só, no alto da tela. `brl` formata o dinheiro. */
+export function fraseDoDia({ meta, ganhoHoje = 0, brl }) {
+  if (meta.coberto) return { titulo: "Suas contas do mês estão cobertas.", sub: "O que você rodar agora é sobra." };
+  if (ganhoHoje >= meta.brutoDia) return { titulo: "Meta de hoje batida.", sub: `Você fez ${brl(ganhoHoje)}. O que passar disso adianta os próximos dias.` };
+  if (ganhoHoje > 0) return { titulo: `Faltam ${brl(r2(meta.brutoDia - ganhoHoje))} para a meta de hoje.`, sub: `A meta do dia é ${brl(meta.brutoDia)}.` };
+  return { titulo: `Hoje, faça ${brl(meta.brutoDia)} para o mês fechar.`, sub: "Estimativa com as suas contas e o custo do carro." };
+}
+
 /**
  * "Vale a pena essa corrida?": antes de aceitar, o motorista digita o valor, os km (contando o caminho até o passageiro) e os minutos.
  * Desconta o que o carro gasta por km rodado e compara o que sobra por hora com o mínimo da meta do dia.

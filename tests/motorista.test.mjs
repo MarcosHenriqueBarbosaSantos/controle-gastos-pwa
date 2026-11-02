@@ -1,6 +1,31 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
+import { lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
+
+test("lançar o dia: entende as horas de um jeito simples", () => {
+  assert.equal(lerHoras("10"), 36000000);
+  assert.equal(lerHoras("10:00"), 36000000);
+  assert.equal(lerHoras("8:30"), 30600000);
+  assert.equal(lerHoras("8h30"), 30600000);
+  assert.equal(lerHoras("8h"), 28800000);
+  assert.equal(lerHoras("8,5"), 30600000);
+  for (const ruim of ["", "0", "25", "8:75", "abc"]) assert.equal(lerHoras(ruim), null);
+});
+
+test("lançar o dia: mostra por hora, por km e por viagem", () => {
+  assert.deepEqual(contaDoDia({ ganho: 418, km: 200, viagens: 13, ms: 36000000 }), { sobra: 418, porHora: 41.8, porKm: 2.09, porViagem: 32.15, sobraPorHora: 41.8 });
+  assert.equal(contaDoDia({ ganho: 418, gasto: 118, ms: 36000000 }).sobraPorHora, 30);
+  assert.deepEqual(contaDoDia({ ganho: 100 }), { sobra: 100, porHora: null, porKm: null, porViagem: null, sobraPorHora: null });
+});
+
+test("frase do dia: uma resposta para cada momento do motorista", () => {
+  const brl = (v) => `R$ ${v}`, meta = { coberto: false, brutoDia: 200 };
+  assert.equal(fraseDoDia({ meta: { coberto: true }, brl }).titulo, "Suas contas do mês estão cobertas.");
+  assert.equal(fraseDoDia({ meta, brl }).titulo, "Hoje, faça R$ 200 para o mês fechar.");
+  assert.equal(fraseDoDia({ meta, ganhoHoje: 150.5, brl }).titulo, "Faltam R$ 49.5 para a meta de hoje.");
+  assert.equal(fraseDoDia({ meta, ganhoHoje: 200, brl }).titulo, "Meta de hoje batida.");
+  assert.equal(fraseDoDia({ meta, ganhoHoje: 260, brl }).sub, "Você fez R$ 260. O que passar disso adianta os próximos dias.");
+});
 
 const h = (hh, mm = 0, dia = 5) => new Date(2026, 9, dia, hh, mm).getTime();   // outubro de 2026
 const turno = (ini, fim, apps, extra = {}) => ({ id: String(ini), ini, fim, apps, ...extra });

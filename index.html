@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Meus Gastos</title>
 <meta name="description" content="Controle de gastos pessoal: lance no dia a dia, acompanhe o custo do mês e a projeção, contas fixas e faturas de cartão.">
-<meta name="theme-color" content="#060e1d">
+<meta name="theme-color" content="#17140a">
 <script>/* Quem chega pela primeira vez ao endereço do app, pelo navegador, vê antes o site que explica o app (pasta site/).
    Quem já usa, quem instalou o app ou quem chega por um link com destino (demonstração, entrar, confirmação de e-mail) vai direto para o app. */
 try {
@@ -276,7 +276,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
   <button type="button" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>Início</button>
   <button type="button" data-nav="l"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Extrato</button>
   <button type="button" data-nav="mais" class="mais"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>Lançar</button>
-  <button type="button" data-nav="m"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2"/></svg>Planejar</button>
+  <button type="button" data-nav="m" data-slot="plano"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2"/></svg>Planejar</button>
   <button type="button" data-nav="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg>Mais</button>
 </nav>
 <div class="toast" id="toast" role="status" hidden></div>

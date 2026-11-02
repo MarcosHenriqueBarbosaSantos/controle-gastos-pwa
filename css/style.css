@@ -1579,8 +1579,38 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 }
 
 /* v102: tela da jornada do motorista (botão grande, cronômetro, Encerrar embaixo) e subtelas */
-.mot-jornada{display:grid;justify-items:center;gap:10px;text-align:center;padding:4px 0 8px}
-.mot-estado{margin:6px 0 0!important;font-size:15px!important;letter-spacing:.14em;text-transform:uppercase;font-weight:700;color:var(--muted)}
+.mot-jornada{display:grid;gap:10px;padding:4px 0 8px}
+.mot-dia{display:grid;gap:8px;margin:0 0 12px;padding:18px 18px 16px;border-radius:20px;background:#ffb81c;color:#17140a}
+.mot-dia small{font-size:13px;font-weight:600}
+.mot-dia-topo{display:flex;justify-content:space-between;align-items:center;gap:8px;min-height:36px} .mot-dia .olho{position:static;transform:none;color:#17140a;background:rgba(23,20,10,.12);border-color:transparent}
+.mot-dia h2,.wrap[data-tab="mot"] #listas .mot-dia h2{margin:4px 0 0;color:#17140a;font-family:var(--display);font-size:clamp(28px,8vw,34px);line-height:1.08;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+.mot-dia p{margin:0;font-size:15px;line-height:1.4}
+.mot-dia .mot-dia-regra{padding-top:8px;border-top:1px solid rgba(23,20,10,.25)}
+.mot-dia-bt{min-height:64px;margin-top:8px;border:0;border-radius:16px;background:#17140a;color:#ffb81c;font-size:20px;font-weight:700;cursor:pointer}
+.mot-dia-bt:active{transform:scale(.98)}
+.mot-dia-2{min-height:44px;border:0;background:none;color:#17140a;font-size:15px;font-weight:600;text-decoration:underline;text-underline-offset:3px;cursor:pointer}
+.mot-tres{display:grid;gap:8px;margin:0 0 12px;padding:14px;border-radius:16px;background:var(--surface);border:1px solid var(--border)}
+.mot-tres h3,.wrap[data-tab="mot"] #listas .mot-tres h3{margin:0;font-size:15px;color:var(--ink)}
+.mot-tres div{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px} .mot-tres p{display:grid;gap:2px;margin:0;min-width:0}
+.mot-tres p small{font-size:12.5px;color:var(--muted)} .mot-tres p b{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--series);letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
+.mot-tres>small{font-size:13px;color:var(--ink-2)}
+.mot-rap.gasto{text-align:center;min-height:64px}
+.mot-como{margin:0 0 10px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
+.mot-como summary{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 14px;font-size:14px;font-weight:600;cursor:pointer;list-style:none}
+.mot-como summary::-webkit-details-marker{display:none} .mot-como summary::after{content:"+";font-size:20px;color:var(--muted)} .mot-como[open] summary::after{content:"−"}
+.mot-como .mot-meta,.mot-como .mot-regra{margin:0;border:0;border-radius:0 0 14px 14px;background:none;color:var(--ink)}
+.mot-como .mot-meta .tbar,.wrap[data-tab="mot"] #listas .mot-como .tbar{background:var(--surface-2)} .wrap[data-tab="mot"] #listas .mot-como .tbar i{background:var(--series)}
+.mot-estado{display:inline-flex;align-items:center;gap:8px} .mot-estado .mot-pulso{display:inline-block}
+.hero.banco .hero-frase + .v{font-size:21px;font-weight:600;letter-spacing:-.02em}
+.hero-frase{margin:0;font-family:var(--display);font-size:clamp(26px,7.4vw,32px);line-height:1.08;font-weight:800;letter-spacing:-.02em;text-wrap:balance;color:inherit}
+.mot-topo{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+.mot-topo .mot-cron{font-size:24px}
+.mot-frase,.wrap[data-tab="mot"] #listas .mot-frase{margin:6px 0 0;font-family:var(--display);font-size:clamp(28px,8vw,34px);line-height:1.08;font-weight:800;letter-spacing:-.02em;text-wrap:balance}
+.mot-hora{margin:6px 0 2px;font-size:15px;color:var(--ink-2)} .mot-hora b{display:block;font-family:var(--mono);font-size:40px;line-height:1.1;font-weight:600;color:var(--series);letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.mot-barra{display:flex;min-height:48px;border-radius:12px;overflow:hidden;background:var(--series);color:#1b1403;font-weight:700;margin-top:6px} .mot-barra i{display:block;background:var(--surface-2);flex:none}
+.mot-barra span{display:flex;align-items:center;min-width:0;padding:0 12px;white-space:nowrap}
+.mot-barra-leg{font-size:13px;color:var(--ink-2)}
+.mot-estado{font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:700;color:var(--muted)}
 .mot-bola{width:min(46vw,184px);aspect-ratio:1;border-radius:50%;border:2px solid var(--border);background:var(--surface);color:var(--ink);font-size:26px;font-weight:700;letter-spacing:.05em;cursor:pointer;
   box-shadow:0 0 0 10px color-mix(in srgb,var(--series) 10%,transparent),var(--shadow);margin:10px 0 6px;display:grid;place-items:center;font-family:var(--display)}
 .mot-bola:active{transform:scale(.97)}
@@ -1682,6 +1712,7 @@ dialog:has(.tour) .dlg-barra{display:none}
 /* v105: pôr o mês em ordem */
 .ordem-card{position:relative;z-index:2;display:flex;align-items:center;gap:12px;width:calc(100% - 32px);text-align:left;margin:12px 16px 0;padding:14px 16px;min-height:56px;border:1px solid var(--border);border-radius:16px;background:var(--surface);box-shadow:var(--shadow);color:var(--ink);font:inherit;cursor:pointer}
 .ordem-card + .acoes-rap{margin-top:12px}
+.mot-dia + .acoes-rap,.mot-faixa + .acoes-rap,.mot-tres + .acoes-rap{margin:0}
 .ordem-card>svg:first-child{flex:none;width:24px;height:24px;color:var(--accent,#2563eb)}
 .ordem-card>span{flex:1;display:grid;gap:2px}
 .ordem-card>span>b{font-size:15px}

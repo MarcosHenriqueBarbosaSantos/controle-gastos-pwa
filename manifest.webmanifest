@@ -16,8 +16,8 @@
     "client_mode": "navigate-existing"
   },
   "prefer_related_applications": false,
-  "background_color": "#f3f5f8",
-  "theme_color": "#0b2545",
+  "background_color": "#17140a",
+  "theme_color": "#17140a",
   "icons": [
     {
       "src": "icons/icon-192.png",
