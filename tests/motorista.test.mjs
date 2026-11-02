@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
+import { categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
 
 test("perfil: quem roda de carro não vê apps de moto, e o inverso", () => {
   const nomes = (l) => l.map(([k]) => k);
@@ -38,6 +38,28 @@ test("desafio: as regras decidem o que é descontado, igual para todos", () => {
   assert.equal(totaisDoDesafio(membros, { gastos: true, carro: true })[0].sobra, 250);
   assert.equal(rankingDoDesafio(comGastos, "total")[0].apelido, "A");                                            // faturamento é sempre bruto
   assert.equal(rankingDoDesafio(comGastos, "sobra")[0].valor, 360);
+});
+
+test("categoria: cada jornada conta na sua, sem misturar", () => {
+  const perfil = { veiculo: "carro", apps: ["uber", "99"], categoria: "UberX" };
+  assert.deepEqual(categoriasDoPerfil(perfil), ["UberX", "Comfort", "Black", "99Pop", "99Comfort"]);
+  assert.deepEqual(categoriasDoPerfil({ veiculo: "moto", apps: ["ifood"] }), ["iFood"]);
+  assert.equal(categoriaDoTurno({ categoria: "Black" }, perfil), "Black");
+  assert.equal(categoriaDoTurno({}, perfil), "UberX");                    // jornada antiga usa a do perfil
+  const ts = [turno(h(8), h(12), { uber: 160 }, { categoria: "UberX", km: 80, viagens: 8, comb: 20 }), turno(h(14), h(16), { uber: 200 }, { categoria: "Black", km: 40, viagens: 3 })];
+  assert.deepEqual(resultadoPorCategoria(ts, "2026-10-05", "2026-10-05", {}, perfil).map((r) => [r.categoria, r.ganhoPorHora]), [["Black", 100], ["UberX", 40]]);
+  const linhas = placarDosDias(ts, ["2026-10-05", "2026-10-06"], carro, perfil);
+  assert.deepEqual(linhas.map((l) => [l.dia, l.categoria, l.ganho, l.gastos]), [["2026-10-05", "UberX", 160, 20], ["2026-10-05", "Black", 200, 0]]);
+  assert.ok(linhas[0].custoCarro > 0);
+  assert.deepEqual(placarDosDias(ts, ["2026-10-06"], carro, perfil), []);
+});
+
+test("desafio: duas categorias no mesmo dia contam como um dia só", () => {
+  const dias = [{ dia: "2026-10-05", ganho: 300, gastos: 0, km: 50, ms: 3600000 }, { dia: "2026-10-05", ganho: 200, gastos: 40, km: 50, ms: 3600000 }, { dia: "2026-10-06", ganho: 100, gastos: 10, km: 10, ms: 3600000 }];
+  const [t] = totaisDoDesafio([{ apelido: "A", dias }], { gastos: true });
+  assert.equal(t.diasRodados, 2);
+  assert.equal(t.melhorDia, 460);
+  assert.equal(t.diasSemGasto, 0);
 });
 
 test("desafio: rodar mais horas não garante vencer", () => {

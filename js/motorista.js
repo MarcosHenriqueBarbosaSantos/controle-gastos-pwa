@@ -9,6 +9,11 @@ export const APPS = [["uber", "Uber"], ["99", "99"], ["indrive", "inDrive"], ["u
 /** Quem roda de carro não precisa ver os apps de entrega, e quem roda de moto não precisa ver os de carro. */
 export const APPS_POR_VEICULO = { carro: ["uber", "99", "indrive", "particular", "outros"], moto: ["ubermoto", "99moto", "ifood", "99food", "rappi", "particular", "outros"] };
 export const CATEGORIAS_POR_VEICULO = { carro: ["UberX", "Comfort", "Black", "99Pop", "99Comfort", "inDrive", "Particular"], moto: ["Uber Moto", "99Moto", "iFood", "99Food", "Rappi", "Particular"] };
+const CATEGORIAS_POR_APP = { uber: ["UberX", "Comfort", "Black"], 99: ["99Pop", "99Comfort"], indrive: ["inDrive"], particular: ["Particular"], ubermoto: ["Uber Moto"], "99moto": ["99Moto"], ifood: ["iFood"], "99food": ["99Food"], rappi: ["Rappi"] };
+/** As categorias em que a pessoa pode rodar, pelos apps que ela escolheu. */
+export function categoriasDoPerfil(perfil) { return appsDoPerfil(perfil).flatMap(([k]) => CATEGORIAS_POR_APP[k] || []); }
+/** A categoria de um turno. Turno antigo, de antes de a categoria existir, usa a do perfil. */
+export const categoriaDoTurno = (t, perfil) => t.categoria || perfil?.categoria || "";
 /** Os apps que aparecem nos formulários. `usados` mantém visíveis os que já têm valor, para a edição de um turno antigo não perder nada. */
 export function appsDoPerfil(perfil, usados = []) {
   const base = perfil?.veiculo ? (perfil.apps?.length ? perfil.apps : APPS_POR_VEICULO[perfil.veiculo] || []) : APPS.map(([k]) => k);
@@ -124,6 +129,24 @@ export function contaDoDia({ ganho = 0, gasto = 0, km = 0, viagens = 0, ms = 0 }
   return { sobra, porHora: horas > 0 ? r2(ganho / horas) : null, porKm: km > 0 ? r2(ganho / km) : null, porViagem: viagens > 0 ? r2(ganho / viagens) : null, sobraPorHora: horas > 0 ? r2(sobra / horas) : null };
 }
 
+/** O resultado separado por categoria, da que rende mais por hora para a que rende menos. */
+export function resultadoPorCategoria(turnos, de, ate, veic, perfil) {
+  const nomes = [...new Set((turnos || []).map((t) => categoriaDoTurno(t, perfil)).filter(Boolean))];
+  return nomes.map((categoria) => ({ categoria, ...resumoTurnos(turnos.filter((t) => categoriaDoTurno(t, perfil) === categoria), de, ate, veic) }))
+    .filter((r) => r.n).sort((a, b) => (b.ganhoPorHora ?? 0) - (a.ganhoPorHora ?? 0));
+}
+/** As linhas do placar: uma por dia e categoria, com os totais que saem da conta da pessoa quando ela participa de um desafio ou do ranking. */
+export function placarDosDias(turnos, dias, veic, perfil) {
+  const porKm = custoTotalPorKm(veic) || 0;
+  return dias.flatMap((dia) => {
+    const doDia = (turnos || []).filter((t) => t.fim && isoLocal(t.ini) === dia);
+    return [...new Set(doDia.map((t) => categoriaDoTurno(t, perfil)))].map((categoria) => {
+      const r = resumoTurnos(doDia.filter((t) => categoriaDoTurno(t, perfil) === categoria), dia, dia, veic);
+      return { dia, categoria, ganho: r.ganho, gastos: r.comb, custoCarro: r2(r.km * porKm), km: r.km, ms: r.ms, viagens: r.viagens, lucro: r.lucro };
+    });
+  });
+}
+
 /* ---------- Desafios entre amigos ---------- */
 export const CRITERIOS_DESAFIO = [["hora", "Por hora"], ["km", "Por km"], ["sobra", "O que sobrou"], ["total", "Faturamento"], ["dia", "Melhor dia"]];
 /** Como se decide quem vence. Geral soma os pontos de por hora, por km e o que sobrou: rodar mais horas, sozinho, não ganha. */
@@ -147,7 +170,13 @@ export function regrasEmTexto(regras = {}) {
  */
 export function totaisDoDesafio(membros, regras = {}) {
   return (membros || []).map((m) => {
-    const dias = (m.dias || []).map((d) => {
+    // Quem rodou em duas categorias no mesmo dia tem duas linhas: o dia conta uma vez só.
+    const porDia = new Map();
+    (m.dias || []).forEach((d, i) => {
+      const k = d.dia ?? i, a = porDia.get(k);
+      porDia.set(k, a ? { ...a, ...Object.fromEntries(["ganho", "gastos", "custoCarro", "km", "ms", "viagens"].map((c) => [c, (Number(a[c]) || 0) + (Number(d[c]) || 0)])) } : d);
+    });
+    const dias = [...porDia.values()].map((d) => {
       const ganho = Number(d.ganho) || 0, gastos = Number(d.gastos) || 0, custoCarro = Number(d.custoCarro) || 0;
       return { ganho, gastos, custoCarro, km: Number(d.km) || 0, ms: Number(d.ms) || 0, viagens: Number(d.viagens) || 0, sobra: ganho - (regras.gastos ? gastos : 0) - (regras.carro ? custoCarro : 0) };
     });

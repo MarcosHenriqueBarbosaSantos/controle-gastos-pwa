@@ -40,6 +40,7 @@ create index if not exists desafio_membros_user on public.desafio_membros (user_
 create table if not exists public.desafio_placar (
   user_id    uuid not null references auth.users (id) on delete cascade,
   dia        date not null,
+  categoria  text not null default '' check (char_length(categoria) <= 20),   -- quem roda em duas categorias no dia tem uma linha para cada
   ganho      numeric(10,2) not null default 0 check (ganho >= 0),
   gastos     numeric(10,2) not null default 0 check (gastos >= 0),        -- combustível, pedágio e o que mais foi lançado
   custo_carro numeric(10,2) not null default 0 check (custo_carro >= 0),  -- km do dia vezes o custo do carro
@@ -48,7 +49,7 @@ create table if not exists public.desafio_placar (
   viagens    integer not null default 0 check (viagens >= 0),
   lucro      numeric(10,2) not null default 0,
   atualizado timestamptz not null default now(),
-  primary key (user_id, dia)
+  primary key (user_id, dia, categoria)
 );
 create table if not exists public.ranking_perfis (
   user_id    uuid primary key references auth.users (id) on delete cascade,
@@ -154,9 +155,9 @@ end $$;
 create or replace function public.ranking_geral(crit text, cat text default '', periodo text default 'semana')
 returns json language sql stable security definer set search_path = '' as $$
   with base as (
-    select r.user_id, r.apelido, r.carro, r.categoria, sum(p.ganho) as ganho, sum(p.km) as km, sum(p.ms) as ms
+    select r.user_id, r.apelido, r.carro, coalesce(nullif(cat, ''), r.categoria) as categoria, sum(p.ganho) as ganho, sum(p.km) as km, sum(p.ms) as ms
     from public.ranking_perfis r join public.desafio_placar p on p.user_id = r.user_id
-    where p.dia between public.desafio_hoje() - (case periodo when 'dia' then 0 when 'mes' then 29 else 6 end) and public.desafio_hoje() and (coalesce(cat, '') = '' or r.categoria = cat)
+    where p.dia between public.desafio_hoje() - (case periodo when 'dia' then 0 when 'mes' then 29 else 6 end) and public.desafio_hoje() and (coalesce(cat, '') = '' or p.categoria = cat)
     group by r.user_id, r.apelido, r.carro, r.categoria
     having sum(p.ms) >= (case periodo when 'dia' then 2 when 'mes' then 30 else 10 end) * 3600000 and sum(p.ganho) / (sum(p.ms) / 3600000.0) <= 200
   ), conta as (
@@ -171,18 +172,28 @@ returns json language sql stable security definer set search_path = '' as $$
                        from lista l where l.pos <= 50 or l.user_id = auth.uid()), '[]'::json));
 $$;
 
--- Guarda só os totais do dia, e só de quem está em um desafio que cobre aquele dia.
-create or replace function public.placar_enviar(d date, g numeric, k numeric, m bigint, v integer, l numeric, gs numeric default 0, cc numeric default 0)
+-- Guarda só os totais de cada dia, por categoria, e só de quem está no ranking ou em um desafio que cobre aquele dia.
+-- Substitui os dias enviados de uma vez: uma jornada apagada ou com a categoria corrigida não deixa sobra no placar.
+create or replace function public.placar_enviar(dias date[], linhas jsonb)
 returns boolean language plpgsql security definer set search_path = '' as $$
-declare eu uuid := auth.uid();
+declare eu uuid := auth.uid(); x jsonb; d date; g numeric; gs numeric; cc numeric; k numeric; m bigint; v integer; l numeric; no_ranking boolean; gravou boolean := false;
 begin
   if eu is null then raise exception 'sem_login'; end if;
-  if d > public.desafio_hoje() + 1 or g < 0 or g > 20000 or k < 0 or k > 3000 or m < 0 or m > 86400000 or v < 0 or v > 500 or abs(l) > 20000 or gs < 0 or gs > 20000 or cc < 0 or cc > 20000 then raise exception 'valor_invalido'; end if;
-  if not exists (select 1 from public.desafio_membros x join public.desafios y on y.id = x.desafio_id where x.user_id = eu and d between y.inicio and y.fim)
-     and not exists (select 1 from public.ranking_perfis r where r.user_id = eu) then return false; end if;
-  insert into public.desafio_placar (user_id, dia, ganho, gastos, custo_carro, km, ms, viagens, lucro) values (eu, d, g, gs, cc, k, m, v, l)
-    on conflict (user_id, dia) do update set ganho = excluded.ganho, gastos = excluded.gastos, custo_carro = excluded.custo_carro, km = excluded.km, ms = excluded.ms, viagens = excluded.viagens, lucro = excluded.lucro, atualizado = now();
-  return true;
+  if coalesce(array_length(dias, 1), 0) > 40 or jsonb_array_length(coalesce(linhas, '[]'::jsonb)) > 400 then raise exception 'valor_invalido'; end if;
+  no_ranking := exists (select 1 from public.ranking_perfis r where r.user_id = eu);
+  delete from public.desafio_placar p where p.user_id = eu and p.dia = any (dias);
+  for x in select * from jsonb_array_elements(coalesce(linhas, '[]'::jsonb)) loop
+    d := (x ->> 'dia')::date; g := coalesce((x ->> 'ganho')::numeric, 0); gs := coalesce((x ->> 'gastos')::numeric, 0); cc := coalesce((x ->> 'custoCarro')::numeric, 0);
+    k := coalesce((x ->> 'km')::numeric, 0); m := coalesce((x ->> 'ms')::numeric, 0)::bigint; v := coalesce((x ->> 'viagens')::numeric, 0)::integer; l := coalesce((x ->> 'lucro')::numeric, 0);
+    if d > public.desafio_hoje() + 1 or g < 0 or g > 20000 or k < 0 or k > 3000 or m < 0 or m > 86400000 or v < 0 or v > 500 or abs(l) > 20000 or gs < 0 or gs > 20000 or cc < 0 or cc > 20000 then raise exception 'valor_invalido'; end if;
+    continue when not d = any (dias);
+    continue when not no_ranking and not exists (select 1 from public.desafio_membros y join public.desafios z on z.id = y.desafio_id where y.user_id = eu and d between z.inicio and z.fim);
+    insert into public.desafio_placar (user_id, dia, categoria, ganho, gastos, custo_carro, km, ms, viagens, lucro)
+      values (eu, d, left(coalesce(x ->> 'categoria', ''), 20), g, gs, cc, k, m, v, l)
+      on conflict (user_id, dia, categoria) do update set ganho = excluded.ganho, gastos = excluded.gastos, custo_carro = excluded.custo_carro, km = excluded.km, ms = excluded.ms, viagens = excluded.viagens, lucro = excluded.lucro, atualizado = now();
+    gravou := true;
+  end loop;
+  return gravou;
 end $$;
 
 -- Os desafios da pessoa, com os totais de cada participante no período. Quem não participa não vê nada.
@@ -201,8 +212,8 @@ returns json language sql stable security definer set search_path = '' as $$
 $$;
 
 revoke all on function public.desafio_criar(text, text, text, text, integer, jsonb), public.desafio_ver(text), public.desafio_entrar(text, text, text, text, boolean), public.desafio_sair(uuid),
-  public.placar_enviar(date, numeric, numeric, bigint, integer, numeric, numeric, numeric), public.desafios_meus(),
+  public.placar_enviar(date[], jsonb), public.desafios_meus(),
   public.ranking_entrar(text, text, text), public.ranking_sair(), public.ranking_geral(text, text, text) from public, anon;
 grant execute on function public.desafio_criar(text, text, text, text, integer, jsonb), public.desafio_ver(text), public.desafio_entrar(text, text, text, text, boolean), public.desafio_sair(uuid),
-  public.placar_enviar(date, numeric, numeric, bigint, integer, numeric, numeric, numeric), public.desafios_meus(),
+  public.placar_enviar(date[], jsonb), public.desafios_meus(),
   public.ranking_entrar(text, text, text), public.ranking_sair(), public.ranking_geral(text, text, text) to authenticated, service_role;

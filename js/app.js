@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -1129,6 +1129,7 @@ function htmlMotoristaIni() {
 function ligaMotoristaIni() {
   if ($("motIniDia")) $("motIniDia").onclick = () => { iniciarJornada(); motoristaTela(); };
   $("resumo").querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra(b.dataset.motSub); }));
+  $("resumo").querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
   $("resumo").querySelectorAll("[data-mot-ini]").forEach((b) => (b.onclick = () => {
     if (b.dataset.motIni === "dispensar") { S.prefs.motoristaOculto = true; salvaPrefs(); return render(); }
     motoristaTela();
@@ -4106,7 +4107,7 @@ function meuVeiculo() {
    gastos do turno (combustível, pedágio...) viram gastos no extrato, então o saldo do mês já conta tudo. Os turnos ficam nas preferências da conta. */
 const motDados = () => {
   const m = S.prefs.motorista || {}, a = m.ativo;
-  return { ativo: a?.ini ? { ini: Number(a.ini), parcial: Math.max(0, Number(a.parcial) || 0), antes: Array.isArray(a.antes) ? a.antes : [], pausado: Math.max(0, Number(a.pausado) || 0), pausaIni: Number(a.pausaIni) > 0 ? Number(a.pausaIni) : null } : null,
+  return { ativo: a?.ini ? { ini: Number(a.ini), parcial: Math.max(0, Number(a.parcial) || 0), antes: Array.isArray(a.antes) ? a.antes : [], pausado: Math.max(0, Number(a.pausado) || 0), pausaIni: Number(a.pausaIni) > 0 ? Number(a.pausaIni) : null, categoria: String(a.categoria || "") } : null,
     turnos: Array.isArray(m.turnos) ? m.turnos : [], diasSemana: Math.min(7, Math.max(1, Math.round(Number(m.diasSemana)) || 6)),
     horasDia: Math.min(16, Math.max(1, Math.round(Number(m.horasDia)) || 8)), extra: Math.max(0, Number(m.extra) || 0), perfil: m.perfil?.veiculo ? m.perfil : null };
 };
@@ -4195,6 +4196,10 @@ function diaMotorista(iso) {
   if (prox) $("diaProx").onclick = () => diaMotorista(prox);
   document.querySelectorAll("#dlgBody [data-dia-edit]").forEach((b) => (b.onclick = () => { $("dlg").close(); motEntra("edit-" + b.dataset.diaEdit); }));
 }
+function blocoPorCategoria(m, de, ate, veic) {
+  const l = resultadoPorCategoria(m.turnos, de, ate, veic, m.perfil);
+  return l.length > 1 ? `<h4 class="mot-h">Por categoria</h4><ul class="itens mot-cats">${l.map((r) => `<li><span>${esc(r.categoria)}</span><b>${r.ganhoPorHora === null || r.ms < 1800000 ? "—" : `${brl(r.ganhoPorHora)}/h`}</b><b>${r.ganhoPorKm === null ? "—" : `${brl(r.ganhoPorKm)}/km`}</b></li>`).join("")}</ul>` : "";
+}
 function blocoPorApp(turnos, de, ate) {
   const apps = ganhoPorApp(turnos, de, ate), nomeApp = Object.fromEntries(APPS), melhor = melhorDiaDaSemana(turnos, "0000-01-01", ate);
   const DIAS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
@@ -4220,11 +4225,12 @@ function painelDoMotorista() {
 /** O cartão do dia: uma frase, a regra por km e o botão de começar a jornada. Vale para o Início e para a tela Jornada. */
 function htmlFraseMot({ hj, doDia, meta, alc, ritmo, regra }, idBotao, comOlho = false) {
   const f = fraseDoDia({ meta, ganhoHoje: doDia.ganho, brl }), acima = alc.nivel === "fora" && ritmo;
-  const comemora = !meta.coberto && doDia.ganho >= meta.brutoDia && S.metaBatida !== hj;
+  const comemora = !meta.coberto && doDia.ganho >= meta.brutoDia && S.metaBatida !== hj, cats_ = categoriasDoPerfil(motDados().perfil), catAtual = categoriaAtual();
   if (comemora) { S.metaBatida = hj; vibra(40); }
   return `<section class="mot-dia${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${DIAS_SEMANA[diaDaSemana(hj)]}, ${ddmm(hj)}</small>${comOlho ? `<button type="button" class="olho" id="olho" aria-pressed="${valoresOcultos()}" aria-label="${valoresOcultos() ? "Mostrar os valores" : "Esconder os valores"}">${ico(valoresOcultos() ? "olhoFechado" : "olho")}</button>` : ""}</div><h2 class="ocultavel">${f.titulo}</h2>
     <p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>
     ${regra ? `<p class="mot-dia-regra">Aceite corridas a partir de <b>${brl(regra.minimo)} por km</b>.</p>` : ""}
+    ${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${cats_.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}</div>` : ""}
     <button class="mot-dia-bt" type="button" id="${idBotao}">Iniciar jornada</button>
     <button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button></section>`;
 }
@@ -4242,7 +4248,7 @@ function panePerfilMot(host) {
     const opcoes = veiculo ? appsDoPerfil({ veiculo, apps: APPS_POR_VEICULO[veiculo] }) : [];
     host.innerHTML = `<div id="motRoot" class="mot-perfil"><h2 class="mot-frase">Você roda de quê?</h2><p class="mot-ver">O app mostra só o que faz sentido para você. Dá para mudar quando quiser.</p>
       <div class="mot-escolha">${[["carro", "Carro"], ["moto", "Moto"]].map(([k, n]) => `<button type="button" data-veic="${k}" aria-pressed="${veiculo === k}">${n}</button>`).join("")}</div>
-      ${veiculo ? `<h3 class="mot-h">Em quais apps?</h3><div class="mot-apps">${opcoes.map(([k, n]) => `<button type="button" data-papp="${k}" aria-pressed="${apps.includes(k)}">${n}</button>`).join("")}</div>
+      ${veiculo ? `<h3 class="mot-h">Em quais apps?</h3><div class="mot-escolhe-apps">${opcoes.map(([k, n]) => `<button type="button" data-papp="${k}" aria-pressed="${apps.includes(k)}">${n}</button>`).join("")}</div>
       <button class="mot-dia-bt" type="button" id="perfilOk">Pronto</button>` : ""}</div>`;
     host.querySelectorAll("[data-veic]").forEach((b) => (b.onclick = () => { veiculo = b.dataset.veic; apps = APPS_POR_VEICULO[veiculo].filter((k) => k !== "outros"); desenha(); }));
     host.querySelectorAll("[data-papp]").forEach((b) => (b.onclick = () => { const k = b.dataset.papp; apps = apps.includes(k) ? apps.filter((x) => x !== k) : [...apps, k]; desenha(); }));
@@ -4256,11 +4262,8 @@ function panePerfilMot(host) {
 function temConviteGuardado() { try { return Boolean(localStorage.getItem("cg-desafio-cod")); } catch { return false; } }
 let dsPrevia = null, dsRegras = { gastos: true, carro: false, vence: "km" }, dsCritDe = "", dsLista = null, dsAberto = "", dsCrit = "hora", dsErro = "", dsVista = "grupos", rkCrit = "hora", rkCat = "", rkPer = "semana", rkDados = null, dsDias = 7;
 async function enviaPlacar(dias) {
-  const m = motDados(), v = S.prefs.veiculo || {}, porKm = custoTotalPorKm(v) || 0;
-  for (const dia of dias) {
-    const r = resumoTurnos(m.turnos, dia, dia, v);
-    if (r.n) try { await S.store.placarEnviar?.({ dia, ganho: r.ganho, gastos: r.comb, custoCarro: round2(r.km * porKm), km: r.km, ms: r.ms, viagens: r.viagens, lucro: r.lucro }); } catch { /* sem internet: vai de novo ao abrir os desafios */ }
-  }
+  const m = motDados();
+  try { await S.store.placarEnviar?.(dias, placarDosDias(m.turnos, dias, S.prefs.veiculo || {}, m.perfil)); } catch { /* sem internet: vai de novo ao abrir os desafios */ }
 }
 const ERROS_DESAFIO = { codigo_invalido: "Esse código não existe. Confira com quem convidou.", encerrado: "Esse desafio já terminou.", cheio: "Esse desafio já está cheio.", falta_nome: "Preencha o nome e o apelido.", limite: "Você já tem 5 desafios em andamento." };
 const erroDoDesafio = (e) => Object.entries(ERROS_DESAFIO).find(([k]) => String(e?.message).includes(k))?.[1] || "Não deu para falar com o servidor. Tente de novo.";
@@ -4335,7 +4338,7 @@ function paneDesafios(host) {
   const eu = atual?.membros.find((x) => x.eu), form = `
     <label class="f">Seu apelido<input class="in" id="dsApelido" maxlength="24" placeholder="ex.: Falcão" value="${esc(eu?.apelido || S.prefs.motorista?.apelido || "")}"></label>
     <label class="f">Veículo<input class="in" id="dsCarro" maxlength="30" value="${esc(eu?.carro || nomeCarro)}"></label>
-    <label class="f">Categoria<select class="in" id="dsCat">${CATEGORIAS_POR_VEICULO[veiculo].map((k) => `<option${k === eu?.categoria ? " selected" : ""}>${k}</option>`).join("")}</select></label>`;
+    <label class="f">Categoria<select class="in" id="dsCat">${CATEGORIAS_POR_VEICULO[veiculo].map((k) => `<option${k === (eu?.categoria || motDados().perfil?.categoria) ? " selected" : ""}>${k}</option>`).join("")}</select></label>`;
   const novo = `<section class="ds-bloco"><h3 class="mot-h" style="margin-top:0">Entrar com um código</h3>${form}
       <label class="f">Código do desafio<input class="in ds-cod" id="dsCodigo" maxlength="8" autocapitalize="characters" value="${esc(codigoGuardado)}" placeholder="ex.: A1B2C3D4"></label>
       <button class="btn primary" type="button" id="dsEntrar">Ver as regras do desafio</button>
@@ -4398,6 +4401,7 @@ function paneLancarDia(host) {
     <form id="mdForm" class="dlg-form" autocomplete="off">
       <label class="f">Dia<input class="in" type="date" id="mdData" value="${hj}" max="${hj}"></label>
       <label class="f">Aplicativo<select class="in" id="mdApp">${appsDoPerfil(motDados().perfil).map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</select></label>
+      ${campoCategoria("mdCat", categoriaAtual())}
       <label class="f">Quanto ganhou (R$)<input class="in money" id="mdValor" inputmode="decimal" placeholder="0,00"></label>
       <label class="f">Viagens<input class="in" id="mdViag" inputmode="numeric" maxlength="3" placeholder="ex.: 13"></label>
       <label class="f">Km rodados<input class="in" id="mdKm" inputmode="decimal" maxlength="6" placeholder="ex.: 200"></label>
@@ -4427,16 +4431,21 @@ function paneLancarDia(host) {
     let criados = [];
     if (!(await grava(async () => { criados = await S.store.addLancamentos(rows); }))) return;
     criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) }));
-    const turno = { id: crypto.randomUUID(), ini, fim: ini + v.ms, pausado: 0, apps: { [app]: round2(v.ganho) }, gastos: {}, viagens: v.viagens, km: round2(v.km), comb: round2(v.gasto), rid: criados.find((g) => g.tipo === "Receita")?.id || null, cids: criados.filter((g) => g.tipo === "Despesa").map((g) => g.id) };
-    const mm = motDados(), r = contaDoDia(v); gravaMot({ ...mm, turnos: [...mm.turnos, turno].sort((a, b) => a.ini - b.ini) });
+    const categoria = $("mdCat")?.value || "";
+    const turno = { id: crypto.randomUUID(), categoria, ini, fim: ini + v.ms, pausado: 0, apps: { [app]: round2(v.ganho) }, gastos: {}, viagens: v.viagens, km: round2(v.km), comb: round2(v.gasto), rid: criados.find((g) => g.tipo === "Receita")?.id || null, cids: criados.filter((g) => g.tipo === "Despesa").map((g) => g.id) };
+    const mm = motDados(), r = contaDoDia(v); gravaMot({ ...mm, turnos: [...mm.turnos, turno].sort((a, b) => a.ini - b.ini), perfil: mm.perfil ? { ...mm.perfil, categoria: categoria || mm.perfil.categoria } : null });
     enviaPlacar([dia]);
     motSai(); vibra(30);
     toast(`Dia salvo: ${brl(r.porHora)} por hora${r.porKm === null ? "" : ` e ${brl(r.porKm)} por km`}.`);
   });
 }
+/** A última categoria usada, ou a primeira dos apps da pessoa. */
+function categoriaAtual() { const p = motDados().perfil, l = categoriasDoPerfil(p); return l.includes(p?.categoria) ? p.categoria : l[0] || ""; }
+function escolheCategoria(categoria) { const m = motDados(); if (m.perfil) gravaMot({ ...m, perfil: { ...m.perfil, categoria } }); render(); }
+const campoCategoria = (id, atual) => { const l = [...new Set([...categoriasDoPerfil(motDados().perfil), ...(atual ? [atual] : [])])]; return l.length ? `<label class="f wide">Categoria<select class="in" id="${id}">${l.map((k) => `<option${k === atual ? " selected" : ""}>${esc(k)}</option>`).join("")}</select></label>` : ""; };
 function iniciarJornada() {
   const ini = Date.now();
-  gravaMot({ ...motDados(), ativo: { ini, parcial: 0, antes: S.data.lancamentos.filter((x) => x.data >= isoLocal(ini)).map((x) => x.id), pausado: 0, pausaIni: null } });
+  gravaMot({ ...motDados(), ativo: { ini, categoria: categoriaAtual(), parcial: 0, antes: S.data.lancamentos.filter((x) => x.data >= isoLocal(ini)).map((x) => x.id), pausado: 0, pausaIni: null } });
   vibra(30);
 }
 function paneMot() {
@@ -4476,7 +4485,7 @@ function paneMot() {
     const a = m.ativo, pausada = Boolean(a.pausaIni), gastosTot = gastosDaJornada(a);
     host.innerHTML = `<div id="motRoot" class="mot-jornada${pausada ? " em-pausa" : ""}">
       <div class="mot-topo"><span class="mot-estado">${pausada ? "" : `<i class="mot-pulso" aria-hidden="true"></i>`}${pausada ? "Jornada pausada" : "Em jornada"}</span><b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b></div>
-      <span class="mot-cron-leg">Começou às ${hhmm(a.ini)}</span>
+      <span class="mot-cron-leg">Começou às ${hhmm(a.ini)}${a.categoria ? ` · ${esc(a.categoria)}` : ""}</span>
       <div id="motVivo" class="mot-vivo-box">${vivo()}</div>
       <div class="mot-rapidos">
         <button class="mot-rap gasto" type="button" data-mot-gasto="Combustível"><b>Abastecer</b></button>
@@ -4543,6 +4552,7 @@ function paneMot() {
       ${tile("Viagens", String(r.viagens))}${tile("Ganho por viagem", tracos(r.ganhoPorViagem, brl))}
     </div>
     ${grafico7}
+    ${blocoPorCategoria(m, de, hj, veicD)}
     ${blocoPorApp(m.turnos, de, hj)}
     ${temCarro ? `<p class="hint">O lucro já desconta o custo do carro, ${brl(custoDoVeiculo(veicD)?.total || 0)} por mês, do <b>Meu carro ou moto</b>.</p>`
       : `<p class="hint">Por enquanto o lucro desconta só os gastos que você lança no turno. Preencha o <b>Meu carro ou moto</b>, com os km por mês, e o app desconta o custo real do carro. <button class="link" type="button" id="motVeic">Preencher agora</button></p>`}
@@ -4553,6 +4563,7 @@ function paneMot() {
   host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
   host.querySelectorAll("[data-per]").forEach((b) => (b.onclick = () => { motPer = b.dataset.per; render(); }));
   $("motIniciar").onclick = () => { iniciarJornada(); render(); scrollTo(0, 0); };
+  host.querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
   if ($("motVeic")) $("motVeic").onclick = () => meuVeiculo();
   if ($("motImagem")) $("motImagem").onclick = () => compartilharResultadoMot(motPer === "dia" ? "Hoje" : motPer === "semana" ? "Últimos 7 dias" : `${nomeMes(mes)[0].toUpperCase()}${nomeMes(mes).slice(1)}`, r);
   host.querySelectorAll("[data-medit]").forEach((b) => (b.onclick = () => motEntra("edit-" + b.dataset.medit)));
@@ -4560,7 +4571,7 @@ function paneMot() {
   host.querySelectorAll("[data-mdel]").forEach((b) => armDelete(b, async () => {
     const mm = motDados(), t = mm.turnos.find((x) => x.id === b.dataset.mdel); if (!t) return;
     for (const id of [t.rid, ...(t.cids || [t.cid])].filter(Boolean)) if (lancPorId(id)) await apagaLancamento(id);
-    gravaMot({ ...mm, turnos: mm.turnos.filter((x) => x.id !== t.id) }); render(); toast("Turno apagado, junto com a entrada e os gastos dele."); render();
+    gravaMot({ ...mm, turnos: mm.turnos.filter((x) => x.id !== t.id) }); enviaPlacar([isoLocal(t.ini)]); render(); toast("Turno apagado, junto com a entrada e os gastos dele."); render();
   }, "Toque de novo"));
 }
 /** Ao parar o turno: confere o que foi lançado e cria a entrada e os gastos no extrato. */
@@ -4592,6 +4603,7 @@ function paneMotSub(host) {
     const hm = (ms) => `${pad(new Date(ms).getHours())}:${pad(new Date(ms).getMinutes())}`;
     host.innerHTML = topo("Editar o turno", `Turno de ${ddmm(isoLocal(t.ini))}. Corrija o que faltou ou errou; o ganho também muda no extrato. Os gastos lançados nesse turno ficam como estão (mude-os no Extrato).`) +
       `<form id="meForm" class="dlg-form" autocomplete="off">
+      ${campoCategoria("meCat", categoriaDoTurno(t, motDados().perfil))}
       ${appsDoPerfil(motDados().perfil, Object.keys(t.apps || {})).map(([k, n]) => `<label class="f">${n} (R$)<input class="in money" data-eapp="${k}" inputmode="decimal" placeholder="0,00" value="${t.apps?.[k] > 0 ? esc(String(t.apps[k]).replace(".", ",")) : ""}"></label>`).join("")}
       <p class="hint wide mt-tot" id="meTot" aria-live="polite"></p>
       <label class="f">Viagens<input class="in" id="meViag" inputmode="numeric" maxlength="3" placeholder="ex.: 12" value="${Number(t.viagens) > 0 ? t.viagens : ""}"></label>
@@ -4621,7 +4633,8 @@ function paneMotSub(host) {
       if (ganho > 0 && l) { const patch = { valor: ganho, descricao: desc, data: dia }; if (!(await grava(() => S.store.updateLancamento(l.id, patch)))) return; Object.assign(l, patch); }
       else if (ganho > 0) { let criados = []; if (!(await grava(async () => { criados = await S.store.addLancamentos([{ data: dia, import_key: null, cartao_id: null, parcelas: 1, descricao: desc, tipo: "Receita", categoria: catR, forma: "", valor: ganho }]); }))) return; criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) })); rid = criados[0]?.id || null; }
       else if (l) { if (!(await grava(() => S.store.deleteLancamento(l.id)))) return; S.data.lancamentos = S.data.lancamentos.filter((z) => z.id !== l.id); rid = null; }
-      const mm = motDados(); gravaMot({ ...mm, turnos: mm.turnos.map((x) => (x.id === t.id ? { ...x, ini: a.getTime(), fim: b.getTime(), apps, viagens, km: round2(km), rid } : x)) });
+      const mm = motDados(); gravaMot({ ...mm, turnos: mm.turnos.map((x) => (x.id === t.id ? { ...x, categoria: $("meCat")?.value || x.categoria || "", ini: a.getTime(), fim: b.getTime(), apps, viagens, km: round2(km), rid } : x)) });
+      enviaPlacar([...new Set([isoLocal(t.ini), isoLocal(a.getTime())])]);
       motSai(); toast("Turno atualizado.");
     });
     return;
@@ -4654,6 +4667,7 @@ function paneFechar(host) {
     <form id="mtForm" class="dlg-form" autocomplete="off">
       ${appsDoPerfil(motDados().perfil).map(([k, n]) => `<label class="f">${n} (R$)<input class="in money" data-app="${k}" inputmode="decimal" placeholder="0,00"></label>`).join("")}
       <p class="hint wide mt-tot" id="mtTot" aria-live="polite">Total do dia: <b>R$ 0,00</b></p>
+      ${campoCategoria("mtCat", m.ativo.categoria || categoriaAtual())}
       <label class="f">Viagens<input class="in" id="mtViag" inputmode="numeric" maxlength="3" placeholder="ex.: 12"></label>
       <label class="f">Km rodados<input class="in" id="mtKm" inputmode="decimal" maxlength="6" placeholder="ex.: 140"></label>
       <label class="f">Começou às<input class="in" type="time" id="mtDe" value="${tempo(ini)}"></label>
@@ -4686,7 +4700,7 @@ function paneFechar(host) {
     let criados = [];
     if (rows.length && !(await grava(async () => { criados = await S.store.addLancamentos(rows); }))) return;
     criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) }));
-    const turno = { id: crypto.randomUUID(), ini: i2, fim: f2, pausado: Math.round(pausado), apps, gastos, viagens, km: round2(km), comb, rid: criados.find((g) => g.tipo === "Receita")?.id || null, cids: criados.filter((g) => g.tipo === "Despesa").map((g) => g.id) };
+    const turno = { id: crypto.randomUUID(), categoria: $("mtCat")?.value || m.ativo.categoria || "", ini: i2, fim: f2, pausado: Math.round(pausado), apps, gastos, viagens, km: round2(km), comb, rid: criados.find((g) => g.tipo === "Receita")?.id || null, cids: criados.filter((g) => g.tipo === "Despesa").map((g) => g.id) };
     const mm = motDados(); gravaMot({ ...mm, ativo: null, turnos: [...mm.turnos, turno] });
     enviaPlacar([dia]);
     motSai(); vibra(30);

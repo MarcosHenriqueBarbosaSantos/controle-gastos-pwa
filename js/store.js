@@ -18,7 +18,7 @@
 //   sugestoesEnviar(row) / sugestoesMinhas()  → pedidos de melhoria e correção (supabase/sugestoes.sql); na demonstração: erro "demo"
 //   casalMeu() / casalConvidar(email) / casalResponder(aceita) / casalSair() / casalSalvar(dados)
 //                                  → conta de casal (supabase/casal.sql); na demonstração, casalMeu() devolve { situacao: "demo" }
-//   desafiosMeus() / desafioCriar(d) / desafioVer(codigo) / desafioEntrar(d) / desafioSair(id) / placarEnviar(dia)
+//   desafiosMeus() / desafioCriar(d) / desafioVer(codigo) / desafioEntrar(d) / desafioSair(id) / placarEnviar(dias, linhas)
 //                                  → desafios entre motoristas (supabase/desafios.sql); na demonstração, os amigos são de exemplo
 
 const num = (r) => ({ ...r, valor: Number(r.valor) });
@@ -133,7 +133,7 @@ export function createSupabaseStore(client) {
     async rankingGeral(criterio, categoria = "", periodo = "semana") { return ok(await client.rpc("ranking_geral", { crit: criterio, cat: categoria, periodo })); },
     async rankingEntrar({ apelido, carro, categoria }) { ok(await client.rpc("ranking_entrar", { a: apelido, c: carro, k: categoria })); },
     async rankingSair() { ok(await client.rpc("ranking_sair")); },
-    async placarEnviar({ dia, ganho, km, ms, viagens, lucro, gastos = 0, custoCarro = 0 }) { return ok(await client.rpc("placar_enviar", { d: dia, g: ganho, k: km, m: Math.round(ms), v: viagens, l: lucro, gs: gastos, cc: custoCarro })); },
+    async placarEnviar(dias, linhas) { return ok(await client.rpc("placar_enviar", { dias, linhas })); },
     // Apaga a conta de quem está logado e, com ela, todos os registros. O banco só aceita logo depois de um login (supabase/conta.sql).
     async excluirConta() {
       const chave = await prefsKey();
@@ -303,14 +303,12 @@ export function createLocalStore(key, seedFn) {
     },
     async rankingEntrar(d) { db.ranking = d; persist(); },
     async rankingSair() { delete db.ranking; persist(); },
-    async placarEnviar(linha) {
-      let guardou = false;
+    async placarEnviar(dias, linhas) {
       for (const d of db.desafios || []) {
-        if (linha.dia < d.inicio || linha.dia > d.fim) continue;
         const eu = d.membros.find((m) => m.eu);
-        eu.dias = [...eu.dias.filter((x) => x.dia !== linha.dia), linha]; guardou = true;
+        eu.dias = [...eu.dias.filter((x) => !dias.includes(x.dia)), ...linhas.filter((l) => l.dia >= d.inicio && l.dia <= d.fim)];
       }
-      persist(); return guardou;
+      persist(); return true;
     },
     async loadAll() { const { prefs, comprovantes, ...dados } = db; return structuredClone(dados); },
     async addLancamentos(rows) {
