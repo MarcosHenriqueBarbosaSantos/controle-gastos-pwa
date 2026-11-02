@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "182", itens: ["Meus planos: diga o que você quer, e o app calcula quanto guardar, mostra se cabe no seu mês e cria a caixinha."] },
   { versao: "181", itens: ["Modo motorista: a previsão do mês agora conta as corridas que ainda vão vir, pela sua média."] },
   { versao: "180", itens: ["Início mais limpo: Hoje, Próximas contas e Metas.", "Modo motorista: Salário de autônomo mostra quanto guardar por dia para o carro, férias e 13º, e já cria a caixinha."] },
   { versao: "179", itens: ["No computador, o app ganhou menu lateral e uma tela por vez."] },

@@ -69,3 +69,11 @@ test("previsão do motorista conta as corridas que faltam", () => {
   assert.equal(calcMes(st, "2026-11", "2026-11-02").entraPrevisto, 1000);
   assert.equal(calcMes(st, "2026-10", "2026-11-02").entraPrevisto, 0);
 });
+
+import { planosSugeridos } from "../js/extras.js";
+test("planos sugeridos: reserva e férias com a conta feita", () => {
+  const [reserva, ferias] = planosSugeridos({ custoMes: 2000, rendaMes: 3000, sobraMes: 400 });
+  assert.equal(reserva.alvo, 12000); assert.equal(reserva.porMes, 500); assert.equal(reserva.cabe, false);
+  assert.equal(ferias.alvo, 3000); assert.equal(ferias.porMes, 250); assert.equal(ferias.cabe, true);
+  assert.equal(planosSugeridos({}).length, 0);
+});

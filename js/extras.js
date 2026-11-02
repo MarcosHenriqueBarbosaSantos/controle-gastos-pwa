@@ -125,6 +125,14 @@ export function quantoGuardarPorMes({ alvo, meses, inicial = 0, taxaAnual = 0 })
   return { porMes: round2(Math.max(0, v)), jaBasta: v <= 0 };
 }
 /**
+ * Os planos que todo mundo devia ter, já com a conta feita: reserva de 6 meses de custo em 2 anos e férias de um mês de renda em 1 ano.
+ * `cabe` compara cada plano com o que costuma sobrar no mês.
+ */
+export function planosSugeridos({ custoMes = 0, rendaMes = 0, sobraMes = 0 } = {}) {
+  const plano = (nome, sub, alvo, meses) => { const q = quantoGuardarPorMes({ alvo, meses }); return q && { nome, sub, alvo: round2(alvo), meses, porMes: q.porMes, porDia: round2(q.porMes / 30), cabe: q.porMes <= sobraMes }; };
+  return [custoMes > 0 && plano("Reserva de emergência", "6 meses das suas contas, para qualquer imprevisto", custoMes * 6, 24), rendaMes > 0 && plano("Férias", "Um mês de renda para descansar sem dívida", rendaMes, 12)].filter(Boolean);
+}
+/**
  * Liberdade financeira: quando o patrimônio passa a pagar os gastos do mês, para sempre.
  * Só conta como renda o que rende acima da inflação: o resto precisa ficar investido para o patrimônio não perder valor.
  * Por isso a meta é gastoMes dividido pelo rendimento real do mês, em dinheiro de hoje. O aporte sobe uma vez por ano.

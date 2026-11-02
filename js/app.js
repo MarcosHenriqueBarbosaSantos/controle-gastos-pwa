@@ -19,7 +19,7 @@ import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
 import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
-import { desempenhoDoMes, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
+import { desempenhoDoMes, planosSugeridos, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { conferirListaComNota, valoresDaLinha as valoresDaLinhaNota } from "./notamercado.js";
@@ -1572,7 +1572,7 @@ function paneM(c) {
   const atual = calcMes(S.data, cur, hoje()), dinheiro = (v) => (v > 0 ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "");
   const avisar = S.prefs.avisos?.limite !== false, t = u ? textoDoTeto(u) : null, lim = S.prefs.limites || {}, sobraLim = extrasDosLimites();
   const metasP = S.loaded ? metasEmAndamento(S.data, S.prefs.metas, hoje()) : [];
-  host.innerHTML = `<div class="pl-analise"><button class="mais-item" type="button" data-analise><span class="ava">${ico("grafico")}</span><span class="tx"><b>Análise do mês</b><span>Gráficos, categorias e últimos meses</span></span>${ico("chev")}</button></div>${htmlSobra(c)}${htmlCaixinhas()}<h2 class="pl-h">Limite de gasto</h2><p class="hint" style="margin-top:0;font-size:13px">O máximo que você quer gastar no mês. O app avisa quando chegar perto.</p>
+  host.innerHTML = `<div class="pl-analise"><button class="mais-item" type="button" data-analise><span class="ava">${ico("grafico")}</span><span class="tx"><b>Análise do mês</b><span>Gráficos, categorias e últimos meses</span></span>${ico("chev")}</button><button class="mais-item" type="button" data-planos><span class="ava">${ico("alvo")}</span><span class="tx"><b>Meus planos</b><span>Férias, casa, carro: quanto guardar por mês</span></span>${ico("chev")}</button></div>${htmlSobra(c)}${htmlCaixinhas()}<h2 class="pl-h">Limite de gasto</h2><p class="hint" style="margin-top:0;font-size:13px">O máximo que você quer gastar no mês. O app avisa quando chegar perto.</p>
     <form id="tetoForm" class="teto-form" autocomplete="off">
       <label class="f">Limite de gastos por mês (R$)<input class="in money" id="tetoValor" inputmode="decimal" placeholder="Ex.: 3.500,00" value="${esc(dinheiro(Number(S.prefs.teto) || 0))}"></label>
       <button class="btn primary" type="submit">${u ? "Mudar limite" : "Salvar limite"}</button>${Number(S.prefs.teto) > 0 ? `<button class="btn perigo" type="button" id="tetoTirar">${ico("lixo")}Tirar o limite</button>` : ""}
@@ -2735,7 +2735,7 @@ function sairDaAnalise() {
 }
 $("irAnaliseBtn").onclick = abrirAnalise;
 $("analiseVoltar").onclick = () => { if (history.state?.sub) history.back(); else sairDaAnalise(); };
-$("pane-m").addEventListener("click", (e) => { if (e.target.closest("[data-analise]")) abrirAnalise(); });
+$("pane-m").addEventListener("click", (e) => { if (e.target.closest("[data-analise]")) abrirAnalise(); if (e.target.closest("[data-planos]")) planosTela(); });
 function abrirSub(tab) {
   if (S.view !== "listas") S.origem = S.view === "mais" ? "mais" : "inicio";   // o Voltar leva de volta para onde a pessoa estava
   S.view = "listas"; S.tab = tab;
@@ -2747,6 +2747,7 @@ $("listaVoltar").onclick = () => { if (S.tab === "mot" && (motSub || motFechando
 /** As ferramentas, em grupos. A tela Mais (celular) e o botão Ferramentas (computador) leem a mesma lista. */
 const GRUPOS_FERR = [
   { titulo: "No dia a dia", itens: [
+    { id: "planos", k: "plano sonho ferias casa carro viagem reserva emergencia independencia liberdade guardar", ico: "alvo", t: "Meus planos", s: "Férias, casa, carro: quanto guardar por mês" },
     { id: "motorista", k: "uber 99 indrive motorista aplicativo corrida turno rodar renda extra", ico: "carro", t: "Modo motorista", s: "Inicie o turno, veja o lucro do dia e quanto rodar para fechar o mês" },
     { id: "mercado", k: "supermercado compras feira carrinho comprar", ico: "carrinho", t: "Lista de mercado", s: "Anote o que comprar, estime o gasto e lance ao finalizar" },
     { id: "veiculo", k: "gasolina combustivel ipva seguro oficina moto", ico: "carro", t: "Custo do carro ou moto", s: "Quanto custa por mês, por dia e por km" },
@@ -2790,7 +2791,7 @@ const HUBS = {
     intro: "Dúvidas, novidades e sugestões.", itens: ["btnAjuda", "novidades", "btnSugerir"] },
 };
 const GRUPOS_MAIS = [
-  { titulo: "Seu dia a dia", ids: ["motorista", "mercado", "veiculo", "casa"] },
+  { titulo: "Seu dia a dia", ids: ["planos", "motorista", "mercado", "veiculo", "casa"] },
   { titulo: "Meu mês", ids: ["analise", "conferir", "msg"] },
   { titulo: "Guardar e aprender", ids: ["desafio", "calc", "dica"], fechado: true },
   { titulo: "Levar com você", ids: ["share", "baixar"], fechado: true },
@@ -2881,7 +2882,7 @@ const DESTINOS = [
 function vaiPara(k) {
   if (HUBS[k]) return hubTela(k);
   if (k === "novidades") return novidadesTela();
-  const FER = { ordem: () => equilibrioTela(), graficos: () => (noCelular() || comMenuLateral() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, hora: minhaHoraTela, ganhogasto: () => ganhoGastoTela(S.mes), casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
+  const FER = { planos: () => planosTela(), ordem: () => equilibrioTela(), graficos: () => (noCelular() || comMenuLateral() ? abrirAnalise() : $("graficos").scrollIntoView({ block: "start" })), motorista: motoristaTela, desemp: meuDesempenho, ano: () => resumoAno(), desafio: () => desafioEconomia(), calc: () => calculadoras(), msg: colarMensagem, conq: conquistasTela, assin: assinaturasTela, revisar: () => paraRevisarTela(), arrumar: arrumarTela, pof: () => paraOndeFoiTela(S.mes), copia: copiaDeSeguranca, mercado, veiculo: meuVeiculo, hora: minhaHoraTela, ganhogasto: () => ganhoGastoTela(S.mes), casa: minhaCasa, dica: dicasTela, revisao: () => revisaoTela(), btnExport: baixarRelatorio, share: () => abrirFechamento(S.mes > mKey(hoje()) ? mKey(hoje()) : S.mes) };
   if (FER[k]) FER[k](); else if (k === "cal") calendario(mKey(hoje())); else if (k === "casal") abrirCasal(); else if (["f", "r", "c", "l", "m"].includes(k)) abrirSub(k); else $(k).click();
 }
 /* ---------- Busca geral: uma lupa que acha tanto telas e ferramentas quanto lançamentos ---------- */
@@ -4617,6 +4618,37 @@ function blocoGastosMot(de, ate) {
   const lista = [...por].sort((a, b) => b[1] - a[1]), total = lista.reduce((t, [, v]) => t + v, 0);
   if (!total) return "";
   return `<h4 class="mot-h">Para onde foi</h4><ul class="mot-apps">${lista.map(([k, v]) => { const pct = Math.round((v / total) * 100); return `<li><span>${k}</span><b>${brl(v)}</b><small>${pct}%</small><i style="width:${Math.max(3, pct)}%"></i></li>`; }).join("")}</ul>`;
+}
+/** Meus planos: a pessoa diz o que quer, o app faz a conta e, com o aceite, cria a caixinha com o combinado do mês. */
+function criaPlano({ nome, alvo, meses, porMes }) {
+  if (metasDe()[nome]) return $("plConta") ? ($("plConta").textContent = `Você já tem a caixinha ${nome}. Para mudar a meta, abra as caixinhas.`) : undefined;   // não troca uma meta que já existe
+  const lista = cats("Reserva");
+  if (!lista.includes(nome)) S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), Reserva: [...lista, nome] };
+  S.prefs.metas = { ...metasDe(), [nome]: { valor: round2(alvo), ate: addM(mKey(hoje()), meses), plano: { valor: porMes, dia: 5 } } };
+  salvaPrefs(); vibra(30); render(); planosTela();
+  toast(`${nome}: caixinha criada, com ${brl(porMes)} por mês.`);
+}
+function planosTela() {
+  const hj = hoje(), passados = ultimosMeses(S.data, addM(mKey(hj), -1), hj, 3).filter((x) => x.rec > 0 || x.custo > 0), c = calcMes(S.data, mKey(hj), hj);
+  const media = (k, reserva) => (passados.length ? round2(passados.reduce((t, x) => t + x[k], 0) / passados.length) : reserva);
+  const sobraMes = Math.max(0, media("sobra", round2(c.rec - c.proj))), metas = metasDe();
+  const lista = planosSugeridos({ custoMes: media("custo", c.proj), rendaMes: media("rec", c.rec), sobraMes });
+  const fala = (porMes) => (porMes <= sobraMes ? `Cabe no que costuma sobrar (${brl(sobraMes)} por mês).` : sobraMes > 0 ? `Passa ${brl(porMes - sobraMes)} do que costuma sobrar. Tente mais meses.` : "Hoje não costuma sobrar dinheiro. Tente mais meses ou um valor menor.");
+  openDlg(`<h3>Meus planos</h3><p class="hint">Diga o que você quer. O app faz a conta e mostra se cabe no seu mês.</p>
+    ${lista.length ? `<ul class="rs-lista">${lista.map((x, i) => `<li><span class="rs-tx"><b>${esc(x.nome)}</b><small>${esc(x.sub)}</small><small class="ocultavel">${brl(x.alvo)} em ${x.meses} meses: ${brl(x.porMes)} por mês</small><small class="ocultavel">${fala(x.porMes)}</small></span>${metas[x.nome] ? `<span class="tag">já tem</span>` : `<button class="btn sm primary" type="button" data-plano="${i}">Guardar</button>`}</li>`).join("")}</ul>` : ""}
+    <h4 class="ferr-h">Quero juntar para</h4>
+    <form id="plForm" class="dlg-form" autocomplete="off">
+      <label class="f wide">O quê<select class="in" id="plNome">${["Entrada da casa", "Carro novo", "Viagem", "Casamento", "Estudos"].map((n) => `<option>${n}</option>`).join("")}</select></label>
+      <label class="f">Quanto (R$)<input class="in money" id="plValor" inputmode="decimal" placeholder="ex.: 30.000,00"></label>
+      <label class="f">Em quantos meses<input class="in" id="plMeses" inputmode="numeric" maxlength="3" placeholder="ex.: 24"></label>
+      <p class="hint wide ocultavel" id="plConta" aria-live="polite" style="margin:0"></p>
+      <button class="btn primary wide" type="submit">Guardar para isso</button></form>
+    <div class="actions"><button class="btn" type="button" id="plLiberdade">Simular minha liberdade financeira</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+  const sonho = () => { const alvo = parseMoney($("plValor").value), meses = Number($("plMeses").value), q = alvo > 0 && meses >= 1 ? quantoGuardarPorMes({ alvo, meses }) : null; return q && { nome: $("plNome").value, alvo, meses, porMes: q.porMes }; };
+  $("plValor").oninput = $("plMeses").oninput = () => { const s = sonho(); $("plConta").textContent = s ? `${brl(s.porMes)} por mês, ou ${brl(round2(s.porMes / 30))} por dia. ${fala(s.porMes)}` : ""; };
+  $("plForm").onsubmit = (e) => { e.preventDefault(); const s = sonho(); if (!s) { $("plConta").textContent = "Preencha quanto e em quantos meses."; return; } criaPlano(s); };
+  $("dlgBody").querySelectorAll("[data-plano]").forEach((b) => (b.onclick = () => criaPlano(lista[Number(b.dataset.plano)])));
+  $("plLiberdade").onclick = () => calculadoras();
 }
 /** Guarda uma reserva: cria a caixinha com a meta e soma o valor do mês à meta diária. Tirar deixa a caixinha e o que já foi guardado. */
 function ligaReserva({ k, nome, porMes, alvo, ate }) {
