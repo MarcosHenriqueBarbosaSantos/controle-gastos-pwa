@@ -124,6 +124,10 @@ button,a,summary,.btn{touch-action:manipulation}
   .wrap[data-view="inicio"]>*{grid-column:1/-1}
   .wrap[data-view="inicio"]>#venc{grid-column:1}
   .wrap[data-view="inicio"]>#semanaIni{grid-column:2}
+  .wrap[data-view="inicio"]{grid-auto-flow:dense}
+  .wrap[data-view="inicio"]>#venc{grid-row:span 2}
+  .wrap[data-view="inicio"]>#metaIni:not([hidden]){display:block!important;grid-column:2}
+  #instCard:has(~ #fechCard:not([hidden])){display:none}
   .hero.cheia .hero-ver{display:none}
   .panel.quick{display:none;position:fixed;top:0;right:0;bottom:0;width:480px;z-index:40;margin:0;border:0;border-left:1px solid var(--border);border-radius:0;overflow:auto;align-content:start;gap:14px;padding:22px;background:var(--bg);box-shadow:-20px 0 60px rgba(0,0,0,.35)}
   body.lancando .panel.quick{display:grid}

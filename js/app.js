@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -1048,9 +1048,9 @@ function renderKpis(c) {
   ${!semEnt && !dMot && (rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
   ${atualM ? htmlHoje(c) : ""}
   ${c.fase === "futuro" ? htmlPrevisaoFuturo(c, rx) : ""}
-  ${htmlMotoristaIni()}`;
+`;
   // Abaixo dos Próximos vencimentos: o acesso às telas, o cartão, a lista de mercado e a previsão do mês.
-  $("resumo2").innerHTML = `
+  $("resumo2").innerHTML = `${htmlMotoristaIni()}
   <nav class="ir-para" aria-label="Ir para">
     <button type="button" data-atalho="fixas">${ico("fixo")}<span>Contas fixas</span></button>
     <button type="button" data-atalho="cart">${ico("cartao")}<span>Cartões</span></button>
@@ -1150,7 +1150,7 @@ function ligaMotoristaIni() {
   $("resumo").querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra(b.dataset.motSub); }));
   $("resumo").querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
   $("resumo").querySelectorAll("[data-mot-cat-mais]").forEach((s) => (s.onchange = () => s.value && escolheCategoria(s.value)));
-  $("resumo").querySelectorAll("[data-mot-ini]").forEach((b) => (b.onclick = () => {
+  $("resumo2").querySelectorAll("[data-mot-ini]").forEach((b) => (b.onclick = () => {
     if (b.dataset.motIni === "dispensar") { S.prefs.motoristaOculto = true; salvaPrefs(); return render(); }
     motoristaTela();
   }));
@@ -2696,9 +2696,9 @@ addEventListener("popstate", (e) => {
   }
   if ($("dlg").open) { S.dlgPeloVoltar = true; S.dlgNoHist = false; return $("dlg").close(); }
   if (document.body.classList.contains("lancando")) return fecharLancar(true);
-  if (S.view === "listas" && S.tab === "mot" && (motSub || motFechando)) { motSub = null; motFechando = false; render(); scrollTo(0, 0); return; }   // Voltar do celular dentro de uma subtela da jornada
+  if (!S.paraInicio && S.view === "listas" && S.tab === "mot" && (motSub || motFechando)) { motSub = null; motFechando = false; render(); scrollTo(0, 0); return; }   // Voltar do celular dentro de uma subtela da jornada
   // Toque em Início com telas abertas por cima: volta o histórico até o começo, uma entrada por vez.
-  if (S.paraInicio) { if (e.state?.aba || e.state?.sub) return history.back(); S.paraInicio = false; S.view = "inicio"; render(); scrollTo(0, 0); return; }
+  if (S.paraInicio) { if (e.state?.aba || e.state?.sub) return history.back(); S.paraInicio = false; motSub = null; motFechando = false; S.view = "inicio"; render(); scrollTo(0, 0); return; }
   if (!e.state?.sub && (noCelular() || comMenuLateral()) && S.view === "analise") { sairDaAnalise(); return; }
   if (!e.state?.sub && (noCelular() || comMenuLateral()) && S.view === "listas" && SUBS.includes(S.tab)) { S.view = S.origem === "mais" ? "mais" : "inicio"; render(); scrollTo(0, 0); }   // volta para onde a pessoa estava
   // Em Extrato, Planejar ou Mais, o Voltar leva ao Início (como nos apps de banco); só no Início ele sai do app.
@@ -3148,6 +3148,7 @@ const QUADROS = [["dia", "Seu dia", "O que você gastou hoje e a sequência de d
 const NO_INICIO_CEL = ["dia", "venc", "desemp", "conq"];   // no celular, o resto fica em Planejar → Análise do mês
 /** "Mais do seu mês" abre sozinho no computador (tem espaço) e fica fechado no celular. */
 if ($("maisDoMes")) $("maisDoMes").open = !noCelular() && !comMenuLateral();
+if (noCelular()) $("resumo2").before($("semanaIni"));   // no celular, o Início mostra só Hoje, Próximas contas e Metas
 function aplicaInicio() {
   const fora = new Set(S.prefs.inicioFora || []);
   QUADROS.forEach(([k, , , ids]) => ids.forEach((id) => $(id)?.classList.toggle("fora", fora.has(k))));
@@ -4587,7 +4588,7 @@ const campoCategoria = (id, atual) => { const l = [...new Set([...categoriasDoPe
 /** A categoria certa para cada gasto da jornada: usa a que a pessoa já tem ou cria, para combustível, pedágio e alimentação ficarem separados. */
 function catDoGastoMot(desc) {
   const lista = cats("Despesa"), acha = (re) => lista.find((x) => re.test(x));
-  const nova = (c) => { S.prefs.categorias = { ...(S.prefs.categorias || {}), Despesa: [...lista, c] }; salvaPrefs(); return c; };
+  const nova = (c) => { S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), Despesa: [...lista, c] }; salvaPrefs(); return c; };
   if (/aliment/i.test(desc)) return acha(/aliment/i) || nova("Alimentação");
   if (/ped[aá]gio/i.test(desc)) return acha(/ped[aá]gio/i) || nova("Transporte › Pedágio");
   return acha(/combust|gasolina|[aá]lcool|etanol/i) || nova("Transporte › Combustível");
@@ -4614,6 +4615,51 @@ function blocoGastosMot(de, ate) {
   if (!total) return "";
   return `<h4 class="mot-h">Para onde foi</h4><ul class="mot-apps">${lista.map(([k, v]) => { const pct = Math.round((v / total) * 100); return `<li><span>${k}</span><b>${brl(v)}</b><small>${pct}%</small><i style="width:${Math.max(3, pct)}%"></i></li>`; }).join("")}</ul>`;
 }
+/** Guarda uma reserva: cria a caixinha com a meta e soma o valor do mês à meta diária. Tirar deixa a caixinha e o que já foi guardado. */
+function ligaReserva({ k, nome, porMes, alvo, ate }) {
+  const lista = cats("Reserva"), m = motDados();
+  if (!lista.includes(nome)) S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), Reserva: [...lista, nome] };
+  if (!metasDe()[nome]) S.prefs.metas = { ...metasDe(), [nome]: { valor: round2(alvo), ate } };
+  S.prefs.reservasMot = { ...(S.prefs.reservasMot || {}), [k]: { nome, porMes } };
+  gravaMot({ ...m, extra: round2((Number(m.extra) || 0) + porMes) });
+  vibra(30); toast(`${nome}: caixinha criada e ${brl(porMes)} por mês na sua meta.`); render();
+}
+function tiraReserva(k) {
+  const { [k]: r, ...resto } = S.prefs.reservasMot || {}, m = motDados(); if (!r) return;
+  S.prefs.reservasMot = resto;
+  gravaMot({ ...m, extra: Math.max(0, round2((Number(m.extra) || 0) - r.porMes)) });
+  toast(`${r.nome} saiu da meta do dia. A caixinha continua.`); render();
+}
+/** Quem roda por conta própria não tem férias, 13º nem carro novo pagos por ninguém: aqui o app faz a conta e, com o aceite, já deixa guardado na meta. */
+function paneReservas(host) {
+  const m = motDados(), hj = hoje(), veic = S.prefs.veiculo || {}, r30 = resumoTurnos(m.turnos, toISO(new Date(Date.now() - 30 * 864e5)), hj, veic);
+  const d = reservasDoMotorista(veic, { diasSemana: m.diasSemana, lucroMes: r30.comCarro ? r30.lucro : 0, veiculo: m.perfil?.veiculo }), ativas = S.prefs.reservasMot || {}, ate = addM(mKey(hj), 12);
+  const linha = (x) => `<li><span class="rs-tx"><b>${esc(x.nome)}</b><small>${esc(x.sub)}</small><small class="ocultavel">${brl(x.porDia)} por dia rodado · ${brl(x.porMes)} por mês</small></span>${ativas[x.k] ? `<button class="btn sm" type="button" data-rs-tira="${x.k}">Tirar da meta</button>` : `<button class="btn sm primary" type="button" data-rs-liga="${x.k}">Guardar</button>`}</li>`;
+  const somaAtiva = round2(Object.values(ativas).reduce((t, x) => t + x.porMes, 0));
+  host.innerHTML = `<div id="motRoot" class="rs"><button class="mot-voltar" type="button" id="motVolta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Voltar</button>
+    <h2 class="mot-frase ocultavel">${d.itens.length ? `Guarde ${brl(d.porDia)} por dia rodado.` : "Falta o custo do seu veículo."}</h2>
+    <p class="mot-ver">${d.itens.length ? `São ${brl(d.porMes)} por mês. Quem é autônomo paga o próprio carro, as próprias férias e o próprio 13º: o app faz a conta para você.` : "Com os gastos do veículo preenchidos, o app calcula quanto guardar por dia."}</p>
+    ${d.itens.length ? `<ul class="rs-lista">${d.itens.map(linha).join("")}</ul>` : `<button class="btn primary" type="button" id="rsVeic">Preencher meu veículo</button>`}
+    ${somaAtiva ? `<p class="mot-ver bom ocultavel">${brl(somaAtiva)} por mês já entram na sua meta do dia.</p>` : ""}
+    ${d.semLucro ? `<p class="hint">Férias e 13º aparecem depois de alguns dias rodados, com o custo do veículo preenchido.</p>` : ""}
+    <h3 class="mot-h">Quero juntar para</h3>
+    <form id="rsForm" class="dlg-form" autocomplete="off">
+      <label class="f wide">O quê<select class="in" id="rsNome">${["Carro novo", "Entrada da casa", "Viagem", "Reserva de emergência"].map((n) => `<option>${n}</option>`).join("")}</select></label>
+      <label class="f">Quanto (R$)<input class="in money" id="rsValor" inputmode="decimal" placeholder="ex.: 30.000,00"></label>
+      <label class="f">Em quantos meses<input class="in" id="rsMeses" inputmode="numeric" maxlength="3" placeholder="ex.: 24"></label>
+      <p class="mot-ver wide ocultavel" id="rsConta" aria-live="polite"></p>
+      <button class="btn primary wide" type="submit">Guardar para isso</button></form>
+    <button class="link link-toque" type="button" id="rsLiberdade">Simular minha liberdade financeira</button></div>`;
+  const sonho = () => { const alvo = parseMoney($("rsValor").value), meses = Number($("rsMeses").value), q = alvo > 0 && meses >= 1 ? quantoGuardarPorMes({ alvo, meses }) : null; return q ? { nome: $("rsNome").value, alvo, meses, porMes: q.porMes, porDia: round2(q.porMes / d.diasMes) } : null; };
+  const conta = () => { const s = sonho(); $("rsConta").textContent = s ? `São ${brl(s.porDia)} por dia rodado, ou ${brl(s.porMes)} por mês.` : ""; };
+  $("rsValor").oninput = $("rsMeses").oninput = conta;
+  $("rsForm").onsubmit = (e) => { e.preventDefault(); const s = sonho(); if (!s) { $("rsConta").textContent = "Preencha quanto e em quantos meses."; return; } ligaReserva({ k: `sonho:${s.nome}`, nome: s.nome, porMes: s.porMes, alvo: s.alvo, ate: addM(mKey(hj), s.meses) }); };
+  host.querySelectorAll("[data-rs-liga]").forEach((b) => (b.onclick = () => { const x = d.itens.find((i) => i.k === b.dataset.rsLiga); ligaReserva({ ...x, alvo: x.porMes * 12, ate }); }));
+  host.querySelectorAll("[data-rs-tira]").forEach((b) => (b.onclick = () => tiraReserva(b.dataset.rsTira)));
+  if ($("rsVeic")) $("rsVeic").onclick = () => meuVeiculo();
+  $("rsLiberdade").onclick = () => calculadoras();
+  $("motVolta").onclick = motSai;
+}
 function iniciarJornada() {
   const ini = Date.now();
   gravaMot({ ...motDados(), ativo: { ini, categoria: categoriaAtual(), parcial: 0, antes: S.data.lancamentos.filter((x) => x.data >= isoLocal(ini)).map((x) => x.id), pausado: 0, pausaIni: null } });
@@ -4625,6 +4671,7 @@ function paneMot() {
   motFechando = false;
   if (motSub === "perfil" || (!motSub && !motDados().perfil && !motDados().ativo)) return panePerfilMot(host);
   if (motSub === "desafios") return paneDesafios(host);
+  if (motSub === "reservas") return paneReservas(host);
   if (motSub === "dia") return paneLancarDia(host);
   if (motSub) return paneMotSub(host);
   const { m, hj, mes, veicD, doDia, meta, ritmo, alc, liqRef, refNormal, regra } = painelDoMotorista(), agora = Date.now();
@@ -4692,6 +4739,7 @@ function paneMot() {
   }
   const turno = `${htmlFraseMot(painelDoMotorista())}${htmlRitmoMot(painelDoMotorista())}
     <button class="mot-desafios" type="button" data-mot-sub="desafios"><b>Desafios</b><span>Compare com os seus amigos</span></button>
+    <button class="mot-desafios" type="button" data-mot-sub="reservas"><b>Salário de autônomo</b><span>Carro, férias e 13º: quanto guardar por dia</span></button>
     <div class="mot-atalhos"><button class="btn sm" type="button" data-mot-acao="ler">Escanear nota ou QR</button><button class="btn sm" type="button" data-mot-acao="lancar">Lançar um gasto</button></div>`;
   const metaHtml = meta.coberto ? ""
     : `<details class="mot-como"><summary>Como chegamos nessa meta</summary><section class="mot-meta">

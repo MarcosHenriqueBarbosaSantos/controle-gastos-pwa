@@ -43,3 +43,17 @@ test("desafio: só entram e só contam as categorias permitidas", () => {
   assert.equal(m.ganho, 100);
   assert.ok(regrasEmTexto(r).some((x) => x.includes("Quem pode entrar: Black")));
 });
+
+import { reservasDoMotorista } from "../js/motorista.js";
+test("salário de autônomo: o que guardar por mês e por dia rodado", () => {
+  const veic = { kmMes: 4000, manutAno: 2400, ipvaAno: 1200, licAno: 0, seguroAno: 1200, valor: 60000, desvalPct: 10 };
+  const r = reservasDoMotorista(veic, { diasSemana: 6, lucroMes: 3600 });
+  assert.equal(r.diasMes, 26);
+  assert.deepEqual(r.itens.map((x) => [x.k, x.porMes]), [["manut", 200], ["docs", 100], ["seguro", 100], ["troca", 500], ["ferias", 300], ["decimo", 300]]);
+  assert.equal(r.porMes, 1500);
+  assert.equal(r.porDia, 57.69);
+  assert.equal(r.semLucro, false);
+  assert.equal(reservasDoMotorista({}, {}).itens.length, 0);
+  assert.equal(reservasDoMotorista(veic, { lucroMes: 0 }).semLucro, true);
+  assert.equal(reservasDoMotorista(veic, { veiculo: "moto" }).itens[0].nome, "Manutenção da moto");
+});

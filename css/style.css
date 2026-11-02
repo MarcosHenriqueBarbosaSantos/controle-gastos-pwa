@@ -1783,7 +1783,8 @@ dialog:has(.tour) .dlg-barra{display:none}
 .hoje-topo b{font-size:1.5rem;line-height:1.15;color:var(--good)}
 .hoje-topo.bad b{color:var(--bad)}
 .hoje-topo>span:last-child{font-size:.82rem;color:var(--muted)}
-.hoje-lista{list-style:none;margin:0;padding:0;display:grid;gap:8px;border-top:1px solid var(--border);padding-top:10px}
+.hoje-lista{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.hoje-topo + .hoje-lista,.hoje-topo + .hoje-ok{border-top:1px solid var(--border);padding-top:10px}
 .hoje-item{display:grid;gap:6px}
 .hoje-item>button:first-child{display:flex;align-items:center;gap:10px;text-align:left;background:none;border:0;padding:6px 0;width:100%;font:inherit;color:inherit;cursor:pointer;min-height:44px}
 .hoje-item .tx{display:grid;gap:1px;flex:1;min-width:0}
@@ -1793,7 +1794,7 @@ dialog:has(.tour) .dlg-barra{display:none}
 .hoje-item.t-atrasada .tx b,.hoje-item.t-atrasada .valor{color:var(--bad)}
 .hoje-item.t-hoje .tx b{color:var(--warn)}
 .hoje-item .btn{justify-self:start}
-.hoje-ok{display:flex;align-items:center;gap:8px;margin:0;font-size:.88rem;color:var(--muted);border-top:1px solid var(--border);padding-top:10px}
+.hoje-ok{display:flex;align-items:center;gap:8px;margin:0;font-size:.88rem;color:var(--muted)}
 .hoje-rod{display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center;font-size:.82rem}
 .hoje-rod .seq{display:inline-flex;align-items:center;gap:4px;color:var(--muted)}
 
@@ -2060,12 +2061,17 @@ button.mg-bt:active{background:var(--sunk)}
 .dica-lancar .link{justify-self:start;min-height:44px}
 #fNovoHost{display:contents}
 #fNovoHost>.novo-cartao{grid-column:1/-1}
+.rs-lista{list-style:none;margin:12px 0;padding:0;display:grid;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
+.rs-lista li{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--border)} .rs-lista li:first-child{border-top:0}
+.rs-tx{display:grid;gap:2px;flex:1;min-width:0} .rs-tx b{font-size:15.5px} .rs-tx small{font-size:13px;color:var(--ink-2)}
+.rs .btn.sm{flex:none;min-height:44px}
 .tela-frase{display:grid;gap:4px;margin:0 0 14px}
 .tela-frase h2,.sobra-pl .tela-frase h2{margin:0;font-family:var(--display);font-size:clamp(28px,8.4vw,36px);line-height:1.1;font-weight:700;letter-spacing:-.02em;text-wrap:balance}
 .tela-frase p{margin:0;font-size:15px;color:var(--ink-2)}
 #resumo>*,#resumo2{scroll-margin-top:76px}
 @media (max-width:700px){
   .hero.banco.cheia{gap:10px;border-radius:0}
+  .foot.v-inicio{display:none}
   .rapidos{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin-inline:-16px;padding-inline:16px}
   .rapidos::-webkit-scrollbar{display:none}
   .rapidos button{flex:none;white-space:nowrap}
