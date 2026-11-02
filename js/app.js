@@ -291,6 +291,7 @@ async function boot() {
   // #motorista (anúncio e site para motoristas de aplicativo): abre a demonstração já na tela do Modo motorista, com uma semana de corridas de exemplo.
   else if (location.hash === "#motorista") { try { sessionStorage.setItem("cg-modo", "demo"); sessionStorage.setItem("cg-demo-mot", "1"); } catch { /* nada */ } S.atalho = "motorista"; history.replaceState(null, "", location.pathname); }
   // #criar (botão "Testar 7 dias grátis" do site): abre a tela de entrada já em "Criar conta".
+  else if (location.hash === "#sou-motorista") { try { localStorage.setItem("cg-sou-mot", "1"); } catch { /* nada */ } S.querCriar = true; S.atalho = "motorista"; history.replaceState(null, "", location.pathname); }
   else if (location.hash.startsWith("#desafio=")) { try { localStorage.setItem("cg-desafio-cod", location.hash.slice(9).toUpperCase()); } catch { /* nada */ } S.atalho = "desafios"; S.querCriar = true; history.replaceState(null, "", location.pathname); }
   else if (location.hash === "#criar") { S.querCriar = true; history.replaceState(null, "", location.pathname); }
   try { localStorage.removeItem("cg-modo"); } catch { /* nada */ }   // versões antigas guardavam a demonstração para sempre
@@ -608,7 +609,7 @@ async function startApp(store, quem) {
     if (daCopia) showBanner("Sem internet: estes são os dados da última vez que você abriu o app. O que você lançar agora fica guardado neste aparelho e é enviado quando a conexão voltar.");
     else sincroniza();
     if (S.recuperando) pedirNovaSenha();
-    else if (S.compartilhado || S.atalho || temConviteGuardado()) { if (!S.atalho && temConviteGuardado()) S.atalho = "desafios"; aoChegar(); }
+    else if (S.compartilhado || S.atalho || temConviteGuardado() || veioDoSiteMotorista()) { if (!S.atalho) S.atalho = temConviteGuardado() ? "desafios" : veioDoSiteMotorista() ? "motorista" : ""; try { localStorage.removeItem("cg-sou-mot"); } catch { /* nada */ } aoChegar(); }
     else if (S.casal?.situacao === "convidado") conviteDeCasal();
     else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) { S.prefs.boasVindas = true; salvaPrefs(); tourInicial(() => setTimeout(() => guiaPasso("renda", true), 250)); }
     else if (store.kind === "local" && !S.prefs.tourVisto) tourInicial(null, TOUR_DEMO);
@@ -738,7 +739,7 @@ function render() {
   const c = calcMes(S.data, S.mes, hoje());
   // No celular aparece uma tela por vez; a barra de baixo mostra onde a pessoa está.
   // Barra de baixo: Início · Extrato · + · Planejar · Mais (as ferramentas moram no Mais; o Mercado abre por lá e pela busca). Cartões e Contas fixas ficam na faixa "Ir para" do Início.
-  const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab;
+  const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab; app.dataset.jornada = S.prefs.motorista?.ativo?.ini ? "1" : "0";
   const telaAgora = `${S.view}|${S.tab}`;
   if (S.telaAntes && S.telaAntes !== telaAgora) { app.classList.remove("entra"); void app.offsetWidth; app.classList.add("entra"); }
   S.telaAntes = telaAgora;
@@ -1139,6 +1140,7 @@ function ligaMotoristaIni() {
   if ($("motIniDia")) $("motIniDia").onclick = () => { iniciarJornada(); motoristaTela(); };
   $("resumo").querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra(b.dataset.motSub); }));
   $("resumo").querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
+  $("resumo").querySelectorAll("[data-mot-cat-mais]").forEach((s) => (s.onchange = () => s.value && escolheCategoria(s.value)));
   $("resumo").querySelectorAll("[data-mot-ini]").forEach((b) => (b.onclick = () => {
     if (b.dataset.motIni === "dispensar") { S.prefs.motoristaOculto = true; salvaPrefs(); return render(); }
     motoristaTela();
@@ -1171,7 +1173,8 @@ function htmlHoje(c) {
   const ult = S.data.lancamentos.filter((x) => x.tipo === "Despesa" && !x.pendente && !x.enviando).sort((p, q) => q.data.localeCompare(p.data) || String(q.created_at || "").localeCompare(String(p.created_at || "")))[0];
   const passou = pg && pg.resta < 0;
   // O motorista já tem a meta de hoje no alto: um segundo "quanto cabe hoje" daria outra resposta.
-  const topo = !pg || S.prefs.motorista?.usa ? "" : pg.fatia <= 0 ? `<div class="hoje-topo bad"><span class="l">Hoje</span><b class="ocultavel">Sem folga no mês</b><span>As contas do mês já passam das entradas. Gaste só o essencial.</span></div>`
+  const temAperto = pg && !S.prefs.motorista?.usa && apertoAteAEntrada(quandoOsDinheiroAcaba(S.data, hj));   // com aperto, a frase do alto já responde
+  const topo = !pg || S.prefs.motorista?.usa || temAperto ? "" : pg.fatia <= 0 ? `<div class="hoje-topo bad"><span class="l">Hoje</span><b class="ocultavel">Sem folga no mês</b><span>As contas do mês já passam das entradas. Gaste só o essencial.</span></div>`
     : `<div class="hoje-topo${passou ? " bad" : ""}"><span class="l">${passou ? "Hoje passou do dia" : "Ainda cabem hoje"}</span><b class="ocultavel">${brl(Math.abs(pg.resta))}</b><span class="ocultavel">${passou ? `o limite de hoje era ${brl(pg.fatia)}; o resto sai dos outros dias` : avista ? `de ${brl(pg.fatia)} por dia · você já gastou ${brl(avista)}` : `o que dá para gastar hoje, repartindo o mês em ${pg.restam} ${pg.restam === 1 ? "dia" : "dias"}`}</span></div>`;
   const lista = itens.map((x, i) => `<li class="hoje-item t-${x.tipo}"><button type="button" data-hoje="${i}"><span class="tx"><b>${esc(x.titulo)}</b><span>${esc(x.sub)}</span></span>${x.valor ? `<span class="valor ocultavel">${brl(x.valor)}</span>` : ""}${ico("chev")}</button>${x.tipo === "dia" ? `<button type="button" class="btn sm" id="hojeZero">Não gastei nada</button>` : ""}</li>`).join("");
   const rodape = [ult && !g.n ? `<button class="link" type="button" id="hojeRepetir">Repetir: ${esc(ult.descricao || ult.categoria)} · ${brl(ult.valor)}</button>` : "", seq.feitoHoje && seq.dias > 1 ? `<span class="seq">${ico("fogo")}${seq.dias} dias seguidos anotando</span>` : ""].filter(Boolean).join("");
@@ -2726,8 +2729,8 @@ const HUBS = {
 const GRUPOS_MAIS = [
   { titulo: "Seu dia a dia", ids: ["motorista", "mercado", "veiculo", "casa"] },
   { titulo: "Meu mês", ids: ["analise", "conferir", "msg"] },
-  { titulo: "Guardar e aprender", ids: ["desafio", "calc", "dica"] },
-  { titulo: "Levar com você", ids: ["share", "baixar"] },
+  { titulo: "Guardar e aprender", ids: ["desafio", "calc", "dica"], fechado: true },
+  { titulo: "Levar com você", ids: ["share", "baixar"], fechado: true },
 ];
 const TODAS_FERR = () => [...GRUPOS_FERR.flatMap((g) => g.itens), ...Object.entries(HUBS).map(([id, h]) => ({ id, ...h }))];
 function hubTela(id) {
@@ -2858,7 +2861,7 @@ function renderMais(c) {
   const naDemo = S.store?.kind === "local" && !S.semLogin, quem = $("whoName").textContent || "", n = (q, um, varios) => `${q} ${q === 1 ? um : varios}`;
   const contas = c.fx.filter((o) => o.forma !== CARTAO), cartoes = (S.data.cartoes || []).filter((k) => k.ativo !== false);
   const linha = (id, icone, titulo, sub = "", cls = "") => `<button class="mais-item" type="button" data-mais="${id}"><span class="ava ${cls}">${ico(icone)}</span><span class="tx"><b>${titulo}</b>${sub ? `<span>${sub}</span>` : ""}</span>${ico("chev")}</button>`;
-  const grupo = (titulo, linhas) => `<div class="mais-grupo"><h2>${titulo}</h2><div class="mais-lista">${linhas.filter(Boolean).join("")}</div></div>`;
+  const grupo = (titulo, linhas, fechado = false) => fechado ? `<details class="mais-grupo"><summary>${titulo}</summary><div class="mais-lista">${linhas.filter(Boolean).join("")}</div></details>` : `<div class="mais-grupo"><h2>${titulo}</h2><div class="mais-lista">${linhas.filter(Boolean).join("")}</div></div>`;
   host.innerHTML = `<div class="mais-quem"><span class="ava">${naDemo ? ico("pessoa") : esc(quem.trim().charAt(0).toUpperCase() || "?")}</span>
       <div class="tx"><b>${esc(naDemo ? "Demonstração" : quem)}</b><span>${naDemo ? "Dados de exemplo, guardados só neste aparelho." : esc(textoDoAcesso())}</span></div>
       <button class="iconbtn" type="button" data-mais="btnAjustes" aria-label="Ajustes e categorias">${ico("ajustes")}</button></div>
@@ -2868,7 +2871,7 @@ function renderMais(c) {
       S.prefs.motorista?.usa ? linha("m", "alvo", "Planejar", "Limites, metas e caixinhas") : "",
       linha("cal", "agenda", "Calendário de vencimentos", "O que vence e o que entra em cada dia"),
       linha("casal", "casal", "Conta de casal", esc(resumoDoCasal()), S.casal?.situacao === "convidado" ? "aviso" : "")])}
-    ${GRUPOS_MAIS.map((g) => grupo(g.titulo, g.ids.map((id) => TODAS_FERR().find((x) => x.id === id)).filter(Boolean).map((i) => linha(i.id, i.ico, i.t, i.s)))).join("")}
+    ${GRUPOS_MAIS.map((g) => grupo(g.titulo, g.ids.map((id) => TODAS_FERR().find((x) => x.id === id)).filter(Boolean).map((i) => linha(i.id, i.ico, i.t, i.s)), g.fechado)).join("")}
     ${grupo("Ajustes e ajuda", [
       appInstalado() ? "" : linha("btnInstall", "instalar", "Instalar o app no celular", "Ícone na tela inicial, abre em tela cheia e funciona sem internet"),
       linha("btnAjustes", "ajustes", "Ajustes e categorias", naDemo ? "Categorias, tema e saldo" : "Categorias, avisos, tema e a sua conta"),
@@ -4265,11 +4268,12 @@ function painelDoMotorista() {
 function htmlFraseMot({ hj, doDia, meta, alc, ritmo, regra }, idBotao, comOlho = false) {
   const f = fraseDoDia({ meta, ganhoHoje: doDia.ganho, brl }), acima = alc.nivel === "fora" && ritmo;
   const comemora = !meta.coberto && doDia.ganho >= meta.brutoDia && S.metaBatida !== hj, cats_ = categoriasDoPerfil(motDados().perfil), catAtual = categoriaAtual();
+  const catsVis = [catAtual, ...cats_.filter((k) => k !== catAtual)].filter(Boolean).slice(0, 3), catsResto = cats_.filter((k) => !catsVis.includes(k));
   if (comemora) { S.metaBatida = hj; vibra(40); }
   return `<section class="mot-dia${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${DIAS_SEMANA[diaDaSemana(hj)]}, ${ddmm(hj)}</small>${comOlho ? `<button type="button" class="olho" id="olho" aria-pressed="${valoresOcultos()}" aria-label="${valoresOcultos() ? "Mostrar os valores" : "Esconder os valores"}">${ico(valoresOcultos() ? "olhoFechado" : "olho")}</button>` : ""}</div><h2 class="ocultavel">${f.titulo}</h2>
     <p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>
     ${regra ? `<p class="mot-dia-regra">Aceite corridas a partir de <b>${brl(regra.minimo)} por km</b>.</p>` : ""}
-    ${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${cats_.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}</div>` : ""}
+    ${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
     <button class="mot-dia-bt" type="button" id="${idBotao}">Iniciar jornada</button>
     <button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button></section>`;
 }
@@ -4282,7 +4286,18 @@ function htmlRitmoMot({ m, hj, veicD, doDia }) {
 function htmlInicioMot() { const d = painelDoMotorista(); return htmlFraseMot(d, "motIniDia", true) + htmlRitmoMot(d); }
 /** Carro ou moto e os apps em que a pessoa roda: os formulários e os desafios mostram só o que faz sentido para ela. */
 function panePerfilMot(host) {
-  const m = motDados(); let veiculo = m.perfil?.veiculo || "", apps = [...(m.perfil?.apps || [])];
+  const m = motDados(), primeiraVez = !m.perfil; let veiculo = m.perfil?.veiculo || "", apps = [...(m.perfil?.apps || [])];
+  const fim = () => { if (motSub) motSai(); else render(); };
+  const custo = () => {   // só na primeira vez: com o consumo e o preço do litro, o lucro já desconta o combustível
+    const v = S.prefs.veiculo || {}, nome = veiculo === "moto" ? "a moto" : "o carro";
+    host.innerHTML = `<div id="motRoot" class="mot-perfil"><h2 class="mot-frase">Quanto custa rodar?</h2><p class="mot-ver">Com esses números, o app mostra quanto sobra de verdade, não só quanto entrou.</p>
+      <div class="rc-campos"><label class="f">Km por litro que ${nome} faz<input class="in" id="pcConsumo" inputmode="decimal" placeholder="ex.: 12" value="${v.consumo || ""}"></label>
+      <label class="f">Preço do litro (R$)<input class="in money" id="pcLitro" inputmode="decimal" placeholder="ex.: 6,00" value="${v.precoLitro || ""}"></label>
+      <label class="f">Km rodados por mês<input class="in" id="pcKm" inputmode="numeric" placeholder="ex.: 4000" value="${v.kmMes || ""}"></label></div>
+      <button class="mot-dia-bt" type="button" id="pcOk">Começar</button><button class="link link-toque" type="button" id="pcDepois">Preencher depois</button></div>`;
+    $("pcDepois").onclick = fim;
+    $("pcOk").onclick = () => { S.prefs.veiculo = { ...v, consumo: nm($("pcConsumo").value), precoLitro: nm($("pcLitro").value), kmMes: nm($("pcKm").value) }; salvaPrefs(); fim(); };
+  };
   const desenha = () => {
     const opcoes = veiculo ? appsDoPerfil({ veiculo, apps: APPS_POR_VEICULO[veiculo] }) : [];
     host.innerHTML = `<div id="motRoot" class="mot-perfil"><h2 class="mot-frase">Você roda de quê?</h2><p class="mot-ver">O app mostra só o que faz sentido para você. Dá para mudar quando quiser.</p>
@@ -4291,13 +4306,14 @@ function panePerfilMot(host) {
       <button class="mot-dia-bt" type="button" id="perfilOk">Pronto</button>` : ""}</div>`;
     host.querySelectorAll("[data-veic]").forEach((b) => (b.onclick = () => { veiculo = b.dataset.veic; apps = APPS_POR_VEICULO[veiculo].filter((k) => k !== "outros"); desenha(); }));
     host.querySelectorAll("[data-papp]").forEach((b) => (b.onclick = () => { const k = b.dataset.papp; apps = apps.includes(k) ? apps.filter((x) => x !== k) : [...apps, k]; desenha(); }));
-    if ($("perfilOk")) $("perfilOk").onclick = () => { gravaMot({ ...motDados(), perfil: { veiculo, apps } }); if (motSub) motSai(); else render(); };
+    if ($("perfilOk")) $("perfilOk").onclick = () => { gravaMot({ ...motDados(), perfil: { veiculo, apps } }); if (primeiraVez && !custoTotalPorKm(S.prefs.veiculo || {})) custo(); else fim(); };
   };
   desenha();
 }
 
 /* Desafios entre amigos: um grupo fechado compara 7 dias. Só os totais do dia saem da conta da pessoa (supabase/desafios.sql). */
 /** Quem chegou por um convite e precisou criar a conta volta para o desafio ao entrar, mesmo depois de confirmar o e-mail em outra aba. */
+function veioDoSiteMotorista() { try { return localStorage.getItem("cg-sou-mot") === "1"; } catch { return false; } }
 function temConviteGuardado() { try { return Boolean(localStorage.getItem("cg-desafio-cod")); } catch { return false; } }
 let dsPrevia = null, dsRegras = { gastos: true, carro: false, vence: "km" }, dsCritDe = "", dsLista = null, dsAberto = "", dsCrit = "hora", dsErro = "", dsVista = "grupos", rkCrit = "hora", rkCat = "", rkPer = "semana", rkDados = null, dsDias = 7;
 async function enviaPlacar(dias) {
@@ -4307,7 +4323,7 @@ async function enviaPlacar(dias) {
 const ERROS_DESAFIO = { codigo_invalido: "Esse código não existe. Confira com quem convidou.", encerrado: "Esse desafio já terminou.", cheio: "Esse desafio já está cheio.", falta_nome: "Preencha o nome e o apelido.", limite: "Você já tem 5 desafios em andamento." };
 const erroDoDesafio = (e) => Object.entries(ERROS_DESAFIO).find(([k]) => String(e?.message).includes(k))?.[1] || "Não deu para falar com o servidor. Tente de novo.";
 const NO_CRITERIO = { hora: "por hora", km: "por km", sobra: "no que sobrou", total: "em faturamento", dia: "no melhor dia", geral: "na pontuação geral" };
-const htmlRegras = (regras) => `<ul class="ds-regras">${regrasEmTexto(regras).map((t) => `<li>${t}</li>`).join("")}</ul>`;
+const htmlRegras = (regras) => { const r = regrasEmTexto(regras); return `<ul class="ds-regras">${r.slice(0, 3).map((t) => `<li>${t}</li>`).join("")}</ul><p class="ds-letra">${r.slice(3).join(" ")}</p>`; };
 const abasDesafio = () => `<div class="ds-abas" role="group" aria-label="Desafios">${[["grupos", "Meus grupos"], ["ranking", "Ranking geral"]].map(([k, n]) => `<button type="button" data-ds-vista="${k}" aria-pressed="${dsVista === k}">${n}</button>`).join("")}</div>`;
 function ligaAbasDesafio(host) { host.querySelectorAll("[data-ds-vista]").forEach((b) => (b.onclick = () => { dsVista = b.dataset.dsVista; rkDados = null; paneDesafios(host); })); }
 /** Ranking geral: opcional, com os últimos 7 dias. Por hora e por km vale para quem roda menos, e a categoria compara quem disputa as mesmas corridas. */
@@ -4603,6 +4619,7 @@ function paneMot() {
   host.querySelectorAll("[data-per]").forEach((b) => (b.onclick = () => { motPer = b.dataset.per; render(); }));
   $("motIniciar").onclick = () => { iniciarJornada(); render(); scrollTo(0, 0); };
   host.querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
+  host.querySelectorAll("[data-mot-cat-mais]").forEach((s) => (s.onchange = () => s.value && escolheCategoria(s.value)));
   if ($("motVeic")) $("motVeic").onclick = () => meuVeiculo();
   if ($("motImagem")) $("motImagem").onclick = () => compartilharResultadoMot(motPer === "dia" ? "Hoje" : motPer === "semana" ? "Últimos 7 dias" : `${nomeMes(mes)[0].toUpperCase()}${nomeMes(mes).slice(1)}`, r);
   host.querySelectorAll("[data-medit]").forEach((b) => (b.onclick = () => motEntra("edit-" + b.dataset.medit)));

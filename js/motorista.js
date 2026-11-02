@@ -231,7 +231,7 @@ export function fraseDoDia({ meta, ganhoHoje = 0, brl }) {
   if (meta.coberto) return { titulo: "Suas contas do mês estão cobertas.", sub: "O que você rodar agora é sobra." };
   if (ganhoHoje >= meta.brutoDia) return { titulo: "Meta de hoje batida.", sub: `Você fez ${brl(ganhoHoje)}. O que passar disso adianta os próximos dias.` };
   if (ganhoHoje > 0) return { titulo: `Faltam ${brl(r2(meta.brutoDia - ganhoHoje))} para a meta de hoje.`, sub: `A meta do dia é ${brl(meta.brutoDia)}.` };
-  return { titulo: `Hoje, faça ${brl(meta.brutoDia)} para o mês fechar.`, sub: "Estimativa com as suas contas e o custo do carro." };
+  return { titulo: `Hoje, faça ${brl(meta.brutoDia)} para o mês fechar.`, sub: "Estimativa com as suas contas e o custo do veículo." };
 }
 
 /**

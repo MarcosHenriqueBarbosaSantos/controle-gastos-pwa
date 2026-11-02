@@ -33,6 +33,9 @@ h1,h2,h3{letter-spacing:-.03em}
 :root:not([data-tema="claro"]) .btn.primary{box-shadow:none;color:#17140a}
 .wrap[data-tab="mot"] #listas{--surface:#211d10;--surface-2:#2a2619;--sunk:#100e07;--ink:#f5f1e6;--ink-2:#d6cfbd;--muted:#a79f8a;--border:#3a3627;--grid:#3a3627}
 .wrap[data-tab="mot"] #listas .in{background:#100e07}
+/* fora da jornada, a aba Motorista mantém a barra de baixo: é uma aba como as outras */
+@media (max-width:900px){#app[data-view="listas"][data-tab="mot"][data-jornada="0"] #listas{bottom:calc(66px + env(safe-area-inset-bottom,0px))}}
+:root:not([data-tema="claro"]) .acoes-rap span.forte{color:#17140a;box-shadow:none}
 #app[data-view="listas"][data-tab="mot"] #listas,body:has(#app[data-view="listas"][data-tab="mot"]){background:#17140a}
 :root:not([data-tema="claro"]) .fech-card,:root:not([data-tema="claro"]) .fech-card.neg{background:var(--surface-2);color:var(--ink)}
 :root:not([data-tema="claro"]) .inst-card .ava{color:#17140a}

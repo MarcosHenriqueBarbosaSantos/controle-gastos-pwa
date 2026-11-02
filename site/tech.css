@@ -81,3 +81,5 @@ h2{font-weight:750}
 .cookies,.ver-mais{background:var(--surface)}
 a.lk-inst,.faq a,.plat a,footer a,.paraquem a,.casal-tx a:not(.btn),p a{color:var(--link)}
 .abre a:not(.btn),.oferta .txt a{color:inherit}
+.dsf-sec{padding-block:56px}
+.dsf-sec .btn.amarelo{background:#ffb81c;color:#17140a}
