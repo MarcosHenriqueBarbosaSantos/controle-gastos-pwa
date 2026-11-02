@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "187", itens: ["Modo motorista: a próxima conta agora aparece na Jornada, com valor, prazo e o Já paguei.", "Sem contas cadastradas, o app pede as contas antes de calcular a sua meta do dia.", "O aviso do teste grátis e da renovação agora aparece também na Jornada.", "Ao fechar o dia, o app mostra a próxima conta, e o fechamento do mês aparece na Jornada.", "O site voltou ao preto e amarelo."] },
   { versao: "186", itens: ["Links de parceiros: quem chega por um parceiro pode testar 7 dias e comprar depois, com a indicação preservada."] },
   { versao: "185", itens: ["O azul voltou no app e no site.", "Modo motorista: nova tela de Ganhos por dia, semana, mês e ano, com gráfico e o detalhe de cada app.", "Km total e km com passageiro: o app mostra quanto você roda vazio e quanto isso custa.", "Lance Uber, 99 e inDrive juntos, com as viagens de cada app.", "Entenda a meta de hoje, o valor por km e o Cabem hoje, com a conta na tela."] },
   { versao: "184", itens: ["Modo motorista: lance uma jornada direto em Lançar ou no Extrato, sem ter iniciado.", "Nos desafios, só contam as jornadas iniciadas e encerradas no app."] },

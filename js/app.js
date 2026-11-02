@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -524,7 +524,9 @@ function demoMotorista() {
     d.fixos = d.fixos.filter((f) => !["Salário", "Faculdade", "Terapia"].includes(f.descricao));
     d.fixos.push({ id: uuid(), tipo: "Despesa", descricao: "Parcela do carro", categoria: "Transporte", dia: 20, valor: 650, forma: "Boleto", desde, ate: null, cartao_id: null });
     d.lancamentos = d.lancamentos.filter((l) => l.tipo === "Despesa" && Number(l.valor) <= 100);
-    d.pagos = []; d.faturas = [];
+    // O mês atual fica em aberto, para a meta do dia ter o que cobrir; os meses que passaram seguem pagos.
+    const mesDemo = mKey(hoje()); d.pagos = d.pagos.filter((p) => p.mes.slice(0, 7) < mesDemo); d.faturas = d.faturas.filter((f) => mKey(f.vencimento) < mesDemo);
+    [-2, -1].forEach((k) => d.pagos.push({ fixo_id: d.fixos.at(-1).id, mes: `${addM(mesDemo, k)}-01` }));   // a parcela do carro entra aqui e não vem paga do exemplo
     const turnos = [];
     // [dias atrás, hora que começou, horas rodadas, Uber, 99, km, viagens, combustível, pedágio]
     [[1, 17, 6.5, 148.5, 96, 168, 17, 70, 9.6], [2, 18, 5, 92, 60, 121, 11, 50, 0], [3, 7, 8, 185, 155, 214, 21, 85, 18], [4, 17, 6, 132, 88, 159, 15, 60, 9.6], [6, 18, 7, 176, 94, 188, 18, 75, 0], [7, 16, 5.5, 104, 71, 126, 12, 55, 9.6]]
@@ -757,6 +759,9 @@ function render() {
   // Barra de baixo: Início · Extrato · + · Planejar · Mais (as ferramentas moram no Mais; o Mercado abre por lá e pela busca). Cartões e Contas fixas ficam na faixa "Ir para" do Início.
   if ($("bnav").offsetHeight && !comMenuLateral()) document.documentElement.style.setProperty("--bnav-h", `${$("bnav").offsetHeight}px`);
   const app = $("app"); app.dataset.view = S.view; app.dataset.tab = S.tab; app.dataset.jornada = S.prefs.motorista?.ativo?.ini ? "1" : "0";
+  // No celular a Jornada cobre a tela inteira: o aviso do teste grátis e da renovação vai para dentro dela.
+  const banner = $("banner"), naJornada = noCelular() && S.view === "listas" && S.tab === "mot";
+  if ((banner.parentElement === $("listas")) !== naJornada) { if (naJornada) $("listas").prepend(banner); else $("filaBar").before(banner); }
   const telaAgora = `${S.view}|${S.tab}`;
   if (S.telaAntes && S.telaAntes !== telaAgora) { app.classList.remove("entra"); void app.offsetWidth; app.classList.add("entra"); }
   S.telaAntes = telaAgora;
@@ -2058,13 +2063,13 @@ function fraseContasMot(c) {
 const linhaCt = (rot, v, cls = "") => `<li class="${cls}"><span>${rot}</span><b class="ocultavel">${v}</b></li>`;
 /** Como chegamos na meta do dia: o que falta, em quantos dias e o que o carro gasta. */
 function metaTela() {
-  const { meta, alc, ritmo, doDia, m } = painelDoMotorista(), pct = meta.brutoDia > 0 ? Math.min(100, Math.round((doDia.ganho / meta.brutoDia) * 100)) : 100;
+  const { meta, alc, ritmo, doDia, m, semContas } = painelDoMotorista(), pct = meta.brutoDia > 0 ? Math.min(100, Math.round((doDia.ganho / meta.brutoDia) * 100)) : 100;
   openDlg(`<h3>Como chegamos na meta de hoje</h3>
-    ${meta.coberto ? `<p class="hint">As contas do mês estão cobertas. Hoje, o que entrar é sobra.</p>` : `<ul class="ct-soma">${linhaCt("Falta no mês", brl(meta.falta))}${linhaCt(`Dias para rodar, em ${m.diasSemana} por semana`, `÷ ${meta.dias}`)}${linhaCt("Para cobrir por dia", brl(meta.liquidoDia))}${meta.custoDia > 0 ? linhaCt("Custo do veículo no dia", `+ ${brl(meta.custoDia)}`) : ""}${linhaCt("Meta de hoje", brl(meta.brutoDia), "tot")}</ul>
+    ${semContas ? `<p class="hint">Sem as suas contas, o app não sabe quanto você precisa fazer. Cadastre o que paga todo mês e a meta aparece aqui.</p>` : meta.coberto ? `<p class="hint">As contas do mês estão cobertas. Hoje, o que entrar é sobra.</p>` : `<ul class="ct-soma">${linhaCt("Falta no mês", brl(meta.falta))}${linhaCt(`Dias para rodar, em ${m.diasSemana} por semana`, `÷ ${meta.dias}`)}${linhaCt("Para cobrir por dia", brl(meta.liquidoDia))}${meta.custoDia > 0 ? linhaCt("Custo do veículo no dia", `+ ${brl(meta.custoDia)}`) : ""}${linhaCt("Meta de hoje", brl(meta.brutoDia), "tot")}</ul>
     <div class="tbar gan-tbar"><i style="width:${pct}%"></i></div><p class="hint ocultavel">Hoje: ${brl(doDia.ganho)} de ${brl(meta.brutoDia)} (${pct}%).${meta.custoDia > 0 ? " O custo do dia usa a sua média de km, contando os km sem passageiro." : ""}</p>
     ${blocoRealidade(alc, ritmo, meta)}`}
     <div class="actions"><button class="btn" type="button" id="ctContas">Ver as contas do mês</button><button class="btn" type="button" id="ctAjusta">Ajustar a meta</button><button class="btn" type="button" data-close>Fechar</button></div>`);
-  $("ctContas").onclick = () => contaDoMesTela();
+  $("ctContas").onclick = () => (semContas ? guiaPasso("contas") : contaDoMesTela());
   $("ctAjusta").onclick = () => { $("dlg").close(); motoristaTela(); motEntra("ajustes"); };
 }
 /** De onde vem o custo por km e a regra das corridas, contando o que a pessoa roda sem passageiro. */
@@ -4430,7 +4435,7 @@ function paneGanhos(host) {
   host.querySelectorAll("[data-mdel]").forEach((b) => armDelete(b, async () => {
     const mm = motDados(), t = mm.turnos.find((x) => x.id === b.dataset.mdel); if (!t) return;
     for (const id of [t.rid, ...(t.cids || [t.cid])].filter(Boolean)) if (lancPorId(id)) await apagaLancamento(id);
-    gravaMot({ ...mm, turnos: mm.turnos.filter((x) => x.id !== t.id) }); enviaPlacar([isoLocal(t.ini)]); render(); toast("Turno apagado, junto com a entrada e os gastos dele."); render();
+    gravaMot({ ...mm, turnos: mm.turnos.filter((x) => x.id !== t.id) }); enviaPlacar([isoLocal(t.ini)]); render(); toast((t.cids || []).some(Boolean) ? "Turno apagado, junto com a entrada e os gastos dele." : `Turno apagado, junto com a entrada.${t.comb > 0 ? " Os gastos lançados na jornada continuam no extrato." : ""}`); render();
   }, "Toque de novo"));
 }
 function blocoPorCategoria(m, de, ate, veic) {
@@ -4450,21 +4455,43 @@ function painelDoMotorista() {
   // Regra para decorar: com o outro app na tela não dá para abrir este e calcular no tempo da corrida.
   const r30 = resumoTurnos(m.turnos, toISO(new Date(Date.now() - 30 * 864e5)), hj, veicD), kmh = r30.ms >= 3600000 && r30.km > 0 ? r30.km / (r30.ms / 3600000) : 0;
   const regra = regraDeAceite({ custoKm: custoTotalPorKm(veicD) || cvk, minimoHora: liqRef > 0 && m.horasDia > 0 ? round2(liqRef / m.horasDia) : 0, kmPorHora: kmh });
-  return { m, hj, mes, veicD, doDia, meta, ritmo, alc, liqRef, refNormal, regra };
+  return { m, hj, mes, veicD, doDia, meta, ritmo, alc, liqRef, refNormal, regra, semContas: semContasCadastradas() };
+}
+/** Conta sem nenhuma despesa fixa, fatura ou cartão: a meta sairia zero, mas isso não quer dizer que está tudo pago. */
+const semContasCadastradas = () => !S.data.fixos.some((f) => (f.tipo || "Despesa") === "Despesa") && !S.data.faturas.length && !S.data.cartoes.length;
+/** A conta que o motorista precisa ver antes de sair para rodar. */
+const linhaContasMot = () => linhaDasContas({ proximas: proximosVencimentos(S.data, hoje(), 30), atraso: contasEmAtraso(S.data, hoje(), S.prefs.saldoDesde), brl });
+function htmlContasMot(semContas) {
+  if (semContas) return `<button class="mot-dia-conta novo" type="button" id="motContas"><span><b>Cadastrar minhas contas</b><small>Leva 1 minuto e define a sua meta</small></span>${ico("chev")}</button>`;
+  const l = linhaContasMot();
+  return `<button class="mot-dia-conta ${l?.tom || "ok"}" type="button" id="motContas"><span><small>${l?.tom === "bad" ? "Atenção" : l ? "Próxima conta" : "Suas contas"}</small><b>${l ? esc(l.titulo) : "Tudo em dia"}</b></span>${l ? `<span class="d ocultavel"><b>${l.valor}</b><small>${l.quando}</small></span>` : ""}${ico("chev")}</button>`;
+}
+/** As contas a pagar na mão do motorista: o que atrasou e o que vem, com o "Já paguei" em um toque. */
+function contasMotTela() {
+  const hj = hoje(), at = contasEmAtraso(S.data, hj, S.prefs.saldoDesde), chave = (x) => `${x.tipo}|${x.id || x.cartao_id}|${x.data}`, ja = new Set(at.itens.map(chave));
+  const prox = proximosVencimentos(S.data, hj, 30).filter((x) => x.dias >= 0 && x.valor > 0 && !ja.has(chave(x))), lista = [...at.itens, ...prox], { meta, semContas } = painelDoMotorista();
+  const quando = (x) => (x.dias === undefined || x.dias < 0 ? `venceu ${ddmm(x.data)}` : quandoVence(x.dias));
+  openDlg(`<h3>Suas contas</h3><p class="hint ocultavel" style="margin:0 0 12px">${!lista.length ? "Nada a pagar nos próximos 30 dias." : meta.coberto ? "O que entrou já cobre o mês." : `Para pagar tudo em dia, sua meta de hoje é <b>${brl(meta.brutoDia)}</b>.`}</p>
+    ${lista.length ? `<ul class="itens atras-lista">${lista.map((x, i) => `<li><span><b>${esc(x.titulo)}</b><small>${quando(x)}</small></span><b class="ocultavel">${brl(x.valor)}</b><button class="btn sm" type="button" data-pg="${i}">Já paguei</button></li>`).join("")}</ul>` : ""}
+    <div class="actions"><button class="btn primary" type="button" id="mcNova">${semContas ? "Cadastrar minhas contas" : "Cadastrar outra conta"}</button><button class="btn" type="button" id="mcCal">Ver no calendário</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+  document.querySelectorAll("#dlgBody [data-pg]").forEach((b) => (b.onclick = async () => { b.disabled = true; await pagarConta(lista[Number(b.dataset.pg)]); contasMotTela(); }));
+  $("mcNova").onclick = () => guiaPasso("contas");
+  $("mcCal").onclick = () => calendario(mKey(hj));
 }
 /** "Domingo, 1º de novembro". */
 const dataPorExtenso = (iso) => { const d = Number(iso.slice(8, 10)), s = DIAS_SEMANA[diaDaSemana(iso)]; return `${s[0].toUpperCase()}${s.slice(1)}, ${d === 1 ? "1º" : d} de ${nomeMes(mKey(iso))}`; };
 /** A tela Jornada parada: uma frase, a regra por km e o botão de começar. */
-function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra }) {
-  const pct = meta.brutoDia > 0 ? Math.min(100, Math.round((doDia.ganho / meta.brutoDia) * 100)) : 100, ultimoPainel = [...m.turnos].reverse().find((t) => t.odoFim)?.odoFim;
-  const f = fraseDoDia({ meta, ganhoHoje: doDia.ganho, brl }), acima = alc.nivel === "fora" && ritmo;
+function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas }) {
+  const pct = Math.min(100, Math.round((doDia.ganho / (meta.brutoDia || 1)) * 100)), ultimoPainel = [...m.turnos].reverse().find((t) => t.odoFim)?.odoFim;
+  const f = fraseDoDia({ meta, ganhoHoje: doDia.ganho, brl, semContas }), acima = alc.nivel === "fora" && ritmo;
   const comemora = !meta.coberto && doDia.ganho >= meta.brutoDia && S.metaBatida !== hj, cats_ = categoriasDoPerfil(motDados().perfil), catAtual = categoriaAtual();
   const catsVis = [catAtual, ...cats_.filter((k) => k !== catAtual)].filter(Boolean).slice(0, 3), catsResto = cats_.filter((k) => !catsVis.includes(k));
   if (comemora) { S.metaBatida = hj; vibra(40); }
   return `<section class="mot-dia cheia${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${dataPorExtenso(hj)}</small><button type="button" class="mot-dia-pill" data-mot-sub="desafios">Desafios</button></div><h2 class="ocultavel">${f.titulo}</h2>
     ${!acima && !doDia.ganho ? "" : `<p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>`}
     ${regra ? `<p class="mot-dia-regra">Busque corridas de <b>${brl(regra.boa)} por km</b> ou mais.</p><p class="mot-dia-minimo">Seu mínimo: ${brl(regra.minimo)} por km${regra.custoKm > 0 ? ` (custo ${brl(regra.custoKm)} + ${brl(1)} de lucro)` : ""}.</p>` : ""}
-    <button class="mot-dia-prog" type="button" id="motProg"><span class="t ocultavel"><b>Hoje: ${brl(doDia.ganho)}</b>${meta.coberto ? "" : `<span>de ${brl(meta.brutoDia)}</span>`}</span><span class="tbar"><i style="width:${pct}%"></i></span></button>
+    <button class="mot-dia-prog" type="button" id="motProg"><span class="t ocultavel"><b>Hoje: ${brl(doDia.ganho)}</b>${meta.coberto ? "" : `<span>de ${brl(meta.brutoDia)}</span>`}</span>${meta.coberto ? "" : `<span class="tbar"><i style="width:${pct}%"></i></span>`}</button>
+    ${htmlContasMot(semContas)}
     <div class="mot-dia-base">${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
     <label class="mot-dia-odo">Km no painel do carro<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="${ultimoPainel ? `último: ${odoTxt(ultimoPainel)}` : "ex.: 84.120"}"></label>
     <button class="mot-dia-bt" type="button" id="motIniciar">Iniciar jornada</button>
@@ -4481,7 +4508,8 @@ function htmlRitmoMot({ m, hj, veicD, doDia }) {
 /** Carro ou moto e os apps em que a pessoa roda: os formulários e os desafios mostram só o que faz sentido para ela. */
 function panePerfilMot(host) {
   const m = motDados(), primeiraVez = !m.perfil; let veiculo = m.perfil?.veiculo || "", apps = [...(m.perfil?.apps || [])];
-  const fim = () => { if (motSub) motSai(); else render(); };
+  // No primeiro uso, depois do carro vêm as contas: sem elas não existe meta do dia.
+  const fim = () => { if (motSub) motSai(); else render(); if (primeiraVez && semContasCadastradas()) setTimeout(() => guiaPasso("contas"), 250); };
   const custo = () => {   // só na primeira vez: com o consumo e o preço do litro, o lucro já desconta o combustível
     const v = S.prefs.veiculo || {}, nome = veiculo === "moto" ? "a moto" : "o carro";
     host.innerHTML = `<div id="motRoot" class="mot-perfil"><h2 class="mot-frase">Quanto custa rodar?</h2><p class="mot-ver">Com esses números, o app mostra quanto sobra de verdade, não só quanto entrou.</p>
@@ -4502,7 +4530,7 @@ function panePerfilMot(host) {
       <button class="mot-dia-bt" type="button" id="perfilOk">Pronto</button>` : ""}</div>`;
     host.querySelectorAll("[data-veic]").forEach((b) => (b.onclick = () => { veiculo = b.dataset.veic; apps = APPS_POR_VEICULO[veiculo].filter((k) => k !== "outros"); desenha(); }));
     host.querySelectorAll("[data-papp]").forEach((b) => (b.onclick = () => { const k = b.dataset.papp; apps = apps.includes(k) ? apps.filter((x) => x !== k) : [...apps, k]; desenha(); }));
-    if ($("perfilOk")) $("perfilOk").onclick = () => { gravaMot({ ...motDados(), perfil: { veiculo, apps } }); if (primeiraVez && !custoTotalPorKm(S.prefs.veiculo || {})) custo(); else fim(); };
+    if ($("perfilOk")) $("perfilOk").onclick = () => { if (primeiraVez) { S.prefs.boasVindas = true; guiaDe().semRenda = true; } gravaMot({ ...motDados(), perfil: { veiculo, apps } }); if (primeiraVez && !custoTotalPorKm(S.prefs.veiculo || {})) custo(); else fim(); };
   };
   desenha();
 }
@@ -4656,8 +4684,9 @@ function paneDesafios(host) {
 
 /** Depois de encerrar: o dia em dez segundos. Quanto rendeu, como ficou a meta e um atalho para mostrar aos amigos. */
 function fechamentoDoDia(dia) {
-  const d = painelDoMotorista(), r = resumoTurnos(d.m.turnos, dia, dia, d.veicD), f = fraseDoDia({ meta: d.meta, ganhoHoje: r.ganho, brl }); if (!r.n) return;
+  const d = painelDoMotorista(), r = resumoTurnos(d.m.turnos, dia, dia, d.veicD), f = fraseDoDia({ meta: d.meta, ganhoHoje: r.ganho, brl, semContas: d.semContas }), conta = d.semContas ? null : linhaContasMot(); if (!r.n) return;
   openDlg(`<h3>Dia fechado</h3><p class="mot-fecha ocultavel">${f.titulo}</p>${htmlTresMot("Hoje você ganhou", r.ms >= 1800000 ? r.ganhoPorHora : null, r.ganhoPorKm, r.ganhoPorViagem, r.ms >= 1800000 && r.lucroPorHora !== null ? `Depois dos custos, ${brl(r.lucroPorHora)} por hora.` : "")}
+    ${conta ? `<p class="hint ocultavel">${conta.tom === "bad" ? `<b>${esc(conta.titulo)}</b>: ${conta.valor}.` : `Próxima conta: <b>${esc(conta.titulo)}</b>, ${conta.valor}, ${conta.quando}.`}</p>` : ""}
     <div class="actions"><button class="btn primary" type="button" id="fdDesafios">Ver os desafios</button><button class="btn" type="button" id="fdCompartilha">Compartilhar</button><button class="btn" type="button" data-close>Fechar</button></div>`);
   $("fdDesafios").onclick = () => { $("dlg").close(); motoristaTela(); motEntra("desafios"); };
   $("fdCompartilha").onclick = () => compartilharResultadoMot("Hoje", r);
@@ -4836,7 +4865,7 @@ function paneMot() {
   if (motSub === "dia") return paneLancarDia(host);
   if (motSub === "ganhos") return paneGanhos(host);
   if (motSub) return paneMotSub(host);
-  const { m, hj, veicD, doDia, meta, ritmo, alc, liqRef, refNormal, regra } = painelDoMotorista(), tracos = (v, f) => (v === null ? "—" : f(v));
+  const { m, hj, veicD, doDia, meta, ritmo, alc, liqRef, refNormal, regra, semContas } = painelDoMotorista(), tracos = (v, f) => (v === null ? "—" : f(v));
   // O quadro do turno em andamento: refeito a cada segundo, sem mexer nos campos de digitar.
   const vivo = () => {
     const ganho = m.ativo.parcial, gastos = gastosDaJornada(m.ativo), ms = msAndamento(m.ativo);
@@ -4844,7 +4873,7 @@ function paneMot() {
     const alvo = refNormal ? "do seu ritmo normal" : "do que você precisa";
     const frase = v.veredito === "bom" ? `Acima ${alvo}: ${brl(v.minimo)} por hora.`
       : v.veredito === "abaixo" ? `Você precisa de ${brl(v.minimo)} por hora. Vale olhar horário e região.`
-      : v.minimo > 0 ? `${refNormal ? "Seu ritmo normal" : "Meta do dia"}: ${brl(v.minimo)} líquidos por hora, rodando ${m.horasDia}h. Depois de 15 minutos o app diz se está valendo a pena.` : "Suas contas do mês estão cobertas: o que entrar agora é sobra.";
+      : v.minimo > 0 ? `${refNormal ? "Seu ritmo normal" : "Meta do dia"}: ${brl(v.minimo)} líquidos por hora, rodando ${m.horasDia}h. Depois de 15 minutos o app diz se está valendo a pena.` : semContas ? "Cadastre suas contas para ter uma meta." : "Suas contas do mês estão cobertas: o que entrar agora é sobra.";
     const totalHoje = round2(doDia.ganho + ganho), bateu = meta.brutoDia > 0 && totalHoje >= meta.brutoDia && v.veredito !== "abaixo", cobriu = ganho > 0 && ganho >= gastos && gastos > 0;
     const aviso = bateu ? `<p class="mot-ver bom"><b>Meta do dia batida:</b> você fez ${brl(totalHoje)} e a meta era ${brl(meta.brutoDia)}. O que passar disso adianta os próximos dias.</p>`
       : cobriu ? `<p class="mot-ver bom"><b>Os gastos de hoje já estão pagos.</b> Daqui para a frente é lucro.${meta.brutoDia > 0 ? ` Faltam ${brl(round2(meta.brutoDia - totalHoje))} para a meta do dia.` : ""}</p>` : "";
@@ -4856,7 +4885,7 @@ function paneMot() {
       <div class="mot-barra ocultavel" role="img" aria-label="De ${brl(ganho)} ganhos, ${brl(gastos)} foram gastos e ${sobra < 0 ? `faltam ${brl(-sobra)}` : `sobram ${brl(sobra)}`}">${pctGastos ? `<i style="width:${pctGastos}%">${sobra < 0 ? txtSobra : pctGastos >= 18 ? "Gastos" : ""}</i>` : ""}${sobra < 0 ? "" : `<span>${apertado ? "" : txtSobra}</span>`}</div>
       <small class="mot-barra-leg ocultavel">${apertado && sobra >= 0 ? `${txtSobra} de` : "De"} ${brl(ganho)} ganhos ${doDia.n ? "nesta jornada" : "hoje"}</small>` : `<p class="mot-ver">Informe quanto já ganhou para ver se está valendo a pena.</p>`}
       ${aviso || (v.veredito ? `<p class="mot-ver ${v.veredito}">${frase}</p>` : "")}
-      <div class="gan-stats mot-vivo-st"><p><b class="ocultavel">${meta.coberto ? "Coberta" : brl(meta.brutoDia)}</b><small>Meta de hoje</small></p><p><b class="ocultavel">${meta.coberto || totalHoje >= meta.brutoDia ? "Nada" : brl(round2(meta.brutoDia - totalHoje))}</b><small>Faltam</small></p><p><b class="ocultavel">${brl(regra.minimo)}</b><small>Mínimo por km</small></p></div>`;
+      <div class="gan-stats mot-vivo-st"><p><b class="ocultavel">${semContas ? "Sem meta" : meta.coberto ? "Coberta" : brl(meta.brutoDia)}</b><small>Meta de hoje</small></p><p><b class="ocultavel">${semContas ? "—" : meta.coberto || totalHoje >= meta.brutoDia ? "Nada" : brl(round2(meta.brutoDia - totalHoje))}</b><small>Faltam</small></p><p><b class="ocultavel">${brl(regra.minimo)}</b><small>Mínimo por km</small></p></div>`;
   };
   if (m.ativo) {   // jornada em andamento: uma tela só com o cronômetro, no estilo "dirigindo"
     const a = m.ativo, pausada = Boolean(a.pausaIni), gastosTot = gastosDaJornada(a);
@@ -4903,8 +4932,9 @@ function paneMot() {
     <div class="mot-atalhos"><button class="btn sm" type="button" data-mot-acao="ler">Escanear nota ou QR</button><button class="btn sm" type="button" data-mot-acao="lancar">Lançar um gasto</button></div>`;
   const semana = barrasDoPeriodo(m.turnos, "semana", hj, veicD), maxSem = Math.max(1, ...semana.map((b) => b.ganho)), totalSem = round2(semana.reduce((t, b) => t + b.ganho, 0));
   const cartaoGanhos = `<button class="gan-card" type="button" id="motGanhos"><span class="t"><small>Nesta semana</small><b class="ocultavel">${brl(totalSem)}</b><small>Ver o detalhe</small></span><span class="gan-mini" aria-hidden="true">${semana.map((b) => `<i class="${b.iso === hj ? "hoje" : ""}" style="height:${b.ganho > 0 ? Math.max(8, Math.round((b.ganho / maxSem) * 100)) : 4}%"></i>`).join("")}</span>${ico("chev")}</button>`;
+  const fech = fechamentoDaVez(), cartaoFech = fech ? `<button class="mot-rap larga mot-fech" type="button" id="motFech"><small>${nomeMes(fech.m)} fechou</small><b class="ocultavel">${fech.sobra < 0 ? "Faltaram" : "Sobraram"} ${brl0(Math.abs(fech.sobra))}. Ver o fechamento</b></button>` : "";
   host.innerHTML = `<div id="motRoot">
-    ${turno.replace("<!--ganhos-->", cartaoGanhos)}
+    ${turno.replace("<!--ganhos-->", cartaoFech + cartaoGanhos)}
     <div class="mot-entenda">${meta.coberto ? "" : `<button class="mot-rap" type="button" id="motEntMeta"><small>Entenda</small><b>Sua meta de hoje</b></button>`}<button class="mot-rap" type="button" id="motEntKm"><small>Entenda</small><b>Seu valor por km</b></button></div>
     <button class="mot-rap larga" type="button" data-mot-sub="ajustes"><small>Minha meta</small><b>Ajustar dias, horas e quanto quero sobrar</b></button>
     <button class="mot-rap larga" type="button" data-mot-sub="perfil"><small>Meu trabalho</small><b>${m.perfil?.veiculo === "moto" ? "Moto" : "Carro"}: ${appsDoPerfil(m.perfil).filter(([k]) => k !== "outros").map(([, n]) => n).join(", ")}</b></button>
@@ -4914,6 +4944,8 @@ function paneMot() {
   $("motIniciar").onclick = () => { const odo = odoNum($("motOdoIni").value) || null; motEntrou = true; iniciarJornada(odo); render(); scrollTo(0, 0); };
   $("motVerMais").onclick = $("motProg").onclick = () => abrirGanhos("dia", hj);
   $("motGanhos").onclick = () => abrirGanhos("semana", hj);
+  $("motContas").onclick = () => (semContas ? guiaPasso("contas") : contasMotTela());
+  if ($("motFech")) $("motFech").onclick = () => abrirFechamento(fech.m);
   if ($("motEntMeta")) $("motEntMeta").onclick = () => metaTela();
   $("motEntKm").onclick = () => custoKmTela();
   host.querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
@@ -5876,12 +5908,17 @@ function acaoRapida(a) {
    Nos primeiros dias de cada mês, o início mostra como o mês anterior fechou, com uma imagem pronta para compartilhar.
    A imagem é desenhada no aparelho (canvas); nada é enviado para fora. Dá para esconder os valores e mostrar só porcentagens. */
 const mesAnterior = () => addM(mKey(hoje()), -1);
-function renderFechamento() {
-  const host = $("fechCard"), m = mesAnterior(), dia = Number(hoje().slice(8, 10));
+/** Na primeira semana do mês, o mês que acabou de fechar. */
+function fechamentoDaVez() {
+  const m = mesAnterior(), dia = Number(hoje().slice(8, 10));
   let fora = false; try { fora = localStorage.getItem("cg-fech-" + m) === "1"; } catch { /* nada */ }
-  const c = S.loaded ? calcMes(S.data, m, hoje()) : null, mostra = c && dia <= 7 && !fora && (c.rec > 0 || c.custo > 0) && S.mes === mKey(hoje());
-  host.hidden = !mostra; if (!mostra) { host.innerHTML = ""; return; }
-  const sobra = raioX(c).sobra;
+  const c = S.loaded ? calcMes(S.data, m, hoje()) : null;
+  return c && dia <= 7 && !fora && (c.rec > 0 || c.custo > 0) && S.mes === mKey(hoje()) ? { m, sobra: raioX(c).sobra } : null;
+}
+function renderFechamento() {
+  const host = $("fechCard"), f = fechamentoDaVez();
+  host.hidden = !f; if (!f) { host.innerHTML = ""; return; }
+  const { m, sobra } = f;
   host.innerHTML = `<div class="fech-card${sobra < 0 ? " neg" : ""}"><span class="tx"><small>${nomeMes(m)} fechou</small><b>${sobra < 0 ? "Faltaram" : "Sobraram"} ${brl0(Math.abs(sobra))}</b></span>
     <button class="btn sm primary" type="button" id="fechVer">Ver o fechamento</button><button class="iconbtn" type="button" id="fechFora" aria-label="Agora não">${ico("x")}</button></div>`;
   $("fechVer").onclick = () => abrirFechamento(m);
@@ -7704,11 +7741,12 @@ function ligaAjustesDeAvisos() {
 /** Convite, uma vez por aparelho, para ligar as notificações (só para quem já tem contas cadastradas). */
 function conviteAvisos() {
   if (S.store?.kind !== "supabase" || !pushDisponivel() || Notification.permission !== "default") return;
-  if (!S.data.fixos.length && !S.data.faturas.length && !S.data.cartoes.length) return;
+  if (semContasCadastradas() || $("app").dataset.jornada === "1") return;
   try { if (localStorage.getItem("cg-convite-avisos")) return; localStorage.setItem("cg-convite-avisos", "1"); } catch { return; }
+  // Ao responder, volta o aviso do teste grátis ou da renovação, se houver.
   showBanner("Quer ser avisado no celular quando uma conta estiver para vencer?", [
-    ["Ativar avisos", async () => { try { await ligarPush(); showBanner(""); toastOuFlash("Avisos ligados neste aparelho. Dá para mudar em Ajustes."); } catch (e) { showBanner(String(e?.message || e)); } }],
-    ["Agora não", () => showBanner("")]]);
+    ["Ativar avisos", async () => { try { await ligarPush(); showBanner(""); avisoDeRenovacao(); toastOuFlash("Avisos ligados neste aparelho. Dá para mudar em Ajustes."); } catch (e) { showBanner(String(e?.message || e)); } }],
+    ["Agora não", () => { showBanner(""); avisoDeRenovacao(); }]]);
 }
 
 /* ================= primeiros passos =================
@@ -7762,9 +7800,10 @@ function guiaProximo(k, todos) {
  */
 function guiaPasso(k, todos = false) {
   if (S.mes !== mesAtual()) { S.mes = mesAtual(); render(); }
-  const etapa = `<p class="guia-etapa">Passo ${GUIA_PASSOS.indexOf(k) + 1} de ${GUIA_PASSOS.length}</p>`;
+  // Quem roda de aplicativo não tem renda fixa para informar: o caminho dele são as contas e o cartão.
+  const mot = Boolean(S.prefs.motorista?.usa), passos = mot ? GUIA_PASSOS.slice(1) : GUIA_PASSOS, etapa = `<p class="guia-etapa">Passo ${passos.indexOf(k) + 1} de ${passos.length}</p>`;
   // Em todo passo: quem quer só anotar um gasto pula tudo e já lança (os passos ficam em "Comece por aqui").
-  const depois = `<div class="guia-pular"><button class="btn" type="button" data-ja-lancar>Pular e lançar um gasto agora</button><button class="link gdepois" type="button" data-close>Fazer depois</button></div>`;
+  const depois = `<div class="guia-pular">${mot ? "" : `<button class="btn" type="button" data-ja-lancar>Pular e lançar um gasto agora</button>`}<button class="link gdepois" type="button" data-close>Fazer depois</button></div>`;
   const erro = (t) => { $("gMsg").textContent = t; };
 
   if (k === "cartao") {
@@ -7800,8 +7839,9 @@ function guiaPasso(k, todos = false) {
   const ent = k === "renda", tipo = ent ? "Receita" : "Despesa", diaPadrao = ent ? 5 : 10;
   const ja = S.data.fixos.filter((f) => (f.tipo || "Despesa") === tipo), tem = new Set(ja.map((f) => norm(f.descricao)));
   // [como aparece na tela, nome que fica salvo, categoria]
+  const doVeic = motDados().perfil?.veiculo === "moto" ? "da moto" : "do carro", doTrabalho = mot ? [[`Parcela ou aluguel ${doVeic}`, `Parcela ${doVeic}`, "Transporte"], [`Seguro ${doVeic}`, `Seguro ${doVeic}`, "Transporte"]] : [];
   const base = (ent ? [["Salário", "Salário", "Salário"], ["Adiantamento ou vale, se tiver", "Adiantamento", "Adiantamento"]]
-    : [["Aluguel", "Aluguel", "Moradia"], ["Condomínio", "Condomínio", "Moradia"], ["Luz", "Luz", "Contas da casa"], ["Água", "Água", "Contas da casa"], ["Internet", "Internet", "Contas da casa"], ["Celular", "Celular", "Contas da casa"]])
+    : [...doTrabalho, ["Aluguel", "Aluguel", "Moradia"], ["Condomínio", "Condomínio", "Moradia"], ["Luz", "Luz", "Contas da casa"], ["Água", "Água", "Contas da casa"], ["Internet", "Internet", "Contas da casa"], ["Celular", "Celular", "Contas da casa"]])
     .filter(([, nome]) => !tem.has(norm(nome)));
   const campos = (nome) => `<input class="in money" data-v inputmode="decimal" placeholder="0,00" aria-label="Valor de ${esc(nome)}"><input class="in" data-d type="number" inputmode="numeric" min="1" max="31" placeholder="${diaPadrao}" aria-label="Dia ${ent ? "em que recebe" : "do vencimento de"} ${esc(nome)}">`;
   const livre = () => `<div class="glin"><input class="in" data-n maxlength="40" placeholder="${ent ? "Ex.: Pensão" : "Ex.: Academia"}" aria-label="${ent ? "Nome da entrada" : "Nome da conta"}">${campos(ent ? "outra entrada" : "outra conta")}</div>`;
@@ -7819,10 +7859,12 @@ function guiaPasso(k, todos = false) {
       <p class="hint" style="margin:10px 0 0">Sem o dia, o app usa o dia ${diaPadrao}. Dá para mudar depois.</p>
       <p class="gmsg" id="gMsg" role="alert"></p>
       <div class="actions"><button class="btn primary" type="submit">Continuar</button><button class="btn" type="button" id="gAlt">${ent && !ja.length ? "Minha renda varia" : "Pular"}</button></div>
+      ${ent && !mot ? `<button class="link gdepois" type="button" id="gMot">Rodo de Uber, 99 ou inDrive</button>` : ""}
       ${depois}
     </form></div>`);
   $("gMais").onclick = () => { $("gLinhas").insertAdjacentHTML("beforeend", livre()); $("gLinhas").lastElementChild.querySelector("[data-n]").focus(); };
   $("gAlt").onclick = () => { if (ent && !ja.length) { guiaDe().semRenda = true; salvaPrefs(); render(); } guiaProximo(k, todos); };
+  if ($("gMot")) $("gMot").onclick = () => { $("dlg").close(); motoristaTela(); };
   $("gForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const linhas = [...$("gLinhas").querySelectorAll(".glin")].map((el) => {
@@ -7844,7 +7886,17 @@ function guiaPasso(k, todos = false) {
 }
 
 /** Fim do guia: o mês da pessoa, já com o que ela cadastrou. */
+function guiaFimMot() {
+  const { meta, m, semContas } = painelDoMotorista(), mes = nomeMes(mesAtual()), avisos = S.store?.kind === "supabase" && pushDisponivel() && Notification.permission === "default";
+  if (semContas) { $("dlg").open && $("dlg").close(); return render(); }
+  openDlg(`<div class="guiad"><h3>${meta.coberto ? "Pronto. O mês está coberto." : "Pronto. Sua meta está feita."}</h3>
+    ${meta.coberto ? "" : `<div class="gfim"><div><span>Falta para as contas de ${mes}</span><b>${brl(meta.falta)}</b></div><div><span>Dias de trabalho até o fim do mês</span><b>${meta.dias}</b></div><div class="tot"><span>Meta de hoje</span><b>${brl(meta.brutoDia)}</b></div></div>`}
+    <p class="gsub">${meta.coberto ? "O que você rodar agora é sobra." : `A conta usa ${m.diasSemana} dias por semana. Ela muda sozinha conforme você roda e paga as contas.`}</p>
+    <div class="actions">${avisos ? `<button class="btn primary" type="button" id="gAvisos">Avisar quando uma conta vencer</button><button class="btn" data-close>Agora não</button>` : `<button class="btn primary" data-close>Ver minha meta</button>`}</div></div>`);
+  if ($("gAvisos")) $("gAvisos").onclick = async () => { $("dlg").close(); try { await ligarPush(); try { localStorage.setItem("cg-convite-avisos", "1"); } catch { /* nada */ } toastOuFlash("Avisos ligados neste aparelho. Dá para mudar em Ajustes."); } catch (e) { toast(String(e?.message || e)); } };
+}
 function guiaFim() {
+  if (S.prefs.motorista?.usa) return guiaFimMot();
   const c = calcMes(S.data, mesAtual(), hoje()), livre = livrePorDia(c), p = primeirosPassos(S.data, guiaDe());
   const saem = round2(c.rec - c.saldo), soFixos = !c.vari && !c.fatT && !c.res, nada = !c.rec && !saem && !S.data.cartoes.length;
   const falta = p.itens.filter((i) => !i.feito && i.k !== "gasto").length, temGasto = p.itens.find((i) => i.k === "gasto").feito;

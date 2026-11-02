@@ -319,11 +319,21 @@ export function reservasDoMotorista(veic, { diasSemana = 6, lucroMes = 0, veicul
 }
 
 /** A frase do dia do motorista: uma resposta só, no alto da tela. `brl` formata o dinheiro. */
-export function fraseDoDia({ meta, ganhoHoje = 0, brl }) {
+export function fraseDoDia({ meta, ganhoHoje = 0, brl, semContas = false }) {
+  if (semContas) return { titulo: "Falta cadastrar suas contas.", sub: "Com elas, o app calcula quanto fazer por dia." };
   if (meta.coberto) return { titulo: "Suas contas do mês estão cobertas.", sub: "O que você rodar agora é sobra." };
   if (ganhoHoje >= meta.brutoDia) return { titulo: "Meta de hoje batida.", sub: `Você fez ${brl(ganhoHoje)}. O que passar disso adianta os próximos dias.` };
   if (ganhoHoje > 0) return { titulo: `Faltam ${brl(r2(meta.brutoDia - ganhoHoje))} para a meta de hoje.`, sub: `A meta do dia é ${brl(meta.brutoDia)}.` };
   return { titulo: `Hoje, faça ${brl(meta.brutoDia)} para o mês fechar.`, sub: "Estimativa com as suas contas e o custo do veículo." };
+}
+
+/** A conta que pede atenção agora: as atrasadas primeiro, depois a próxima a vencer. Sem nada a pagar, devolve null. */
+export function linhaDasContas({ proximas = [], atraso = { itens: [], total: 0 }, brl }) {
+  const n = atraso.itens.length;
+  if (n) return { tom: "bad", titulo: n === 1 ? "1 conta atrasada" : `${n} contas atrasadas`, valor: brl(atraso.total), quando: "Resolver" };
+  const x = proximas.filter((c) => c.dias >= 0 && c.valor > 0).sort((a, b) => a.dias - b.dias)[0];
+  if (!x) return null;
+  return { tom: x.dias <= 3 ? "warn" : "ok", titulo: x.titulo, valor: brl(x.valor), quando: x.dias === 0 ? "vence hoje" : x.dias === 1 ? "vence amanhã" : `vence em ${x.dias} dias` };
 }
 
 /**

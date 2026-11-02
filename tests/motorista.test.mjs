@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
+import { linhaDasContas, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
 
 test("perfil: quem roda de carro não vê apps de moto, e o inverso", () => {
   const nomes = (l) => l.map(([k]) => k);
@@ -123,10 +123,22 @@ test("lançar o dia: mostra por hora, por km e por viagem", () => {
 test("frase do dia: uma resposta para cada momento do motorista", () => {
   const brl = (v) => `R$ ${v}`, meta = { coberto: false, brutoDia: 200 };
   assert.equal(fraseDoDia({ meta: { coberto: true }, brl }).titulo, "Suas contas do mês estão cobertas.");
+  assert.equal(fraseDoDia({ meta: { coberto: true }, brl, semContas: true }).titulo, "Falta cadastrar suas contas.");
   assert.equal(fraseDoDia({ meta, brl }).titulo, "Hoje, faça R$ 200 para o mês fechar.");
   assert.equal(fraseDoDia({ meta, ganhoHoje: 150.5, brl }).titulo, "Faltam R$ 49.5 para a meta de hoje.");
   assert.equal(fraseDoDia({ meta, ganhoHoje: 200, brl }).titulo, "Meta de hoje batida.");
   assert.equal(fraseDoDia({ meta, ganhoHoje: 260, brl }).sub, "Você fez R$ 260. O que passar disso adianta os próximos dias.");
+});
+
+test("contas na Jornada: atrasadas primeiro, depois a próxima a vencer", () => {
+  const brl = (v) => `R$ ${v}`, luz = { titulo: "Luz", valor: 90, dias: 2 }, aluguel = { titulo: "Aluguel", valor: 800, dias: 12 };
+  assert.equal(linhaDasContas({ brl }), null);
+  assert.deepEqual(linhaDasContas({ proximas: [aluguel, luz], brl }), { tom: "warn", titulo: "Luz", valor: "R$ 90", quando: "vence em 2 dias" });
+  assert.equal(linhaDasContas({ proximas: [aluguel], brl }).tom, "ok");
+  assert.equal(linhaDasContas({ proximas: [{ ...luz, dias: 0 }], brl }).quando, "vence hoje");
+  assert.equal(linhaDasContas({ proximas: [{ ...luz, dias: 1 }], brl }).quando, "vence amanhã");
+  assert.equal(linhaDasContas({ proximas: [{ ...luz, dias: -3 }, { ...aluguel, valor: 0 }], brl }), null);   // vencida sem estar em atraso e conta sem valor não contam
+  assert.deepEqual(linhaDasContas({ proximas: [luz], atraso: { itens: [{}, {}], total: 300 }, brl }), { tom: "bad", titulo: "2 contas atrasadas", valor: "R$ 300", quando: "Resolver" });
 });
 
 const h = (hh, mm = 0, dia = 5) => new Date(2026, 9, dia, hh, mm).getTime();   // outubro de 2026

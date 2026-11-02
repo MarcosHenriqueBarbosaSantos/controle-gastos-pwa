@@ -150,7 +150,7 @@ button,a,summary,.btn{touch-action:manipulation}
   #lFiltros .seg button{padding-inline:12px;font-size:14px}
   /* Jornada: sem mês no alto, sem faixa de obra e no fundo do tema */
   body:has(#app[data-view="listas"][data-tab="mot"]){background:var(--bg)}
-  #app[data-view="listas"][data-tab="mot"] .top,#app[data-view="listas"][data-tab="mot"] #banner{display:none!important}
+  #app[data-view="listas"][data-tab="mot"] .top,#app[data-view="listas"][data-tab="mot"][data-jornada="1"] #banner,#app[data-view="listas"][data-tab="mot"] #banner.fina{display:none!important}
   .wrap[data-tab="mot"] #listas::before{display:none}
   .wrap[data-tab="mot"] #listas{padding:18px}
   #listas:has(.mot-dia.cheia) #listaVoltar,#listas:has(.mot-jornada) #listaVoltar{display:none}
