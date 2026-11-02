@@ -14,8 +14,8 @@ export const SUPORTE_CONTATO = "meugastos@gmail.com";
 // Venda do app (plano anual). LINK_COMPRA é o endereço da página de pagamento na Hotmart.
 // Enquanto estiver vazio, o app não mostra botão de compra. Quem decide se a cobrança vale é o banco
 // (supabase/acesso.sql): com ela desligada, o app funciona para todos como sempre.
-export const LINK_COMPRA = "https://pay.hotmart.com/G107911431C";
-export const PRECO_PLANO = "R$ 69 por ano";
+export const LINK_COMPRA = "https://pay.hotmart.com/X108304792E";
+export const PRECO_PLANO = "R$ 89 por ano";
 
 // Loja do Google (opcional). Depois de publicar o app na Play Store, escreva aqui o nome do pacote,
 // o mesmo que está em .well-known/assetlinks.json (ex.: "br.com.meugastos.app").
@@ -31,4 +31,4 @@ export const PLAY_PACOTE = "";
 // a pessoa nem sempre acha onde baixar. O código fica guardado; para religar, troque para true.
 export const IMPORTA_EXTRATO = false;
 
-export const APP_VERSAO = "185";
+export const APP_VERSAO = "186";

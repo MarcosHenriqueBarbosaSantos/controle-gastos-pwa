@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "186", itens: ["Links de parceiros: quem chega por um parceiro pode testar 7 dias e comprar depois, com a indicação preservada."] },
   { versao: "185", itens: ["O azul voltou no app e no site.", "Modo motorista: nova tela de Ganhos por dia, semana, mês e ano, com gráfico e o detalhe de cada app.", "Km total e km com passageiro: o app mostra quanto você roda vazio e quanto isso custa.", "Lance Uber, 99 e inDrive juntos, com as viagens de cada app.", "Entenda a meta de hoje, o valor por km e o Cabem hoje, com a conta na tela."] },
   { versao: "184", itens: ["Modo motorista: lance uma jornada direto em Lançar ou no Extrato, sem ter iniciado.", "Nos desafios, só contam as jornadas iniciadas e encerradas no app."] },
   { versao: "183", itens: ["Início novo no celular: a frase do mês e três cartões na mesma tela.", "Modo motorista: toque em Entenda esse valor para ver cada conta e corrigir ali mesmo.", "Férias e 13º agora partem de pelo menos R$ 3.500 por mês."] },

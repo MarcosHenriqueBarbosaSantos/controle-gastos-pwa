@@ -971,7 +971,7 @@ picture{display:contents}
   <div class="faq" data-recolhe="7" data-mais="Ver mais {n} perguntas">
     <details data-venda hidden><summary>Como funciona o teste grátis?</summary><p>Você cria a conta com e-mail e senha e usa tudo por 7 dias, sem cartão. O app mostra quantos dias faltam. Depois, para continuar lançando, é só assinar o plano anual; os seus dados ficam guardados mesmo se você não assinar.</p></details>
     <details data-venda hidden><summary>Quanto custa?</summary><p><b data-preco></b>. É um plano anual: você paga uma vez por ano, pela Hotmart, no cartão, Pix ou boleto. A demonstração é grátis e não pede cadastro.</p></details>
-    <details data-venda hidden><summary>Posso parcelar?</summary><p>No cartão de crédito, sim. As opções de parcelas aparecem na página de pagamento, antes de você confirmar. No Pix e no boleto o pagamento é à vista.</p></details>
+    <details data-venda hidden><summary>Posso parcelar?</summary><p>No cartão de crédito, sim: até 3x sem juros, e em mais vezes com juros. As opções de parcelas aparecem na página de pagamento, antes de você confirmar. No Pix e no boleto o pagamento é à vista.</p></details>
     <details data-venda hidden><summary>Como recebo o acesso depois de comprar?</summary><p>O acesso é liberado para o e-mail usado na compra, em geral em menos de um minuto depois do pagamento aprovado. Abra o app, crie a sua conta com esse mesmo e-mail e pronto. No boleto, a liberação pode levar até 3 dias úteis.</p></details>
     <details data-venda hidden><summary>Tem garantia? E se eu me arrepender?</summary><p>Você tem 7 dias a partir da compra para pedir o dinheiro de volta, direto pela Hotmart, sem precisar explicar o motivo.</p></details>
     <details data-venda hidden><summary>O que acontece se eu não renovar?</summary><p>O app deixa de aceitar lançamentos novos, mas os seus dados continuam guardados. Você ainda entra para baixar tudo em planilha, e eles voltam a aparecer se você renovar. A renovação pode ser cancelada quando você quiser. As regras completas estão nos <a href="termos.html">Termos de uso</a>.</p></details>
@@ -1033,14 +1033,17 @@ picture{display:contents}
 //   lancamento: opcional, o preço de lançamento. Só preencha se a oferta existir de verdade na página de pagamento,
 //               por exemplo "Lançamento: R$ 29,90 no primeiro ano, para as 100 primeiras pessoas."
 //   link:       o endereço da página de pagamento na Hotmart. É ele que liga a venda no site.
-const OFERTA = { preco: "R$ 69 por ano", detalhe: "Plano anual, com 7 dias de garantia e parcelamento no cartão. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", lancamentoAte: "", linkLancamento: "", link: "https://pay.hotmart.com/G107911431C" };
+const OFERTA = { preco: "R$ 89 por ano", detalhe: "Plano anual, com 7 dias de garantia e até 3x sem juros no cartão. Acesso no celular e no computador, com avisos por e-mail e notificação.", lancamento: "", lancamentoAte: "", linkLancamento: "", link: "https://pay.hotmart.com/X108304792E" };
 // ================= preço de lançamento com data para acabar =================
 // lancamentoAte: último dia da oferta, no formato "2026-10-31". Depois dele, o aviso some e o link volta ao normal sozinho.
 // linkLancamento: o link de pagamento que já abre com o cupom aplicado (a Hotmart mostra esse link na tela do cupom).
 const hojeISO = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; })();
 const EM_LANCAMENTO = Boolean(OFERTA.lancamento) && (!OFERTA.lancamentoAte || hojeISO <= OFERTA.lancamentoAte);
 if (!EM_LANCAMENTO) OFERTA.lancamento = "";
-const LINK_PAGAMENTO = (EM_LANCAMENTO && OFERTA.linkLancamento) || OFERTA.link;
+// Link de parceiro (?p=código do hotlink): o primeiro parceiro que trouxe a pessoa recebe a comissão, no site e no app.
+try { var pc = new URLSearchParams(location.search).get("p"); if (pc && /^[A-Za-z0-9]{4,24}$/.test(pc) && !localStorage.getItem("cg-parceiro")) localStorage.setItem("cg-parceiro", pc); } catch (e) { /* sem armazenamento: a venda fica sem parceiro */ }
+let parceiro = ""; try { parceiro = localStorage.getItem("cg-parceiro") || ""; } catch (e) { /* sem armazenamento */ }
+const LINK_PAGAMENTO = parceiro ? `https://go.hotmart.com/${parceiro}?dp=1` : (EM_LANCAMENTO && OFERTA.linkLancamento) || OFERTA.link;
 
 const q = (s) => document.querySelector(s), qa = (s) => [...document.querySelectorAll(s)];
 

@@ -127,3 +127,12 @@ test("por aplicativo: quanto rendeu cada viagem", () => {
   const l = ganhoPorApp([dia28()], "2026-10-28", "2026-10-28");
   assert.equal(l[0].app, "uber"); assert.equal(l[0].porViagem, 32.21); assert.equal(l.find((x) => x.app === "99").porViagem, 15.05); assert.equal(l.find((x) => x.app === "indrive").viagens, 2);
 });
+
+import { linkDeCompra, parceiroValido } from "../js/extras.js";
+test("compra com parceiro passa pelo hotlink dele", () => {
+  const base = "https://pay.hotmart.com/X108304792E";
+  assert.equal(linkDeCompra(base, "X95246702Y"), "https://go.hotmart.com/X95246702Y?dp=1");
+  assert.equal(linkDeCompra(base, ""), base); assert.equal(linkDeCompra(base, undefined), base);
+  assert.equal(linkDeCompra(base, "x/../evil"), base);
+  assert.equal(parceiroValido("<script>"), false);
+});

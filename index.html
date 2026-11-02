@@ -6,6 +6,8 @@
 <title>Meus Gastos</title>
 <meta name="description" content="Controle de gastos pessoal: lance no dia a dia, acompanhe o custo do mês e a projeção, contas fixas e faturas de cartão.">
 <meta name="theme-color" content="#060e1d">
+<script>/* Link de parceiro (?p=código do hotlink): o primeiro parceiro que trouxe a pessoa fica guardado até a compra. */
+try { var pc = new URLSearchParams(location.search).get("p"); if (pc && /^[A-Za-z0-9]{4,24}$/.test(pc) && !localStorage.getItem("cg-parceiro")) localStorage.setItem("cg-parceiro", pc); } catch (e) { /* sem armazenamento: a venda fica sem parceiro */ }</script>
 <script>/* Quem chega pela primeira vez ao endereço do app, pelo navegador, vê antes o site que explica o app (pasta site/).
    Quem já usa, quem instalou o app ou quem chega por um link com destino (demonstração, entrar, confirmação de e-mail) vai direto para o app. */
 try {

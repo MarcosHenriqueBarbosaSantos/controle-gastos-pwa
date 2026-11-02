@@ -132,6 +132,10 @@ export function planosSugeridos({ custoMes = 0, rendaMes = 0, sobraMes = 0 } = {
   const plano = (nome, sub, alvo, meses) => { const q = quantoGuardarPorMes({ alvo, meses }); return q && { nome, sub, alvo: round2(alvo), meses, porMes: q.porMes, porDia: round2(q.porMes / 30), cabe: q.porMes <= sobraMes }; };
   return [custoMes > 0 && plano("Reserva de emergência", "6 meses das suas contas, para qualquer imprevisto", custoMes * 6, 24), rendaMes > 0 && plano("Férias", "Um mês de renda para descansar sem dívida", rendaMes, 12)].filter(Boolean);
 }
+/** Código de parceiro válido: o final do hotlink da Hotmart. */
+export const parceiroValido = (c) => /^[A-Za-z0-9]{4,24}$/.test(String(c ?? ""));
+/** A compra com parceiro passa pelo hotlink dele, direto para o pagamento; sem parceiro, vai para o link normal. */
+export const linkDeCompra = (base, parceiro) => (parceiroValido(parceiro) ? `https://go.hotmart.com/${parceiro}?dp=1` : base);
 /**
  * Liberdade financeira: quando o patrimônio passa a pagar os gastos do mês, para sempre.
  * Só conta como renda o que rende acima da inflação: o resto precisa ficar investido para o patrimônio não perder valor.

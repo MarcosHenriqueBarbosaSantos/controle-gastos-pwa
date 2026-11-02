@@ -19,7 +19,7 @@ import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
 import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
-import { desempenhoDoMes, planosSugeridos, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
+import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { conferirListaComNota, valoresDaLinha as valoresDaLinhaNota } from "./notamercado.js";
@@ -287,6 +287,14 @@ function erroDoLink() {
     ? "Esse link já foi usado ou expirou. Para criar uma nova senha, peça outro link em \"Esqueci minha senha\"."
     : "Não foi possível concluir pelo link do e-mail. Tente entrar normalmente ou peça um novo link.";
 }
+/** O parceiro que trouxe a pessoa: fica na conta dela, para valer também em outro aparelho e no app instalado. */
+function parceiroLocal() { try { return localStorage.getItem("cg-parceiro") || ""; } catch { return ""; } }
+function guardaParceiro() {
+  const local = parceiroLocal();
+  if (parceiroValido(S.prefs.parceiro)) { try { localStorage.setItem("cg-parceiro", S.prefs.parceiro); } catch { /* sem armazenamento */ } }
+  else if (parceiroValido(local)) { S.prefs.parceiro = local; salvaPrefs(); }
+}
+const linkCompra = () => linkDeCompra(LINK_COMPRA, S.prefs?.parceiro || parceiroLocal());
 async function boot() {
   $("authSuporte").innerHTML = suporteHtml();
   // Endereço terminado em #demo (usado no site de apresentação) abre direto a demonstração.
@@ -357,7 +365,7 @@ function authModo(m, msg = "", kind = "") {
   $("aSenhaDica").hidden = m !== "criar"; $("aEsqueci").hidden = m !== "entrar"; $("aTermos").hidden = m !== "criar";
   // Com o app à venda, quem cria conta fica sabendo do preço e de que o e-mail tem de ser o da compra.
   $("aPago").hidden = m !== "criar" || !LINK_COMPRA;
-  if (LINK_COMPRA) $("aPago").innerHTML = `Teste <b>7 dias grátis</b>, sem cartão. Depois, ${esc(PRECO_PLANO)}. Já comprou? Use aqui o mesmo e-mail da compra. <a href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">Quero assinar já</a>`;
+  if (LINK_COMPRA) $("aPago").innerHTML = `Teste <b>7 dias grátis</b>, sem cartão. Depois, ${esc(PRECO_PLANO)}. Já comprou? Use aqui o mesmo e-mail da compra. <a href="${esc(linkCompra())}" target="_blank" rel="noopener">Quero assinar já</a>`;
   authMsg(S.semLogin && entrada ? "O login ainda não está ligado neste endereço. Você pode testar tudo na demonstração." : msg, kind);
 }
 /** Trava os botões enquanto um pedido está indo: um segundo toque mandaria outro e-mail e o primeiro deixaria de valer. */
@@ -608,6 +616,7 @@ async function startApp(store, quem) {
     // Acesso de quem comprou. Se a conferência falhar (sem internet, banco sem essa parte), o app abre normalmente.
     S.acesso = await store.meuAcesso().catch((e) => { console.warn("Acesso não conferido:", e?.message); return null; });
     S.loaded = true;
+    guardaParceiro();
     if (S.acesso?.cobranca && !S.acesso.ativo) { telaDeAcesso(); if (S.recuperando) pedirNovaSenha(); return; }
     render(); avisoDeRenovacao();
     if (daCopia) showBanner("Sem internet: estes são os dados da última vez que você abriu o app. O que você lançar agora fica guardado neste aparelho e é enviado quando a conexão voltar.");
@@ -638,7 +647,7 @@ function telaDeAcesso(msg = "", kind = "") {
   $("app").hidden = true; $("bnav").hidden = true; $("auth").hidden = true; $("acesso").hidden = false; showBanner(""); fecharLancar(); scrollTo(0, 0);
   $("acessoCard").innerHTML = `<div class="auth-marca"><img src="icons/icon-192.png" alt="" width="48" height="48" class="auth-logo"><div><h1>Meus Gastos</h1><p class="auth-sub">Veja quanto sobra no seu mês.</p></div></div>
     <h2>${tituloFim}</h2>${resumoFim}<p class="auth-txt">${texto}</p>
-    ${LINK_COMPRA ? `<a class="btn primary" id="acComprar" href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">${fimDoTeste ? "Continuar" : venceu ? "Renovar" : "Comprar"} por ${esc(PRECO_PLANO)}</a>` : `<p class="auth-txt">As vendas ainda não estão abertas.</p>`}
+    ${LINK_COMPRA ? `<a class="btn primary" id="acComprar" href="${esc(venceu ? LINK_COMPRA : linkCompra())}" target="_blank" rel="noopener">${fimDoTeste ? "Continuar" : venceu ? "Renovar" : "Comprar"} por ${esc(PRECO_PLANO)}</a>` : `<p class="auth-txt">As vendas ainda não estão abertas.</p>`}
     ${S.casal?.situacao === "convidado" ? `<div class="ac-casal"><b>${esc(S.casal.outro)} convidou você para dividir as contas.</b><span>Aceitando, você usa o app com a assinatura dessa pessoa, sem precisar comprar.</span>
       <button class="btn primary" type="button" id="acCasal">Ver o convite</button></div>` : ""}
     <button class="btn" type="button" id="acConferir">Já comprei: conferir de novo</button>
@@ -675,7 +684,7 @@ function avisoDeRenovacao() {
     const f = Math.round((Date.UTC(+a.ate.slice(0, 4), +a.ate.slice(5, 7) - 1, +a.ate.slice(8, 10)) - Date.UTC(+hoje().slice(0, 4), +hoje().slice(5, 7) - 1, +hoje().slice(8, 10))) / 86400000);
     const feito = resumoDoTeste(motDados().turnos, seteDiasAntes(a.ate), hoje(), S.prefs.veiculo || {}), extra = feito ? ` Até aqui, você registrou ${brl(feito.ganho)} rodando.` : " Seus dados ficam guardados.";
     return showBanner(f <= 0 ? `Hoje é o último dia do seu teste grátis.${extra}` : `Faltam ${f} ${f === 1 ? "dia" : "dias"} do seu teste grátis.${extra}`,
-      LINK_COMPRA ? [[`Assinar por ${PRECO_PLANO}`, () => open(LINK_COMPRA, "_blank", "noopener")]] : []);
+      LINK_COMPRA ? [[`Assinar por ${PRECO_PLANO}`, () => open(linkCompra(), "_blank", "noopener")]] : []);
   }   // quem usa a assinatura da outra pessoa não é quem renova
   const d = Math.round((Date.UTC(+a.ate.slice(0, 4), +a.ate.slice(5, 7) - 1, +a.ate.slice(8, 10)) - Date.UTC(+hoje().slice(0, 4), +hoje().slice(5, 7) - 1, +hoje().slice(8, 10))) / 86400000);
   if (d > (a.status === "cancelado" ? 15 : 3)) return;
