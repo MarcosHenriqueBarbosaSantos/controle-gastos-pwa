@@ -1164,6 +1164,9 @@ function contaValor(el, para) {
 const inicioQ = (s) => [...$("resumo").querySelectorAll(s), ...$("resumo2").querySelectorAll(s)];
 function htmlHoje(c) {
   const hj = hoje(), g = gastoDoDia(S.data, hj), avista = gastoAVistaDoDia(S.data, hj), pg = semEntradaNoMes(c) ? null : podeGastarHoje(c, avista), itens = oQueFazerAgora(S.data, hj, S.prefs.semGasto || []);
+  // O número de atrasadas é o mesmo da lista de vencimentos, de qualquer mês.
+  const atrasoTotal = contasEmAtraso(S.data, hj, S.prefs.saldoDesde);
+  itens.forEach((x) => { if (x.tipo === "atrasada" && atrasoTotal.itens.length) { x.titulo = atrasoTotal.itens.length === 1 ? `${atrasoTotal.itens[0].titulo} está atrasada` : `${atrasoTotal.itens.length} contas atrasadas`; x.valor = atrasoTotal.total; } });
   const seq = sequenciaDeDias(S.data, hj, S.prefs.semGasto || []);
   const ult = S.data.lancamentos.filter((x) => x.tipo === "Despesa" && !x.pendente && !x.enviando).sort((p, q) => q.data.localeCompare(p.data) || String(q.created_at || "").localeCompare(String(p.created_at || "")))[0];
   const passou = pg && pg.resta < 0;
@@ -1180,6 +1183,7 @@ function ligaHoje() {
   host.querySelectorAll("[data-hoje]").forEach((b) => (b.onclick = () => {
     const x = (S.hojeItens || [])[Number(b.dataset.hoje)]; if (!x) return;
     if (x.alvo === "lancar") return acaoRapida("lancar");
+    if (x.tipo === "atrasada") return atrasadasTela();
     const v = $("venc"); if (v) v.scrollIntoView({ behavior: "smooth", block: "start" });
   }));
   if ($("hojeZero")) $("hojeZero").onclick = () => { S.prefs.semGasto = [...new Set([...(S.prefs.semGasto || []), hoje()])].sort().slice(-90); salvaPrefs(); render(); };
@@ -1678,11 +1682,30 @@ function htmlAlertaMot() {
   const pe = alc.nivel === "fora" ? "É mais do que o seu ritmo normal, então vale ver um jeito leve de fechar." : `Fazendo ${brl(meta.brutoDia)} por dia rodado, dá para fechar ${nomeMes(mes)}.`;
   return `<li class="alerta warn"><span class="quando">meta do mês</span><span class="oque ocultavel"><b>Faltam ${brl(meta.falta)} para as contas de ${nomeMes(mes)}</b><span>${pe}</span><button class="link link-toque" type="button" data-ordem>Ver as contas do mês</button></span></li>`;
 }
+/** As contas atrasadas em um lugar só, de qualquer mês: uma por uma ou todas de uma vez, sempre com Desfazer. */
+function atrasadasTela() {
+  const at = contasEmAtraso(S.data, hoje(), S.prefs.saldoDesde);
+  if (!at.itens.length) { if ($("dlg").open) $("dlg").close(); render(); return toast("Nenhuma conta atrasada."); }
+  openDlg(`<h3>Contas atrasadas</h3><p class="hint" style="margin:0 0 12px">Já pagou alguma? Marque aqui e ela sai da lista. No total, ${brl(at.total)}.</p>
+    <ul class="itens atras-lista">${at.itens.map((x, i) => `<li><span><b>${esc(x.titulo)}</b><small>venceu ${ddmm(x.data)}${mKey(x.data) !== mKey(hoje()) ? `, ${nomeMes(mKey(x.data))}` : ""}</small></span><b>${brl(x.valor)}</b><button class="btn sm" type="button" data-pg="${i}">Já paguei</button></li>`).join("")}</ul>
+    <div class="actions">${at.itens.length > 1 ? `<button class="btn primary" type="button" id="atrTodas">Já paguei todas</button>` : ""}<button class="btn" type="button" id="atrOrdem">Não dá para pagar agora</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+  document.querySelectorAll("#dlgBody [data-pg]").forEach((b) => (b.onclick = async () => { b.disabled = true; await pagarConta(at.itens[Number(b.dataset.pg)]); atrasadasTela(); }));
+  $("atrOrdem").onclick = () => equilibrioTela();
+  if ($("atrTodas")) armDelete($("atrTodas"), async () => {
+    for (const x of at.itens) await mudaPago(x, true);
+    $("dlg").close(); render();
+    toastDesfazer(`${at.itens.length} contas marcadas como pagas.`, async () => { for (const x of at.itens) await mudaPago(x, false); render(); });
+  }, "Toque de novo para confirmar");
+}
 function renderVenc() {
   const host = $("venc"), reais = S.loaded ? proximosVencimentos(S.data, hoje(), 30) : [];
   // Além das contas já cadastradas: o cartão cadastrado que ainda não tem valor de fatura e as contas que o app achou que se repetem.
   const extras = S.loaded ? [...faturasSemValor(S.data, hoje(), 30), ...proximasRepetidas(contasQueSeRepetem(S.data.lancamentos, S.data.fixos, hoje()), hoje(), 30)] : [];
-  const l = [...reais, ...extras].sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
+  // As atrasadas viram uma linha só: misturadas com as próximas, deixavam a lista difícil de ler.
+  const emAtraso = S.loaded ? contasEmAtraso(S.data, hoje(), S.prefs.saldoDesde) : { itens: [], total: 0 };
+  const atrasadaPaga = (x) => x.dias < 0 && (x.tipo === "fixo" || x.tipo === "fatura") && !x.semValor;
+  const l = [...reais, ...extras].filter((x) => !atrasadaPaga(x)).sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
+  const linhaAtrasadas = !emAtraso.itens.length ? "" : `<li class="atras-grupo"><button type="button" data-atrasadas><span class="oque"><b>${emAtraso.itens.length === 1 ? "1 conta atrasada" : `${emAtraso.itens.length} contas atrasadas`}</b><span>Toque para resolver</span></span><b class="ocultavel">${brl(emAtraso.total)}</b>${ico("chev")}</button></li>`;
   const total = round2(reais.reduce((t, x) => t + x.valor, 0));
   const cab = (dir) => `<div class="sec-head"><h2>Próximos vencimentos</h2><span>${dir}</span></div>${S.loaded ? `<button class="link venc-cal" type="button" id="vencCal">${ico("agenda")}Ver no calendário</button>` : ""}`;
   // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
@@ -1705,7 +1728,7 @@ function renderVenc() {
   };
   if (!l.length) {
     const temDados = S.data.lancamentos.length || S.data.fixos.length || S.data.faturas.length;
-    host.innerHTML = cab("Contagem calculada pela data de hoje.") + `<ul class="venc">${alerta}${combHtml}<li class="vazio">${!S.loaded ? "Carregando…"
+    host.innerHTML = cab("Contagem calculada pela data de hoje.") + `<ul class="venc">${linhaAtrasadas}${alerta}${combHtml}<li class="vazio">${!S.loaded ? "Carregando…"
       : temDados ? "Nenhuma conta para os próximos 30 dias. Tudo em dia."
       : "Nenhuma conta para os próximos 30 dias. Cadastre as suas contas fixas e o cartão para ser avisado aqui."}</li></ul>`;
     ligaComb();
@@ -1720,7 +1743,7 @@ function renderVenc() {
     ? [atras.length ? `<b class="txt-bad">${atras.length} ${atras.length === 1 ? "atrasada" : "atrasadas"}: ${soma(atras)}</b>` : "", em7.length ? `${em7.length} ${em7.length === 1 ? "vence" : "vencem"} em 7 dias: <b>${soma(em7)}</b>` : ""].filter(Boolean).join(" · ")
     : `${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`;
   host.innerHTML = cab(resumo) +
-    `<ul class="venc">${alerta}${vis.map((x, i) => `<li class="toca" data-vd="${i}" data-u="${cls(x.dias)}">
+    `<ul class="venc">${linhaAtrasadas}${alerta}${vis.map((x, i) => `<li class="toca" data-vd="${i}" data-u="${cls(x.dias)}">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
       <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<button type="button" class="venc-tit" data-vda="${i}" aria-label="${esc(x.titulo)}: ver detalhes"><b>${esc(x.titulo)}</b></button><span>${x.semValor ? "Fatura de cartão · falta informar o valor" : x.tipo === "repetida" ? "Parece se repetir todo mês" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa"}</span></span>
       <span class="quando ${cls(x.dias)}">${quandoVence(x.dias)}</span>
@@ -1741,7 +1764,7 @@ function renderVenc() {
   ligaComb();
 }
 /* ---------- calendário de vencimentos: o mês inteiro, com o que vence e o que entra em cada dia ---------- */
-$("venc").addEventListener("click", (e) => { if (e.target.closest("#vencCal")) calendario(mKey(hoje())); if (e.target.closest("[data-ordem]")) equilibrioTela(); });
+$("venc").addEventListener("click", (e) => { if (e.target.closest("#vencCal")) calendario(mKey(hoje())); if (e.target.closest("[data-ordem]")) equilibrioTela(); if (e.target.closest("[data-atrasadas]")) atrasadasTela(); });
 const SIT = { atrasada: ["!", "atrasada"], hoje: ["●", "vence hoje"], "a vencer": ["●", "a vencer"], paga: ["✓", "paga"] };
 function calendario(m, escolhido = "") {
   const cal = calendarioDoMes(S.data, m, hoje()), hj = hoje(), ano = m.slice(0, 4);
