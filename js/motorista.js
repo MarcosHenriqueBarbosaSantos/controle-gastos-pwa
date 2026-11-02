@@ -147,6 +147,12 @@ export function placarDosDias(turnos, dias, veic, perfil) {
   });
 }
 
+/** O que a pessoa fez no período de teste, para ela ver o que perde se parar. Devolve null se ainda não rodou. */
+export function resumoDoTeste(turnos, de, ate, veic) {
+  const r = resumoTurnos(turnos, de, ate, veic);
+  return r.n ? { jornadas: r.n, ganho: r.ganho, horas: Math.round(r.ms / 3600000), porHora: r.ms >= 1800000 ? r.ganhoPorHora : null, porKm: r.ganhoPorKm, lucro: r.lucro, comCarro: r.comCarro } : null;
+}
+
 /* ---------- Desafios entre amigos ---------- */
 export const CRITERIOS_DESAFIO = [["hora", "Por hora"], ["km", "Por km"], ["sobra", "O que sobrou"], ["total", "Faturamento"], ["dia", "Melhor dia"]];
 /** Como se decide quem vence. Geral soma os pontos de por hora, por km e o que sobrou: rodar mais horas, sozinho, não ganha. */

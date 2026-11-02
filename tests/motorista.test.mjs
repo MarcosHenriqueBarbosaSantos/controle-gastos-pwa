@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
+import { resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
 
 test("perfil: quem roda de carro não vê apps de moto, e o inverso", () => {
   const nomes = (l) => l.map(([k]) => k);
@@ -38,6 +38,13 @@ test("desafio: as regras decidem o que é descontado, igual para todos", () => {
   assert.equal(totaisDoDesafio(membros, { gastos: true, carro: true })[0].sobra, 250);
   assert.equal(rankingDoDesafio(comGastos, "total")[0].apelido, "A");                                            // faturamento é sempre bruto
   assert.equal(rankingDoDesafio(comGastos, "sobra")[0].valor, 360);
+});
+
+test("fim do teste: resume o que a pessoa fez, sem inventar quando não rodou", () => {
+  const ts = [turno(h(8), h(12), { uber: 160 }, { km: 80, viagens: 8, comb: 20 }), turno(h(14), h(16), { uber: 100 }, { km: 40, viagens: 4 })];
+  assert.deepEqual(resumoDoTeste(ts, "2026-10-05", "2026-10-05", {}), { jornadas: 2, ganho: 260, horas: 6, porHora: 43.33, porKm: 2.17, lucro: 240, comCarro: false });
+  assert.equal(resumoDoTeste(ts, "2026-10-06", "2026-10-07", {}), null);
+  assert.equal(resumoDoTeste([turno(h(8), h(8, 5), { uber: 300 })], "2026-10-05", "2026-10-05", {}).porHora, null);   // jornada curta não vira número absurdo
 });
 
 test("categoria: cada jornada conta na sua, sem misturar", () => {

@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -627,10 +627,13 @@ function telaDeAcesso(msg = "", kind = "") {
     : teste && venceu ? `Os 7 dias de teste de <b>${esc(email)}</b> terminaram em ${ddmmaaaa(a.ate)}. Os seus dados continuam guardados e voltam a aparecer assim que você assinar.`
     : venceu ? `O acesso de <b>${esc(email)}</b> valeu até ${ddmmaaaa(a.ate)}. Os seus dados continuam guardados e voltam a aparecer assim que você renovar.`
     : `A conta <b>${esc(email)}</b> está criada, mas ainda não encontramos uma compra com este e-mail.`;
+  const fimDoTeste = teste && venceu, m = fimDoTeste ? motDados() : null, deTeste = fimDoTeste ? seteDiasAntes(a.ate) : "", feito = fimDoTeste ? resumoDoTeste(m.turnos, deTeste, a.ate, S.prefs.veiculo || {}) : null;
+  const tituloFim = fimDoTeste ? (feito ? "Seus 7 dias terminaram. Continue de onde parou." : "Seus 7 dias terminaram.") : titulo;
+  const resumoFim = !feito ? "" : `<div class="ac-resumo"><small>Nos seus 7 dias</small><div>${[["Faturou", brl(feito.ganho)], ["Por hora", feito.porHora === null ? "—" : brl(feito.porHora)], [feito.comCarro ? "Depois dos custos" : "Depois dos gastos", brl(feito.lucro)]].map(([r, v]) => `<p><small>${r}</small><b>${v}</b></p>`).join("")}</div></div><div id="acDesafio"></div>`;
   $("app").hidden = true; $("bnav").hidden = true; $("auth").hidden = true; $("acesso").hidden = false; showBanner(""); fecharLancar(); scrollTo(0, 0);
   $("acessoCard").innerHTML = `<div class="auth-marca"><img src="icons/icon-192.png" alt="" width="48" height="48" class="auth-logo"><div><h1>Meus Gastos</h1><p class="auth-sub">Veja quanto sobra no seu mês.</p></div></div>
-    <h2>${titulo}</h2><p class="auth-txt">${texto}</p>
-    ${LINK_COMPRA ? `<a class="btn primary" id="acComprar" href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">${venceu ? "Renovar" : "Comprar"} por ${esc(PRECO_PLANO)}</a>` : `<p class="auth-txt">As vendas ainda não estão abertas.</p>`}
+    <h2>${tituloFim}</h2>${resumoFim}<p class="auth-txt">${texto}</p>
+    ${LINK_COMPRA ? `<a class="btn primary" id="acComprar" href="${esc(LINK_COMPRA)}" target="_blank" rel="noopener">${fimDoTeste ? "Continuar" : venceu ? "Renovar" : "Comprar"} por ${esc(PRECO_PLANO)}</a>` : `<p class="auth-txt">As vendas ainda não estão abertas.</p>`}
     ${S.casal?.situacao === "convidado" ? `<div class="ac-casal"><b>${esc(S.casal.outro)} convidou você para dividir as contas.</b><span>Aceitando, você usa o app com a assinatura dessa pessoa, sem precisar comprar.</span>
       <button class="btn primary" type="button" id="acCasal">Ver o convite</button></div>` : ""}
     <button class="btn" type="button" id="acConferir">Já comprei: conferir de novo</button>
@@ -641,6 +644,10 @@ function telaDeAcesso(msg = "", kind = "") {
       <button class="link" type="button" id="acSair">Sair desta conta</button>
       <button class="link" type="button" id="acExcluir">Excluir minha conta</button></div>
     ${suporteHtml()}`;
+  if ($("acDesafio")) S.store.desafiosMeus?.().then((l) => {   // quem está em um desafio vê onde parou
+    const hj = hoje(), d = (l || []).find((x) => x.fim >= hj && x.membros.length > 1), pos = d && rankingDoDesafio(totaisDoDesafio(d.membros, d.regras), d.regras?.vence || "km").find((x) => x.eu)?.pos;
+    if (pos && $("acDesafio")) $("acDesafio").innerHTML = `<p class="ac-desafio">Você está em <b>${pos}º</b> no desafio <b>${esc(d.nome)}</b>. Assine para continuar disputando.</p>`;
+  }).catch(() => { /* o resumo já basta */ });
   $("acConferir").onclick = async () => {
     $("acConferir").disabled = true;
     const novo = await S.store.meuAcesso().catch(() => null);
@@ -655,12 +662,14 @@ function telaDeAcesso(msg = "", kind = "") {
   $("acExcluir").onclick = () => excluirConta();
 }
 /** Perto do fim do período: avisa quem cancelou a renovação (15 dias antes) e quem está com a renovação atrasada (3 dias). */
+const seteDiasAntes = (iso) => toISO(new Date(new Date(`${iso}T12:00:00`).getTime() - 7 * 864e5));
 function avisoDeRenovacao() {
   const a = S.acesso;
   if (!a?.cobranca || !a.ativo || !a.ate || a.pelo_par || S.store?.kind !== "supabase") return;
   if (a.origem === "teste") {
     const f = Math.round((Date.UTC(+a.ate.slice(0, 4), +a.ate.slice(5, 7) - 1, +a.ate.slice(8, 10)) - Date.UTC(+hoje().slice(0, 4), +hoje().slice(5, 7) - 1, +hoje().slice(8, 10))) / 86400000);
-    return showBanner(f <= 0 ? "Hoje é o último dia do seu teste grátis. Seus dados ficam guardados." : `Faltam ${f} ${f === 1 ? "dia" : "dias"} do seu teste grátis. Seus dados ficam guardados.`,
+    const feito = resumoDoTeste(motDados().turnos, seteDiasAntes(a.ate), hoje(), S.prefs.veiculo || {}), extra = feito ? ` Até aqui, você registrou ${brl(feito.ganho)} rodando.` : " Seus dados ficam guardados.";
+    return showBanner(f <= 0 ? `Hoje é o último dia do seu teste grátis.${extra}` : `Faltam ${f} ${f === 1 ? "dia" : "dias"} do seu teste grátis.${extra}`,
       LINK_COMPRA ? [[`Assinar por ${PRECO_PLANO}`, () => open(LINK_COMPRA, "_blank", "noopener")]] : []);
   }   // quem usa a assinatura da outra pessoa não é quem renova
   const d = Math.round((Date.UTC(+a.ate.slice(0, 4), +a.ate.slice(5, 7) - 1, +a.ate.slice(8, 10)) - Date.UTC(+hoje().slice(0, 4), +hoje().slice(5, 7) - 1, +hoje().slice(8, 10))) / 86400000);
@@ -1662,6 +1671,13 @@ function renderSemanaIni() {
   host.querySelectorAll("[data-sem]").forEach((b) => (b.onclick = () => editarLancamento(b.dataset.sem)));
   $("semanaExtrato").onclick = () => abrirSub("l");
 }
+/** Para o motorista, o dinheiro não "acaba": ele vem rodando. O aviso diz quanto falta e quanto fazer por dia. */
+function htmlAlertaMot() {
+  const { meta, alc, mes } = painelDoMotorista();
+  if (meta.coberto) return "";
+  const pe = alc.nivel === "fora" ? "É mais do que o seu ritmo normal, então vale ver um jeito leve de fechar." : `Fazendo ${brl(meta.brutoDia)} por dia rodado, dá para fechar ${nomeMes(mes)}.`;
+  return `<li class="alerta warn"><span class="quando">meta do mês</span><span class="oque ocultavel"><b>Faltam ${brl(meta.falta)} para as contas de ${nomeMes(mes)}</b><span>${pe}</span><button class="link link-toque" type="button" data-ordem>Ver as contas do mês</button></span></li>`;
+}
 function renderVenc() {
   const host = $("venc"), reais = S.loaded ? proximosVencimentos(S.data, hoje(), 30) : [];
   // Além das contas já cadastradas: o cartão cadastrado que ainda não tem valor de fatura e as contas que o app achou que se repetem.
@@ -1672,7 +1688,7 @@ function renderVenc() {
   // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
   const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
   const ac = S.loaded && !semEntradaNoMes(calcMes(S.data, mKey(hoje()), hoje())) ? quandoOsDinheiroAcaba(S.data, hoje()) : null, faltaAte = ac?.minimo ? round2(-ac.minimo.saldo) : 0, aperto = apertoAteAEntrada(ac);
-  const alerta = !ac?.diaZero ? "" : `<li class="alerta ${ac.diasAteZero === 0 && !aperto ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
+  const alerta = !ac?.diaZero ? "" : S.prefs.motorista?.usa ? htmlAlertaMot() : `<li class="alerta ${ac.diasAteZero === 0 && !aperto ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
       <span class="oque"><b>${aperto ? `Falta dinheiro até a entrada do dia ${aperto.dia}` : ac.diasAteZero === 0 ? "O dinheiro deste mês já acabou" : `No ritmo de agora, o dinheiro do mês acaba dia ${ac.diaZero.slice(8, 10)}`}</b>
       <span>${aperto ? `Faltam ${brl(aperto.falta)} até entrar ${brl(ac.proximaEntrada.valor)} no dia ${aperto.dia}.` : `Até o fim do mês faltam ${brl(faltaAte)}.`}${!aperto && ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""}</span><button class="link link-toque" type="button" data-ordem>Ver um jeito leve de fechar</button></span></li>`;
   // Combinados das metas: aparecem junto, mas não são contas. Não entram no total e nunca ficam atrasados.
