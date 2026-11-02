@@ -139,11 +139,21 @@ export function resultadoPorCategoria(turnos, de, ate, veic, perfil) {
   return nomes.map((categoria) => ({ categoria, ...resumoTurnos(turnos.filter((t) => categoriaDoTurno(t, perfil) === categoria), de, ate, veic) }))
     .filter((r) => r.n).sort((a, b) => (b.ganhoPorHora ?? 0) - (a.ganhoPorHora ?? 0));
 }
+const MIN_JORNADA_MS = 15 * 60000, MAX_GANHO_HORA = 200, MAX_KM_HORA = 110;
+/**
+ * O que vale nos desafios e no ranking: só jornada iniciada no app e não mexida depois.
+ * Dia digitado à mão, jornada de menos de 15 minutos ou números fora do possível (mais de R$ 200 por hora ou de 110 km/h de média) ficam de fora.
+ */
+export function turnoValeNoDesafio(t) {
+  if (!t?.fim || t.manual) return false;
+  const ms = duracaoMs(t), horas = ms / 3600000;
+  return ms >= MIN_JORNADA_MS && ganhoDoTurno(t) / horas <= MAX_GANHO_HORA && (Number(t.km) || 0) / horas <= MAX_KM_HORA;
+}
 /** As linhas do placar: uma por dia e categoria, com os totais que saem da conta da pessoa quando ela participa de um desafio ou do ranking. */
 export function placarDosDias(turnos, dias, veic, perfil) {
   const porKm = custoTotalPorKm(veic) || 0;
   return dias.flatMap((dia) => {
-    const doDia = (turnos || []).filter((t) => t.fim && isoLocal(t.ini) === dia);
+    const doDia = (turnos || []).filter((t) => turnoValeNoDesafio(t) && isoLocal(t.ini) === dia);
     return [...new Set(doDia.map((t) => categoriaDoTurno(t, perfil)))].map((categoria) => {
       const r = resumoTurnos(doDia.filter((t) => categoriaDoTurno(t, perfil) === categoria), dia, dia, veic);
       return { dia, categoria, ganho: r.ganho, gastos: r.comb, custoCarro: r2(r.km * porKm), km: r.km, ms: r.ms, viagens: r.viagens, lucro: r.lucro };
@@ -170,7 +180,8 @@ export function regrasEmTexto(regras = {}) {
     regras.gastos ? "Entra na conta: combustível, pedágio e os outros gastos lançados." : "Não entra na conta: combustível, pedágio e outros gastos.",
     regras.carro ? "Entra na conta: custo do carro por km (manutenção, seguro e desgaste)." : "Não entra na conta: custo do carro.",
     "Faturamento é sempre o valor bruto. Por hora, por km, o que sobrou e melhor dia seguem as regras acima.",
-    "Cada pessoa informa os próprios valores, e dias sem gasto lançado aparecem para o grupo.",
+    "Só contam as jornadas iniciadas e encerradas no app. Dia lançado à mão ou jornada editada depois não entram.",
+    "Cada pessoa informa os próprios ganhos, e números fora do possível ficam de fora.",
     "Depois de criado, o desafio não muda de regras.",
   ];
 }

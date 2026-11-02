@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "184", itens: ["Modo motorista: lance uma jornada direto em Lançar ou no Extrato, sem ter iniciado.", "Nos desafios, só contam as jornadas iniciadas e encerradas no app."] },
   { versao: "183", itens: ["Início novo no celular: a frase do mês e três cartões na mesma tela.", "Modo motorista: toque em Entenda esse valor para ver cada conta e corrigir ali mesmo.", "Férias e 13º agora partem de pelo menos R$ 3.500 por mês."] },
   { versao: "182", itens: ["Meus planos: diga o que você quer, e o app calcula quanto guardar, mostra se cabe no seu mês e cria a caixinha."] },
   { versao: "181", itens: ["Modo motorista: a previsão do mês agora conta as corridas que ainda vão vir, pela sua média."] },

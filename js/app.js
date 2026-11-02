@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhosPorDia, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -840,6 +840,7 @@ function dicaDoLancar() {
 }
 function renderForm() {
   dicaDoLancar();
+  $("fJornada").hidden = !S.prefs.motorista?.usa;
   document.querySelectorAll("#tipoSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.t === S.tipo));
   // Gastos que a pessoa mais repete: um toque preenche o formulário.
   const rap = S.tipo === "Despesa" && S.loaded ? maisUsados(S.data.lancamentos, hoje()) : [], fr2 = $("fRapidos"), k2 = JSON.stringify(rap);
@@ -1223,6 +1224,7 @@ function renderDia() {
 const extrasDosLimites = (m = S.mes) => (S.loaded && S.prefs.limitesRolagem ? rolagemDosLimites(S.data, m, hoje(), S.prefs.limites) : {});
 const irParaLimites = () => { S.view = "listas"; S.tab = "m"; render(); noCelular() ? scrollTo(0, 0) : $("listas").scrollIntoView({ block: "start" }); };
 $("btnLimites").onclick = irParaLimites;
+$("fJornada").onclick = () => lancarDiaMot();
 /** Frases do limite do mês, iguais no quadro do início e na aba Limites. */
 function textoDoTeto(u) {
   const titulo = u.nivel >= 120 ? "Muito acima do limite" : u.nivel >= 100 ? "Passou do limite" : u.nivel >= 80 ? "Perto do limite" : "Dentro do limite";
@@ -2139,11 +2141,12 @@ function listaL(c) {
   // Filtros: por tipo e por categoria, valem para o mês e também para a busca em todos os meses.
   const filtro = { tipo: S.fTipo || "", categoria: S.fCat || "" }, filtrando = Boolean(filtro.tipo || filtro.categoria);
   const catsDoExtrato = [...new Set(S.data.lancamentos.map((x) => x.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  $("lFiltros").innerHTML = `${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
+  $("lFiltros").innerHTML = `${S.prefs.motorista?.usa ? `<button class="btn sm l-dia" type="button" id="lDia">Lançar uma jornada</button>` : ""}${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
     <details class="manual lf-mais"${filtro.categoria ? " open" : ""}><summary>Mais filtros${filtro.categoria ? ": " + esc(filtro.categoria) : ""}</summary>
     <label class="so-leitor" for="fCatSel">Categoria</label><select class="in" id="fCatSel"><option value="">Todas as categorias</option>${catsDoExtrato.map((c) => `<option${c === filtro.categoria ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></details>
     ${filtrando ? `<button class="link" type="button" id="fLimpa">Limpar filtros</button>` : ""}`;
   $("lFiltros").querySelectorAll("[data-ftipo]").forEach((b) => (b.onclick = () => { S.fTipo = b.dataset.ftipo; listaL(calcMes(S.data, S.mes, hoje())); }));
+  if ($("lDia")) $("lDia").onclick = () => lancarDiaMot();
   $("fCatSel").onchange = (e) => { S.fCat = e.target.value; listaL(calcMes(S.data, S.mes, hoje())); };
   if ($("fLimpa")) $("fLimpa").onclick = () => { S.fTipo = ""; S.fCat = ""; listaL(calcMes(S.data, S.mes, hoje())); };
   const cab = `<thead><tr><th>Dia</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="hide-sm">Pagamento</th><th class="num">Valor</th><th></th></tr></thead>`;
@@ -4578,7 +4581,7 @@ function fechamentoDoDia(dia) {
 /** Lançar o dia sem jornada: um formulário curto, para quem esqueceu de iniciar ou prefere anotar no fim do dia. */
 function paneLancarDia(host) {
   const hj = hoje();
-  host.innerHTML = `<div id="motRoot"><h3 class="mot-h" style="margin-top:0">Lançar o dia</h3><p class="hint" style="margin:0 0 10px">Rodou em mais de um app? Salve um de cada vez.</p>
+  host.innerHTML = `<div id="motRoot"><h3 class="mot-h" style="margin-top:0">Lançar o dia</h3><p class="hint" style="margin:0 0 10px">Rodou em mais de um app? Salve um de cada vez. Este lançamento vale para o seu resultado, mas não conta nos desafios: lá só entra jornada iniciada no app.</p>
     <form id="mdForm" class="dlg-form" autocomplete="off">
       <label class="f">Dia<input class="in" type="date" id="mdData" value="${hj}" max="${hj}"></label>
       <label class="f">Aplicativo<select class="in" id="mdApp">${appsDoPerfil(motDados().perfil).map(([k, n]) => `<option value="${k}">${n}</option>`).join("")}</select></label>
@@ -4613,11 +4616,11 @@ function paneLancarDia(host) {
     if (!(await grava(async () => { criados = await S.store.addLancamentos(rows); }))) return;
     criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) }));
     const categoria = $("mdCat")?.value || "";
-    const turno = { id: crypto.randomUUID(), categoria, ini, fim: ini + v.ms, pausado: 0, apps: { [app]: round2(v.ganho) }, gastos: {}, viagens: v.viagens, km: round2(v.km), comb: round2(v.gasto), rid: criados.find((g) => g.tipo === "Receita")?.id || null, cids: criados.filter((g) => g.tipo === "Despesa").map((g) => g.id) };
+    const turno = { id: crypto.randomUUID(), manual: true, categoria, ini, fim: ini + v.ms, pausado: 0, apps: { [app]: round2(v.ganho) }, gastos: {}, viagens: v.viagens, km: round2(v.km), comb: round2(v.gasto), rid: criados.find((g) => g.tipo === "Receita")?.id || null, cids: criados.filter((g) => g.tipo === "Despesa").map((g) => g.id) };
     const mm = motDados(), r = contaDoDia(v); gravaMot({ ...mm, turnos: [...mm.turnos, turno].sort((a, b) => a.ini - b.ini), perfil: mm.perfil ? { ...mm.perfil, categoria: categoria || mm.perfil.categoria } : null });
     enviaPlacar([dia]);
     motSai(); vibra(30);
-    toast(`Dia salvo: ${brl(r.porHora)} por hora${r.porKm === null ? "" : ` e ${brl(r.porKm)} por km`}.`);
+    toast(`Dia salvo: ${brl(r.porHora)} por hora${r.porKm === null ? "" : ` e ${brl(r.porKm)} por km`}. Não conta nos desafios.`);
   });
 }
 /** A última categoria usada, ou a primeira dos apps da pessoa. */
@@ -4733,6 +4736,8 @@ function paneReservas(host) {
   $("rsLiberdade").onclick = () => calculadoras();
   $("motVolta").onclick = motSai;
 }
+/** Rodou sem iniciar a jornada: lança o dia pronto, de Lançar ou do Extrato. */
+function lancarDiaMot() { fecharLancar(true); motoristaTela(); motEntra("dia"); }
 function iniciarJornada() {
   const ini = Date.now();
   gravaMot({ ...motDados(), ativo: { ini, categoria: categoriaAtual(), parcial: 0, antes: S.data.lancamentos.filter((x) => x.data >= isoLocal(ini)).map((x) => x.id), pausado: 0, pausaIni: null } });
@@ -4931,7 +4936,7 @@ function paneMotSub(host) {
       if (ganho > 0 && l) { const patch = { valor: ganho, descricao: desc, data: dia }; if (!(await grava(() => S.store.updateLancamento(l.id, patch)))) return; Object.assign(l, patch); }
       else if (ganho > 0) { let criados = []; if (!(await grava(async () => { criados = await S.store.addLancamentos([{ data: dia, import_key: null, cartao_id: null, parcelas: 1, descricao: desc, tipo: "Receita", categoria: catR, forma: "", valor: ganho }]); }))) return; criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) })); rid = criados[0]?.id || null; }
       else if (l) { if (!(await grava(() => S.store.deleteLancamento(l.id)))) return; S.data.lancamentos = S.data.lancamentos.filter((z) => z.id !== l.id); rid = null; }
-      const mm = motDados(); gravaMot({ ...mm, turnos: mm.turnos.map((x) => (x.id === t.id ? { ...x, categoria: $("meCat")?.value || x.categoria || "", ini: a.getTime(), fim: b.getTime(), apps, viagens, km: round2(km), rid } : x)) });
+      const mm = motDados(); gravaMot({ ...mm, turnos: mm.turnos.map((x) => (x.id === t.id ? { ...x, manual: x.manual || a.getTime() !== x.ini || b.getTime() !== x.fim || round2(km) !== round2(Number(x.km) || 0) || ganhoDoTurno({ apps }) !== ganhoDoTurno(x), categoria: $("meCat")?.value || x.categoria || "", ini: a.getTime(), fim: b.getTime(), apps, viagens, km: round2(km), rid } : x)) });
       enviaPlacar([...new Set([isoLocal(t.ini), isoLocal(a.getTime())])]);
       motSai(); toast("Turno atualizado.");
     });
@@ -5002,7 +5007,7 @@ function paneFechar(host) {
     const mm = motDados(); gravaMot({ ...mm, ativo: null, turnos: [...mm.turnos, turno] });
     enviaPlacar([dia]);
     motSai(); vibra(30);
-    toast(`Jornada salva: ${brl(ganho)} em ${horasCurtas(f2 - i2 - pausado)}${comb > 0 ? `, com ${brl(comb)} de gastos` : ""}.`);
+    toast(`Jornada salva: ${brl(ganho)} em ${horasCurtas(f2 - i2 - pausado)}${comb > 0 ? `, com ${brl(comb)} de gastos` : ""}.${turnoValeNoDesafio(turno) ? "" : " Não conta nos desafios: duração ou valores fora do normal."}`);
     setTimeout(() => fechamentoDoDia(dia), 350);
   });
 }

@@ -78,3 +78,15 @@ test("planos sugeridos: reserva e férias com a conta feita", () => {
   assert.equal(ferias.alvo, 3000); assert.equal(ferias.porMes, 250); assert.equal(ferias.cabe, true);
   assert.equal(planosSugeridos({}).length, 0);
 });
+
+import { turnoValeNoDesafio, placarDosDias } from "../js/motorista.js";
+test("desafio: só vale jornada iniciada no app e com números possíveis", () => {
+  const ini = new Date("2026-11-02T08:00:00").getTime(), t = (o) => ({ ini, fim: ini + 8 * 36e5, apps: { uber: 400 }, km: 200, ...o });
+  assert.equal(turnoValeNoDesafio(t()), true);
+  assert.equal(turnoValeNoDesafio(t({ manual: true })), false);
+  assert.equal(turnoValeNoDesafio(t({ fim: ini + 10 * 60000 })), false);
+  assert.equal(turnoValeNoDesafio(t({ apps: { uber: 3000 } })), false);
+  assert.equal(turnoValeNoDesafio(t({ km: 2000 })), false);
+  assert.equal(placarDosDias([t({ manual: true })], ["2026-11-02"], {}, null).length, 0);
+  assert.equal(placarDosDias([t()], ["2026-11-02"], {}, null).length, 1);
+});
