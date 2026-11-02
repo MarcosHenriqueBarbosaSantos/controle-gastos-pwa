@@ -11,7 +11,7 @@ export const APPS_POR_VEICULO = { carro: ["uber", "99", "indrive", "particular",
 export const CATEGORIAS_POR_VEICULO = { carro: ["UberX", "Comfort", "Black", "99Pop", "99Comfort", "inDrive", "Particular"], moto: ["Uber Moto", "99Moto", "iFood", "99Food", "Rappi", "Particular"] };
 const CATEGORIAS_POR_APP = { uber: ["UberX", "Comfort", "Black"], 99: ["99Pop", "99Comfort"], indrive: ["inDrive"], particular: ["Particular"], ubermoto: ["Uber Moto"], "99moto": ["99Moto"], ifood: ["iFood"], "99food": ["99Food"], rappi: ["Rappi"] };
 /** As categorias em que a pessoa pode rodar, pelos apps que ela escolheu. */
-export function categoriasDoPerfil(perfil) { return appsDoPerfil(perfil).flatMap(([k]) => CATEGORIAS_POR_APP[k] || []); }
+export function categoriasDoPerfil(perfil) { return perfil?.veiculo ? appsDoPerfil(perfil).flatMap(([k]) => CATEGORIAS_POR_APP[k] || []) : []; }
 /** A categoria de um turno. Turno antigo, de antes de a categoria existir, usa a do perfil. */
 export const categoriaDoTurno = (t, perfil) => t.categoria || perfil?.categoria || "";
 /** Os apps que aparecem nos formulários. `usados` mantém visíveis os que já têm valor, para a edição de um turno antigo não perder nada. */

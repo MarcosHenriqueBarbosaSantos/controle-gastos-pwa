@@ -51,6 +51,7 @@ test("categoria: cada jornada conta na sua, sem misturar", () => {
   const perfil = { veiculo: "carro", apps: ["uber", "99"], categoria: "UberX" };
   assert.deepEqual(categoriasDoPerfil(perfil), ["UberX", "Comfort", "Black", "99Pop", "99Comfort"]);
   assert.deepEqual(categoriasDoPerfil({ veiculo: "moto", apps: ["ifood"] }), ["iFood"]);
+  assert.deepEqual(categoriasDoPerfil(null), []);   // antes de escolher carro ou moto, nada de lista misturada
   assert.equal(categoriaDoTurno({ categoria: "Black" }, perfil), "Black");
   assert.equal(categoriaDoTurno({}, perfil), "UberX");                    // jornada antiga usa a do perfil
   const ts = [turno(h(8), h(12), { uber: 160 }, { categoria: "UberX", km: 80, viagens: 8, comb: 20 }), turno(h(14), h(16), { uber: 200 }, { categoria: "Black", km: 40, viagens: 3 })];
