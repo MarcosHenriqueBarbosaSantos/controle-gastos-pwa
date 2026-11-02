@@ -1595,6 +1595,7 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .mot-tres p small{font-size:12.5px;color:var(--muted)} .mot-tres p b{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--series);letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .mot-tres>small{font-size:13px;color:var(--ink-2)}
 .mot-rap.gasto{text-align:center;min-height:64px}
+.mot-fecha{margin:0 0 12px;font-family:var(--display);font-size:24px;font-weight:800;line-height:1.12;letter-spacing:-.02em}
 .mot-cat-mais{min-height:44px;padding:0 10px;border:1px solid rgba(23,20,10,.45);border-radius:999px;background:none;color:#17140a;font-weight:600}
 .ds-letra{margin:0;font-size:13px;line-height:1.4;color:var(--muted)} .mot-como .ds-letra{padding:0 14px 14px}
 details.mais-grupo summary{display:flex;justify-content:space-between;align-items:center;min-height:44px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;list-style:none;padding:0 2px}

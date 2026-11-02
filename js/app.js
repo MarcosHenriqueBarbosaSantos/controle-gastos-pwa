@@ -1612,7 +1612,7 @@ function paneM(c) {
 
 /** Explica, com os números da pessoa, como o app chega ao que sobra e ao quanto dá para gastar por dia. */
 function entendaAConta(c) {
-  const rx = raioX(c), livre = livrePorDia(c), mes = nomeMes(S.mes), menos = (v) => `− ${brl(v)}`;
+  const rx = raioX(c), pgDia = podeGastarHoje(c, gastoAVistaDoDia(S.data, hoje())), livre = pgDia && { restam: pgDia.restam, valor: pgDia.fatia }, mes = nomeMes(S.mes), menos = (v) => `− ${brl(v)}`;
   const linha = (t, s2, v, cls = "") => `<li><span></span><span>${t}${s2 ? `<span class="mini">${s2}</span>` : ""}</span><b class="${cls}">${v}</b></li>`;
   const expl = { fixos: "aluguel, internet e o que mais se repete todo mês, pago ou não", dia: "o que você lançou no dia a dia, fora do cartão", faturas: "faturas que vencem neste mês", guardado: "o que você separou para reserva ou investimento" };
   // A régua: cada cor é uma parte do que sai; o trecho que resta é a sobra.
@@ -2019,6 +2019,11 @@ function armDelete(b, fn, rotulo = "Confirmar") {
 /** O tipo do lançamento em letras pequenas no extrato, como nos bancos: de onde ele vem. */
 const tipoDoLanc = (x) => x.tipo === "Receita" ? "Entrada" : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "Retirada" : x.forma === JA_TINHA ? "Já tinha" : "Guardado")
   : Number(x.parcelas) > 1 ? `${x.parcelas}x no cartão` : x.forma === CARTAO ? "No cartão" : "Dia a dia";
+/** Conta fixa ou fatura paga no Extrato. Não é um lançamento: tocar abre a conta fixa, quando há uma. */
+function linhaPaga(x, toque) {
+  return `<tr${x.id ? ` data-fixa="${esc(x.id)}"${toque}` : ""}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Despesa")}<span class="tx">${esc(x.descricao)} <span class="tag">paga</span><span class="sub show-sm">${esc(x.categoria)}</span></span></td>
+      <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${esc(x.categoria)}</td><td class="hide-sm" style="color:var(--ink-2);font-size:13px">Conta do mês</td><td class="num">− ${brl(x.valor)}</td><td class="acts"></td></tr>`;
+}
 function linhaLanc(x, toque, comAno = false) {
   return `<tr data-id="${esc(x.id)}"${toque}><td class="d">${comAno ? ddmm(x.data) + "/" + x.data.slice(2, 4) : ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}${x.pendente ? ` <span class="tag espera">aguardando internet</span>` : ""}${quemTag(x)}${marcaComprovante(x)}<span class="sub"><span class="tp">${tipoDoLanc(x)}</span>${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(pagoCom(x)) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : x.forma === JA_TINHA ? "Já tinha" : "Guardou"}</td>
@@ -2071,7 +2076,10 @@ function listaL(c) {
   const auto = c.fr.map((f) => { const d = Number(f.data.slice(8, 10));
     return { auto: true, id: f.id, data: f.data, descricao: f.descricao, categoria: f.categoria, tipo: "Receita", valor: f.valor,
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
-  const it = filtraLancamentos([...c.it, ...auto].filter(doQuem), filtro).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  // Contas fixas e faturas pagas também aparecem: quem marcou "Já paguei" procura aqui. Ficam no dia do vencimento.
+  const pagas = [...c.fx.filter((o) => o.forma !== CARTAO && c.pagosSet.has(o.id + "|" + o.chave)).map((o) => ({ auto: true, pagaFixa: true, id: o.id, data: o.data, descricao: o.descricao, categoria: o.categoria, tipo: "Despesa", valor: Number(o.valor) })),
+    ...c.fat.filter((f) => f.status === "Paga").map((f) => ({ auto: true, pagaFixa: true, id: "", data: String(f.vencimento).slice(0, 10), descricao: `Fatura ${f.cartao}`, categoria: "Cartão", tipo: "Despesa", valor: Number(f.valor) }))];
+  const it = filtraLancamentos([...c.it, ...auto, ...pagas].filter(doQuem), filtro).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
   if (!it.length && deQuem) { host.innerHTML = `<div class="welcome"><p><b>${deQuem === "eu" ? "Você não lançou nada" : `${esc(nomeDoOutro())} não lançou nada`} em ${nomeMes(S.mes)}.</b></p></div>`; return; }
   if (!it.length && filtrando) { host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)} com esse filtro.</b> Mude o tipo ou a categoria, ou toque em Limpar filtros.</p></div>`; return; }
   if (!it.length) {
@@ -2083,7 +2091,7 @@ function listaL(c) {
   const vhLista = minhaHora(), horasDoDia = (v) => { const t = vhLista && horasDeTrabalho(v, vhLista.valor); return t ? ` <small class="horas-dia">· ${t} de trabalho</small>` : ""; };
   const dia = (x, i) => i && it[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}${horasDoDia(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
   host.innerHTML = `${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
-    it.map((x, i) => dia(x, i) + (x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub"><span class="tp">Entrada fixa</span>${esc(x.categoria)}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
+    it.map((x, i) => dia(x, i) + (x.pagaFixa ? linhaPaga(x, toque) : x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub"><span class="tp">Entrada fixa</span>${esc(x.categoria)}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(x.id)}">Alterar</button></td></tr>`
     : linhaLanc(x, toque))).join("")}</tbody></table></div>`;
@@ -4281,7 +4289,9 @@ const htmlTresMot = (tit, hora, km, viagem, pe = "") => `<section class="mot-tre
 /** Quanto está rendendo: hoje, ou os últimos 7 dias enquanto hoje não tem jornada. */
 function htmlRitmoMot({ m, hj, veicD, doDia }) {
   const r = doDia.n ? doDia : resumoTurnos(m.turnos, toISO(new Date(Date.now() - 6 * 864e5)), hj, veicD);
-  return r.n ? htmlTresMot(doDia.n ? "Hoje você está ganhando" : "Seus últimos 7 dias", r.ganhoPorHora, r.ganhoPorKm, r.ganhoPorViagem, r.lucroPorHora === null ? "" : `Depois dos custos, ${brl(r.lucroPorHora)} por hora.`) : "";
+  const media = resumoTurnos(m.turnos.filter((t) => isoLocal(t.ini) !== hj), toISO(new Date(Date.now() - 30 * 864e5)), hj, veicD), dif = doDia.n && r.ms >= 1800000 && media.ms >= 3600000 ? round2(r.ganhoPorHora - media.ganhoPorHora) : null;
+  const pe = [r.lucroPorHora === null || r.ms < 1800000 ? "" : `Depois dos custos, ${brl(r.lucroPorHora)} por hora.`, dif === null || !dif ? "" : `${brl(Math.abs(dif))} ${dif > 0 ? "acima" : "abaixo"} da sua média por hora.`].filter(Boolean).join(" ");
+  return r.n ? htmlTresMot(doDia.n ? "Hoje você está ganhando" : "Seus últimos 7 dias", r.ms >= 1800000 ? r.ganhoPorHora : null, r.ganhoPorKm, r.ganhoPorViagem, pe) : "";
 }
 function htmlInicioMot() { const d = painelDoMotorista(); return htmlFraseMot(d, "motIniDia", true) + htmlRitmoMot(d); }
 /** Carro ou moto e os apps em que a pessoa roda: os formulários e os desafios mostram só o que faz sentido para ela. */
@@ -4449,6 +4459,15 @@ function paneDesafios(host) {
   host.querySelectorAll("[data-dias]").forEach((b) => (b.onclick = () => { dsDias = Number(b.dataset.dias); host.querySelectorAll("[data-dias]").forEach((x) => x.setAttribute("aria-pressed", x === b)); }));
 }
 
+/** Depois de encerrar: o dia em dez segundos. Quanto rendeu, como ficou a meta e um atalho para mostrar aos amigos. */
+function fechamentoDoDia(dia) {
+  const d = painelDoMotorista(), r = resumoTurnos(d.m.turnos, dia, dia, d.veicD), f = fraseDoDia({ meta: d.meta, ganhoHoje: r.ganho, brl }); if (!r.n) return;
+  openDlg(`<h3>Dia fechado</h3><p class="mot-fecha ocultavel">${f.titulo}</p>${htmlTresMot("Hoje você ganhou", r.ms >= 1800000 ? r.ganhoPorHora : null, r.ganhoPorKm, r.ganhoPorViagem, r.ms >= 1800000 && r.lucroPorHora !== null ? `Depois dos custos, ${brl(r.lucroPorHora)} por hora.` : "")}
+    <div class="actions"><button class="btn primary" type="button" id="fdDesafios">Ver os desafios</button><button class="btn" type="button" id="fdCompartilha">Compartilhar</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+  $("fdDesafios").onclick = () => { $("dlg").close(); motoristaTela(); motEntra("desafios"); };
+  $("fdCompartilha").onclick = () => compartilharResultadoMot("Hoje", r);
+}
+
 /** Lançar o dia sem jornada: um formulário curto, para quem esqueceu de iniciar ou prefere anotar no fim do dia. */
 function paneLancarDia(host) {
   const hj = hoje();
@@ -4515,7 +4534,7 @@ function paneMot() {
   const htmlRegraDeAceite = regra ? `<div class="mot-regra" role="note"><small>Regra para decorar</small><p>Aceite se pagar <b>${brl(regra.minimo)} por km</b> ou mais. Abaixo disso, recuse.</p>${regra.custoKm > 0 ? `<p class="mot-regra-conta">O seu carro custa ${brl(regra.custoKm)} por km. O mínimo é esse custo mais ${brl(1)}.</p>` : `<p class="mot-regra-conta">Preencha o <b>Meu carro ou moto</b> para o mínimo considerar o custo do seu carro. Por enquanto vale ${brl(1)} por km.</p>`}<span>De ${brl(regra.boa)} por km para cima é corrida boa${regra.base === "meta" ? ", pela sua meta do dia" : ""}. Conte o caminho até o passageiro nos km.</span></div>` : "";
   const ganhoHoje = round2(doDia.ganho + (m.ativo ? m.ativo.parcial : 0));   // inclui o turno que ainda está rolando
   const pctHoje = meta.brutoDia > 0 ? Math.min(100, Math.round((ganhoHoje / meta.brutoDia) * 100)) : 100;
-  const de = motPer === "dia" ? hj : motPer === "semana" ? toISO(new Date(agora - 6 * 864e5)) : `${mes}-01`;
+  const de = motPer === "dia" ? hj : motPer === "semana" ? toISO(new Date(agora - 6 * 864e5)) : motPer === "ano" ? `${hj.slice(0, 4)}-01-01` : `${mes}-01`;
   const temCarro = custoTotalPorKm(veicD) !== null, r = resumoTurnos(m.turnos, de, hj, veicD), tracos = (v, f) => (v === null ? "—" : f(v));
   // O quadro do turno em andamento: refeito a cada segundo, sem mexer nos campos de digitar.
   const vivo = () => {
@@ -4597,12 +4616,12 @@ function paneMot() {
     <button class="mot-rap larga" type="button" data-mot-sub="ajustes"><small>Minha meta</small><b>Ajustar dias, horas e quanto quero sobrar</b></button>
     <button class="mot-rap larga" type="button" data-mot-sub="perfil"><small>Meu trabalho</small><b>${m.perfil?.veiculo === "moto" ? "Moto" : "Carro"}: ${appsDoPerfil(m.perfil).filter(([k]) => k !== "outros").map(([, n]) => n).join(", ")}</b></button>
     <h4 class="mot-h">Seu resultado</h4>
-    <div class="mot-per" role="group" aria-label="Período">${[["dia", "Hoje"], ["semana", "7 dias"], ["mes", nomeMes(mes)]].map(([k, n]) => `<button type="button" data-per="${k}" aria-pressed="${motPer === k}">${n}</button>`).join("")}</div>
+    <div class="mot-per" role="group" aria-label="Período">${[["dia", "Hoje"], ["semana", "7 dias"], ["mes", nomeMes(mes)], ["ano", hj.slice(0, 4)]].map(([k, n]) => `<button type="button" data-per="${k}" aria-pressed="${motPer === k}">${n}</button>`).join("")}</div>
     <div class="mot-grid">
       ${tile("Ganho", brl(r.ganho), "fat")}
       ${tile(temCarro ? "Custo do carro" : "Gastos do turno", brl(r.custo), "gasto")}${tile("Lucro", brl(r.lucro), "luc")}
       ${tile("Horas trabalhadas", horasCurtas(r.ms))}${tile("Km rodados", virg(r.km))}
-      ${tile("Ganho por hora (bruto)", tracos(r.ganhoPorHora, brl))}${tile("Lucro por hora (líquido)", tracos(r.lucroPorHora, brl))}
+      ${tile("Ganho por hora (bruto)", tracos(r.ms >= 1800000 ? r.ganhoPorHora : null, brl))}${tile("Lucro por hora (líquido)", tracos(r.ms >= 1800000 ? r.lucroPorHora : null, brl))}
       ${tile("Ganho por km", tracos(r.ganhoPorKm, brl))}${tile("Lucro por km", tracos(r.lucroPorKm, brl))}
       ${tile("Viagens", String(r.viagens))}${tile("Ganho por viagem", tracos(r.ganhoPorViagem, brl))}
     </div>
@@ -4621,7 +4640,7 @@ function paneMot() {
   host.querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
   host.querySelectorAll("[data-mot-cat-mais]").forEach((s) => (s.onchange = () => s.value && escolheCategoria(s.value)));
   if ($("motVeic")) $("motVeic").onclick = () => meuVeiculo();
-  if ($("motImagem")) $("motImagem").onclick = () => compartilharResultadoMot(motPer === "dia" ? "Hoje" : motPer === "semana" ? "Últimos 7 dias" : `${nomeMes(mes)[0].toUpperCase()}${nomeMes(mes).slice(1)}`, r);
+  if ($("motImagem")) $("motImagem").onclick = () => compartilharResultadoMot(motPer === "dia" ? "Hoje" : motPer === "semana" ? "Últimos 7 dias" : motPer === "ano" ? `Ano de ${hj.slice(0, 4)}` : `${nomeMes(mes)[0].toUpperCase()}${nomeMes(mes).slice(1)}`, r);
   host.querySelectorAll("[data-medit]").forEach((b) => (b.onclick = () => motEntra("edit-" + b.dataset.medit)));
   host.querySelectorAll("[data-dia-mot]").forEach((b) => (b.onclick = () => diaMotorista(b.dataset.diaMot)));
   host.querySelectorAll("[data-mdel]").forEach((b) => armDelete(b, async () => {
@@ -4761,6 +4780,7 @@ function paneFechar(host) {
     enviaPlacar([dia]);
     motSai(); vibra(30);
     toast(`Jornada salva: ${brl(ganho)} em ${horasCurtas(f2 - i2 - pausado)}${comb > 0 ? `, com ${brl(comb)} de gastos` : ""}.`);
+    setTimeout(() => fechamentoDoDia(dia), 350);
   });
 }
 
