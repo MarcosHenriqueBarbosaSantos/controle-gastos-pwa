@@ -52,9 +52,10 @@ test("salário de autônomo: o que guardar por mês e por dia rodado", () => {
   assert.deepEqual(r.itens.map((x) => [x.k, x.porMes]), [["manut", 200], ["docs", 100], ["seguro", 100], ["troca", 500], ["ferias", 300], ["decimo", 300]]);
   assert.equal(r.porMes, 1500);
   assert.equal(r.porDia, 57.69);
-  assert.equal(r.semLucro, false);
-  assert.equal(reservasDoMotorista({}, {}).itens.length, 0);
-  assert.equal(reservasDoMotorista(veic, { lucroMes: 0 }).semLucro, true);
+  assert.equal(r.temVeiculo, true);
+  const sem = reservasDoMotorista({}, {});
+  assert.equal(sem.temVeiculo, false);
+  assert.deepEqual(sem.itens.map((x) => [x.k, x.porMes]), [["ferias", 291.67], ["decimo", 291.67]]);
   assert.equal(reservasDoMotorista(veic, { veiculo: "moto" }).itens[0].nome, "Manutenção da moto");
 });
 

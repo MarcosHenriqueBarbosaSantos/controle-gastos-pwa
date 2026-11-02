@@ -72,6 +72,7 @@ const ICO = {
   presente: "M4 11h16v9H4zM3 7h18v4H3zM12 7v13M12 7c-2 0-4-1-4-3s3-2 4 3c1-5 4-5 4-3s-2 3-4 3",
   carro: "M5 16v3M19 16v3M3 16h18v-4l-2-5H5l-2 5zM3 12h18M7.5 14h.01M16.5 14h.01",
   medalha: "M8 3h8l-1.5 6h-5zM12 21a5 5 0 1 0 0-10 5 5 0 0 0 0 10zM12 13v3",
+  busca: "M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4",
   alvo: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM12 12h.01",
   ideia: "M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z",
   ajuda: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.6 9.4a2.5 2.5 0 1 1 3.6 2.3c-.8.4-1.2.9-1.2 1.8M12 17h.01",
@@ -1009,6 +1010,7 @@ function renderKpis(c) {
   const ritmo = atualM && sb.livre > 0 && sb.entra > 0 && c.dias >= 3 ? (usado <= tempo - 8 ? { cls: "ok", t: `No ritmo: você usou ${usado}% da folga e o mês já passou ${tempo}%.` } : usado >= tempo + 8 && usado < 100 ? { cls: "alto", t: `Acima do ritmo: você usou ${usado}% da folga e o mês já passou ${tempo}%.` } : null) : null;
   // Conta nova, ainda sem nada: no lugar dos "R$ 0", um convite para começar (as três perguntas ou o primeiro gasto).
   const semEnt = semEntradaNoMes(c), motUsa = Boolean(S.prefs.motorista?.usa), dMot = motUsa && atualM ? painelDoMotorista() : null;   // o ganho do motorista entra aos poucos: o mês dele se mede pelas contas, não pelo salário
+  const mesNaTela = `<div class="hero-mes"><button type="button" data-hero-nav="prev" aria-label="Mês anterior">${ico("chev")}</button><b>${mesTitulo}</b><button type="button" data-hero-nav="next" aria-label="Próximo mês">${ico("chev")}</button><button type="button" class="hero-busca" data-hero-nav="btnBuscarM" aria-label="Buscar">${ico("busca")}</button></div>`;
   const vazio = atualM && !S.data.lancamentos.length && !S.data.fixos.length && !(S.data.faturas || []).length;
   if (vazio) {
     $("resumo").innerHTML = `${guiaVisivel() ? "" : `<div class="hero banco est-neutro hero-vazio">
@@ -1024,12 +1026,12 @@ function renderKpis(c) {
     if ($("conviteComecar")) $("conviteComecar").onclick = () => guiaPasso("renda", true);
     if ($("conviteExtrato")) $("conviteExtrato").onclick = () => abrirExtrato();
   } else {
-  $("resumo").innerHTML = `${S.prefs.motorista?.ativo?.ini ? `<button type="button" class="mot-faixa" data-atalho="motorista"><span class="mot-pulso" aria-hidden="true"></span><span>Jornada em andamento desde ${hhmm(Number(S.prefs.motorista.ativo.ini))}</span><b>Parar</b></button>` : ""}${dMot ? `<div class="hero banco cheia est-neutro">
+  $("resumo").innerHTML = `${S.prefs.motorista?.ativo?.ini ? `<button type="button" class="mot-faixa" data-atalho="motorista"><span class="mot-pulso" aria-hidden="true"></span><span>Jornada em andamento desde ${hhmm(Number(S.prefs.motorista.ativo.ini))}</span><b>Parar</b></button>` : ""}${dMot ? `<div class="hero banco cheia est-neutro">${mesNaTela}
       <div class="hero-top"><span class="l">Seu dinheiro em ${mesNome}</span>
         <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
-      <h2 class="hero-frase ocultavel">${dMot.meta.coberto ? `As contas de ${mesNome} estão cobertas.` : `Faltam ${brl(dMot.meta.falta)} para cobrir as contas de ${mesNome}.`}</h2>
+      <h2 class="hero-frase ocultavel">${dMot.meta.coberto ? `As contas de ${mesNome} estão cobertas.` : `Faltam ${brl(dMot.meta.falta)} para ${Number(dMot.m.extra) > 0 ? "as contas e as metas" : "as contas"} de ${mesNome}.`}</h2>
       <span class="n ocultavel">${fraseContasMot(c)}</span>
-      ${dMot.meta.coberto ? "" : `<button type="button" class="hero-liga" id="heroFora">Deixar alguma conta de fora</button>`}
+      <button type="button" class="hero-liga" id="heroFora">Entenda esse valor</button>
       <button type="button" class="hero-ver" id="heroVer">Ver meu mês</button>
     </div>` : semEnt ? `<div class="hero banco est-neutro hero-vazio hero-sem-entrada">
       <div class="hero-top"><span class="l">Seu mês em ${mesNome}</span>
@@ -1037,7 +1039,7 @@ function renderKpis(c) {
       <span class="v convite">Falta contar o que você recebe</span>
       <span class="n ocultavel">Até agora o app só viu o que sai: ${brl(c.custo)} em contas e gastos. Diga quanto você recebe e ele mostra quanto sobra.</span>
       <button type="button" class="hero-bt" data-acao="recebi">Adicionar o que recebo</button>
-    </div>` : `<div class="hero banco${atualM ? " cheia" : ""} est-${est.nivel}">
+    </div>` : `<div class="hero banco${atualM ? " cheia" : ""} est-${est.nivel}">${atualM ? mesNaTela : ""}
     <div class="hero-top"><span class="l">${rotulo}</span>
       <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
     ${fraseDoMes ? `<h2 class="hero-frase ocultavel">${fraseDoMes}</h2>` : ""}
@@ -1047,6 +1049,7 @@ function renderKpis(c) {
     ${est.nivel !== "neutro" ? `<span class="estado"><b>${est.rotulo || ROTULO[est.nivel]}</b>${est.motivo && est.nivel !== "estourado" ? `<span class="ocultavel">${est.motivo}</span>` : ""}</span>` : ""}
     ${atualM ? `<button type="button" class="hero-ver" id="heroVer">Ver meu mês</button>` : ""}
   </div>`}
+  ${atualM && (dMot || !semEnt) ? htmlAgora(c, dMot) : ""}
   ${!semEnt && !dMot && (rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
   ${atualM ? htmlHoje(c) : ""}
   ${c.fase === "futuro" ? htmlPrevisaoFuturo(c, rx) : ""}
@@ -1146,8 +1149,11 @@ function htmlMotoristaIni() {
 }
 function ligaMotoristaIni() {
   // A tela inteira do Início termina na barra de baixo, seja qual for o aviso que apareceu acima dela.
-  const hc = document.querySelector(".hero.cheia"); if (hc && noCelular()) hc.style.minHeight = `calc(100dvh - ${Math.round(hc.getBoundingClientRect().top + scrollY)}px - var(--bnav-h,69px))`;
-  if ($("heroFora")) $("heroFora").onclick = () => { S.fTipo = "Fixas"; S.view = "listas"; S.tab = "l"; render(); scrollTo(0, 0); };
+  const hc = document.querySelector(".hero.cheia"); if (hc && noCelular()) hc.style.minHeight = `calc(100dvh - ${Math.round(hc.getBoundingClientRect().top + scrollY + (document.querySelector(".agora")?.offsetHeight || 0) - 30)}px - var(--bnav-h,69px))`;
+  if ($("heroFora")) $("heroFora").onclick = () => contaDoMesTela();
+  document.querySelectorAll("[data-hero-nav]").forEach((b) => (b.onclick = () => $(b.dataset.heroNav).click()));
+  document.querySelectorAll("[data-agora]").forEach((b) => (b.onclick = () => { const k = b.dataset.agora; if (k === "hoje") return S.prefs.motorista?.usa ? motoristaTela() : abrirLancar(); if (k === "conta") return $("venc").scrollIntoView({ block: "start", behavior: "smooth" }); if (k === "meta") return todasAsMetas(); planosTela(); }));
+  if ($("agoraMes")) $("agoraMes").onclick = () => $("agoraMes").closest(".agora").nextElementSibling?.scrollIntoView({ block: "start", behavior: "smooth" });
   if ($("heroVer")) $("heroVer").onclick = () => ($("heroVer").closest(".hero").nextElementSibling || $("resumo2")).scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
   $("resumo").querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra(b.dataset.motSub); }));
   $("resumo").querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
@@ -2034,7 +2040,36 @@ const tipoDoLanc = (x) => x.tipo === "Receita" ? "Entrada" : x.tipo === "Reserva
 /** O que compõe o número do Início do motorista: contas do mês, o que já foi pago e o que entra. */
 function fraseContasMot(c) {
   const pagar = contasDoExtrato(c).filter((x) => x.aPagar).reduce((t, x) => t + x.valor, 0), pago = round2(c.custo - pagar);
-  return `Contas do mês: ${brl(c.custo)}${pago > 0 ? `, com ${brl(pago)} já pagos` : ""}. Entradas do mês: ${brl(c.rec)}. O ganho das corridas entra quando você encerra a jornada.`;
+  return `Contas do mês: ${brl(c.custo)}${pago > 0 ? `, com ${brl(pago)} já pagos` : ""}. Entradas do mês: ${brl(c.rec)}.`;
+}
+/** De onde vem o número do alto: cada conta, o que entrou, o que é meta e o que ficou de meses passados. Dá para corrigir ali mesmo. */
+function contaDoMesTela() {
+  const hj = hoje(), c = calcMes(S.data, mKey(hj), hj), m = motDados(), mes = nomeMes(mKey(hj)), d = painelDoMotorista(), contas = contasDoExtrato(c).sort((a, b) => a.data.localeCompare(b.data));
+  const extra = Number(m.extra) || 0, ativas = Object.entries(S.prefs.reservasMot || {}), soma = round2(ativas.reduce((t, [, x]) => t + x.porMes, 0)), propria = round2(extra - soma);
+  const atrasoAntes = contasEmAtraso(S.data, hj, S.prefs.saldoDesde).itens.filter((x) => x.mes < mKey(hj)), totalAntes = round2(atrasoAntes.reduce((t, x) => t + x.valor, 0));
+  const linha = (rot, v, cls = "") => `<li class="${cls}"><span>${rot}</span><b class="ocultavel">${v}</b></li>`;
+  const conta = (x, i) => `<li><button type="button" class="ct-linha" data-ct="${i}"${x.id ? "" : " disabled"}><span><b>${esc(x.descricao)}</b><small>${x.fora ? "fora do mês" : x.aPagar ? `vence ${ddmm(x.data)}` : "paga"}</small></span><b class="ocultavel">${brl(x.valor)}</b></button></li>`;
+  openDlg(`<h3>Como chegamos nesse valor</h3>
+    <ul class="ct-soma">${linha(`Contas e gastos de ${mes}`, brl(c.custo))}${c.res > 0 ? linha("Guardado no mês", brl(c.res)) : ""}${extra > 0 ? linha("Metas que você escolheu", brl(extra)) : ""}${linha("Entradas do mês", `− ${brl(c.rec)}`)}${d.meta.falta > 0 ? linha("Faltam", brl(d.meta.falta), "tot") : linha("Coberto", brl(0), "tot")}</ul>
+    <p class="hint">O que você ganhou hoje entra quando encerra a jornada.</p>
+    <h4 class="ferr-h">Contas de ${mes}</h4><p class="hint" style="margin:0 0 6px">Toque em uma conta para marcar como paga, deixar fora do mês ou editar.</p>
+    <ul class="ct-lista">${contas.map(conta).join("")}${c.vari > 0 ? `<li><span class="ct-linha"><span><b>Gastos do dia a dia</b><small>o que você lançou</small></span><b class="ocultavel">${brl(c.vari)}</b></span></li>` : ""}</ul>
+    ${extra > 0 ? `<h4 class="ferr-h">Metas na conta</h4><ul class="ct-lista">${ativas.map(([k, x]) => `<li><span class="ct-linha"><span><b>${esc(x.nome)}</b><small class="ocultavel">${brl(x.porMes)} por mês</small></span><button class="btn sm" type="button" data-ct-tira="${esc(k)}">Tirar</button></span></li>`).join("")}${propria > 0 ? `<li><span class="ct-linha"><span><b>Quanto quero sobrar</b><small class="ocultavel">${brl(propria)} por mês</small></span><button class="btn sm" type="button" id="ctMeta">Ajustar</button></span></li>` : ""}</ul>` : ""}
+    ${atrasoAntes.length ? `<h4 class="ferr-h">De meses passados</h4><p class="hint" style="margin:0 0 8px">${atrasoAntes.length === 1 ? "1 conta ficou" : `${atrasoAntes.length} contas ficaram`} sem pagar, no total de <b class="ocultavel">${brl(totalAntes)}</b>. Elas não entram no valor de ${mes}.</p><button class="btn" type="button" id="ctAtrasadas">Ver e resolver</button>` : ""}
+    <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  $("dlgBody").querySelectorAll("[data-ct]").forEach((b) => (b.onclick = () => { const x = contas[Number(b.dataset.ct)]; if (x.aPagar || x.fora) opcoesDaConta(x.id, x.chave, x.data); else editarFixo(x.id); }));
+  $("dlgBody").querySelectorAll("[data-ct-tira]").forEach((b) => (b.onclick = () => { tiraReserva(b.dataset.ctTira); contaDoMesTela(); }));
+  if ($("ctMeta")) $("ctMeta").onclick = () => { $("dlg").close(); motoristaTela(); motEntra("ajustes"); };
+  if ($("ctAtrasadas")) $("ctAtrasadas").onclick = () => atrasadasTela();
+}
+/** Os três cartões da primeira tela: o que importa agora, sem precisar rolar. */
+function htmlAgora(c, dMot) {
+  const hj = hoje(), pg = dMot || semEntradaNoMes(c) ? null : podeGastarHoje(c, gastoAVistaDoDia(S.data, hj)), prox = proximosVencimentos(S.data, hj, 30)[0], a = metaPrincipal(metasEmAndamento(S.data, S.prefs.metas, hj));
+  const quando = (d) => (d <= 0 ? "hoje" : d === 1 ? "amanhã" : `em ${d} dias`);
+  const cartao = (k, rot, val, sub) => `<button type="button" class="agora-c" data-agora="${k}"><small>${rot}</small><b class="ocultavel">${val}</b><span>${sub}</span></button>`;
+  return `<section class="agora" aria-label="Agora"><div class="agora-lista">${dMot ? cartao("hoje", "Meta de hoje", dMot.meta.coberto ? "Coberta" : brl(dMot.meta.brutoDia), "Ir para a Jornada")
+    : pg ? cartao("hoje", pg.resta >= 0 ? "Cabem hoje" : "Passou hoje", brl(Math.abs(pg.resta)), "Lançar um gasto") : cartao("hoje", "Hoje", "Anotar", "Lançar um gasto")}${prox ? cartao("conta", "Próxima conta", brl(prox.valor), `${esc(prox.titulo)} · ${quando(prox.dias)}`) : cartao("conta", "Próxima conta", "Nenhuma", "Nada para os próximos dias")}${a ? cartao("meta", "Minha meta", `${a.pct}%`, esc(a.destino)) : cartao("planos", "Meus planos", "Criar", "Férias, casa, carro")}</div>
+    <button type="button" class="agora-mes" id="agoraMes">Ver o mês completo</button></section>`;
 }
 /** Deixa uma conta de fora só daquele mês, ou traz de volta. Nada é apagado e a conta segue nos próximos meses. */
 function mudaFora(chaves, fora) {
@@ -4672,21 +4707,24 @@ function paneReservas(host) {
   const linha = (x) => `<li><span class="rs-tx"><b>${esc(x.nome)}</b><small>${esc(x.sub)}</small><small class="ocultavel">${brl(x.porDia)} por dia rodado · ${brl(x.porMes)} por mês</small></span>${ativas[x.k] ? `<button class="btn sm" type="button" data-rs-tira="${x.k}">Tirar da meta</button>` : `<button class="btn sm primary" type="button" data-rs-liga="${x.k}">Guardar</button>`}</li>`;
   const somaAtiva = round2(Object.values(ativas).reduce((t, x) => t + x.porMes, 0));
   host.innerHTML = `<div id="motRoot" class="rs"><button class="mot-voltar" type="button" id="motVolta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Voltar</button>
-    <h2 class="mot-frase ocultavel">${d.itens.length ? `Guarde ${brl(d.porDia)} por dia rodado.` : "Falta o custo do seu veículo."}</h2>
-    <p class="mot-ver">${d.itens.length ? `São ${brl(d.porMes)} por mês. Quem é autônomo paga o próprio carro, as próprias férias e o próprio 13º: o app faz a conta para você.` : "Com os gastos do veículo preenchidos, o app calcula quanto guardar por dia."}</p>
-    ${d.itens.length ? `<ul class="rs-lista">${d.itens.map(linha).join("")}</ul>` : `<button class="btn primary" type="button" id="rsVeic">Preencher meu veículo</button>`}
+    <h2 class="mot-frase ocultavel">Guarde ${brl(d.porDia)} por dia rodado.</h2>
+    <p class="mot-ver">São ${brl(d.porMes)} por mês. Quem é autônomo paga o próprio carro, as próprias férias e o próprio 13º: o app faz a conta para você.</p>
+    <ul class="rs-lista">${d.itens.map(linha).join("")}</ul>
+    ${d.temVeiculo ? "" : `<button class="btn primary" type="button" id="rsVeic">Preencher meu veículo</button>`}
     ${somaAtiva ? `<p class="mot-ver bom ocultavel">${brl(somaAtiva)} por mês já entram na sua meta do dia.</p>` : ""}
-    ${d.semLucro ? `<p class="hint">Férias e 13º aparecem depois de alguns dias rodados, com o custo do veículo preenchido.</p>` : ""}
     <h3 class="mot-h">Quero juntar para</h3>
     <form id="rsForm" class="dlg-form" autocomplete="off">
       <label class="f wide">O quê<select class="in" id="rsNome">${["Carro novo", "Entrada da casa", "Viagem", "Reserva de emergência"].map((n) => `<option>${n}</option>`).join("")}</select></label>
       <label class="f">Quanto (R$)<input class="in money" id="rsValor" inputmode="decimal" placeholder="ex.: 30.000,00"></label>
-      <label class="f">Em quantos meses<input class="in" id="rsMeses" inputmode="numeric" maxlength="3" placeholder="ex.: 24"></label>
+      <label class="f">Em quantos meses<input class="in" id="rsMeses" inputmode="numeric" maxlength="3" placeholder="em branco: o app sugere"></label>
       <p class="mot-ver wide ocultavel" id="rsConta" aria-live="polite"></p>
       <button class="btn primary wide" type="submit">Guardar para isso</button></form>
     <button class="link link-toque" type="button" id="rsLiberdade">Simular minha liberdade financeira</button></div>`;
-  const sonho = () => { const alvo = parseMoney($("rsValor").value), meses = Number($("rsMeses").value), q = alvo > 0 && meses >= 1 ? quantoGuardarPorMes({ alvo, meses }) : null; return q ? { nome: $("rsNome").value, alvo, meses, porMes: q.porMes, porDia: round2(q.porMes / d.diasMes) } : null; };
-  const conta = () => { const s = sonho(); $("rsConta").textContent = s ? `São ${brl(s.porDia)} por dia rodado, ou ${brl(s.porMes)} por mês.` : ""; };
+  // Sem prazo, o app sugere: 10% do que a pessoa ganha por mês, e diz em quanto tempo ela compra à vista.
+  const sugeridoMes = round2(r30.ganho * 0.1);
+  const sonho = () => { const alvo = parseMoney($("rsValor").value), informado = Number($("rsMeses").value), meses = informado >= 1 ? informado : alvo > 0 && sugeridoMes > 0 ? Math.ceil(alvo / sugeridoMes) : 0, q = alvo > 0 && meses >= 1 ? quantoGuardarPorMes({ alvo, meses }) : null; return q ? { nome: $("rsNome").value, alvo, meses, sugerido: !(informado >= 1), porMes: q.porMes, porDia: round2(q.porMes / d.diasMes) } : null; };
+  const tempo = (n) => { const a = Math.floor(n / 12), r = n % 12; return [a ? `${a} ${a === 1 ? "ano" : "anos"}` : "", r ? `${r} ${r === 1 ? "mês" : "meses"}` : ""].filter(Boolean).join(" e "); };
+  const conta = () => { const s = sonho(); $("rsConta").textContent = !s ? "" : s.sugerido ? `Guardando 10% do que você ganha, ${brl(s.porMes)} por mês, você compra à vista em ${tempo(s.meses)}.` : `São ${brl(s.porDia)} por dia rodado, ou ${brl(s.porMes)} por mês.`; };
   $("rsValor").oninput = $("rsMeses").oninput = conta;
   $("rsForm").onsubmit = (e) => { e.preventDefault(); const s = sonho(); if (!s) { $("rsConta").textContent = "Preencha quanto e em quantos meses."; return; } ligaReserva({ k: `sonho:${s.nome}`, nome: s.nome, porMes: s.porMes, alvo: s.alvo, ate: addM(mKey(hj), s.meses) }); };
   host.querySelectorAll("[data-rs-liga]").forEach((b) => (b.onclick = () => { const x = d.itens.find((i) => i.k === b.dataset.rsLiga); ligaReserva({ ...x, alvo: x.porMes * 12, ate }); }));

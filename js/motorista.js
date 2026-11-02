@@ -231,14 +231,16 @@ export function destaqueDoDesafio(totais) {
   return fat.apelido === hora.apelido ? `${fat.apelido} lidera no faturamento e por hora.` : `${fat.apelido} faturou mais, mas ${hora.apelido} ganhou mais por hora.`;
 }
 
+const RENDA_MINIMA_RESERVA = 3500;
 /**
  * Salário de autônomo: quanto guardar por mês e por dia rodado para o que nenhuma empresa paga.
  * O veículo vem do "Meu carro ou moto"; a desvalorização é o que ele perde de valor, a base para trocar de carro.
- * Férias e 13º valem um mês do lucro médio, divididos em 12.
+ * Férias e 13º valem um mês de renda, divididos em 12. A base é o lucro médio, e nunca menos de R$ 3.500:
+ * mesmo parado, a pessoa continua pagando o carro e as contas.
  */
 export function reservasDoMotorista(veic, { diasSemana = 6, lucroMes = 0, veiculo = "carro" } = {}) {
   const r = custoDoVeiculo(veic), parte = (...ks) => ks.reduce((t, k) => t + (r?.partes.find((p) => p.k === k)?.valor || 0), 0);
-  const diasMes = Math.max(1, Math.round((Math.min(7, Math.max(1, Number(diasSemana) || 6)) * 52) / 12)), nome = veiculo === "moto" ? "moto" : "carro", umDozeAvos = Math.max(0, Number(lucroMes) || 0) / 12;
+  const diasMes = Math.max(1, Math.round((Math.min(7, Math.max(1, Number(diasSemana) || 6)) * 52) / 12)), nome = veiculo === "moto" ? "moto" : "carro", umDozeAvos = Math.max(RENDA_MINIMA_RESERVA, Number(lucroMes) || 0) / 12;
   const itens = [["manut", `Manutenção ${veiculo === "moto" ? "da moto" : "do carro"}`, "Óleo, pneus e revisão", parte("manut")],
     ["docs", "IPVA e licenciamento", "A conta que chega de uma vez no começo do ano", parte("ipva", "lic")],
     ["seguro", "Seguro", "Para renovar sem aperto", parte("seguro")],
@@ -247,7 +249,7 @@ export function reservasDoMotorista(veic, { diasSemana = 6, lucroMes = 0, veicul
     ["decimo", "13º salário", "O seu próprio 13º, em dezembro", umDozeAvos]]
     .filter(([, , , v]) => v > 0).map(([k, nomeItem, sub, v]) => ({ k, nome: nomeItem, sub, porMes: r2(v), porDia: r2(v / diasMes) }));
   const porMes = r2(itens.reduce((t, x) => t + x.porMes, 0));
-  return { itens, porMes, porDia: r2(porMes / diasMes), diasMes, semLucro: !(umDozeAvos > 0) };
+  return { itens, porMes, porDia: r2(porMes / diasMes), diasMes, temVeiculo: Boolean(r) };
 }
 
 /** A frase do dia do motorista: uma resposta só, no alto da tela. `brl` formata o dinheiro. */
