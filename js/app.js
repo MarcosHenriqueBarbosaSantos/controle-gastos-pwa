@@ -7587,11 +7587,14 @@ addEventListener("appinstalled", () => { installEvt = null; if (S.loaded) render
 $("btnInstall").hidden = appInstalado();
 $("btnInstall").onclick = () => instalarApp();
 if ("serviceWorker" in navigator && location.protocol !== "file:") {
-  navigator.serviceWorker.register("sw.js").catch(() => {});
+  const registro = navigator.serviceWorker.register("sw.js").catch(() => null);
+  const confereVersao = () => registro.then((r) => r?.update()).catch(() => {});
   // O app abre com a cópia guardada (sw.js) e a versão nova baixa por trás. Para ninguém ficar para sempre na versão velha:
   //  - se ela chega logo depois de abrir (a pessoa ainda não fez nada), o app recarrega sozinho;
   //  - senão, avisa e recarrega quando a pessoa voltar ao app depois de largá-lo, e só se não houver quadro aberto nem lançamento em andamento.
-  const tinhaVersao = Boolean(navigator.serviceWorker.controller), abriuEm = Date.now();
+  // O celular mantém o app vivo por dias sem abrir de novo: por isso a versão também é conferida ao voltar ao app e a cada meia hora.
+  const tinhaVersao = Boolean(navigator.serviceWorker.controller);
+  let abriuEm = Date.now();
   let versaoNova = false;
   const ocupado = () => document.querySelector("dialog[open]") || document.body.classList.contains("lancando") || (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
   navigator.serviceWorker.addEventListener("controllerchange", () => {
@@ -7600,7 +7603,12 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") {
     if (Date.now() - abriuEm < 15000 && !ocupado()) return location.reload();
     toastAcao("Tem uma versão nova do app.", "Atualizar", () => location.reload(), 0);
   });
-  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible" && versaoNova && !ocupado()) location.reload(); });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState !== "visible") return;
+    if (versaoNova && !ocupado()) return location.reload();
+    abriuEm = Date.now(); confereVersao();
+  });
+  setInterval(() => { if (document.visibilityState === "visible") confereVersao(); }, 30 * 60 * 1000);
   // Tocou numa notificação com o app já aberto: o lembrete do fim do dia leva direto para o lançamento.
   navigator.serviceWorker.addEventListener("message", (e) => {
     if (e.data?.tipo !== "notificacao" || !/[?&]atalho=lancar\b/.test(String(e.data.url || ""))) return;

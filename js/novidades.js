@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "177", itens: ["O app agora confere se há versão nova sempre que você volta para ele."] },
   { versao: "176", itens: ["Início mais limpo, com uma tela inteira que responde como está o seu mês.", "Extrato e Planejar abrem com uma frase, e o tema claro agora é preto e amarelo.", "Quem usa o modo motorista já abre o app direto na Jornada."] },
   { versao: "175", itens: ["Modo motorista: a aba agora se chama Jornada, com uma tela inteira antes de rodar e outra, escura e simples, enquanto você roda."] },
   { versao: "174", itens: ["Contas fixas e faturas pagas agora aparecem no Extrato.", "Modo motorista: ao encerrar a jornada, o app mostra o fechamento do dia, compara com a sua média por hora e o resultado ganhou a visão do ano."] },
