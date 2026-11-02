@@ -1,7 +1,7 @@
 // Testes das ferramentas extras: desempenho, calculadoras, desafio, resumo do ano, subcategorias, outra moeda, mensagem do banco, CSV e PDF.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, criaDesafio, valorDaSemana, totalDoDesafio,
+import { cadastrosDe, mudaCadastro, desempenhoDoMes, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, criaDesafio, valorDaSemana, totalDoDesafio,
   andamentoDoDesafio, resumoDoAno, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, paiDaCategoria, filhoDaCategoria, nomeDeSub, agrupaPorPai, moeda } from "../js/extras.js";
 
 const L = (data, categoria, valor, tipo = "Despesa", forma = "Pix", descricao = "") => ({ id: data + categoria + valor, data, descricao, tipo, categoria, forma, valor });
@@ -42,6 +42,25 @@ test("desempenho: categoria sem gasto no mês não vira \"100% menos\"", () => {
 test("desempenho: sem mês anterior não inventa comparação", () => {
   const f = desempenhoDoMes({ ...base([L("2026-10-05", "Mercado", 200)]), fixos: [] }, "2026-10", HOJE);
   assert.ok(f.every((x) => !/que o de/.test(x.texto)));
+});
+
+test("vários veículos: quem tinha um continua com ele e pode somar outros", () => {
+  let p = { veiculo: { kmMes: 3000 } };
+  assert.deepEqual(cadastrosDe(p, "veiculo", "Meu veículo").ativo, { id: "1", nome: "Meu veículo", dados: { kmMes: 3000 } });
+  p = { ...p, ...mudaCadastro(p, "veiculo", "Meu veículo", { tipo: "novo", id: "2", nome: "Moto" }) };
+  assert.deepEqual(p.veiculo, {});
+  assert.equal(p.veiculoLista.length, 2);
+  p.veiculo = { kmMes: 900 };   // a tela grava direto no cadastro em uso
+  p = { ...p, ...mudaCadastro(p, "veiculo", "Meu veículo", { tipo: "trocar", id: "1" }) };
+  assert.deepEqual(p.veiculo, { kmMes: 3000 });
+  assert.deepEqual(p.veiculoLista[1].dados, { kmMes: 900 });   // o que foi digitado na moto não se perde
+  p = { ...p, ...mudaCadastro(p, "veiculo", "Meu veículo", { tipo: "renomear", nome: "Onix" }) };
+  assert.equal(p.veiculoLista[0].nome, "Onix");
+  p = { ...p, ...mudaCadastro(p, "veiculo", "Meu veículo", { tipo: "apagar" }) };
+  assert.equal(p.veiculoLista.length, 1);
+  assert.deepEqual(p.veiculo, { kmMes: 900 });
+  const so = mudaCadastro(p, "veiculo", "Meu veículo", { tipo: "apagar" });
+  assert.equal(so.veiculoLista.length, 1);   // o último não é apagado
 });
 
 test("liberdade financeira: acha o primeiro mês em que o rendimento real paga os gastos", () => {

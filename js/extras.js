@@ -82,6 +82,27 @@ export function desempenhoDoMes(st, m, hoje) {
   return out.slice(0, 5);
 }
 
+/* ======================= mais de um veículo ou casa ======================= */
+/** Os cadastros de um tipo. Quem só tinha um continua com ele: o que estava salvo vira o primeiro da lista. */
+export function cadastrosDe(prefs, chave, nome) {
+  const salva = prefs[`${chave}Lista`], lista = Array.isArray(salva) && salva.length ? salva : [{ id: "1", nome, dados: prefs[chave] || {} }];
+  return { lista, ativo: lista.find((x) => x.id === prefs[`${chave}Ativo`]) || lista[0] };
+}
+/**
+ * Muda os cadastros e devolve o que gravar nas preferências. As contas do app leem prefs[chave], que é sempre o cadastro em uso.
+ * op: { tipo: "novo", id, nome } · { tipo: "trocar", id } · { tipo: "renomear", nome } · { tipo: "apagar" }
+ */
+export function mudaCadastro(prefs, chave, nome, op) {
+  const { lista, ativo } = cadastrosDe(prefs, chave, nome);
+  const atual = lista.map((x) => (x.id === ativo.id ? { ...x, dados: prefs[chave] || {} } : x));   // guarda o que estava sendo editado
+  const fim = (itens, id) => { const a = itens.find((x) => x.id === id) || itens[0]; return { [chave]: a.dados, [`${chave}Lista`]: itens, [`${chave}Ativo`]: a.id }; };
+  if (op.tipo === "novo") return fim([...atual, { id: op.id, nome: op.nome, dados: {} }], op.id);
+  if (op.tipo === "trocar") return fim(atual, op.id);
+  if (op.tipo === "renomear") return fim(atual.map((x) => (x.id === ativo.id ? { ...x, nome: op.nome } : x)), ativo.id);
+  if (op.tipo === "apagar" && atual.length > 1) return fim(atual.filter((x) => x.id !== ativo.id), atual.find((x) => x.id !== ativo.id).id);
+  return fim(atual, ativo.id);
+}
+
 /* ======================= calculadoras =======================
    Contas simples, com os números que a pessoa digita. Nada aqui é recomendação de investimento: o rendimento é só a conta da taxa informada. */
 const num = (x) => (Number.isFinite(Number(x)) ? Number(x) : NaN);

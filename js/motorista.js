@@ -5,7 +5,15 @@ import { custoDoVeiculo } from "./extras.js";
 
 const r2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
 const pad = (n) => String(n).padStart(2, "0");
-export const APPS = [["uber", "Uber"], ["99", "99"], ["indrive", "inDrive"], ["ifood", "iFood"], ["rappi", "Rappi"], ["particular", "Particular"], ["outros", "Outros"]];
+export const APPS = [["uber", "Uber"], ["99", "99"], ["indrive", "inDrive"], ["ubermoto", "Uber Moto"], ["99moto", "99Moto"], ["ifood", "iFood"], ["99food", "99Food"], ["rappi", "Rappi"], ["particular", "Particular"], ["outros", "Outros"]];
+/** Quem roda de carro não precisa ver os apps de entrega, e quem roda de moto não precisa ver os de carro. */
+export const APPS_POR_VEICULO = { carro: ["uber", "99", "indrive", "particular", "outros"], moto: ["ubermoto", "99moto", "ifood", "99food", "rappi", "particular", "outros"] };
+export const CATEGORIAS_POR_VEICULO = { carro: ["UberX", "Comfort", "Black", "99Pop", "99Comfort", "inDrive", "Particular"], moto: ["Uber Moto", "99Moto", "iFood", "99Food", "Rappi", "Particular"] };
+/** Os apps que aparecem nos formulários. `usados` mantém visíveis os que já têm valor, para a edição de um turno antigo não perder nada. */
+export function appsDoPerfil(perfil, usados = []) {
+  const base = perfil?.veiculo ? (perfil.apps?.length ? perfil.apps : APPS_POR_VEICULO[perfil.veiculo] || []) : APPS.map(([k]) => k);
+  return APPS.filter(([k]) => base.includes(k) || usados.includes(k));
+}
 export const TIPOS_GASTO = [["comb", "Combustível"], ["pedagio", "Pedágio"], ["estac", "Estacionamento"], ["outros", "Outros"]];
 export const MAX_TURNOS = 400;
 export const somaValores = (o) => r2(Object.values(o || {}).reduce((t, v) => t + (Number(v) > 0 ? Number(v) : 0), 0));
@@ -114,6 +122,73 @@ export function lerHoras(txt) {
 export function contaDoDia({ ganho = 0, gasto = 0, km = 0, viagens = 0, ms = 0 }) {
   const horas = ms / 3600000, sobra = r2(ganho - gasto);
   return { sobra, porHora: horas > 0 ? r2(ganho / horas) : null, porKm: km > 0 ? r2(ganho / km) : null, porViagem: viagens > 0 ? r2(ganho / viagens) : null, sobraPorHora: horas > 0 ? r2(sobra / horas) : null };
+}
+
+/* ---------- Desafios entre amigos ---------- */
+export const CRITERIOS_DESAFIO = [["hora", "Por hora"], ["km", "Por km"], ["sobra", "O que sobrou"], ["total", "Faturamento"], ["dia", "Melhor dia"]];
+/** Como se decide quem vence. Geral soma os pontos de por hora, por km e o que sobrou: rodar mais horas, sozinho, não ganha. */
+export const VENCE_DESAFIO = [["km", "Lucro por km"], ["geral", "Pontuação geral"], ["hora", "Por hora"], ["sobra", "O que sobrou"], ["total", "Faturamento"]];
+/** As regras em palavras, iguais para quem cria, para quem é convidado e dentro do desafio. */
+export function regrasEmTexto(regras = {}) {
+  const vence = VENCE_DESAFIO.find(([k]) => k === regras.vence)?.[1] || "Lucro por km";
+  return [
+    `Quem vence: ${vence}${regras.vence === "geral" ? " (soma os pontos de por hora, por km e o que sobrou)" : ""}.`,
+    regras.gastos ? "Entra na conta: combustível, pedágio e os outros gastos lançados." : "Não entra na conta: combustível, pedágio e outros gastos.",
+    regras.carro ? "Entra na conta: custo do carro por km (manutenção, seguro e desgaste)." : "Não entra na conta: custo do carro.",
+    "Faturamento é sempre o valor bruto. Por hora, por km, o que sobrou e melhor dia seguem as regras acima.",
+    "Cada pessoa informa os próprios valores, e dias sem gasto lançado aparecem para o grupo.",
+    "Depois de criado, o desafio não muda de regras.",
+  ];
+}
+/**
+ * Soma o período de cada participante, descontando só o que as regras do desafio mandam: a regra vale igual para todos.
+ * Só conta o por hora de quem rodou pelo menos 1 hora, para uma corrida só não vencer o desafio.
+ * diasSemGasto: dias com ganho e nenhum gasto lançado, para o grupo ver quem pode estar de fora da regra.
+ */
+export function totaisDoDesafio(membros, regras = {}) {
+  return (membros || []).map((m) => {
+    const dias = (m.dias || []).map((d) => {
+      const ganho = Number(d.ganho) || 0, gastos = Number(d.gastos) || 0, custoCarro = Number(d.custoCarro) || 0;
+      return { ganho, gastos, custoCarro, km: Number(d.km) || 0, ms: Number(d.ms) || 0, viagens: Number(d.viagens) || 0, sobra: ganho - (regras.gastos ? gastos : 0) - (regras.carro ? custoCarro : 0) };
+    });
+    const soma = (k) => dias.reduce((t, d) => t + d[k], 0), ganho = r2(soma("ganho")), sobra = r2(soma("sobra")), km = r2(soma("km")), ms = soma("ms");
+    return { ...m, ganho, sobra, km, ms, viagens: soma("viagens"), diasRodados: dias.length, melhorDia: r2(Math.max(0, ...dias.map((d) => d.sobra))),
+      diasSemGasto: regras.gastos ? dias.filter((d) => d.ganho > 0 && d.gastos === 0).length : 0, semCustoCarro: Boolean(regras.carro && dias.some((d) => d.km > 0 && d.custoCarro === 0)),
+      porHora: ms >= 3600000 ? r2(sobra / (ms / 3600000)) : null, porKm: km > 0 ? r2(sobra / km) : null };
+  });
+}
+const VALOR_DO_CRITERIO = { hora: (m) => m.porHora, km: (m) => m.porKm, sobra: (m) => (m.diasRodados ? m.sobra : null), total: (m) => (m.ganho > 0 ? m.ganho : null), dia: (m) => (m.melhorDia > 0 ? m.melhorDia : null) };
+/** Pontos de cada um: em cada critério, o primeiro de N pessoas leva N pontos, o segundo N-1, e quem não tem o número não pontua. */
+function pontosGerais(totais) {
+  const pontos = new Map(totais.map((m) => [m, 0]));
+  for (const c of ["hora", "km", "sobra"]) {
+    const lista = totais.filter((m) => VALOR_DO_CRITERIO[c](m) !== null).sort((a, b) => VALOR_DO_CRITERIO[c](b) - VALOR_DO_CRITERIO[c](a));
+    lista.forEach((m, i) => { const empate = i > 0 && VALOR_DO_CRITERIO[c](lista[i - 1]) === VALOR_DO_CRITERIO[c](m); const antes = empate ? lista.findIndex((x) => VALOR_DO_CRITERIO[c](x) === VALOR_DO_CRITERIO[c](m)) : i; pontos.set(m, pontos.get(m) + totais.length - antes); });
+  }
+  return pontos;
+}
+/** A classificação por um critério: quem ainda não tem o número fica no fim, sem posição. Empate divide a posição. */
+export function rankingDoDesafio(totais, criterio) {
+  const pontos = criterio === "geral" ? pontosGerais(totais) : null;
+  const val = pontos ? (m) => pontos.get(m) || null : VALOR_DO_CRITERIO[criterio] || VALOR_DO_CRITERIO.hora;
+  const lista = totais.map((m) => ({ ...m, valor: val(m) })).sort((a, b) => (b.valor ?? -1) - (a.valor ?? -1));
+  let pos = 0;
+  return lista.map((m, i) => { if (m.valor === null) return { ...m, pos: null }; if (i === 0 || lista[i - 1].valor !== m.valor) pos = i + 1; return { ...m, pos }; });
+}
+/** Onde a pessoa ganhou e onde perdeu do líder: mostra que rodar mais não basta. */
+export function motivoDoPlacar(totais, criterio) {
+  const rank = rankingDoDesafio(totais, criterio), eu = rank.find((m) => m.eu), lider = rank[0];
+  if (!eu?.pos || !lider || lider.eu) return "";
+  const nomes = { hora: "por hora", km: "por km", sobra: "no que sobrou" }, compara = (c) => { const a = VALOR_DO_CRITERIO[c](eu), b = VALOR_DO_CRITERIO[c](lider); return a === null || b === null || a === b ? null : a > b; };
+  const ganhou = Object.keys(nomes).filter((c) => compara(c) === true).map((c) => nomes[c]), perdeu = Object.keys(nomes).filter((c) => compara(c) === false).map((c) => nomes[c]);
+  if (ganhou.length && perdeu.length) return `Você ganhou de ${lider.apelido} ${ganhou.join(" e ")}, mas perdeu ${perdeu.join(" e ")}.`;
+  return perdeu.length ? `${lider.apelido} está à sua frente ${perdeu.join(" e ")}.` : "";
+}
+/** A graça do desafio: quem faturou mais nem sempre foi quem ganhou mais. */
+export function destaqueDoDesafio(totais) {
+  const fat = rankingDoDesafio(totais, "total")[0], hora = rankingDoDesafio(totais, "hora")[0];
+  if (totais.filter((m) => m.ganho > 0).length < 2 || !fat?.pos || !hora?.pos) return "";
+  return fat.apelido === hora.apelido ? `${fat.apelido} lidera no faturamento e por hora.` : `${fat.apelido} faturou mais, mas ${hora.apelido} ganhou mais por hora.`;
 }
 
 /** A frase do dia do motorista: uma resposta só, no alto da tela. `brl` formata o dinheiro. */

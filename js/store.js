@@ -18,6 +18,8 @@
 //   sugestoesEnviar(row) / sugestoesMinhas()  → pedidos de melhoria e correção (supabase/sugestoes.sql); na demonstração: erro "demo"
 //   casalMeu() / casalConvidar(email) / casalResponder(aceita) / casalSair() / casalSalvar(dados)
 //                                  → conta de casal (supabase/casal.sql); na demonstração, casalMeu() devolve { situacao: "demo" }
+//   desafiosMeus() / desafioCriar(d) / desafioVer(codigo) / desafioEntrar(d) / desafioSair(id) / placarEnviar(dia)
+//                                  → desafios entre motoristas (supabase/desafios.sql); na demonstração, os amigos são de exemplo
 
 const num = (r) => ({ ...r, valor: Number(r.valor) });
 
@@ -122,6 +124,16 @@ export function createSupabaseStore(client) {
     async casalResponder(aceita) { return ok(await client.rpc("casal_responder", { aceita })); },
     async casalSair() { return ok(await client.rpc("casal_sair")); },
     async casalSalvar(dados) { ok(await client.rpc("casal_salvar", { d: dados })); },
+    // Desafios entre motoristas (supabase/desafios.sql): só os totais do dia saem da conta da pessoa.
+    async desafiosMeus() { return ok(await client.rpc("desafios_meus")) || []; },
+    async desafioCriar({ nome, apelido, carro, categoria, dias = 7, regras = {} }) { return ok(await client.rpc("desafio_criar", { n: nome, a: apelido, c: carro, k: categoria, dias, r: regras })); },
+    async desafioVer(codigo) { return ok(await client.rpc("desafio_ver", { cod: codigo })); },
+    async desafioEntrar({ codigo, apelido, carro, categoria }) { return ok(await client.rpc("desafio_entrar", { cod: codigo, a: apelido, c: carro, k: categoria, aceito: true })); },
+    async desafioSair(id) { ok(await client.rpc("desafio_sair", { d: id })); },
+    async rankingGeral(criterio, categoria = "", periodo = "semana") { return ok(await client.rpc("ranking_geral", { crit: criterio, cat: categoria, periodo })); },
+    async rankingEntrar({ apelido, carro, categoria }) { ok(await client.rpc("ranking_entrar", { a: apelido, c: carro, k: categoria })); },
+    async rankingSair() { ok(await client.rpc("ranking_sair")); },
+    async placarEnviar({ dia, ganho, km, ms, viagens, lucro, gastos = 0, custoCarro = 0 }) { return ok(await client.rpc("placar_enviar", { d: dia, g: ganho, k: km, m: Math.round(ms), v: viagens, l: lucro, gs: gastos, cc: custoCarro })); },
     // Apaga a conta de quem está logado e, com ela, todos os registros. O banco só aceita logo depois de um login (supabase/conta.sql).
     async excluirConta() {
       const chave = await prefsKey();
@@ -260,6 +272,46 @@ export function createLocalStore(key, seedFn) {
     async sugestoesEnviar() { throw Object.assign(new Error("demo"), { demo: true }); },
     async sugestoesMinhas() { return []; },
     async casalMeu() { return { situacao: "demo" }; },   // na demonstração não há outra pessoa para convidar
+    // Desafios na demonstração: amigos de exemplo, para ver como fica sem precisar de outra pessoa.
+    async desafiosMeus() { return structuredClone(db.desafios || []); },
+    async desafioCriar({ nome, apelido, carro, categoria, dias = 7, regras = { gastos: true, carro: false, vence: "km" } }) {
+      const iso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+      const amigo = (a, c, k, dias) => ({ apelido: a, carro: c, categoria: k, eu: false, dias: dias.map(([n, ganho, horas, km, viagens, gastos = Math.round(ganho * 0.22)]) => ({ dia: iso(n), ganho, gastos, custoCarro: Math.round(km * 0.55), km, ms: horas * 3600000, viagens, lucro: ganho * 0.6 })) });
+      const d = { id: "demo-" + Date.now(), nome, codigo: "DEMO2026", regras, inicio: iso(dias === 1 ? 0 : -3), fim: iso(dias === 1 ? 0 : dias - 4), membros: [
+        { apelido, carro, categoria, eu: true, dias: [] },
+        amigo("Falcão", "Onix", "UberX", [[-3, 412, 12, 238, 19], [-2, 388, 11, 221, 17], [-1, 436, 13, 251, 21]]),
+        amigo("Rota 7", "HB20", "UberX", [[-3, 298, 7, 124, 13], [-2, 322, 7.5, 131, 14], [-1, 287, 6.5, 118, 12]]),
+        amigo("Noturno", "Kwid", "99Pop", [[-3, 241, 7, 142, 11, 0], [-1, 276, 8, 151, 13, 0]]),
+      ] };
+      db.desafios = [d, ...(db.desafios || [])]; persist();
+      return { id: d.id, codigo: d.codigo };
+    },
+    async desafioVer(codigo) {
+      if (!codigo) throw new Error("codigo_invalido");
+      return { nome: "Desafio dos amigos", codigo: codigo.toUpperCase(), regras: { gastos: true, carro: true, vence: "geral" }, pessoas: 3 };
+    },
+    async desafioEntrar(d) { return this.desafioCriar({ ...d, nome: "Desafio dos amigos", regras: { gastos: true, carro: true, vence: "geral" } }); },
+    async desafioSair(id) { db.desafios = (db.desafios || []).filter((d) => d.id !== id); persist(); },
+    // Ranking na demonstração: nomes de exemplo.
+    async rankingGeral(criterio, categoria = "", periodo = "semana") {
+      const escala = { dia: 0.16, semana: 1, mes: 4.1 }[periodo] ?? 1;
+      const gente = [["Falcão", "Onix", "UberX", 36.4, 2.05, 2310], ["Rota 7", "HB20", "UberX", 41.2, 2.34, 1980], ["Noturno", "Corolla", "Black", 58.7, 3.12, 3120], ["Paulista", "Civic", "Black", 54.1, 2.98, 2840], ["Madruga", "Cronos", "Comfort", 46.3, 2.51, 2460], ["Centro", "Argo", "Comfort", 43.9, 2.38, 2205], ["Sul", "Kwid", "99Pop", 33.8, 1.92, 1740]];
+      const col = { hora: 3, km: 4, total: 5 }[criterio] ?? 3, lista = gente.filter((g) => !categoria || g[2] === categoria).map((g) => ({ apelido: g[0], carro: g[1], categoria: g[2], valor: criterio === "total" ? Math.round(g[col] * escala) : g[col], eu: false }));
+      if (db.ranking && (!categoria || db.ranking.categoria === categoria)) lista.push({ apelido: db.ranking.apelido, carro: db.ranking.carro, categoria: db.ranking.categoria, valor: { hora: 39.5, km: 2.21, total: Math.round(2110 * escala) }[criterio] ?? 39.5, eu: true });
+      lista.sort((a, b) => b.valor - a.valor);
+      return { participo: Boolean(db.ranking), total: lista.length, lista: lista.map((x, i) => ({ ...x, pos: i + 1 })) };
+    },
+    async rankingEntrar(d) { db.ranking = d; persist(); },
+    async rankingSair() { delete db.ranking; persist(); },
+    async placarEnviar(linha) {
+      let guardou = false;
+      for (const d of db.desafios || []) {
+        if (linha.dia < d.inicio || linha.dia > d.fim) continue;
+        const eu = d.membros.find((m) => m.eu);
+        eu.dias = [...eu.dias.filter((x) => x.dia !== linha.dia), linha]; guardou = true;
+      }
+      persist(); return guardou;
+    },
     async loadAll() { const { prefs, comprovantes, ...dados } = db; return structuredClone(dados); },
     async addLancamentos(rows) {
       const keys = new Set(db.lancamentos.map((r) => r.import_key).filter(Boolean));

@@ -1595,6 +1595,30 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .mot-tres p small{font-size:12.5px;color:var(--muted)} .mot-tres p b{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--series);letter-spacing:-.03em;font-variant-numeric:tabular-nums;white-space:nowrap}
 .mot-tres>small{font-size:13px;color:var(--ink-2)}
 .mot-rap.gasto{text-align:center;min-height:64px}
+.mot-desafios{display:grid;gap:2px;width:100%;margin:0 0 12px;padding:14px 16px;border:1px solid var(--series);border-radius:16px;background:var(--series-soft);color:var(--ink);text-align:left;cursor:pointer}
+.mot-desafios b{font-size:18px} .mot-desafios span{font-size:13.5px;color:var(--ink-2)}
+.mot-escolha{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.mot-escolha button{min-height:84px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--ink);font-size:20px;font-weight:700;cursor:pointer}
+.mot-escolha button[aria-pressed="true"]{background:var(--series);border-color:var(--series);color:#17140a}
+.mot-apps,.ds-chips{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 12px}
+.mot-apps button,.ds-chips button{min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--ink);font-weight:600;cursor:pointer}
+.mot-apps button[aria-pressed="true"],.ds-chips button[aria-pressed="true"]{background:var(--series);border-color:var(--series);color:#17140a}
+.mot-perfil .mot-dia-bt{width:100%;background:var(--series);color:#17140a}
+.ds{display:grid;gap:10px} .ds-quando{font-size:13px;color:var(--ink-2)}
+.ds-abas{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border-radius:14px;background:var(--surface)}
+.ds-abas button{min-height:44px;border:0;border-radius:11px;background:none;color:var(--ink-2);font-weight:700;cursor:pointer} .ds-abas button[aria-pressed="true"]{background:var(--surface-2);color:var(--ink)}
+.ds-rank{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.ds-rank li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;min-height:56px;padding:8px 10px;border-bottom:1px solid var(--border)}
+.ds-rank .p{font-family:var(--mono);font-size:17px;font-weight:600;color:var(--series)} .ds-rank .n{display:grid;gap:1px;min-width:0} .ds-rank .n b{font-size:15px;overflow-wrap:anywhere} .ds-rank .n small{font-size:12.5px;color:var(--muted)}
+.ds-rank .v{font-family:var(--mono);font-size:15px;font-weight:600;white-space:nowrap}
+.ds-rank li.eu{border:0;border-radius:12px;background:var(--series);color:#17140a} .ds-rank li.eu .p,.ds-rank li.eu .n small{color:#17140a}
+.ds-bloco{display:grid;gap:10px;padding:14px;border-radius:14px} .ds-bloco .btn{min-height:50px;justify-content:center}
+.ds-regras{margin:0;padding:0 0 0 18px;display:grid;gap:8px;font-size:15px;line-height:1.4;color:var(--ink-2)} .mot-como .ds-regras{padding:0 14px 14px 32px}
+.ds-rank .ds-aviso,.wrap .ds-rank .n small.ds-aviso{color:var(--warn);font-weight:600} .ds-rank li.eu .n small.ds-aviso{color:#17140a}
+.mot-regra-ok{min-height:56px;justify-content:center}
+.ds-codigo{margin:0;font-family:var(--mono);font-size:26px;font-weight:600;letter-spacing:.08em;text-align:center}
+.ds-cod{text-transform:uppercase;font-family:var(--mono);letter-spacing:.08em}
+.cad-nome{margin:0 0 12px}
 .mot-como{margin:0 0 10px;border:1px solid var(--border);border-radius:14px;background:var(--surface)}
 .mot-como summary{display:flex;align-items:center;justify-content:space-between;min-height:48px;padding:0 14px;font-size:14px;font-weight:600;cursor:pointer;list-style:none}
 .mot-como summary::-webkit-details-marker{display:none} .mot-como summary::after{content:"+";font-size:20px;color:var(--muted)} .mot-como[open] summary::after{content:"−"}

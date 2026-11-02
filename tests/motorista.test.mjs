@@ -1,6 +1,78 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
+import { motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
+
+test("perfil: quem roda de carro não vê apps de moto, e o inverso", () => {
+  const nomes = (l) => l.map(([k]) => k);
+  assert.ok(nomes(appsDoPerfil({ veiculo: "carro" })).includes("uber"));
+  assert.ok(!nomes(appsDoPerfil({ veiculo: "carro" })).includes("ifood"));
+  assert.ok(nomes(appsDoPerfil({ veiculo: "moto" })).includes("99food"));
+  assert.ok(!nomes(appsDoPerfil({ veiculo: "moto" })).includes("uber"));
+  assert.deepEqual(nomes(appsDoPerfil({ veiculo: "carro", apps: ["99"] })), ["99"]);
+  assert.deepEqual(nomes(appsDoPerfil({ veiculo: "carro", apps: ["99"] }, ["ifood"])), ["99", "ifood"]);   // turno antigo não perde o valor
+  assert.equal(appsDoPerfil(null).length, 10);
+});
+
+test("desafio: quem faturou mais nem sempre ganhou mais por hora", () => {
+  const dia = (ganho, horas, km) => ({ ganho, km, ms: horas * 3600000, viagens: 10, lucro: ganho / 2 });
+  const t = totaisDoDesafio([
+    { apelido: "Falcão", dias: [dia(420, 14, 260), dia(380, 13, 240)] },
+    { apelido: "Rota 7", dias: [dia(300, 7, 130), dia(290, 7, 120)] },
+    { apelido: "Novo", dias: [] },
+  ]);
+  assert.equal(t[0].ganho, 800);
+  assert.equal(t[0].melhorDia, 420);
+  assert.deepEqual(rankingDoDesafio(t, "total").map((m) => [m.apelido, m.pos]), [["Falcão", 1], ["Rota 7", 2], ["Novo", null]]);
+  assert.deepEqual(rankingDoDesafio(t, "hora").map((m) => m.apelido), ["Rota 7", "Falcão", "Novo"]);
+  assert.equal(rankingDoDesafio(t, "km")[0].apelido, "Rota 7");
+  assert.equal(destaqueDoDesafio(t), "Falcão faturou mais, mas Rota 7 ganhou mais por hora.");
+});
+
+test("desafio: as regras decidem o que é descontado, igual para todos", () => {
+  const dia = (ganho, gastos, custoCarro) => ({ ganho, gastos, custoCarro, km: 100, ms: 3600000 * 5, viagens: 10 });
+  const membros = [{ apelido: "A", dias: [dia(500, 200, 50)] }, { apelido: "B", dias: [dia(400, 40, 40)] }];
+  assert.equal(rankingDoDesafio(totaisDoDesafio(membros, {}), "hora")[0].apelido, "A");                         // sem regra, vale o bruto
+  const comGastos = totaisDoDesafio(membros, { gastos: true });
+  assert.equal(rankingDoDesafio(comGastos, "hora")[0].apelido, "B");                                             // 360 contra 300
+  assert.equal(comGastos[1].porHora, 72);
+  assert.equal(totaisDoDesafio(membros, { gastos: true, carro: true })[0].sobra, 250);
+  assert.equal(rankingDoDesafio(comGastos, "total")[0].apelido, "A");                                            // faturamento é sempre bruto
+  assert.equal(rankingDoDesafio(comGastos, "sobra")[0].valor, 360);
+});
+
+test("desafio: rodar mais horas não garante vencer", () => {
+  const dia = (ganho, gastos, km, horas) => ({ ganho, gastos, km, ms: horas * 3600000 });
+  const t = totaisDoDesafio([
+    { apelido: "Muitas horas", eu: true, dias: [dia(600, 200, 300, 12)] },   // 33,33/h, 1,33/km, sobra 400
+    { apelido: "Rodou melhor", dias: [dia(420, 60, 150, 8)] },               // 45/h, 2,40/km, sobra 360
+  ], { gastos: true });
+  assert.equal(rankingDoDesafio(t, "total")[0].apelido, "Muitas horas");
+  assert.equal(rankingDoDesafio(t, "km")[0].apelido, "Rodou melhor");
+  assert.equal(rankingDoDesafio(t, "geral")[0].apelido, "Rodou melhor");     // ganhou 2 de 3 critérios
+  assert.deepEqual(rankingDoDesafio(t, "geral").map((m) => m.valor), [5, 4]);
+  assert.equal(motivoDoPlacar(t, "km"), "Você ganhou de Rodou melhor no que sobrou, mas perdeu por hora e por km.");
+  assert.equal(motivoDoPlacar(t, "total"), "");   // liderando, não há do que explicar
+  assert.match(regrasEmTexto({ vence: "geral" })[0], /Pontuação geral/);
+  assert.match(regrasEmTexto({})[0], /Lucro por km/);
+});
+
+test("desafio: mostra quem não lançou gasto ou não tem o custo do carro", () => {
+  const dia = (gastos, custoCarro) => ({ ganho: 300, gastos, custoCarro, km: 100, ms: 18000000 });
+  const [a] = totaisDoDesafio([{ apelido: "A", dias: [dia(0, 0), dia(50, 0), dia(0, 10)] }], { gastos: true, carro: true });
+  assert.equal(a.diasSemGasto, 2);
+  assert.equal(a.semCustoCarro, true);
+  assert.equal(totaisDoDesafio([{ apelido: "A", dias: [dia(0, 0)] }], {})[0].diasSemGasto, 0);   // sem a regra, não cobra
+  assert.match(regrasEmTexto({ gastos: true }).join(" "), /Entra na conta: combustível/);
+  assert.match(regrasEmTexto({}).join(" "), /Não entra na conta: combustível/);
+});
+
+test("desafio: empate divide a posição, e 30 minutos não entram no por hora", () => {
+  const um = (apelido, ganho, ms) => ({ apelido, dias: [{ ganho, km: 10, ms, viagens: 1, lucro: 0 }] });
+  const t = totaisDoDesafio([um("A", 100, 3600000), um("B", 100, 3600000), um("C", 90, 1800000)]);
+  assert.deepEqual(rankingDoDesafio(t, "total").map((m) => m.pos), [1, 1, 3]);
+  assert.equal(t[2].porHora, null);
+  assert.equal(destaqueDoDesafio(totaisDoDesafio([um("A", 100, 3600000)])), "");
+});
 
 test("lançar o dia: entende as horas de um jeito simples", () => {
   assert.equal(lerHoras("10"), 36000000);
