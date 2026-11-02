@@ -1,22 +1,22 @@
 /* Meus Gastos — camada "painel de instrumentos" (v152). Carrega depois do style.css e só refina: títulos em Bricolage,
-   números em fonte mono, brilho ciano no que está ativo, barra de baixo em vidro. O tema claro usa a mesma marca, em papel, preto e amarelo. */
+   números em fonte mono, brilho ciano no que está ativo, barra de baixo em vidro. O tema claro usa a mesma marca, em azul-marinho e branco. */
 :root{
   --display:"Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif;
   --mono:"JetBrains Mono","IBM Plex Mono",ui-monospace,Menlo,monospace;
   --ciano:#5fd4ff;
 }
 :root:not([data-tema="claro"]){
-  /* Preto e amarelo: a cor do app inteiro, a mesma do Modo motorista. */
-  --bg:#17140a; --surface:#211d10; --surface-2:#2a2619; --sunk:#100e07; --border:#3a3627; --ink:#f5f1e6; --ink-2:#d6cfbd; --muted:#a79f8a;
-  --series:#ffb81c; --series-soft:rgba(255,184,28,.15); --brand:#ffb81c; --glow:transparent;
-  --hero:#ffb81c; --hero-ink:#17140a; --btn:#ffb81c; --glass:rgba(23,20,10,.94);
+  /* Azul de painel: fundo marinho, ciano como sinal e o cartão principal em azul forte. */
+  --bg:#060e1d; --surface:#0e1b32; --surface-2:#13233f; --sunk:#0a1528; --border:#1f3254; --ink:#e8f0fb; --ink-2:#b3c3d9; --muted:#8fa3bd;
+  --series:#5fd4ff; --series-soft:rgba(95,212,255,.13); --on-series:#04121f; --brand:#9fe0ff; --glow:rgba(60,140,255,.2);
+  --hero:linear-gradient(135deg,#0b3a8f 0%,#1550c8 55%,#2a6cf0 100%); --hero-ink:#fff; --btn:linear-gradient(180deg,#6ddcff,#3aa7f0); --on-btn:#04121f; --glass:rgba(6,14,29,.92);
   --shadow:0 12px 28px rgba(0,0,0,.4); --shadow-sm:0 2px 8px rgba(0,0,0,.25);
 }
 :root[data-tema="claro"]{
-  /* A mesma marca no tema claro: papel, preto e amarelo. O amarelo puro não lê sobre o claro, então link e destaque usam um âmbar escuro. */
-  --bg:#f7f4ec; --surface:#fffdf8; --surface-2:#f4f0e6; --sunk:#efeadd; --border:#e3ddcd; --ink:#17140a; --ink-2:#4b4535; --muted:#6b6450;
-  --series:#8a5a00; --series-soft:rgba(255,184,28,.24); --brand:#17140a; --navy:#17140a; --navy-2:#17140a; --navy-3:#17140a;
-  --hero:#ffb81c; --hero-ink:#17140a; --btn:#17140a; --glass:rgba(247,244,236,.96);
+  /* A mesma marca no tema claro: branco, azul-marinho e o mesmo cartão azul. */
+  --bg:#f2f5fa; --surface:#fff; --surface-2:#f5f8fc; --sunk:#ebf0f7; --border:#d9e1ec; --ink:#13253b; --ink-2:#3d4d61; --muted:#5c6b7d;
+  --series:#1f5fbf; --series-soft:rgba(31,95,191,.09); --on-series:#fff; --brand:#0b2545; --navy:#0b2545; --navy-2:#13315c; --navy-3:#1b4079;
+  --hero:linear-gradient(135deg,#0b3a8f 0%,#1550c8 55%,#2a6cf0 100%); --hero-ink:#fff; --btn:#0b2545; --on-btn:#fff; --glass:rgba(255,255,255,.96);
 }
 h1,h2,h3{letter-spacing:-.03em}
 .eyebrow{letter-spacing:.06em}
@@ -24,29 +24,29 @@ h1,h2,h3{letter-spacing:-.03em}
 /* números: mono, alinhados em coluna */
 .hero-main .v,.num,.bg-val,td.num,.casal-div span:not(.t),.mais-item .tx span b{font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.04em}
 .hero-main .v{font-weight:700}
-/* o cartão principal: fundo chapado e letra escura; a cor ainda diz como o mês está */
-:root .hero{background:#ffb81c;color:#17140a;box-shadow:none}
-:root .hero.est-atencao{background:#ff9f2e}
-:root .hero.est-estourado{background:#ff8266}
-:root .hero .olho{background:rgba(23,20,10,.12);color:#17140a}
-:root .hero .hbar{background:rgba(23,20,10,.2)}
-:root .hero .hbar i{background:#17140a}
-:root .hero .estado b{background:rgba(23,20,10,.13)}
-:root .hero .estado b::before{background:#17140a}
-:root .hero .hstat{background:rgba(23,20,10,.08);border-color:rgba(23,20,10,.14)}
+/* o cartão principal: sempre azul forte e letra branca; o selo colorido diz como o mês está */
+:root .hero{background:var(--hero);color:#fff;box-shadow:0 18px 50px rgba(30,100,255,.32),inset 0 0 0 1px rgba(160,225,255,.18)}
+:root .hero .olho{background:rgba(255,255,255,.12);color:#fff}
+:root .hero .hbar{background:rgba(255,255,255,.2)}
+:root .hero .hbar i{background:#fff}
+:root .hero .estado b{background:rgba(255,255,255,.13)}
+:root .hero .estado b::before{background:#fff}
+:root .hero.est-atencao .estado b{background:#ffd27a;color:#3a2500;border-color:transparent} :root .hero.est-atencao .estado b::before{background:#b84a06}
+:root .hero.est-estourado .estado b{background:#ffc2bd;color:#5a0f12;border-color:transparent} :root .hero.est-estourado .estado b::before{background:#b3261e}
+:root .hero .hstat{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14)}
 :root .hero .ln,:root .hero .entenda{color:inherit}
-:root:not([data-tema="claro"]) .btn.primary{box-shadow:none;color:#17140a}
-.wrap[data-tab="mot"] #listas{background:#17140a;border-color:#3a3627;--surface:#211d10;--surface-2:#2a2619;--sunk:#100e07;--ink:#f5f1e6;--ink-2:#d6cfbd;--muted:#a79f8a;--border:#3a3627;--grid:#3a3627}
-.wrap[data-tab="mot"] #listas .in{background:#100e07}
+:root:not([data-tema="claro"]) .btn.primary{box-shadow:0 0 0 1px rgba(95,212,255,.45),0 10px 28px rgba(95,212,255,.22);color:#04121f}
+.wrap[data-tab="mot"] #listas{background:#060e1d;border-color:#1f3254;--surface:#0e1b32;--surface-2:#13233f;--sunk:#0a1528;--ink:#e8f0fb;--ink-2:#b3c3d9;--muted:#8fa3bd;--border:#1f3254;--grid:#1f3254;--axis:rgba(255,255,255,.2)}
+.wrap[data-tab="mot"] #listas .in{background:#0a1528}
 /* fora da jornada, a aba Motorista mantém a barra de baixo: é uma aba como as outras */
 @media (max-width:900px){#app[data-view="listas"][data-tab="mot"][data-jornada="0"] #listas{bottom:var(--bnav-h,69px)}}
-#app[data-view="listas"][data-tab="mot"] #listas,body:has(#app[data-view="listas"][data-tab="mot"]){background:#17140a}
+#app[data-view="listas"][data-tab="mot"] #listas,body:has(#app[data-view="listas"][data-tab="mot"]){background:#060e1d}
 :root:not([data-tema="claro"]) .fech-card,:root:not([data-tema="claro"]) .fech-card.neg{background:var(--surface-2);color:var(--ink)}
-:root[data-tema="claro"] .fech-card,:root[data-tema="claro"] .fech-card.neg{background:#17140a;color:#f5f1e6}
-:root:not([data-tema="claro"]) .inst-card .ava{color:#17140a}
+:root[data-tema="claro"] .fech-card,:root[data-tema="claro"] .fech-card.neg{background:#0b2545;color:#fff}
+:root:not([data-tema="claro"]) .inst-card .ava{color:#04121f}
 
 /* barra de baixo: vidro, cinco lugares, brilho no que está aberto */
-/* amarelo só no que importa: a ação principal e o número da tela */
+/* ciano só no que importa: a ação principal e o número da tela */
 :root:not([data-tema="claro"]) .link,:root:not([data-tema="claro"]) .moeda-fora summary,:root:not([data-tema="claro"]) .lf-mais summary{color:var(--ink)}
 .mot-tres p b{color:var(--ink)}
 
@@ -69,8 +69,7 @@ button,a,summary,.btn{touch-action:manipulation}
 .bnav button{font-size:11.5px}
 .bnav button[aria-current="page"]{color:var(--series)}
 .bnav button[aria-current="page"] svg{background:var(--series-soft)}
-.bnav .mais span{color:#17140a;box-shadow:0 0 0 5px var(--bg)}
-:root[data-tema="claro"] .bnav .mais span{color:#ffb81c}
+.bnav .mais span{color:var(--on-btn);box-shadow:0 8px 24px rgba(58,167,240,.45),0 0 0 5px var(--bg)}
 
 /* aba Mais: cada grupo com a sua cor de ícone, para a lista longa ter por onde o olho se apoiar */
 .mais-grupo .mais-item .ava{background:var(--series-soft);color:var(--series)}
@@ -107,8 +106,7 @@ button,a,summary,.btn{touch-action:manipulation}
   .bnav svg{flex:none;width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
   .bnav button[aria-current="page"]{background:var(--series-soft);color:var(--ink)}
   .bnav button[aria-current="page"] svg{color:var(--series);background:none}
-  .bnav .mais,.bnav .mais:hover{order:-1;justify-content:center;min-height:52px;margin-bottom:12px;border-radius:14px;background:var(--btn);color:#17140a;font-weight:700}
-  :root[data-tema="claro"] .bnav .mais{color:#ffb81c}
+  .bnav .mais,.bnav .mais:hover{order:-1;justify-content:center;min-height:52px;margin-bottom:12px;border-radius:14px;background:var(--btn);color:var(--on-btn);font-weight:700}
   .bnav .mais span{display:contents}
   .bnav .mais svg{stroke-width:2.4}
   .top .actions>*:not(#btnBuscar){display:none}

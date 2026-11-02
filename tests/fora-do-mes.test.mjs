@@ -90,3 +90,40 @@ test("desafio: só vale jornada iniciada no app e com números possíveis", () =
   assert.equal(placarDosDias([t({ manual: true })], ["2026-11-02"], {}, null).length, 0);
   assert.equal(placarDosDias([t()], ["2026-11-02"], {}, null).length, 1);
 });
+
+import { resumoTurnos, kmTotalEstimado, porKmComVazio, vazioDoMotorista, periodoDe, andaPeriodo, barrasDoPeriodo, ganhoPorApp } from "../js/motorista.js";
+const dia28 = () => { const ini = new Date("2026-10-28T06:00:00").getTime(); return { ini, fim: ini + 10.65 * 36e5, apps: { uber: 418.69, 99: 195.65, indrive: 104.62 }, viagensApp: { uber: 13, 99: 13, indrive: 2 }, viagens: 28, km: 300, kmPass: 180 }; };
+test("km: o custo incide sobre tudo o que o carro andou, com ou sem passageiro", () => {
+  const veic = { kmMes: 1000, manutAno: 12000 };
+  const r = resumoTurnos([dia28()], "2026-10-28", "2026-10-28", veic);
+  assert.equal(r.ganho, 718.96); assert.equal(r.km, 300); assert.equal(r.custo, 300);
+  assert.equal(r.kmVazio, 120); assert.equal(r.pctVazio, 40); assert.equal(r.custoVazio, 120);
+  assert.equal(r.ganhoPorKm, 2.4); assert.equal(r.ganhoPorKmPass, 3.99);
+  const velho = resumoTurnos([{ ...dia28(), kmPass: undefined }], "2026-10-28", "2026-10-28", veic);
+  assert.equal(velho.pctVazio, null); assert.equal(velho.custo, 300);
+});
+test("km: estimativa do total e corrida que paga o vazio", () => {
+  assert.equal(kmTotalEstimado(60), 100); assert.equal(kmTotalEstimado(80, 20), 100);
+  assert.equal(porKmComVazio(1.2, 40), 2);
+  const t = (d) => ({ ...dia28(), ini: new Date(d + "T06:00:00").getTime(), fim: new Date(d + "T10:00:00").getTime() });
+  assert.equal(vazioDoMotorista([t("2026-10-26"), t("2026-10-27")], "2026-10-28"), null);
+  assert.equal(vazioDoMotorista([t("2026-10-26"), t("2026-10-27"), t("2026-10-28")], "2026-10-28"), 40);
+});
+test("ganhos: períodos, setas e barras", () => {
+  assert.deepEqual(periodoDe("semana", "2026-10-28"), { de: "2026-10-26", ate: "2026-11-01" });
+  assert.deepEqual(periodoDe("semana", "2026-11-01"), { de: "2026-10-26", ate: "2026-11-01" });
+  assert.deepEqual(periodoDe("mes", "2026-02-10"), { de: "2026-02-01", ate: "2026-02-28" });
+  assert.equal(andaPeriodo("dia", "2026-11-01", -1), "2026-10-31");
+  assert.equal(andaPeriodo("semana", "2026-10-28", 1), "2026-11-04");
+  assert.equal(andaPeriodo("mes", "2026-01-31", 1), "2026-02-01");
+  assert.equal(andaPeriodo("ano", "2026-10-28", -1), "2025-01-01");
+  const sem = barrasDoPeriodo([dia28()], "dia", "2026-10-28", {});
+  assert.equal(sem.length, 7); assert.equal(sem[0].rot, "seg"); assert.equal(sem[2].ganho, 718.96); assert.equal(sem[2].atual, true); assert.equal(sem[6].iso, "2026-11-01");
+  const mes = barrasDoPeriodo([dia28()], "mes", "2026-10-28", {});
+  assert.equal(mes[0].de, "2026-10-01"); assert.equal(mes[0].ate, "2026-10-04"); assert.equal(mes.at(-1).ate, "2026-10-31"); assert.equal(mes.reduce((s, b) => s + b.ganho, 0), 718.96);
+  assert.equal(barrasDoPeriodo([dia28()], "ano", "2026-10-28", {})[9].ganho, 718.96);
+});
+test("por aplicativo: quanto rendeu cada viagem", () => {
+  const l = ganhoPorApp([dia28()], "2026-10-28", "2026-10-28");
+  assert.equal(l[0].app, "uber"); assert.equal(l[0].porViagem, 32.21); assert.equal(l.find((x) => x.app === "99").porViagem, 15.05); assert.equal(l.find((x) => x.app === "indrive").viagens, 2);
+});

@@ -12,6 +12,7 @@ Por enquanto o app **não ganha funções novas**. O trabalho é melhorar o que 
 - 02/11/2026, pedido por escrito na conversa de melhorias: **deixar uma conta fixa fora de um mês** (v178), em Extrato e Contas atrasadas. Fica em `prefs.foraDoMes`; nada é apagado.
 - 02/11/2026, pedido por escrito na conversa de melhorias: **Salário de autônomo** (v180), na aba Jornada: reservas do veículo, férias, 13º e sonhos, com caixinha e meta do dia.
 - 02/11/2026, pedido por escrito na conversa de melhorias: **Meus planos** (v182), em Planejar e Mais: reserva, férias e sonhos, com caixinha e combinado do mês.
+- 02/11/2026, pedido por escrito na conversa de melhorias: **Ganhos** (v185), tela de ganhos do motorista com km sem passageiro, e **Entenda** a meta, o valor por km e o Cabem hoje.
 
 ## Antes de publicar
 1. `npm run validar` precisa terminar com "Validação ok: pode publicar". Ele roda os testes, confere se `APP_VERSAO` (js/config.js) e `VERSAO` (sw.js) são a mesma, checa a sintaxe de cada arquivo de js/ e se todo módulo está na lista offline do service worker.

@@ -20,7 +20,7 @@
 <meta name="twitter:description" content="Controle de gastos no celular, sozinho ou a dois. Teste 7 dias grátis, sem cartão.">
 <meta name="twitter:image" content="https://meugastos.com.br/site/img/og.jpg">
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Meus Gastos","applicationCategory":"FinanceApplication","operatingSystem":"Android, iOS, Web","inLanguage":"pt-BR","url":"https://meugastos.com.br/site/","image":"https://meugastos.com.br/site/img/og.jpg","description":"Controle de gastos no celular: saldo livre do mês, contas a vencer, lista de mercado, conta de casal e modo motorista de aplicativo.","offers":{"@type":"Offer","price":"69.00","priceCurrency":"BRL","description":"Plano anual, com 7 dias grátis para testar sem cartão"}}</script>
-<meta name="theme-color" content="#17140a">
+<meta name="theme-color" content="#060e1d">
 <link rel="icon" href="img/icone.png">
 <!-- O site fica dentro do app (pasta site/). Com estas linhas, o navegador oferece a instalação do app a partir daqui. -->
 <link rel="manifest" href="../manifest.webmanifest">
@@ -271,40 +271,40 @@ button.btn{cursor:pointer}
 .casal-lista b{font-family:var(--display);font-size:1.05rem} .casal-lista span{color:var(--ink-2);font-size:.93rem}
 .selos a{color:inherit}
 @media (max-width:900px){.casal-sec .col{grid-template-columns:minmax(0,1fr)} .casal-lista{grid-template-columns:minmax(0,1fr)}}
-/* Para motoristas de aplicativo: faixa escura com amarelo de sinalização, igual à tela do app */
-.mot-sec{background:#17140a;color:#f5f1e6;padding-block:64px;position:relative}
-.mot-sec::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;background:repeating-linear-gradient(90deg,#ffb81c 0 28px,transparent 28px 52px)}
+/* Para motoristas de aplicativo: faixa marinha com ciano de sinalização, igual à tela do app */
+.mot-sec{background:#060e1d;color:#e8f0fb;padding-block:64px;position:relative}
+.mot-sec::before{content:"";position:absolute;left:0;right:0;top:0;height:6px;background:repeating-linear-gradient(90deg,#5fd4ff 0 28px,transparent 28px 52px)}
 .mot-sec .col{display:grid;grid-template-columns:minmax(0,1fr) 292px;grid-template-areas:"abre foto" "corrida foto" "turno turno" "dia dia" "fim fim";gap:28px 56px;align-items:start}
-.mot-sec h2,.mot-sec h3{color:#f5f1e6} .mot-sec .rot{color:#ffb81c}
-.mot-abre{grid-area:abre} .mot-abre p{margin:14px 0 0;color:#d6cfbd;font-size:1.08rem;max-width:56ch}
+.mot-sec h2,.mot-sec h3{color:#e8f0fb} .mot-sec .rot{color:#5fd4ff}
+.mot-abre{grid-area:abre} .mot-abre p{margin:14px 0 0;color:#b3c3d9;font-size:1.08rem;max-width:56ch}
 /* Vale a pena essa corrida? A régua é o centro da seção: o visitante mexe e vê a decisão de todo dia. */
-.corrida{grid-area:corrida;background:#211d10;border:1px solid #3a3627;border-radius:22px;padding:22px;display:grid;gap:16px}
-.corrida-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 12px} .corrida-top h3{font-size:1.3rem} .corrida-top span{color:#a79f8a;font-size:.86rem}
+.corrida{grid-area:corrida;background:#0e1b32;border:1px solid #1f3254;border-radius:22px;padding:22px;display:grid;gap:16px}
+.corrida-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:baseline;gap:4px 12px} .corrida-top h3{font-size:1.3rem} .corrida-top span{color:#8fa3bd;font-size:.86rem}
 .corrida-campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px}
-.corrida label{display:grid;gap:6px;color:#d6cfbd;font-size:.92rem} .corrida label span{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
-.corrida output{font-family:var(--mono);font-weight:700;color:#f5f1e6;font-size:1.1rem}
-.corrida input[type=range]{width:100%;height:44px;margin:0;background:none;accent-color:#ffb81c;touch-action:pan-y}
+.corrida label{display:grid;gap:6px;color:#b3c3d9;font-size:.92rem} .corrida label span{display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.corrida output{font-family:var(--mono);font-weight:700;color:#e8f0fb;font-size:1.1rem}
+.corrida input[type=range]{width:100%;height:44px;margin:0;background:none;accent-color:#5fd4ff;touch-action:pan-y}
 .corrida-res{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:8px 16px}
-.corrida-res .pk{font-family:var(--mono);font-weight:700;font-size:clamp(1.9rem,6vw,2.5rem);line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums} .corrida-res .pk small{font-family:var(--sans);font-size:.95rem;font-weight:500;letter-spacing:0;color:#d6cfbd}
-.veredito{font-weight:700;padding:8px 14px;border-radius:999px;color:#10151b;background:#3ddc84} .veredito[data-nivel=ok]{background:#ffb81c} .veredito[data-nivel=ruim]{background:#ff7a6b}
+.corrida-res .pk{font-family:var(--mono);font-weight:700;font-size:clamp(1.9rem,6vw,2.5rem);line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums} .corrida-res .pk small{font-family:var(--sans);font-size:.95rem;font-weight:500;letter-spacing:0;color:#b3c3d9}
+.veredito{font-weight:700;padding:8px 14px;border-radius:999px;color:#10151b;background:#3ddc84} .veredito[data-nivel=ok]{background:#5fd4ff} .veredito[data-nivel=ruim]{background:#ff7a6b}
 .regua{position:relative;padding-top:14px}
-.regua .faixa{display:flex;height:14px;border-radius:7px;overflow:hidden} .regua .faixa i{display:block} .regua .r{background:#ff7a6b;width:50.29%} .regua .a{background:#ffb81c;width:6.85%} .regua .b{background:#3ddc84;width:42.86%}
-.regua .marca-km{position:absolute;top:0;left:64.3%;width:0;height:0;border:8px solid transparent;border-top:12px solid #f5f1e6;border-bottom:0;transform:translateX(-50%)}
-.regua .cortes{position:relative;height:22px;margin-top:4px;color:#a79f8a;font-size:.8rem;font-family:var(--mono)} .regua .cortes span{position:absolute;white-space:nowrap} .regua .cortes .c1{right:49.71%} .regua .cortes .c2{left:57.14%}
-.corrida-nota{margin:0;color:#a79f8a;font-size:.84rem}
-.mot-foto{grid-area:foto;margin:0;display:grid;gap:10px;justify-items:center} .mot-foto figcaption{color:#a79f8a;font-size:.84rem;text-align:center} .mot-foto .fone{border-color:#3a3627;box-shadow:0 20px 50px rgba(0,0,0,.35)}
+.regua .faixa{display:flex;height:14px;border-radius:7px;overflow:hidden} .regua .faixa i{display:block} .regua .r{background:#ff7a6b;width:50.29%} .regua .a{background:#5fd4ff;width:6.85%} .regua .b{background:#3ddc84;width:42.86%}
+.regua .marca-km{position:absolute;top:0;left:64.3%;width:0;height:0;border:8px solid transparent;border-top:12px solid #e8f0fb;border-bottom:0;transform:translateX(-50%)}
+.regua .cortes{position:relative;height:22px;margin-top:4px;color:#8fa3bd;font-size:.8rem;font-family:var(--mono)} .regua .cortes span{position:absolute;white-space:nowrap} .regua .cortes .c1{right:49.71%} .regua .cortes .c2{left:57.14%}
+.corrida-nota{margin:0;color:#8fa3bd;font-size:.84rem}
+.mot-foto{grid-area:foto;margin:0;display:grid;gap:10px;justify-items:center} .mot-foto figcaption{color:#8fa3bd;font-size:.84rem;text-align:center} .mot-foto .fone{border-color:#1f3254;box-shadow:0 20px 50px rgba(0,0,0,.35)}
 /* Do bruto ao que sobra: a barra mostra a conta sem precisar ler. */
 .mot-turno{grid-area:turno;display:grid;gap:12px;padding-top:12px} .mot-turno h3{font-size:clamp(1.25rem,3.6vw,1.6rem)}
 .barra-turno{display:flex;height:58px;border-radius:12px;overflow:hidden;font-weight:700}
 .barra-turno span{display:flex;align-items:center;padding:0 14px;min-width:0;white-space:nowrap}
-.barra-turno .gasto{width:30.3%;background:#3a3627;color:#f5f1e6} .barra-turno .sobra{width:69.7%;background:#ffb81c;color:#1b1403}
-.turno-pe{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 18px;color:#d6cfbd;font-size:.95rem} .turno-pe b{color:#3ddc84;font-family:var(--mono)}
-.mot-dia{grid-area:dia;list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;border-top:2px dashed #3a3627;padding-top:16px}
-.mot-dia time{display:block;font-family:var(--mono);font-weight:700;color:#ffb81c;font-size:.9rem;margin-bottom:6px}
-.mot-dia b{display:block;color:#f5f1e6;line-height:1.25} .mot-dia span{display:block;color:#d6cfbd;font-size:.9rem;margin-top:4px}
-.mot-fim{grid-area:fim;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 28px} .mot-fim p{margin:0;color:#d6cfbd;flex:1 1 320px;max-width:60ch}
-.mot-sec a.lk-inst{color:#ffb81c;font-weight:600}
-.mot-sec .btn.amarelo{background:#ffb81c;color:#1b1403;box-shadow:0 8px 22px rgba(255,184,28,.25)}
+.barra-turno .gasto{width:30.3%;background:#1f3254;color:#e8f0fb} .barra-turno .sobra{width:69.7%;background:#5fd4ff;color:#04121f}
+.turno-pe{display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 18px;color:#b3c3d9;font-size:.95rem} .turno-pe b{color:#3ddc84;font-family:var(--mono)}
+.mot-dia{grid-area:dia;list-style:none;margin:8px 0 0;padding:0;display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:16px;border-top:2px dashed #1f3254;padding-top:16px}
+.mot-dia time{display:block;font-family:var(--mono);font-weight:700;color:#5fd4ff;font-size:.9rem;margin-bottom:6px}
+.mot-dia b{display:block;color:#e8f0fb;line-height:1.25} .mot-dia span{display:block;color:#b3c3d9;font-size:.9rem;margin-top:4px}
+.mot-fim{grid-area:fim;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:14px 28px} .mot-fim p{margin:0;color:#b3c3d9;flex:1 1 320px;max-width:60ch}
+.mot-sec a.lk-inst{color:#5fd4ff;font-weight:600}
+.mot-sec .btn.sinal{background:#5fd4ff;color:#04121f;box-shadow:0 8px 22px rgba(95,212,255,.25)}
 @media (prefers-reduced-motion:no-preference){.regua .marca-km{transition:left .18s ease-out}}
 @media (max-width:900px){
   .mot-sec{padding-block:48px}
@@ -313,19 +313,19 @@ button.btn{cursor:pointer}
   .corrida{padding:18px}
   .corrida-campos{grid-template-columns:minmax(0,1fr);gap:4px}
   .mot-dia{grid-template-columns:minmax(0,1fr);gap:0;border-top:0;padding-top:0}
-  .mot-dia li{display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid #3a3627}
+  .mot-dia li{display:grid;grid-template-columns:72px minmax(0,1fr);gap:10px;padding:10px 0;border-bottom:1px solid #1f3254}
   .mot-dia time{margin:2px 0 0}
   .barra-turno{height:52px} .barra-turno span{padding:0 10px;font-size:.92rem}
 }
-.dsf-sec{background:#100e07;color:#f5f1e6}
+.dsf-sec{background:#0a1528;color:#e8f0fb}
 .dsf-sec .col{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:32px;align-items:center}
-.dsf-sec h2{color:#f5f1e6} .dsf-sec .rot{color:#ffb81c} .dsf-sec p{color:#d6cfbd}
-.dsf-lista{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:8px} .dsf-lista li{padding-left:16px;border-left:2px solid #3a3627;color:#d6cfbd}
-.dsf-placar{background:#211d10;border:1px solid #3a3627;border-radius:22px;padding:20px;display:grid;gap:8px}
-.dsf-placar small{color:#a79f8a} .dsf-placar h3{font-size:1.35rem;color:#f5f1e6;margin:0}
+.dsf-sec h2{color:#e8f0fb} .dsf-sec .rot{color:#5fd4ff} .dsf-sec p{color:#b3c3d9}
+.dsf-lista{margin:14px 0 0;padding:0;list-style:none;display:grid;gap:8px} .dsf-lista li{padding-left:16px;border-left:2px solid #1f3254;color:#b3c3d9}
+.dsf-placar{background:#0e1b32;border:1px solid #1f3254;border-radius:22px;padding:20px;display:grid;gap:8px}
+.dsf-placar small{color:#8fa3bd} .dsf-placar h3{font-size:1.35rem;color:#e8f0fb;margin:0}
 .dsf-placar ol{list-style:none;margin:6px 0 0;padding:0;display:grid;gap:2px}
-.dsf-placar li{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border-radius:12px;color:#f5f1e6}
-.dsf-placar li.eu{background:#ffb81c;color:#17140a} .dsf-placar li span:last-child{font-family:var(--mono);font-weight:700}
+.dsf-placar li{display:grid;grid-template-columns:24px minmax(0,1fr) auto;gap:10px;align-items:center;padding:10px;border-radius:12px;color:#e8f0fb}
+.dsf-placar li.eu{background:#5fd4ff;color:#060e1d} .dsf-placar li span:last-child{font-family:var(--mono);font-weight:700}
 @media (max-width:900px){.dsf-sec .col{grid-template-columns:minmax(0,1fr)}}
 
 
@@ -665,7 +665,7 @@ picture{display:contents}
 
   <div class="mot-fim">
     <p class="sobe">Faz uns bicos para fechar o mês? O app diz <b>quanto rodar por dia</b> para pagar as contas em aberto, já descontando o custo do seu carro.</p>
-    <a class="btn amarelo sobe" data-app="#sou-motorista" href="https://meugastos.com.br/#sou-motorista" target="_blank" rel="noopener">Começar 7 dias grátis</a>
+    <a class="btn sinal sobe" data-app="#sou-motorista" href="https://meugastos.com.br/#sou-motorista" target="_blank" rel="noopener">Começar 7 dias grátis</a>
     <a class="lk-inst sobe" data-venda data-app="#motorista" href="https://meugastos.com.br/#motorista" target="_blank" rel="noopener" hidden>Ver o Modo motorista na demonstração, sem cadastro</a>
   </div>
 </div></section>
@@ -680,7 +680,7 @@ picture{display:contents}
       <li>Ranking opcional por categoria: X, Comfort, Black e outras</li>
     </ul>
     <p class="sobe" style="margin-top:14px">Só aparece o apelido, o veículo e o resultado. As suas contas continuam só suas.</p>
-    <a class="btn amarelo sobe" style="margin-top:12px" data-app="#sou-motorista" href="https://meugastos.com.br/#sou-motorista" target="_blank" rel="noopener">Começar 7 dias grátis</a>
+    <a class="btn sinal sobe" style="margin-top:12px" data-app="#sou-motorista" href="https://meugastos.com.br/#sou-motorista" target="_blank" rel="noopener">Começar 7 dias grátis</a>
   </div>
   <div class="dsf-placar sobe d1" role="img" aria-label="Exemplo de placar de desafio: quem rodou menos horas lidera no lucro por quilômetro">
     <small>Exemplo · nomes e valores fictícios</small><h3>Galera da noite</h3><small>Lucro por km</small>

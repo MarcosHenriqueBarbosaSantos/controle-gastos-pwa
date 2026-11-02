@@ -1,6 +1,8 @@
 /* Modo motorista de aplicativo: contas puras (sem tela), para ficarem fáceis de testar.
- * Um turno é { id, ini, fim, apps:{uber,99,indrive,outros}, viagens, km, comb, rid, cid }:
- * ini e fim em milissegundos; rid e cid são os lançamentos que o turno criou (entrada e combustível). */
+ * Um turno é { id, ini, fim, apps:{uber,99,indrive,outros}, viagensApp, viagens, km, kmPass, kmEst, comb, rid, cid }:
+ * ini e fim em milissegundos; rid e cid são os lançamentos que o turno criou (entrada e combustível).
+ * km é tudo o que o carro andou, com ou sem passageiro: é sobre ele que o custo do carro incide.
+ * kmPass é a parte com passageiro, quando a pessoa informa. kmEst marca o km total que o app estimou. */
 import { custoDoVeiculo } from "./extras.js";
 
 const r2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
@@ -77,10 +79,63 @@ export function resumoTurnos(turnos, de, ate, veic) {
   const comb = sum((t) => Number(t.comb) || 0), ms = lista.reduce((s, t) => s + duracaoMs(t), 0);
   const porKm = custoTotalPorKm(veic);
   const custo = porKm && km > 0 ? r2(km * porKm) : comb, lucro = r2(ganho - custo), horas = ms / 3600000;
+  // Os km sem passageiro só valem nos turnos em que a pessoa informou os dois números.
+  const comPass = lista.filter((t) => Number(t.kmPass) > 0 && Number(t.km) > 0), kmBase = r2(comPass.reduce((s, t) => s + Number(t.km), 0)), kmPass = r2(comPass.reduce((s, t) => s + Number(t.kmPass), 0));
+  const kmVazio = r2(Math.max(0, kmBase - kmPass)), ganhoBase = r2(comPass.reduce((s, t) => s + ganhoDoTurno(t), 0));
   return { n: lista.length, ganho, km, viagens, comb, ms, custo, lucro, comCarro: Boolean(porKm && km > 0),
+    kmBase, kmPass, kmVazio, pctVazio: kmBase > 0 ? Math.round((kmVazio / kmBase) * 100) : null, custoVazio: porKm ? r2(kmVazio * porKm) : null,
+    ganhoPorKmPass: kmPass > 0 ? r2(ganhoBase / kmPass) : null, kmEstimado: lista.some((t) => t.kmEst),
     ganhoPorHora: horas > 0 ? r2(ganho / horas) : null, lucroPorHora: horas > 0 ? r2(lucro / horas) : null,
     ganhoPorKm: km > 0 ? r2(ganho / km) : null, lucroPorKm: km > 0 ? r2(lucro / km) : null,
     ganhoPorViagem: viagens > 0 ? r2(ganho / viagens) : null };
+}
+
+/** Sem histórico da pessoa, considera 40% dos km sem passageiro: o estudo de Henao e Marshall, em Denver, mediu 40,8% como piso. */
+export const VAZIO_PADRAO = 40;
+/** A parte dos km que a pessoa roda sem passageiro, nos últimos 30 dias. Com menos de 3 turnos informados, devolve null. */
+export function vazioDoMotorista(turnos, hoje) {
+  const [a, m, d] = hoje.split("-").map(Number), de = isoLocal(new Date(a, m - 1, d - 29).getTime());
+  const lista = (turnos || []).filter((t) => t.fim && !t.kmEst && Number(t.kmPass) > 0 && Number(t.km) > 0 && isoLocal(t.ini) >= de && isoLocal(t.ini) <= hoje);
+  if (lista.length < 3) return null;
+  const total = lista.reduce((s, t) => s + Number(t.km), 0), pass = lista.reduce((s, t) => s + Number(t.kmPass), 0);
+  return Math.round((Math.max(0, total - pass) / total) * 100);
+}
+/** Só sabe os km com passageiro: estima o total pelo histórico da pessoa, para o custo do carro não ficar menor do que é. */
+export const kmTotalEstimado = (kmPass, pctVazio = VAZIO_PADRAO) => r2(kmPass / (1 - Math.min(90, Math.max(0, pctVazio)) / 100));
+/** Quanto a corrida precisa pagar por km para o dia inteiro, contando os km sem passageiro, render `valorKm`. */
+export const porKmComVazio = (valorKm, pctVazio) => r2(valorKm / (1 - Math.min(90, Math.max(0, pctVazio)) / 100));
+
+const data = (iso) => { const [a, m, d] = iso.split("-").map(Number); return new Date(a, m - 1, d); };
+const fimDoMes = (a, m) => isoLocal(new Date(a, m + 1, 0).getTime());
+/** O começo e o fim do dia, da semana (segunda a domingo), do mês ou do ano em que `iso` está. */
+export function periodoDe(per, iso) {
+  const d = data(iso), a = d.getFullYear(), m = d.getMonth();
+  if (per === "semana") { const seg = new Date(a, m, d.getDate() - ((d.getDay() + 6) % 7)); return { de: isoLocal(seg.getTime()), ate: isoLocal(new Date(seg.getFullYear(), seg.getMonth(), seg.getDate() + 6).getTime()) }; }
+  if (per === "mes") return { de: isoLocal(new Date(a, m, 1).getTime()), ate: fimDoMes(a, m) };
+  if (per === "ano") return { de: `${a}-01-01`, ate: `${a}-12-31` };
+  return { de: iso, ate: iso };
+}
+/** A mesma data no período anterior (n = -1) ou no seguinte (n = 1). Mês e ano caem no dia 1, para não pular meses curtos. */
+export function andaPeriodo(per, iso, n) {
+  const d = data(iso), a = d.getFullYear(), m = d.getMonth();
+  if (per === "semana") return isoLocal(new Date(a, m, d.getDate() + 7 * n).getTime());
+  if (per === "mes") return isoLocal(new Date(a, m + n, 1).getTime());
+  if (per === "ano") return `${a + n}-01-01`;
+  return isoLocal(new Date(a, m, d.getDate() + n).getTime());
+}
+const NOMES_DIA = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"], NOMES_MES = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
+/**
+ * As barras do gráfico de ganhos: os 7 dias da semana (no dia e na semana), as semanas do mês ou os meses do ano.
+ * Cada barra diz para onde o toque leva (`per` e `iso`) e se é a que está aberta.
+ */
+export function barrasDoPeriodo(turnos, per, iso, veic) {
+  const barra = (de, ate, rot, sub, destino, alvo, atual) => { const r = resumoTurnos(turnos, de, ate, veic); return { de, ate, rot, sub, per: destino, iso: alvo, atual, ganho: r.ganho, lucro: r.lucro, n: r.n }; };
+  const { de } = periodoDe(per === "dia" ? "semana" : per, iso);
+  if (per === "dia" || per === "semana") return Array.from({ length: 7 }, (_, i) => { const d = data(de), x = isoLocal(new Date(d.getFullYear(), d.getMonth(), d.getDate() + i).getTime()); return barra(x, x, NOMES_DIA[data(x).getDay()], x.slice(8, 10), "dia", x, per === "dia" && x === iso); });
+  if (per === "ano") return Array.from({ length: 12 }, (_, i) => { const m = `${de.slice(0, 4)}-${pad(i + 1)}-01`, p = periodoDe("mes", m); return barra(p.de, p.ate, NOMES_MES[i], "", "mes", m, false); });
+  const fim = periodoDe("mes", iso).ate, lista = []; let ini = de;
+  while (ini <= fim) { const p = periodoDe("semana", ini), ate = p.ate < fim ? p.ate : fim; lista.push(barra(ini, ate, ini === ate ? ini.slice(8, 10) : `${ini.slice(8, 10)}–${ate.slice(8, 10)}`, "", "semana", ini, false)); ini = andaPeriodo("dia", ate, 1); }
+  return lista;
 }
 
 /** Km que a pessoa costuma rodar por dia de trabalho: a média dos últimos turnos; sem histórico, vem do "Meu carro ou moto". */
@@ -342,10 +397,13 @@ export function ganhosPorDia(turnos, ate, veic, n = 7) {
 }
 
 export function ganhoPorApp(turnos, de, ate) {
-  const por = {};
-  (turnos || []).filter((t) => t.fim && isoLocal(t.ini) >= de && isoLocal(t.ini) <= ate).forEach((t) => { for (const [k, v] of Object.entries(t.apps || {})) if (Number(v) > 0) por[k] = r2((por[k] || 0) + Number(v)); });
+  const por = {}, viagens = {};
+  (turnos || []).filter((t) => t.fim && isoLocal(t.ini) >= de && isoLocal(t.ini) <= ate).forEach((t) => {
+    for (const [k, v] of Object.entries(t.apps || {})) if (Number(v) > 0) por[k] = r2((por[k] || 0) + Number(v));
+    for (const [k, v] of Object.entries(t.viagensApp || {})) if (Number(v) > 0) viagens[k] = (viagens[k] || 0) + Number(v);
+  });
   const total = r2(Object.values(por).reduce((a, b) => a + b, 0));
-  return Object.entries(por).map(([app, ganho]) => ({ app, ganho, pct: total > 0 ? Math.round((ganho / total) * 100) : 0 })).sort((a, b) => b.ganho - a.ganho);
+  return Object.entries(por).map(([app, ganho]) => ({ app, ganho, pct: total > 0 ? Math.round((ganho / total) * 100) : 0, viagens: viagens[app] || 0, porViagem: viagens[app] ? r2(ganho / viagens[app]) : null })).sort((a, b) => b.ganho - a.ganho);
 }
 
 /** O dia da semana em que a hora rendeu mais (precisa de pelo menos 2 dias diferentes para comparar). Devolve { dia: 0..6, ganhoPorHora } ou null. */
