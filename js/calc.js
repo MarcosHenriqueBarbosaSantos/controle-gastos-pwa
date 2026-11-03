@@ -1104,6 +1104,29 @@ export function calendarioDoMes(st, m, hoje) {
   return { m, vazios: diaDaSemana(`${m}-01`), dias: porDia, aPagar: round2(aPagar), pago: round2(pago), entra: round2(entra) };
 }
 
+/**
+ * A agenda embaixo do calendário: as contas ainda sem pagar, por semana.
+ * No mês atual parte de hoje (as atrasadas vêm primeiro); em outro mês, mostra o mês inteiro.
+ * @returns {{titulo:string, total:number, itens:object[]}[]}
+ */
+export function agendaDoMes(cal, hoje) {
+  const atual = cal.m === hoje.slice(0, 7), grupos = new Map();
+  const fimDaSemana = (iso) => Number(iso.slice(8, 10)) + (6 - diaDaSemana(iso));   // a semana vai de domingo a sábado
+  const fimEsta = atual ? fimDaSemana(hoje) : 0;
+  for (const d of cal.dias) for (const x of d.contas) {
+    if (x.situacao === "paga") continue;
+    let t;
+    if (!atual) t = cal.m < hoje.slice(0, 7) ? "Ficaram sem pagar" : "Contas do mês";
+    else if (x.situacao === "atrasada") t = "Atrasadas";
+    else if (d.dia <= fimEsta) t = "Esta semana";
+    else if (d.dia <= fimEsta + 7) t = "Semana que vem";
+    else t = "Mais para o fim do mês";
+    if (!grupos.has(t)) grupos.set(t, []);
+    grupos.get(t).push({ ...x, dia: d.dia });
+  }
+  return [...grupos.entries()].map(([titulo, itens]) => ({ titulo, itens, total: round2(itens.reduce((t, x) => t + x.valor, 0)) }));
+}
+
 /* ===================== Resumo da semana e lembrete do fim do dia ===================== */
 const maisDias = (iso, n) => { const d = new Date(iso + "T12:00:00"); d.setDate(d.getDate() + n); return toISO(d); };
 

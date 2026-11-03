@@ -112,7 +112,7 @@ test("comparação por categoria: mês passado compara o mês inteiro; sem base 
 });
 
 /* ---------- calendário de vencimentos ---------- */
-import { calendarioDoMes } from "../js/calc.js";
+import { calendarioDoMes, agendaDoMes } from "../js/calc.js";
 test("calendário: contas e entradas de cada dia, com a situação de cada conta", () => {
   const fixos = [
     { id: "f1", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 10, valor: 1100, forma: "Boleto", desde: "2026-01-01", ate: null },
@@ -139,4 +139,21 @@ test("calendário: contas e entradas de cada dia, com a situação de cada conta
   // mês curto: o dia 31 cai no último dia
   assert.equal(calendarioDoMes(s, "2026-11", "2026-10-06").dias[29].contas[0].titulo, "Seguro");
   assert.equal(calendarioDoMes({ lancamentos: [], fixos: [], pagos: [], faturas: [], cartoes: [] }, "2026-10", "2026-10-06").aPagar, 0);
+});
+
+test("agenda do calendário: atrasadas, esta semana, semana que vem e o resto do mês", () => {
+  const fixos = [
+    { id: "a", tipo: "Despesa", descricao: "Luz", categoria: "Contas da casa", dia: 2, valor: 150, forma: "Boleto", desde: "2026-01-01", ate: null },
+    { id: "b", tipo: "Despesa", descricao: "Água", categoria: "Contas da casa", dia: 6, valor: 80, forma: "Boleto", desde: "2026-01-01", ate: null },
+    { id: "c", tipo: "Despesa", descricao: "Aluguel", categoria: "Moradia", dia: 10, valor: 1100, forma: "Boleto", desde: "2026-01-01", ate: null },
+    { id: "d", tipo: "Despesa", descricao: "Escola", categoria: "Educação", dia: 25, valor: 500, forma: "Boleto", desde: "2026-01-01", ate: null },
+    { id: "e", tipo: "Despesa", descricao: "Net", categoria: "Contas da casa", dia: 4, valor: 99, forma: "Boleto", desde: "2026-01-01", ate: null },
+  ];
+  const s = { lancamentos: [], fixos, pagos: [{ fixo_id: "e", mes: "2026-11-01" }], cartoes: [], faturas: [] };
+  // 3/11/2026 é terça: esta semana vai até sábado, dia 7
+  const ag = agendaDoMes(calendarioDoMes(s, "2026-11", "2026-11-03"), "2026-11-03");
+  assert.deepEqual(ag.map((g) => [g.titulo, g.itens.map((x) => x.titulo), g.total]), [["Atrasadas", ["Luz"], 150], ["Esta semana", ["Água"], 80], ["Semana que vem", ["Aluguel"], 1100], ["Mais para o fim do mês", ["Escola"], 500]]);
+  assert.equal(ag[1].itens[0].dia, 6);
+  assert.deepEqual(agendaDoMes(calendarioDoMes(s, "2026-12", "2026-11-03"), "2026-11-03").map((g) => g.titulo), ["Contas do mês"]);
+  assert.deepEqual(agendaDoMes(calendarioDoMes(s, "2026-10", "2026-11-03"), "2026-11-03").map((g) => g.titulo), ["Ficaram sem pagar"]);
 });
