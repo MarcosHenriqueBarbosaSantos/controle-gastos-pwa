@@ -1555,15 +1555,19 @@ function detalheMeta(destino, escolher = false, aviso = "") {
   const meses = Array.from({ length: 120 }, (_, i) => addM(cur, i)); if (meta?.ate && !meses.includes(meta.ate)) meses.unshift(meta.ate);
   const salario = S.data.fixos.find((f) => f.tipo === "Receita" && f.repete !== "semanal" && !f.ate), diaPadrao = Number(meta?.plano?.dia) || Number(salario?.dia) || Number(hj.slice(8, 10));
   const avisar = S.prefs.avisos?.meta !== false, demo = S.store?.kind === "local";
-  openDlg(`<h3>Caixinha ${esc(destino)}${a ? "" : ": criar meta"}</h3>
+  // Reserva de emergência: a regra mais usada é guardar de 3 a 6 meses do que você gasta. O app sugere pela média dos últimos meses.
+  const ehReserva = /reserva|emerg/i.test(norm(destino)), custos = [1, 2, 3].map((k) => calcMes(S.data, addM(cur, -k), hj).custo).filter((v) => v > 0), custoMedio = custos.length ? round2(custos.reduce((t, v) => t + v, 0) / custos.length) : 0;
+  const sugReserva = !a && ehReserva && custoMedio > 0 ? [3, 6].map((n) => [n, Math.round((custoMedio * n) / 100) * 100]) : [];
+  openDlg(`<h3>${a ? `Caixinha ${esc(destino)}` : "Criar meta"}</h3>${a ? "" : `<p class="meta-sub">Caixinha <b>${esc(destino)}</b></p>`}
     ${aviso ? `<p class="hint meta-aviso">${aviso}</p>` : ""}
     ${a ? `<div class="teto meta parado${a.concluida ? " ok" : ""}">${cartaoDaMeta(a, dica)}</div>
       ${a.concluida ? "" : `<button class="btn primary" type="button" id="metaGuardar">${s?.tipo === "guardar" ? `Guardar ${brl(s.valor)} agora` : "Guardar agora"}</button>`}`
       : `<p class="hint" style="margin:0 0 4px;font-size:13px">${aqui > 0 ? `Você já tem <b>${brl(aqui)}</b> guardados aqui. Diga aonde quer chegar.` : "Diga quanto quer juntar. O que você guardar aqui passa a contar para a meta."}</p>`}
-    <div class="caixa-acoes meta-mov"><button class="btn" type="button" id="metaRetirar">Retirar dinheiro</button><button class="btn" type="button" id="metaJaTinha">Já tinha guardado</button></div>
+    ${a ? `<div class="caixa-acoes meta-mov"><button class="btn" type="button" id="metaRetirar">Retirar dinheiro</button><button class="btn" type="button" id="metaJaTinha">Já tinha guardado</button></div>` : ""}
     <form id="metaForm" class="meta-form" autocomplete="off">
       ${escolher && !a ? `<label class="f larga">Onde fica esse dinheiro<select class="in" id="metaDest">${opts(destinos, destino)}</select></label>` : ""}
       <label class="f">Quanto você quer juntar (R$)<input class="in money" id="metaValor" inputmode="decimal" placeholder="Ex.: 6.000,00" value="${esc(dinheiro(Number(meta?.valor) || 0))}"></label>
+      ${sugReserva.length ? `<div class="meta-sug larga"><small>Uma reserva boa cobre de 3 a 6 meses do que você gasta (${brl0(custoMedio)} por mês, em média):</small><div>${sugReserva.map(([n, v]) => `<button type="button" class="chip" data-meta-sug="${v}">${n} meses: ${brl0(v)}</button>`).join("")}</div></div>` : ""}
       <label class="f">Até quando (opcional)<select class="in" id="metaAte"><option value="">Sem data</option>${meses.map((m) => `<option value="${m}"${m === meta?.ate ? " selected" : ""}>${mesAno(m)}</option>`).join("")}</select></label>
       <label class="f">Guardar todo mês (opcional, R$)<input class="in money" id="metaPlano" inputmode="decimal" placeholder="Ex.: 300,00" value="${esc(dinheiro(Number(meta?.plano?.valor) || 0))}"></label>
       <label class="f">No dia<select class="in" id="metaDia">${Array.from({ length: 31 }, (_, i) => `<option${i + 1 === diaPadrao ? " selected" : ""}>${i + 1}</option>`).join("")}</select></label>
@@ -1592,7 +1596,8 @@ function detalheMeta(destino, escolher = false, aviso = "") {
   ["metaValor", "metaPlano"].forEach((id) => $(id).addEventListener("input", previa)); $("metaAte").onchange = previa; $("metaDia").onchange = previa;
   if (!a) previa();
   if ($("metaDest")) $("metaDest").onchange = (e) => detalheMeta(e.target.value, true);
-  $("metaRetirar").onclick = () => guardarParaMeta(destino, 0, "Retirar"); $("metaJaTinha").onclick = () => guardarParaMeta(destino, 0, "Já tinha guardado");
+  if ($("metaRetirar")) $("metaRetirar").onclick = () => guardarParaMeta(destino, 0, "Retirar"); if ($("metaJaTinha")) $("metaJaTinha").onclick = () => guardarParaMeta(destino, 0, "Já tinha guardado");
+  $("dlgBody").querySelectorAll("[data-meta-sug]").forEach((b) => (b.onclick = () => { $("metaValor").value = dinheiro(Number(b.dataset.metaSug)); previa(); }));
   if ($("metaGuardar")) $("metaGuardar").onclick = () => guardarParaMeta(destino, s?.tipo === "guardar" ? s.valor : 0);
   $("metaForm").addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -6085,33 +6090,57 @@ function htmlCaixinhas() {
   const cur = mKey(hoje()), saldo = new Map(guardadoPorDestino(S.data, cur)), metas = metasDe();
   const nomes = [...new Set([...saldo.keys(), ...Object.keys(metas)])];
   const total = round2([...saldo.values()].reduce((t, v) => t + v, 0));
+  const noMes = (nome) => round2(S.data.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === nome && mKey(x.data) === cur && x.forma !== JA_TINHA).reduce((t, x) => t + (x.forma === RETIRADA ? -1 : 1) * Number(x.valor), 0));
   const card = (nome, i) => {
-    const v = saldo.get(nome) || 0, a = andamentoDaMeta(S.data, nome, metas[nome], hoje()), foto = fotoDe("dest", nome);
+    const v = saldo.get(nome) || 0, mesV = noMes(nome), a = andamentoDaMeta(S.data, nome, metas[nome], hoje()), foto = fotoDe("dest", nome);
     return `<button type="button" class="caixa" data-caixa="${esc(nome)}">
       <span class="capa${foto ? " com" : ""}" style="${foto ? `background-image:url('${foto}')` : `background:${CORES_CAIXA[i % CORES_CAIXA.length]}`}">${foto ? "" : `<b>${esc(nome.charAt(0).toUpperCase())}</b>`}</span>
       <span class="info"><b class="nome">${esc(nome)}</b><span class="vv ocultavel">${brl(v)}</span>
-      ${a ? `<span class="pbar"><i style="width:${Math.min(100, a.pct)}%"></i></span><small>${a.pct}% de ${brl0(a.alvo)}</small>` : `<small>sem meta</small>`}</span></button>`;
+      ${a ? `<span class="pbar"><i style="width:${Math.min(100, a.pct)}%"></i></span><small>${a.concluida ? "meta completa!" : `${a.pct}% de ${brl0(a.alvo)}${a.previsao ? ` · pronta em ${MES3[Number(a.previsao.slice(5)) - 1].toLowerCase()}/${a.previsao.slice(2, 4)}` : ""}`}</small>` : `<small class="sem-meta">sem meta · criar</small>`}${mesV ? `<small class="no-mes ${mesV > 0 ? "mais" : "menos"} ocultavel">${mesV > 0 ? "+" : "−"}${brl(Math.abs(mesV))} em ${nomeMes(cur).toLowerCase()}</small>` : ""}</span></button>`;
   };
   return `<section class="caixas"><div class="caixas-h"><h2>Caixinhas</h2><span class="ocultavel">${brl(total)} guardados</span></div>
     <p class="hint" style="margin:0 0 8px;font-size:13px">Dinheiro separado para um objetivo, como viagem ou reserva.</p>
     <div class="caixas-grid">${nomes.map(card).join("")}
       <button type="button" class="caixa nova" data-caixa-nova="1"><span class="capa"><b>+</b></span><span class="info"><b class="nome">Nova caixinha</b><small>viagem, carro, reserva…</small></span></button></div></section>`;
 }
+/** O saldo da caixinha no fim de cada um dos últimos 6 meses: barras que mostram o dinheiro crescendo. Só com 2 meses ou mais com saldo. */
+function htmlGraficoCaixa(nome) {
+  const cur = mKey(hoje()), ms = [5, 4, 3, 2, 1, 0].map((k) => addM(cur, -k));
+  const vs = ms.map((m) => Math.max(0, (guardadoPorDestino(S.data, m).find(([k]) => k === nome) || [0, 0])[1]));
+  if (vs.filter((v) => v > 0).length < 2) return "";
+  const max = Math.max(...vs), cresceu = round2(vs[5] - vs.find((v) => v > 0));
+  return `<div class="cx-graf" role="img" aria-label="Saldo da caixinha nos últimos 6 meses: ${ms.map((m, i) => `${nomeMes(m)} ${brl0(vs[i])}`).join(", ")}">
+    <div class="barras">${vs.map((v, i) => `<span><i style="height:${Math.max(3, (v / max) * 100)}%"${i === 5 ? ' class="hoje"' : ""}></i><small>${MES3[Number(ms[i].slice(5)) - 1]}</small></span>`).join("")}</div>
+    ${cresceu > 0 ? `<p class="ocultavel">Cresceu <b>${brl(cresceu)}</b> desde ${nomeMes(ms[vs.findIndex((v) => v > 0)]).toLowerCase()}.</p>` : ""}</div>`;
+}
+/** Os últimos movimentos de uma caixinha (guardou, retirou, já tinha), do mais novo ao mais antigo. Tocar abre a edição. */
+function htmlMovimentosCaixa(nome) {
+  const l = S.data.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === nome).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  if (!l.length) return "";
+  const rot = (x) => (x.forma === RETIRADA ? "Retirou" : x.forma === JA_TINHA ? "Já tinha guardado" : x.descricao === "Combinado da meta" ? "Combinado da meta" : "Guardou");
+  return `<h4 class="meta-h">Movimentos</h4><ul class="cx-movs">${l.slice(0, 8).map((x) => `<li><button type="button" data-cx-mov="${esc(x.id)}"><span class="d">${ddmm(x.data)}</span><span class="t">${rot(x)}${quemTag(x)}</span><b class="ocultavel ${x.forma === RETIRADA ? "menos" : "mais"}">${x.forma === RETIRADA ? "−" : "+"} ${brl(Number(x.valor))}</b></button></li>`).join("")}</ul>${l.length > 8 ? `<p class="hint" style="margin:6px 0 0">Mostrando os 8 mais recentes de ${l.length}. Os outros estão no Extrato, em Guardado.</p>` : ""}`;
+}
 function abrirCaixa(nome) {
   const v = (guardadoPorDestino(S.data, mKey(hoje())).find(([k]) => k === nome) || [0, 0])[1], foto = fotoDe("dest", nome);
-  const guardar = (mov) => { $("dlg").close(); S.tipo = "Reserva"; renderForm(); $("fCat").value = nome; $("fForma").value = mov; S.catManual = true; renderForm(); mostraEfeito();
+  const guardar = (mov, valor = 0) => { $("dlg").close(); S.tipo = "Reserva"; renderForm(); $("fCat").value = nome; $("fForma").value = mov; S.catManual = true; renderForm(); if (valor) $("fValor").value = valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); mostraEfeito();
     setTimeout(() => { if (noCelular() || comMenuLateral()) abrirLancar(); else { $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); } }, 200); };
   openDlg(`<div class="caixa-capa${foto ? " com" : ""}" style="${foto ? `background-image:url('${foto}')` : ""}"><h3>${esc(nome)}</h3></div>
     <p class="caixa-valor ocultavel">${brl(v)}</p><p class="hint" style="margin:0 0 12px">guardados nesta caixinha</p>
     <div class="caixa-acoes"><button class="btn primary" type="button" id="cxGuardar">Guardar</button><button class="btn" type="button" id="cxRetirar">Retirar</button></div>
+    <div class="cx-rapido" role="group" aria-label="Guardar um valor rápido">${[20, 50, 100, 200].map((v) => `<button type="button" class="chip" data-cx-v="${v}">+ ${brl0(v)}</button>`).join("")}</div>
     <button class="link" type="button" id="cxJaTinha" style="margin:-4px 0 12px">Já tinha dinheiro aqui? Informe o valor</button>
+    ${(() => { const a = andamentoDaMeta(S.data, nome, metasDe()[nome], hoje()); return a ? `<div class="teto meta parado cx-meta${a.concluida ? " ok" : ""}">${cartaoDaMeta(a, "")}</div>` : ""; })()}
+    ${htmlGraficoCaixa(nome)}
     <div class="caixa-mais">
       <button class="mais-item" type="button" id="cxMeta"><span class="tx"><b>${metasDe()[nome] ? "Ver e mudar a meta" : "Criar uma meta"}</b><span>quanto quer juntar e até quando</span></span>${ico("chev")}</button>
       <button class="mais-item" type="button" id="cxFoto"><span class="tx"><b>${foto ? "Trocar a foto" : "Colocar uma foto"}</b><span>a capa da caixinha, como nos bancos</span></span>${ico("chev")}</button>
       ${foto ? `<button class="mais-item" type="button" id="cxSemFoto"><span class="tx"><b>Tirar a foto</b></span>${ico("chev")}</button>` : ""}
       ${metasDe()[nome] ? `<button class="mais-item perigo" type="button" id="cxSemMeta"><span class="tx"><b>Excluir a meta</b><span>o dinheiro guardado continua aqui</span></span>${ico("lixo")}</button>` : ""}
     </div>
+    ${htmlMovimentosCaixa(nome)}
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  $("dlgBody").querySelectorAll("[data-cx-v]").forEach((b) => (b.onclick = () => guardar("Guardar", Number(b.dataset.cxV))));
+  $("dlgBody").querySelectorAll("[data-cx-mov]").forEach((b) => (b.onclick = () => { const id = b.dataset.cxMov; $("dlg").close(); setTimeout(() => editarLancamento(id), 0); }));
   $("cxGuardar").onclick = () => guardar("Guardar"); $("cxRetirar").onclick = () => guardar("Retirar"); $("cxJaTinha").onclick = () => guardar("Já tinha guardado");
   $("cxMeta").onclick = () => detalheMeta(nome);
   $("cxFoto").onclick = () => trocaFoto("dest", nome, () => abrirCaixa(nome));
@@ -6479,7 +6508,7 @@ $("formLanc").addEventListener("submit", async (e) => {
   if (navigator.onLine === false) flash.textContent += " Sem internet agora: ficou salvo no celular e vai sozinho quando a conexão voltar.";
   const nivelDepois = nivelDoTeto();
   if (nivelDepois > nivelAntes) { const u = usoDoTeto(calcMes(S.data, mKey(hoje()), hoje()), S.prefs.teto), t = textoDoTeto(u); flash.style.color = "var(--warn)"; flash.textContent += ` ${t.titulo} do mês: ${u.pct}% usado. ${t.frase}`; }
-  if (ehMeta && row.forma !== RETIRADA) { const dp = andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()); if (dp?.concluida && !metaAntes?.concluida) comemora(); }
+  if (ehMeta && row.forma !== RETIRADA) { const dp = andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()); if (dp?.concluida && !metaAntes?.concluida) comemora(); else if ((dp?.marco || 0) > (metaAntes?.marco || 0)) vibra(40); }
   if (ehMeta) flash.textContent += recadoDaMeta(metaAntes, andamentoDaMeta(S.data, row.categoria, S.prefs.metas?.[row.categoria], hoje()), row.forma === RETIRADA);
   // A data volta para o padrão (hoje): uma data antiga escolhida para este gasto não passa para o próximo sem a pessoa ver.
   $("fValor").value = ""; $("fDesc").value = ""; $("fParc").value = "1"; $("fData").value = mKey(hoje()) === S.mes ? hoje() : S.mes + "-01"; S.catManual = false; S.formaManual = false; limpaSugestoes();
