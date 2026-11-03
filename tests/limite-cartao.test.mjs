@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { usoDoLimite, proximaFatura } from "../js/calc.js";
+import { usoDoLimite, proximaFatura, parcelasPorMes } from "../js/calc.js";
 
 // Cartão que fecha dia 3 e vence dia 10. Hoje é 02/11/2026: a fatura aberta fecha amanhã e vence em 10/11.
 const roxo = { id: "k", nome: "Roxo", fechamento: 3, vencimento: 10 };
@@ -32,4 +32,13 @@ test("próxima fatura: quando fecha, quanto falta e quanto soma", () => {
   // no dia do fechamento, a fatura aberta já é a de dezembro
   const dez = proximaFatura(estado(), roxo, "2026-11-03");
   assert.deepEqual([dez.mes, dez.fecha, dez.dias, dez.valor], ["2026-12", "2026-12-03", 30, 350]);
+});
+
+test("parcelas por mês: o que cada fatura que vem já tem, com a parcela e a última", () => {
+  const r = parcelasPorMes(estado(), "2026-12", 3);
+  // dezembro: geladeira 2/3 (300) + streaming de novembro (50); janeiro: geladeira 3/3 (a última) + streaming; fevereiro: só o streaming
+  assert.deepEqual(r.map((x) => [x.m, x.total]), [["2026-12", 350], ["2027-01", 350], ["2027-02", 50]]);
+  assert.deepEqual(r[0].itens[0], { descricao: "geladeira", cartao: "Roxo", valor: 300, parcela: 2, de: 3, origem: "compra", ultima: false });
+  assert.equal(r[1].itens[0].ultima, true);
+  assert.deepEqual(parcelasPorMes({ ...estado(), lancamentos: [], fixos: [] }, "2026-12"), []);
 });

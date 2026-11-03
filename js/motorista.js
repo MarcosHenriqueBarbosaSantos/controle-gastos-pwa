@@ -90,6 +90,18 @@ export function resumoTurnos(turnos, de, ate, veic) {
     ganhoPorViagem: viagens > 0 ? r2(ganho / viagens) : null };
 }
 
+/**
+ * "Sua semana", no domingo e na segunda: a semana de segunda a domingo que está terminando (domingo) ou que acabou (segunda),
+ * com a semana anterior para comparar. Sem jornada na semana, devolve null.
+ */
+export function semanaDoMotorista(turnos, hoje, veic) {
+  const dw = data(hoje).getDay(); if (dw > 1) return null;
+  const ref = dw === 0 ? hoje : andaPeriodo("dia", hoje, -1), { de, ate } = periodoDe("semana", ref);
+  const r = resumoTurnos(turnos, de, ate, veic); if (!r.n) return null;
+  const a = periodoDe("semana", andaPeriodo("semana", ref, -1)), antes = resumoTurnos(turnos, a.de, a.ate, veic);
+  return { de, ate, ref, r, antes: antes.n ? antes : null, dif: antes.n ? r2(r.lucro - antes.lucro) : null, acabou: dw === 1 };
+}
+
 /** Sem histórico da pessoa, considera 40% dos km sem passageiro: o estudo de Henao e Marshall, em Denver, mediu 40,8% como piso. */
 export const VAZIO_PADRAO = 40;
 /** A parte dos km que a pessoa roda sem passageiro, nos últimos 30 dias. Com menos de 3 turnos informados, devolve null. */

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { linhaDasContas, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "../js/motorista.js";
+import { linhaDasContas, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes, semanaDoMotorista } from "../js/motorista.js";
 
 test("perfil: quem roda de carro não vê apps de moto, e o inverso", () => {
   const nomes = (l) => l.map(([k]) => k);
@@ -268,4 +268,18 @@ test("km reais por mês: só com 14 dias de uso e projeta para 30 dias", () => {
   const ts = [dia(1, 250), dia(2, 250), dia(8, 250), dia(15, 250)];   // 15 dias de uso, 1000 km: 1000/15*30 = 2000
   assert.equal(kmRealPorMes(ts, "2026-10-15"), 2000);
   assert.equal(kmRealPorMes([], "2026-10-15"), null);
+});
+
+test("sua semana: no domingo a semana que termina, na segunda a que acabou, com a anterior para comparar", () => {
+  // 5/10/2026 é segunda: a semana vai de 5 a 11. Na semana anterior, um turno no dia 29/09.
+  const t = [turno(h(8, 0, 5), h(12, 0, 5), { uber: 200 }, { km: 100 }), turno(h(8, 0, 7), h(10, 0, 7), { "99": 100 }, { km: 50 }),
+    turno(new Date(2026, 8, 29, 8).getTime(), new Date(2026, 8, 29, 12).getTime(), { uber: 150 }, { km: 60 })];
+  const dom = semanaDoMotorista(t, "2026-10-11", carro);
+  assert.deepEqual([dom.de, dom.ate, dom.r.n, dom.r.ganho, dom.acabou], ["2026-10-05", "2026-10-11", 2, 300, false]);
+  assert.equal(dom.r.lucroPorHora, 33.33);   // lucro 300 - 150 km × 0,6667 = 200 em 6 horas
+  assert.equal(dom.antes.ganho, 150); assert.equal(dom.dif, 90);   // 200 - 110 (150 - 60 km × 0,6667)
+  const seg = semanaDoMotorista(t, "2026-10-12", carro);
+  assert.deepEqual([seg.de, seg.ate, seg.acabou], ["2026-10-05", "2026-10-11", true]);
+  assert.equal(semanaDoMotorista(t, "2026-10-13", carro), null, "terça não mostra");
+  assert.equal(semanaDoMotorista(t, "2026-10-19", carro), null, "semana sem jornada");
 });

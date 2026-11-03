@@ -170,6 +170,22 @@ export function faturasAte(st, ate) {
   return out;
 }
 
+/**
+ * O que já está comprometido nos cartões nos próximos meses (a partir do mês `de`): por mês, o total e cada item,
+ * com a parcela (3/10) e o que acaba naquele mês. Fatura já paga não entra.
+ * @returns {{m:string, total:number, itens:{descricao:string, cartao:string, valor:number, parcela:number, de:number, origem:string, ultima:boolean}[]}[]}
+ */
+export function parcelasPorMes(st, de, meses = 6) {
+  const out = [];
+  for (let i = 0, m = de; i < meses; i++, m = addM(m, 1)) {
+    const fats = faturasDoMes(st, m).filter((f) => f.auto && f.status !== "Paga");
+    const itens = fats.flatMap((f) => f.itens.map((x) => ({ descricao: x.descricao, cartao: f.cartao, valor: x.valor, parcela: x.parcela, de: x.de, origem: x.origem, ultima: x.de > 1 && x.parcela === x.de })))
+      .sort((a, b) => b.valor - a.valor);
+    if (itens.length) out.push({ m, total: round2(fats.reduce((t, f) => t + f.valor, 0)), itens });
+  }
+  return out;
+}
+
 /** A fatura do cartão que está aberta hoje: o dia em que fecha, quantos dias faltam, o vencimento e quanto ela soma até agora. */
 export function proximaFatura(st, cartao, hoje) {
   const m = mesDaFatura(cartao, hoje), f = faturasDoMes(st, m).find((x) => x.cartao_id === cartao.id);
@@ -1398,6 +1414,23 @@ export function sobraDoMes(c, metas = 0) {
  * `pontos`: quanto restava da sobra no fim de cada dia que já passou (a sobra menos o dia a dia acumulado);
  * `ideal`: a reta de gastar por igual até o fim do mês; `fim`: onde a previsão diz que o mês termina.
  */
+/**
+ * A semana que acabou (domingo a sábado) ficou dentro do combinado? Só no domingo e na segunda, e só no mês atual.
+ * O combinado é a parte da sobra do mês que cabe em cada dia (sobra livre ÷ dias do mês); só contam os dias da semana que caem neste mês.
+ * @returns {{de:string, ate:string, dias:number, gasto:number, combinado:number, sobrou:number, ok:boolean}|null}
+ */
+export function semanaNoCombinado(st, c, hoje) {
+  if (c.fase !== "atual") return null;
+  const dw = diaDaSemana(hoje); if (dw > 1) return null;
+  const s = sobraDoMes(c); if (!(s.livre > 0)) return null;
+  const d = new Date(hoje + "T12:00:00"); d.setDate(d.getDate() - dw - 1);
+  const dias = [];
+  for (let i = 0; i < 7; i++) { const iso = toISO(d); if (iso.slice(0, 7) === hoje.slice(0, 7)) dias.unshift(iso); d.setDate(d.getDate() - 1); }
+  if (dias.length < 4) return null;   // semana que quase toda caiu no mês passado: a conta não diz nada
+  const gasto = round2(dias.reduce((t, x) => t + gastoAVistaDoDia(st, x), 0)), combinado = round2((s.livre / c.n) * dias.length);
+  return { de: dias[0], ate: dias[dias.length - 1], dias: dias.length, gasto, combinado, sobrou: round2(combinado - gasto), ok: gasto <= combinado };
+}
+
 export function sobraDiaADia(c) {
   const s = sobraDoMes(c), n = c.n, ate = c.fase === "atual" ? c.dias : c.fase === "passado" ? n : 0;
   const porDia = new Array(n + 1).fill(0);
