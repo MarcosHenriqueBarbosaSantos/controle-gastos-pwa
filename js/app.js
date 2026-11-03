@@ -21,7 +21,7 @@ import { linhaDaSemana } from "./semana.js";
 import { linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
+  avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { conferirListaComNota, valoresDaLinha as valoresDaLinhaNota } from "./notamercado.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
@@ -4057,6 +4057,10 @@ function mercado() {
   trazListaAntiga(); S.listaFinalizando = null;
   const catsD = cats("Despesa"), padrao = catsD.includes("Mercado") ? "Mercado" : catsD[0];
   let timer = null, confirmaLimpar = false, busca = "";
+  // Dois jeitos de usar: "Montar a lista" (em casa, só os nomes) e "No mercado" (marcar e pôr preço). Fica lembrado neste aparelho.
+  let modo = (() => { try { return localStorage.getItem("cg-ml-modo") || ""; } catch { return ""; } })();
+  if (modo !== "montar" && modo !== "mercado") modo = listaDe().itens.some((x) => x.pego) ? "mercado" : "montar";
+  const trocaModo = (m) => { modo = m; try { localStorage.setItem("cg-ml-modo", m); } catch { /* nada */ } desenha(); };
   const muda = (fn) => { const l = listaDe(); fn(l); gravaLista(l); };
   const agora = () => Date.now(), tarde = (f) => setTimeout(f, 0);   // redesenhar no meio de um "change" quebra o foco do campo
   const desenha = () => {
@@ -4070,35 +4074,38 @@ function mercado() {
       const pr = precoDoItem(x, precos), q = Number(x.qtd) > 0 ? Number(x.qtd) : 1, id = esc(x.id), qt = String(q).replace(".", ",");
       return `<li class="ml-item${x.pego ? " pego" : ""}">
         <button class="ml-check" type="button" data-pega="${id}" aria-pressed="${Boolean(x.pego)}" aria-label="${x.pego ? "Tirar do carrinho" : "Colocar no carrinho"}: ${esc(x.nome || "item")}">${ico("ok")}</button>
-        <span class="ml-corpo"><button type="button" class="ml-nome" data-renomeia="${id}" aria-label="Mudar o nome de ${esc(x.nome || "item")}"><b>${esc(x.nome || "Item")}</b></button><small>${pr.valor > 0 ? `${brl(pr.valor * q)}${q > 1 ? ` (${qt} × ${brl(pr.valor)})` : ""}${pr.de === "ultimo" ? " · último preço" : ""}${(() => { const vr = variacaoDoPreco(hist[chaveDoItem(x.nome)], pr.valor); return vr ? ` · ${vr.pct > 0 ? "subiu" : "baixou"} ${Math.abs(vr.pct)}% desde ${ddmm(vr.desde)}` : ""; })()}` : "informe o preço"}</small></span>
+        <span class="ml-corpo"><button type="button" class="ml-nome" data-renomeia="${id}" aria-label="Mudar o nome de ${esc(x.nome || "item")}"><b>${esc(x.nome || "Item")}</b></button><small>${pr.valor > 0 ? `${brl(pr.valor * q)}${q > 1 ? ` (${qt} × ${brl(pr.valor)})` : ""}${pr.de === "ultimo" ? " · último preço" : ""}${(() => { const vr = variacaoDoPreco(hist[chaveDoItem(x.nome)], pr.valor); return vr ? ` · ${vr.pct > 0 ? "subiu" : "baixou"} ${Math.abs(vr.pct)}% desde ${ddmm(vr.desde)}` : ""; })()}` : modo === "montar" ? (q > 1 ? `${qt} unidades` : "") : "informe o preço"}</small></span>
         <button class="mc-x" type="button" data-x="${id}" aria-label="Tirar da lista: ${esc(x.nome || "item")}">×</button>
         <span class="ml-ajuste">
           <span class="ml-qtd" role="group" aria-label="Quantidade de ${esc(x.nome || "item")}"><button type="button" data-menos="${id}" aria-label="Menos um">−</button><output>${qt}</output><button type="button" data-mais="${id}" aria-label="Mais um">+</button></span>
-          <label class="ml-preco"><span>R$</span><input class="money" data-preco="${id}" inputmode="decimal" aria-label="Preço de cada ${esc(x.nome || "item")}" placeholder="${pr.de === "ultimo" ? esc(pr.valor.toFixed(2).replace(".", ",")) : "0,00"}" value="${Number(x.preco) > 0 ? esc(String(x.preco).replace(".", ",")) : ""}"><button class="ml-foto" type="button" data-foto="${id}" aria-label="Ler o preço de ${esc(x.nome || "item")} pela câmera">${ico("camera")}</button></label>
+          <label class="ml-preco"><span>R$</span><input class="money" data-preco="${id}" inputmode="decimal" aria-label="Preço de cada ${esc(x.nome || "item")}" placeholder="${pr.de === "ultimo" ? esc(pr.valor.toFixed(2).replace(".", ",")) : "0,00"}" value="${Number(x.preco) > 0 ? esc(Number(x.preco).toFixed(2).replace(".", ",")) : ""}"><button class="ml-foto" type="button" data-foto="${id}" aria-label="Ler o preço de ${esc(x.nome || "item")} pela câmera">${ico("camera")}</button></label>
         </span>
         ${l.outraCat ? `<select class="in ml-cat" data-cat="${id}" aria-label="Categoria de ${esc(x.nome || "item")}">${(catsD.includes(catDoItem(x)) ? catsD : [catDoItem(x), ...catsD]).map((k) => `<option${k === catDoItem(x) ? " selected" : ""}>${esc(k)}</option>`).join("")}${optNova("Despesa")}</select>` : ""}
       </li>`;
     };
     const raiz = $("dlg"), rolou = raiz.scrollTop;
-    openDlg(`<div id="mlRoot"><h3>Lista de mercado</h3>
+    const sug = modo === "montar" ? sugestoesDeItens(S.prefs.ultimaCompraMercado, hist, l.itens, 10) : [];
+    openDlg(`<div id="mlRoot" class="modo-${modo}"><h3>Lista de mercado</h3>
+      <div class="ml-modos" role="tablist" aria-label="Jeito de usar a lista"><button type="button" role="tab" data-modo="montar" aria-selected="${modo === "montar"}">${ico("editar")}Montar a lista</button><button type="button" role="tab" data-modo="mercado" aria-selected="${modo === "mercado"}">${ico("carrinho")}No mercado</button></div>
       ${outro ? `<p class="ml-par">${ico("casal")}<span>Dividida com <b>${esc(outro)}</b>. O que um adiciona ou marca aparece para o outro em instantes.</span></p>` : ""}
       <div class="ml-resumo">
         <div><small>Estimativa da compra</small><b>${e.estimado > 0 ? brl(e.estimado) : e.pelaMedia > 0 ? "≈ " + brl(e.pelaMedia) : brl(0)}</b>
           <small>${e.estimado > 0 ? (e.semPreco ? `${e.semPreco} ${e.semPreco === 1 ? "item sem preço" : "itens sem preço"}` : "todos com preço") : e.pelaMedia > 0 ? "pela sua compra média" : "informe os preços"}</small></div>
         <div><small>No carrinho · ${e.pegos} de ${e.total}</small><b>${brl(e.noCarrinho)}</b>${cabe === null ? `<small>${e.pegos ? "o que você já pegou" : "nada ainda"}</small>` : `<small class="${cabe < 0 ? "neg" : ""}">${cabe >= 0 ? `ainda cabem ${brl(cabe)}` : `passou ${brl(-cabe)} do limite`}</small>`}</div>
       </div>
-      ${tk.n > 0 ? `<p class="ml-hist">Você já lançou <b>${brl(noMes)}</b> em ${esc(padrao)} neste mês. Sua compra média é <b>${brl(tk.media)}</b> e o gasto, cerca de <b>${brl(tk.porMes)}</b> por mês.</p>` : ""}
+      ${tk.n > 0 ? `<p class="ml-hist">${esc(padrao)} neste mês: <b>${brl(noMes)}</b> · compra média <b>${brl(tk.media)}</b></p>` : ""}
       <form id="mlForm" class="ml-add" autocomplete="off">
-        <input class="in" id="mlNome" maxlength="40" list="mlSug" placeholder="Procurar ou adicionar item (ex.: arroz)" aria-label="Procurar na lista ou adicionar um item" enterkeyhint="done" value="${esc(busca)}">
+        <input class="in" id="mlNome" maxlength="40" list="mlSug" placeholder="${modo === "montar" ? "O que precisa comprar?" : "Adicionar item"}" aria-label="Procurar na lista ou adicionar um item" enterkeyhint="done" value="${esc(busca)}">
         <input class="in money ml-add-preco" id="mlPreco" inputmode="decimal" placeholder="Preço" aria-label="Preço do item, opcional. Com preço, o item já entra no carrinho" enterkeyhint="done">
         <button class="ml-mais ml-foto-add" type="button" id="mlFotoAdd" aria-label="Ler o nome e o preço da etiqueta pela câmera">${ico("camera")}</button>
         <button class="ml-mais" type="submit" aria-label="Adicionar à lista">${ico("mais")}</button>
         <datalist id="mlSug">${Object.keys(precos).slice(-60).map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
       </form>
       <p class="hint ml-busca-info" id="mlBuscaInfo" role="status" aria-live="polite" hidden></p>
+      ${sug.length ? `<div class="ml-sug" aria-label="Você sempre compra"><small>Toque para pôr na lista</small><div>${sug.map((n) => `<button type="button" class="chip" data-sug="${esc(n)}">+ ${esc(n)}</button>`).join("")}</div></div>` : ""}
       ${repetir.length ? `<button class="btn sm ml-repete" type="button" id="mlRepete">Repetir a última compra · ${repetir.length} ${repetir.length === 1 ? "item" : "itens"}</button>` : ""}
       ${falta.length ? `<h4 class="ml-h">Falta pegar <span>${falta.length}</span></h4>${falta.length >= 6 ? agrupaPorCorredor(falta).map((g) => `<h5 class="ml-corr">${esc(g.corredor)}</h5><ul class="ml-lista">${g.itens.map(linha).join("")}</ul>`).join("") : `<ul class="ml-lista">${falta.map(linha).join("")}</ul>`}` : l.itens.length ? `<p class="ml-vazio">Tudo no carrinho. Toque em Finalizar compra.</p>` : `<p class="ml-vazio">A lista está vazia.<br>Digite o que precisa comprar e toque em +.</p>`}
-      ${nocar.length ? `<h4 class="ml-h">No carrinho <span>${nocar.length}</span></h4><ul class="ml-lista">${nocar.map(linha).join("")}</ul>` : ""}
+      ${nocar.length ? `<h4 class="ml-h">No carrinho <span>${nocar.length}</span></h4>${modo === "mercado" ? `<p class="hint ml-dica-car">Para mudar o preço, toque na bolinha e o item volta para a lista.</p>` : ""}<ul class="ml-lista">${nocar.map(linha).join("")}</ul>` : ""}
       ${semPrecoNoCarrinho ? `<p class="ml-aviso">${semPrecoNoCarrinho} ${semPrecoNoCarrinho === 1 ? "item no carrinho está sem preço e não entra" : "itens no carrinho estão sem preço e não entram"} no total.</p>` : ""}
       <details class="ml-opc"><summary>Mais opções</summary>
         <label class="f">Quanto quero gastar (opcional)<input class="in money" id="mlLimite" inputmode="decimal" placeholder="Ex.: 300,00" value="${l.limite > 0 ? esc(l.limite.toLocaleString("pt-BR", { minimumFractionDigits: 2 })) : ""}"></label>
@@ -4107,7 +4114,8 @@ function mercado() {
         ${l.itens.length ? `<button class="btn" type="button" id="mlLimpa">${confirmaLimpar ? "Toque de novo para apagar tudo" : "Limpar a lista"}</button>` : ""}
       </details>
       <button class="btn" type="button" id="mlConf" style="width:100%;margin:8px 0 0"${l.itens.some((x) => x.pego) ? "" : " disabled"}>${ico("camera")}Conferir com a nota (QR code)</button>
-      <div class="ml-barra"><span><small>No carrinho</small><b>${brl(e.noCarrinho)}</b></span><button class="btn primary" type="button" id="mlOk"${e.noCarrinho > 0 ? "" : " disabled"}>Finalizar compra</button></div>
+      ${modo === "montar" ? `<div class="ml-barra"><span><small>${falta.length} ${falta.length === 1 ? "item" : "itens"} na lista</small><b>${e.estimado > 0 ? brl(e.estimado) : e.pelaMedia > 0 ? "≈ " + brl(e.pelaMedia) : "—"}</b></span><button class="btn primary" type="button" data-modo="mercado"${l.itens.length ? "" : " disabled"}>${ico("carrinho")}Ir às compras</button></div>`
+        : `<div class="ml-barra"><span><small>No carrinho</small><b>${brl(e.noCarrinho)}</b></span><button class="btn primary" type="button" id="mlOk"${e.noCarrinho > 0 ? "" : " disabled"}>Finalizar compra</button></div>`}
       <div class="actions"><button class="btn" type="button" id="mlManda"${falta.length ? "" : " disabled"}>Mandar a lista por mensagem</button><button class="btn" type="button" data-close>Fechar</button></div></div>`);
     raiz.scrollTop = rolou;
     // Escrever no campo do topo também filtra a lista (sem acento e sem diferenciar maiúscula); o + continua adicionando.
@@ -4119,6 +4127,11 @@ function mercado() {
       if (q) info.textContent = ach ? `${ach} de ${itens.length} ${itens.length === 1 ? "item" : "itens"} na lista. Para adicionar "${busca.trim().slice(0, 40)}" como item novo, toque em +.` : `Nenhum item na lista com "${busca.trim().slice(0, 40)}". Toque em + para adicionar.`;
     };
     $("mlNome").addEventListener("input", () => { busca = $("mlNome").value; aplicaBusca(); });
+    $("dlgBody").querySelectorAll("[data-modo]").forEach((b) => (b.onclick = () => { if (b.dataset.modo !== modo) trocaModo(b.dataset.modo); }));
+    $("dlgBody").querySelectorAll("[data-sug]").forEach((b) => (b.onclick = () => {
+      const nome = b.dataset.sug; if (itemNaLista(listaDe().itens, nome) || listaDe().itens.length >= 300) return;
+      muda((m) => { m.itens.push({ id: crypto.randomUUID(), nome: nome.slice(0, 40), qtd: 1, preco: 0, pego: false, t: agora() }); }); vibra?.(); desenha();
+    }));
     aplicaBusca();
     const edita = (id, fn) => muda((m) => { const x = m.itens.find((z) => z.id === id); if (x) { fn(x); x.t = agora(); } });
     $("mlForm").addEventListener("submit", (ev) => {
@@ -4225,7 +4238,7 @@ function mercado() {
       try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast("Lista copiada. Cole no WhatsApp ou onde preferir."); } } catch { /* a pessoa desistiu */ }
     };
     $("mlConf").onclick = () => { clearInterval(timer); aoLerNota = conferirMercadoComNota; abrirQr(); };
-    $("mlOk").onclick = () => {
+    if ($("mlOk")) $("mlOk").onclick = () => {
       const lista = listaDe(), pr = S.prefs.precosMercado || {}, compra = compraDoCarrinho(lista.itens, pr, padrao), tk0 = ticketMedioMercado(S.data.lancamentos, hoje(), padrao);
       if (!(compra.total > 0)) return void toast("Marque no carrinho ao menos um item com preço.");
       const partes = lista.outraCat ? compra.partes : [[padrao, compra.total]], umaSo = partes.length === 1, pegos = lista.itens.filter((x) => x.pego);

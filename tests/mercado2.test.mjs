@@ -1,7 +1,7 @@
 // Lista de mercado: corredores, repetir a última compra, variação de preço e resumo da compra.
 import test from "node:test";
 import assert from "node:assert/strict";
-import { corredorDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra } from "../js/extras.js";
+import { corredorDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, resumoDaCompra, sugestoesDeItens } from "../js/extras.js";
 
 test("corredor: reconhece itens comuns, com acento, plural e caixa diferentes", () => {
   assert.equal(corredorDoItem("Tomates"), "Hortifruti");
@@ -44,4 +44,11 @@ test("resumo da compra: abaixo, acima ou parecida com a média", () => {
   assert.match(resumoDaCompra(360, 300), /20% acima/);
   assert.match(resumoDaCompra(305, 300), /parecida/);
   assert.equal(resumoDaCompra(300, 0), "");
+});
+
+test("sugestoesDeItens: o que mais compra primeiro, sem o que já está na lista", () => {
+  const ultima = { itens: [{ nome: "Café" }, { nome: "Leite" }] }, hist = { arroz: [["2026-10-01", 20], ["2026-10-15", 21]], cafe: [["2026-10-01", 18]], leite: [] };
+  assert.deepEqual(sugestoesDeItens(ultima, hist, [{ nome: "leite" }]), ["Café", "Arroz"]);
+  assert.deepEqual(sugestoesDeItens(null, null, []), []);
+  assert.equal(sugestoesDeItens(ultima, hist, [], 1).length, 1);
 });

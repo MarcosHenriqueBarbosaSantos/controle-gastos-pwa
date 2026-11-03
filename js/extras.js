@@ -757,6 +757,14 @@ export function itensParaRepetir(ultima, atuais) {
   const tem = new Set((atuais || []).filter((x) => x && !x.apagado).map((x) => chaveDoItem(x.nome)));
   return (ultima?.itens || []).filter((x) => x?.nome && !tem.has(chaveDoItem(x.nome)));
 }
+/** Atalhos "Você sempre compra": o que a pessoa mais comprou (pelo histórico de preços) e a última compra, sem o que já está na lista. */
+export function sugestoesDeItens(ultima, hist, atuais, max = 10) {
+  const tem = new Set((atuais || []).map((x) => chaveDoItem(x?.nome))), nomes = new Map(), peso = new Map();
+  (ultima?.itens || []).forEach((x, i) => { const k = chaveDoItem(x?.nome); if (k) { nomes.set(k, String(x.nome).trim().slice(0, 40)); peso.set(k, (peso.get(k) || 0) + 1 + 1 / (i + 2)); } });
+  for (const [k, l] of Object.entries(hist || {})) if (k && Array.isArray(l)) peso.set(k, (peso.get(k) || 0) + l.length);
+  return [...peso.entries()].filter(([k]) => !tem.has(k)).sort((a, b) => b[1] - a[1]).slice(0, max)
+    .map(([k]) => nomes.get(k) || k.charAt(0).toUpperCase() + k.slice(1));
+}
 /** A frase depois de lançar a compra: como ela ficou perto da compra média da pessoa. */
 export function resumoDaCompra(total, mediaDeAntes) {
   const t = Number(total), m = Number(mediaDeAntes);
