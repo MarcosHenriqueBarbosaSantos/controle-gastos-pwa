@@ -3,8 +3,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { COMUM_DO_CASAL, comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes } from "../js/calc.js";
 
-test("o que é dos dois: categorias, limites, metas e saldo; avisos e tema continuam de cada um", () => {
-  const prefs = { categorias: { Despesa: ["Mercado"] }, limites: { Mercado: 800 }, teto: 3000, metas: { Viagem: { valor: 2000 } }, levarSaldo: true, saldoDesde: "2026-08", saldoInicial: 150, semGasto: ["2026-10-01"], naoRepetidos: ["fixo:a|b"], naoAssinaturas: ["netflix"], revisados: ["a"], iconesCat: { Mercado: "sacola" }, listaMercado: { itens: [] }, precosMercado: { arroz: 25 }, fotos: { "dest:viagem": "data:image/jpeg;base64,AA" },
+test("o que é dos dois: categorias, limites, limite do cartão, metas e saldo; avisos e tema continuam de cada um", () => {
+  const prefs = { categorias: { Despesa: ["Mercado"] }, limites: { Mercado: 800 }, limiteCartao: { k: 3000 }, teto: 3000, metas: { Viagem: { valor: 2000 } }, levarSaldo: true, saldoDesde: "2026-08", saldoInicial: 150, semGasto: ["2026-10-01"], naoRepetidos: ["fixo:a|b"], naoAssinaturas: ["netflix"], revisados: ["a"], iconesCat: { Mercado: "sacola" }, listaMercado: { itens: [] }, precosMercado: { arroz: 25 }, fotos: { "dest:viagem": "data:image/jpeg;base64,AA" },
     avisos: { email: false }, boasVindas: true, inicioFora: ["evo"], guia: { fechado: true } };
   assert.deepEqual(Object.keys(comumDoCasal(prefs)), COMUM_DO_CASAL);
   assert.deepEqual(comumDoCasal({ teto: 0, categorias: null, avisos: {} }), { teto: 0 });   // zero conta (limite desligado); vazio não

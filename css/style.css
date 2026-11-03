@@ -996,6 +996,7 @@ body.salvando #dlg button[type="submit"],body.salvando #dlg .btn.primary:not([da
 .dia-chips{display:grid;grid-template-columns:repeat(3,1fr)}
 .dia-chips button[aria-pressed="true"]{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm);font-weight:700}
 .data-f #fData:not([hidden]){margin-top:2px}
+.quick-head .btn.ler small{display:none}
 @media (max-width:700px){
   /* Falar e Foto menores: o valor fica no centro da tela */
   .quick-head .btn.ler.voz{margin-right:0}
@@ -1426,6 +1427,34 @@ details.mais-op>p{display:flex;flex-wrap:wrap;gap:4px 16px;margin:4px 0 0}
 .cart-nome .ava{width:28px;height:28px;flex:none}
 .cart-card b{font-size:20px;font-variant-numeric:tabular-nums}
 .cart-card small{font-size:12.5px;color:var(--muted)}
+/* Limite do cartão: a barra de quanto está ocupado, e o destaque nos dias antes de a fatura fechar */
+.cart-lim{display:block;height:6px;margin:4px 0 0;border-radius:99px;background:var(--sunk);overflow:hidden}
+.cart-lim i{display:block;height:100%;border-radius:99px;background:var(--series)}
+.cart-lim.alto i,.cart-card.alto .cart-lim i{background:var(--warn)}
+.cartoes .oque .cart-lim{width:100%;max-width:240px}
+.cart-card.perto{border-color:var(--warn);box-shadow:0 0 0 1px var(--warn),var(--shadow-sm)}
+.cart-card.perto>small:first-of-type{color:var(--warn);font-weight:600}
+/* Início: o que ficou de meses anteriores, à parte do número do mês, e a volta ao mês atual */
+.hero-atras{display:flex;align-items:center;gap:10px;width:100%;margin:14px 0 0;padding:11px 12px 11px 14px;border:0;border-radius:16px;background:rgba(255,255,255,.14);color:inherit;font:inherit;text-align:left;cursor:pointer}
+.hero-atras .t{flex:1;min-width:0;display:grid;gap:2px}
+.hero-atras small{font-size:12.5px;font-weight:600;opacity:.85}
+.hero-atras b{font-size:16.5px}
+.hero-atras .t>span{font-size:13.5px;line-height:1.35;opacity:.92}
+.hero-atras .ic{flex:none;width:18px;height:18px}
+/* Lançar no celular: valor, categoria, forma e data primeiro, para lançar sem rolar; a descrição (opcional) e as opções vêm depois */
+@media (max-width:700px){
+  #formLanc .desc,#formLanc .moeda-fora,#formLanc #fContaWrap,#formLanc #fContaRes,#formLanc #fCopiado{order:3}
+  /* a data (Hoje, Ontem) logo abaixo do valor */
+  #formLanc>label:first-child,#formLanc #fValorErro{order:-2} .quick #formLanc .data-f{order:-1}
+  /* Falar e Foto viram dois quadros grandes, fáceis de ver e de tocar */
+  .quick-head .btn.ler{flex:1 1 0;flex-direction:column;gap:3px;min-height:78px;padding:10px 8px;border-radius:18px;font-size:16px;font-weight:700;background:var(--series-soft);border:1px solid color-mix(in srgb,var(--series) 45%,transparent);color:var(--ink)}
+  .quick-head .btn.ler .ic{width:26px;height:26px;color:var(--series)}
+  .quick-head .btn.ler small{display:block;font-size:12px;font-weight:500;color:var(--muted)}
+  .quick-head .btn.ler.ativo{background:var(--series);color:var(--on-series)} .quick-head .btn.ler.ativo .ic,.quick-head .btn.ler.ativo small{color:inherit}
+  .dica-lancar{padding:10px 12px} .dica-lancar b{font-size:14px} .dica-lancar p{font-size:13px}
+}
+.hero.cheia.outro-mes{min-height:0!important}   /* meses que não são o atual: o quadro do tamanho do que mostra */
+.hero-hoje{width:auto!important;padding:0 12px!important;height:32px!important;margin-left:6px;border-radius:999px!important;background:rgba(255,255,255,.16)!important;font:inherit;font-size:13px;font-weight:700}
 
 /* Meta pela realidade da pessoa (Para onde foi) */
 .pof-media{grid-column:1/-1;font-size:12.5px;color:var(--muted)} .pof-media b{color:var(--ink-2)} .pof-media em{font-style:normal;font-weight:700;color:var(--bad)}

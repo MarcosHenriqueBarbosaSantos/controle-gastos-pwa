@@ -170,6 +170,32 @@ export function faturasAte(st, ate) {
   return out;
 }
 
+/** A fatura do cartão que está aberta hoje: o dia em que fecha, quantos dias faltam, o vencimento e quanto ela soma até agora. */
+export function proximaFatura(st, cartao, hoje) {
+  const m = mesDaFatura(cartao, hoje), f = faturasDoMes(st, m).find((x) => x.cartao_id === cartao.id);
+  const fecha = periodoDaFatura(cartao, m).fecha;
+  return { mes: m, fecha, dias: diasEntre(hoje, fecha), vencimento: diaNoMes(m, cartao.vencimento), valor: f ? f.valor : 0, paga: f?.status === "Paga" };
+}
+
+/**
+ * Quanto do limite do cartão está ocupado, como no banco: as faturas ainda por pagar (a aberta e as fechadas que não venceram)
+ * e as parcelas de compras que caem nas faturas seguintes. Fatura vencida e não marcada como paga fica de fora:
+ * ela já aparece como conta atrasada, e quase sempre a pessoa só esqueceu de marcar. Sem limite, devolve null.
+ */
+export function usoDoLimite(st, cartao, limite, hoje) {
+  const lim = round2(Number(limite) || 0);
+  if (!(lim > 0)) return null;
+  const aberta = mesDaFatura(cartao, hoje);
+  let usado = faturasAte(st, aberta).filter((f) => f.cartao_id === cartao.id && f.status !== "Paga" && f.vencimento >= hoje).reduce((t, f) => t + f.valor, 0);
+  for (const x of st.lancamentos) {
+    if (x.tipo !== "Despesa" || x.forma !== CARTAO || x.cartao_id !== cartao.id) continue;
+    const n = Math.max(1, Number(x.parcelas) || 1), vals = valorDasParcelas(x.valor, n);
+    for (let k = Math.max(0, mesesEntre(mesDaFatura(cartao, x.data), aberta) + 1); k < n; k++) usado += vals[k];
+  }
+  usado = round2(usado);
+  return { limite: lim, usado, livre: round2(lim - usado), pct: Math.round((usado / lim) * 100) };
+}
+
 /**
  * Compras e fixos no cartão, feitos no mês m, que não estão ligados a nenhum cartão cadastrado.
  * Esses valores não entram em fatura calculada: só contam se a pessoa lançar a fatura à mão.
@@ -1125,7 +1151,7 @@ export function lembreteDoDia(st, hoje, { semGasto = [], anotouHoje = false, des
 
 /* ===================== Conta de casal ===================== */
 /** O que passa a ser um só para os dois quando as contas são divididas. O resto (avisos, tema, quadros do início) continua de cada um. */
-export const COMUM_DO_CASAL = ["categorias", "limites", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos", "naoAssinaturas", "revisados", "iconesCat", "fotos", "listaMercado", "precosMercado"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos; naoAssinaturas: cobranças que alguém disse que não são assinatura
+export const COMUM_DO_CASAL = ["categorias", "limites", "limiteCartao", "teto", "metas", "levarSaldo", "saldoDesde", "saldoInicial", "semGasto", "naoRepetidos", "naoAssinaturas", "revisados", "iconesCat", "fotos", "listaMercado", "precosMercado"];   // naoRepetidos: pares que alguém dos dois disse que não são repetidos; naoAssinaturas: cobranças que alguém disse que não são assinatura
 
 /** Só as chaves que são dos dois. */
 export function comumDoCasal(prefs) {
