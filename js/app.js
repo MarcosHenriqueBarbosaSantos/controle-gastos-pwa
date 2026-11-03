@@ -2,7 +2,7 @@
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO, IMPORTA_EXTRATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
   categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, usoDoLimite, proximaFatura, parcelasPorMes, semanaNoCombinado, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
-  faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, periodoDaFatura,
+  faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, mesesEntre, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, agendaDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
 import { leEtiquetaDePreco } from "./etiqueta.js";
@@ -984,7 +984,19 @@ function mostraParcDica() {
   const u = k.id ? usoDoLimite(S.data, k, limiteDe(k.id), hoje()) : null, v = Number(parseMoney($("fValor").value)) > 0 ? parseMoney($("fValor").value) : 0, depois = u ? round2(u.livre - v) : 0;
   el.textContent = (n === 1 ? `Entra na fatura de ${nome(m1)} (vence ${dm(m1)}).` : `${n} parcelas: da fatura de ${nome(m1)} (vence ${dm(m1)}) até a de ${nome(mN)}, uma por mês.`)
     + (u ? (depois < 0 ? ` Passa ${brl(-depois)} do limite de ${brl(u.limite)}.` : ` ${v ? "Depois desta compra" : "Limite livre"}: ${brl(depois)}.`) : "")
+    + pesoNasFaturas(k, m1, n, v, nome)
     + (padrao ? " Você não preencheu os dias do cartão: usei fecha dia 3 e vence dia 10. Se for diferente, preencha acima, senão as parcelas podem cair no mês errado." : "");
+}
+/**
+ * Ao comprar no cartão: quanto a fatura (do mesmo cartão) já tem no mês que esta compra pesa mais, para a pessoa ver antes de parcelar.
+ * Só fala quando já existe algo nessa fatura.
+ */
+function pesoNasFaturas(k, m1, n, v, nome) {
+  if (!k?.id || !(v > 0)) return "";
+  const parc = valorDasParcelas(v, n), meses = parcelasPorMes({ ...S.data, cartoes: [k] }, m1, n);
+  if (!meses.length) return "";
+  const pior = meses.map((x) => ({ ...x, depois: round2(x.total + parc[mesesEntre(m1, x.m)]) })).sort((a, b) => b.depois - a.depois)[0];
+  return ` A fatura de ${nome(pior.m)} já tem ${brl(pior.total)}; com esta compra, vai a ${brl(pior.depois)}.`;
 }
 /** Cartão e parcelas escolhidos no formulário de lançar. Sem cartão cadastrado não devolve nada: o lançamento segue como sempre foi. */
 function cartaoDoForm() {
@@ -1649,6 +1661,9 @@ function paneM(c) {
   // Média de cada categoria nos últimos meses fechados (até 3, só os que têm lançamentos), arredondada para cima de 10 em 10: vira a sugestão de limite.
   const mediaCat = new Map(); if (antes.length) { const soma = new Map(); antes.forEach((x) => catMap(x).forEach(([k, v]) => soma.set(k, (soma.get(k) || 0) + v))); soma.forEach((v, k) => mediaCat.set(k, Math.ceil(v / antes.length / 10) * 10)); }
   const sugeriveis = catL.filter((k) => !(Number(lim[k]) > 0) && mediaCat.get(k) > 0);
+  // Como as categorias com limite foram no mês passado: quantas ficaram dentro e quais passaram (e quanto).
+  const mAnt = addM(cur, -1), cAnt = calcMes(S.data, mAnt, hoje()), usoAnt = cAnt.custo > 0 ? usoDosLimites(cAnt, lim) : [], passaram = usoAnt.filter((x) => x.passou > 0);
+  const placar = usoAnt.length ? `<div class="lim-placar${passaram.length ? "" : " ok"}"><b>${passaram.length ? `Em ${nomeMes(mAnt)}, ${usoAnt.length - passaram.length} de ${usoAnt.length} categorias ficaram dentro do limite.` : `Em ${nomeMes(mAnt)}, todas as ${usoAnt.length} categorias ficaram dentro do limite!`}</b>${passaram.length ? `<span>Passaram: ${passaram.slice(0, 4).map((x) => `${esc(x.cat)} (+${brl0(x.passou)})`).join(", ")}${passaram.length > 4 ? ` e mais ${passaram.length - 4}` : ""}.</span>` : ""}</div>` : "";
   host.innerHTML = `<div class="pl-analise"><button class="mais-item" type="button" data-analise><span class="ava">${ico("grafico")}</span><span class="tx"><b>Análise do mês</b><span>Gráficos, categorias e últimos meses</span></span>${ico("chev")}</button><button class="mais-item" type="button" data-planos><span class="ava">${ico("alvo")}</span><span class="tx"><b>Meus planos</b><span>Férias, casa, carro: quanto guardar por mês</span></span>${ico("chev")}</button></div>${htmlSobra(c)}${htmlCaixinhas()}<h2 class="pl-h">Limite de gasto</h2><p class="hint" style="margin-top:0;font-size:13px">O máximo que você quer gastar no mês. O app avisa quando chegar perto.</p>
     <form id="tetoForm" class="teto-form" autocomplete="off">
       <label class="f">Limite de gastos por mês (R$)<input class="in money" id="tetoValor" inputmode="decimal" placeholder="Ex.: 3.500,00" value="${esc(dinheiro(Number(S.prefs.teto) || 0))}"></label>
@@ -1659,6 +1674,7 @@ function paneM(c) {
     ${u ? `<div class="teto ${t.cls} parado"><span class="topo"><span class="l">${ico("alvo")}Uso do limite em ${nomeMes(S.mes)}</span><span class="pill ${t.cls === "ok" ? "good" : t.cls}">${t.titulo}</span></span>
       <span class="num"><b>${brl(u.gasto)}</b> de ${brl(u.teto)} <em>${u.pct}%</em></span>${barraDoTeto(u)}<span class="n">${t.frase}</span></div>` : ""}
     <h3 class="sub-h">Limite por categoria</h3>
+    ${placar}
     <p class="hint" style="margin-top:0">Opcional. Deixe em branco as categorias que não precisam de limite.${sugeriveis.length ? ` O app sugere pela sua média ${antes.length === 1 ? "do último mês" : `dos últimos ${antes.length} meses`}.` : ""}</p>
     ${sugeriveis.length >= 2 ? `<button class="btn lim-todas" type="button" id="limMedias">${ico("ideia")}Usar a média em ${sugeriveis.length} categorias</button>` : ""}
     <form id="limCats" class="lim-cats" autocomplete="off">
@@ -1894,7 +1910,7 @@ function calendario(m, escolhido = "") {
     ${ag.length ? `<section class="cal-ag" aria-label="Contas a pagar"><h4>${m === mKey(hj) ? "Próximas contas" : "A pagar neste mês"}</h4>${ag.map((g) => `<h5 class="${g.titulo === "Atrasadas" || g.titulo === "Ficaram sem pagar" ? "neg" : ""}">${esc(g.titulo)}<span>${brl(g.total)}</span></h5><ul>${g.itens.map((x) => `<li><button type="button" data-cag="${x.dia}"><span class="d">${dd(x.dia)}</span><b>${esc(x.titulo)}</b><span class="v">${brl(x.valor)}</span></button></li>`).join("")}</ul>`).join("")}</section>` : cal.aPagar === 0 && cal.pago > 0 ? `<p class="cal-ok">${ico("ok")}Todas as contas deste mês estão pagas.</p>` : ""}
     <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
   $("dlgBody").querySelectorAll("[data-cag]").forEach((b) => (b.onclick = () => { calendario(m, `${m}-${String(b.dataset.cag).padStart(2, "0")}`); $("calDia")?.scrollIntoView({ block: "start", behavior: "smooth" }); }));
-  if ($("calVerGastos")) $("calVerGastos").onclick = () => { $("dlg").close(); S.mes = mKey(sel); abrirSub("l"); };
+  if ($("calVerGastos")) $("calVerGastos").onclick = () => { $("dlg").close(); S.mes = mKey(sel); S.fDia = sel; abrirSub("l"); };
   if ($("calLanca")) $("calLanca").onclick = () => {
     $("dlg").close(); $("fData").value = sel; renderForm();
     if (noCelular() || comMenuLateral()) abrirLancar(); else { syncDiaChips(); $("fValor").scrollIntoView({ block: "center" }); $("fValor").focus(); }
@@ -2268,10 +2284,13 @@ function listaL(c) {
     fq.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.quem = b.dataset.quem; listaL(calcMes(S.data, S.mes, hoje())); }));
   }
   // Filtros: por tipo e por categoria, valem para o mês e também para a busca em todos os meses.
-  const filtro = { tipo: S.fTipo || "", categoria: S.fCat || "" }, filtrando = Boolean(filtro.tipo || filtro.categoria || S.fRap);
+  const filtro = { tipo: S.fTipo || "", categoria: S.fCat || "" }, filtrando = Boolean(filtro.tipo || filtro.categoria || S.fRap || S.fDia);
   // Filtros de um toque: o dia, a semana e as formas de pagamento mais usadas. Valem junto com o tipo e a categoria.
   const hjL = hoje(), iniSemana = (() => { const d = new Date(hjL + "T12:00:00"); d.setDate(d.getDate() - diaDaSemana(hjL)); return toISO(d); })();
   const RAP = { hoje: ["Hoje", (x) => x.data === hjL], semana: ["Esta semana", (x) => x.data >= iniSemana && x.data <= hjL], cartao: ["Cartão", (x) => x.forma === CARTAO], pix: ["Pix", (x) => x.forma === "Pix"], debito: ["Débito", (x) => x.forma === "Débito"], dinheiro: ["Dinheiro", (x) => x.forma === "Dinheiro"] };
+  if (S.fDia && mKey(S.fDia) !== S.mes) S.fDia = "";   // trocou de mês: o dia escolhido não vale mais
+  if (S.fRap === undefined) { try { S.fRap = localStorage.getItem("cg-filtro-extrato") || ""; } catch { S.fRap = ""; } }   // o último filtro rápido fica lembrado neste aparelho
+  const guardaRap = () => { try { localStorage.setItem("cg-filtro-extrato", S.fRap || ""); } catch { /* nada */ } };
   const rap = (x) => !S.fRap || !RAP[S.fRap] || (!x.auto && !x.aPagar && !x.previsto && RAP[S.fRap][1](x));
   const catsDoExtrato = [...new Set(S.data.lancamentos.map((x) => x.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   $("lFiltros").innerHTML = `${S.prefs.motorista?.usa ? `<button class="btn sm l-dia" type="button" id="lDia">Lançar uma jornada</button>` : ""}${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
@@ -2282,8 +2301,8 @@ function listaL(c) {
   $("lFiltros").querySelectorAll("[data-ftipo]").forEach((b) => (b.onclick = () => { S.fTipo = b.dataset.ftipo; listaL(calcMes(S.data, S.mes, hoje())); }));
   if ($("lDia")) $("lDia").onclick = () => lancarDiaMot();
   $("fCatSel").onchange = (e) => { S.fCat = e.target.value; listaL(calcMes(S.data, S.mes, hoje())); };
-  $("lFiltros").querySelectorAll("[data-frap]").forEach((b) => (b.onclick = () => { S.fRap = S.fRap === b.dataset.frap ? "" : b.dataset.frap; listaL(calcMes(S.data, S.mes, hoje())); }));
-  if ($("fLimpa")) $("fLimpa").onclick = () => { S.fTipo = ""; S.fCat = ""; S.fRap = ""; listaL(calcMes(S.data, S.mes, hoje())); };
+  $("lFiltros").querySelectorAll("[data-frap]").forEach((b) => (b.onclick = () => { S.fRap = S.fRap === b.dataset.frap ? "" : b.dataset.frap; guardaRap(); listaL(calcMes(S.data, S.mes, hoje())); }));
+  if ($("fLimpa")) $("fLimpa").onclick = () => { S.fTipo = ""; S.fCat = ""; S.fRap = ""; S.fDia = ""; guardaRap(); listaL(calcMes(S.data, S.mes, hoje())); };
   const cab = `<thead><tr><th>Dia</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="hide-sm">Pagamento</th><th class="num">Valor</th><th></th></tr></thead>`;
   if (q.length >= 2) {
     // Busca: todos os meses, do mais recente para o mais antigo, separados por mês.
@@ -2299,7 +2318,7 @@ function listaL(c) {
   const auto = c.fr.map((f) => { const d = Number(f.data.slice(8, 10));
     return { auto: true, id: f.id, data: f.data, descricao: f.descricao, categoria: f.categoria, tipo: "Receita", valor: f.valor,
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
-  const it = filtraLancamentos([...c.it, ...auto, ...contasDoExtrato(c)].filter(doQuem).filter(rap), filtro).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  const it = filtraLancamentos([...c.it, ...auto, ...contasDoExtrato(c)].filter(doQuem).filter(rap).filter((x) => !S.fDia || x.data === S.fDia), filtro).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
   if (!it.length && deQuem) { host.innerHTML = `<div class="welcome"><p><b>${deQuem === "eu" ? "Você não lançou nada" : `${esc(nomeDoOutro())} não lançou nada`} em ${nomeMes(S.mes)}.</b></p></div>`; return; }
   if (!it.length && S.fRap) { host.innerHTML = `<div class="welcome"><p><b>Nada em ${esc(RAP[S.fRap][0].toLowerCase())}${["hoje", "semana"].includes(S.fRap) ? "" : ` em ${nomeMes(S.mes)}`}.</b> Toque de novo no filtro para ver tudo.</p></div>`; return; }
   if (!it.length && filtrando) { host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)} com esse filtro.</b> Mude o tipo ou a categoria, ou toque em Limpar filtros.</p></div>`; return; }
@@ -2314,15 +2333,17 @@ function listaL(c) {
   const falta = it.filter((x) => x.aPagar || x.previsto).sort((a, b) => a.data.localeCompare(b.data)), deFora = it.filter((x) => x.fora), feitos = it.filter((x) => !x.aPagar && !x.previsto && !x.fora);
   const totalFalta = round2(falta.filter((x) => x.aPagar).reduce((t, x) => t + x.valor, 0));
   const tituloFalta = `${c.fase === "futuro" ? "Previsto para" : c.fase === "passado" ? "Ficou sem pagar em" : "Ainda falta em"} ${nomeMes(S.mes)}`;
-  const dia = (x, i) => i && feitos[i - 1].data === x.data ? "" : `<tr class="dia"><td colspan="6"><span>${rotuloDia(x.data)}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}${horasDoDia(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
+  const dia = (x, i) => i && feitos[i - 1].data === x.data ? "" : `<tr class="dia" data-so-dia="${x.data}" title="Ver só este dia"><td colspan="6"><span>${rotuloDia(x.data)}${S.fDia ? "" : `<i class="so-dia" aria-hidden="true">${ico("chev")}</i>`}</span>${gastoDoDia(x.data) ? `<b>− ${brl(gastoDoDia(x.data))}${horasDoDia(gastoDoDia(x.data))}</b>` : ""}</td></tr>`;
   const linha = (x) => (x.pagaFixa ? linhaPaga(x, toque) : x.auto ? `<tr class="${x.previsto ? "previsto" : ""}" data-fixa="${esc(x.id)}"${toque}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Receita")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.previsto ? "previsto" : "automático"}</span><span class="sub"><span class="tp">Entrada fixa</span>${x.previsto ? `Dia ${ddmm(x.data)} · ` : ""}${esc(x.categoria)}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">Entrada fixa</td><td class="num pos">+ ${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(x.id)}">Alterar</button></td></tr>`
     : linhaLanc(x, toque));
   const somaRap = S.fRap ? round2(it.filter((x) => x.tipo === "Despesa").reduce((t, x) => t + x.valor, 0)) : 0;
-  host.innerHTML = `${S.fRap ? `<p class="rap-res" role="status"><b>${esc(RAP[S.fRap][0])}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`}${somaRap ? `, <b>${brl(somaRap)}</b> em gastos` : ""}</p>` : ""}${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
+  host.innerHTML = `${S.fDia ? `<p class="rap-res" role="status"><b>Só ${esc(rotuloDia(S.fDia).toLowerCase())}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`} <button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>` : ""}${S.fRap ? `<p class="rap-res" role="status"><b>${esc(RAP[S.fRap][0])}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`}${somaRap ? `, <b>${brl(somaRap)}</b> em gastos` : ""}</p>` : ""}${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
     feitos.map((x, i) => dia(x, i) + linha(x)).join("")}${falta.length ? `<tr class="dia falta"><td colspan="6"><span>${tituloFalta}</span>${totalFalta ? `<b>− ${brl(totalFalta)}</b>` : ""}</td></tr>${falta.map(linha).join("")}` : ""}${deFora.length ? `<tr class="dia falta"><td colspan="6"><span>Fora de ${nomeMes(S.mes)}</span></td></tr>${deFora.map(linha).join("")}` : ""}</tbody></table></div>`;
   }
+  $("pane-l").querySelectorAll("[data-so-dia]").forEach((tr) => (tr.onclick = () => { S.fDia = S.fDia ? "" : tr.dataset.soDia; listaL(calcMes(S.data, S.mes, hoje())); }));
+  if ($("fDiaTodos")) $("fDiaTodos").onclick = () => { S.fDia = ""; listaL(calcMes(S.data, S.mes, hoje())); };
   $("pane-l").querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { S.view = "listas"; S.tab = b.dataset.ir; render(); }));
   $("pane-l").querySelectorAll("[data-ed]").forEach((b) => (b.onclick = () => editarLancamento(b.dataset.ed)));
   $("pane-l").querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
@@ -4620,10 +4641,12 @@ const dataPorExtenso = (iso) => { const d = Number(iso.slice(8, 10)), s = DIAS_S
 /** "Sua semana", no domingo e na segunda: quanto ganhou, quanto foi para o carro, quanto sobrou e por hora. */
 function htmlSemanaMot(m, hj) {
   const s = semanaDoMotorista(m.turnos, hj, S.prefs.veiculo || {}); if (!s) return "";
+  // O melhor dia para rodar, pelos últimos 60 dias (o que mais rende por hora). Só com dois dias diferentes ou mais.
+  const melhor = melhorDiaDaSemana(m.turnos, toISO(new Date(Date.now() - 60 * 864e5)), hj);
   const r = s.r, comp = s.dif === null ? "" : Math.abs(s.dif) < 1 ? "Igual à semana passada." : s.dif > 0 ? `${brl(s.dif)} a mais que na semana passada.` : `${brl(-s.dif)} a menos que na semana passada.`;
   return `<button type="button" class="mot-semana" id="motSemana" data-ref="${s.ref}"><span class="tt"><b>${s.acabou ? "Sua semana" : "Sua semana até agora"}</b><small>${ddmm(s.de)} a ${ddmm(s.ate)} · ${r.n} ${r.n === 1 ? "jornada" : "jornadas"}</small></span>
     <span class="nums ocultavel"><span><small>Ganhou</small><b>${brl(r.ganho)}</b></span><span><small>${r.comCarro ? "Carro" : "Combustível"}</small><b>− ${brl(r.custo)}</b></span><span><small>Sobrou</small><b class="${r.lucro < 0 ? "neg" : "ok"}">${brl(r.lucro)}</b></span></span>
-    <span class="pe ocultavel">${r.lucroPorHora !== null ? `<b>${brl(r.lucroPorHora)} por hora</b> depois dos custos. ` : ""}${comp}</span></button>`;
+    <span class="pe ocultavel">${r.lucroPorHora !== null ? `<b>${brl(r.lucroPorHora)} por hora</b> depois dos custos. ` : ""}${comp}</span>${melhor ? `<span class="melhor ocultavel">${ico("raio")}Seu melhor dia para rodar: <b>${DIAS_SEMANA[melhor.dia]}</b>, ${brl(melhor.ganhoPorHora)} por hora.</span>` : ""}</button>`;
 }
 /** A tela Jornada parada: uma frase, a regra por km e o botão de começar. */
 function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas }) {
@@ -5306,7 +5329,7 @@ function revisaoTela(m = S.mes) {
     } else if (passo === 2) {
       const lim = r.passaram.map((u) => `<li><b>${esc(u.cat)}</b> passou ${brl(u.passou)} do limite de ${brl(u.limite)}.</li>`).join("");
       const sub = r.subiu.map((x) => `<li><b>${esc(x.cat)}</b> subiu ${brl(x.dif)} (de ${brl(x.antes)} para ${brl(x.agora)}). <button class="link" type="button" data-lim="${esc(x.cat)}" data-v="${Math.ceil(x.antes / 10) * 10}">Pôr limite de ${brl(Math.ceil(x.antes / 10) * 10)}</button></li>`).join("");
-      corpo = `<h4 class="rv-t">Onde dá para ajustar</h4>${lim || sub ? `<ul class="rv-lista">${lim}${sub}</ul><p class="hint">Um limite por categoria avisa antes de passar. Você pode mudar depois em Planejar.</p>` : `<p class="rv-frase">Nada fugiu do controle: nenhuma categoria passou do limite nem subiu muito. Mantenha o ritmo.</p>`}`;
+      corpo = `<h4 class="rv-t">Onde dá para ajustar</h4>${lim || sub ? `<ul class="rv-lista">${lim}${sub}</ul>${r.subiu.length >= 2 ? `<button class="btn primary rv-todos" type="button" id="rvTodos">${ico("ok")}Aplicar os ${r.subiu.length} ajustes</button>` : ""}<p class="hint">Um limite por categoria avisa antes de passar. Você pode mudar depois em Planejar.</p>` : `<p class="rv-frase">Nada fugiu do controle: nenhuma categoria passou do limite nem subiu muito. Mantenha o ritmo.</p>`}`;
     } else {
       corpo = `<h4 class="rv-t">Quanto guardar no próximo mês</h4>
         <p class="rv-frase">${r.guardar > 0 ? `Pelo que entrou e sobrou, uma boa meta é <b>${brl(r.guardar)}</b> (até 10% do que entrou, ${brl(r.dezPorCento)}).` : `Neste mês não sobrou. Comece pequeno: ${brl(20)} já cria o hábito.`}</p>
@@ -5322,6 +5345,13 @@ function revisaoTela(m = S.mes) {
     if ($("rvVolta")) $("rvVolta").onclick = () => { passo--; desenha(); };
     if ($("rvProx")) $("rvProx").onclick = () => { passo++; desenha(); };
     $("dlgBody").querySelectorAll("[data-lim]").forEach((b) => (b.onclick = () => { S.prefs.limites = { ...(S.prefs.limites || {}), [b.dataset.lim]: Number(b.dataset.v) }; salvaPrefs(); b.replaceWith(Object.assign(document.createElement("span"), { textContent: "Limite definido.", className: "pill good" })); }));
+    // Todos os limites sugeridos de uma vez.
+    if ($("rvTodos")) $("rvTodos").onclick = () => {
+      const bs = [...$("dlgBody").querySelectorAll("[data-lim]")]; if (!bs.length) return;
+      S.prefs.limites = { ...(S.prefs.limites || {}), ...Object.fromEntries(bs.map((b) => [b.dataset.lim, Number(b.dataset.v)])) }; salvaPrefs();
+      bs.forEach((b) => b.replaceWith(Object.assign(document.createElement("span"), { textContent: "Limite definido.", className: "pill good" })));
+      $("rvTodos").remove(); vibra(); toast(`${bs.length} limites definidos. Dá para mudar em Planejar.`);
+    };
     if ($("rvValor")) $("rvValor").addEventListener("input", () => { const v = parseMoney($("rvValor").value); if (v > 0 && v <= VALOR_MAX) { valorGuardar = round2(v); $("rvGuarda").textContent = `Guardar ${brl(valorGuardar)} agora`; } });
     const feito = () => { const o = { ...revisoesFeitas(), [mes]: true }; S.prefs.revisoes = Object.fromEntries(Object.entries(o).sort().slice(-24)); salvaPrefs(); };
     if ($("rvFim")) $("rvFim").onclick = () => { feito(); $("dlg").close(); comemora(); toast("Revisão feita. Mês que vem você já começa com um plano."); render(); };

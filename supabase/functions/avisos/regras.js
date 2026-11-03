@@ -35,7 +35,7 @@ const contasDoMes = (st, m) => { const fora = foraDoMes(st); return ocorrencias(
 export const CARTAO = "Cartão de crédito";
 const noCartao = (x) => x.forma === CARTAO;
 const diaNoMes = (m, d) => `${m}-${pad(Math.min(dim(m), Math.max(1, Number(d) || 1)))}`;
-const mesesEntre = (a, b) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7));
+export const mesesEntre = (a, b) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7));
 export function mesDaFatura(cartao, data) {
   const m = mKey(data), d = Number(data.slice(8, 10));
   const fecha = d < Math.min(Number(cartao.fechamento), dim(m)) ? m : addM(m, 1);
