@@ -5115,7 +5115,7 @@ function paneMot() {
     return `<h2 class="mot-frase">${titulo}</h2>
       ${ganho > 0 ? `<p class="mot-hora ocultavel${v.liquidoPorHora < 0 ? " neg" : ""}" aria-label="${tracos(v.liquidoPorHora, brl)} líquidos por hora"><b>${tracos(v.liquidoPorHora, brl)}</b> por hora</p>
       <div class="mot-barra ocultavel" role="img" aria-label="De ${brl(ganho)} ganhos, ${brl(gastos)} foram gastos e ${sobra < 0 ? `faltam ${brl(-sobra)}` : `sobram ${brl(sobra)}`}">${pctGastos ? `<i style="width:${pctGastos}%">${sobra < 0 ? txtSobra : pctGastos >= 18 ? "Gastos" : ""}</i>` : ""}${sobra < 0 ? "" : `<span>${apertado ? "" : txtSobra}</span>`}</div>
-      <small class="mot-barra-leg ocultavel">${apertado && sobra >= 0 ? `${txtSobra} de` : "De"} ${brl(ganho)} ganhos ${doDia.n ? "nesta jornada" : "hoje"}</small>` : `<p class="mot-ver">Informe quanto já ganhou para ver se está valendo a pena.</p>`}
+      <small class="mot-barra-leg ocultavel">${apertado && sobra >= 0 ? `${txtSobra} de` : "De"} ${brl(ganho)} ganhos ${doDia.n ? "nesta jornada" : "hoje"}</small>` : ""}
       ${aviso || (v.veredito ? `<p class="mot-ver ${v.veredito}">${frase}</p>` : "")}
       <div class="gan-stats mot-vivo-st"><p><b class="ocultavel">${semContas ? "Sem meta" : meta.coberto ? "Coberta" : brl(meta.brutoDia)}</b><small>Meta de hoje</small></p><p><b class="ocultavel">${semContas ? "—" : meta.coberto || totalHoje >= meta.brutoDia ? "Nada" : brl(round2(meta.brutoDia - totalHoje))}</b><small>Faltam</small></p><p><b class="ocultavel">${brl(regra.minimo)}</b><small>Mínimo por km</small></p></div>`;
   };
@@ -5124,10 +5124,11 @@ function paneMot() {
     host.innerHTML = `<div id="motRoot" class="mot-jornada${pausada ? " em-pausa" : ""}${motEntrou ? " entra" : ""}">
       <div class="mot-topo"><span class="mot-estado">${pausada ? "" : `<i class="mot-pulso" aria-hidden="true"></i>`}${pausada ? "Jornada pausada" : "Jornada ativa"}</span><b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b></div>
       <div id="motVivo" class="mot-vivo-box">${vivo()}</div>
+      ${a.parcial ? "" : `<form id="motGanhoRap" class="mot-ganho-rap" autocomplete="off"><label for="mgrVal">Quanto já ganhou nos apps?</label><div><input class="in money" id="mgrVal" inputmode="decimal" placeholder="0,00" enterkeyhint="done"><button class="btn primary" type="submit">Ver se vale</button></div><small>Some o que os apps mostram agora. Dá para atualizar quando quiser.</small></form>`}
       <button type="button" class="mot-odo" id="motOdo">${a.odoIni ? `Painel ao começar: ${odoTxt(a.odoIni)} km` : "Anotar o km do painel do carro"}</button>
       <div class="mot-comandos" role="group" aria-label="Controle da jornada">
         <div class="mot-leves">
-          <button type="button" data-mot-sub="ganho">${a.parcial ? "Atualizar ganho" : "Informar ganho"}</button>
+          ${a.parcial ? `<button type="button" data-mot-sub="ganho">Atualizar ganho</button>` : ""}
           <button type="button" id="motPausa" aria-label="${pausada ? "Continuar a jornada" : "Pausar a jornada"}">${pausada ? "Continuar" : "Pausar"}</button>
           <button type="button" id="motMais">Mais opções</button>
         </div>
@@ -5154,6 +5155,13 @@ function paneMot() {
       gravaMot(mm); vibra(30); render();
     };
     $("motParar").onclick = () => fecharTurno();
+    // Ganho direto na tela, sem abrir outra: com ele o app já diz se está valendo a pena.
+    if ($("motGanhoRap")) $("motGanhoRap").addEventListener("submit", (e) => {
+      e.preventDefault(); const v = round2(nm($("mgrVal").value));
+      if (!(v > 0)) { toast("Digite quanto já ganhou, por exemplo 85,00."); return $("mgrVal").focus(); }
+      if (v > VALOR_MAX) return void toast(ALTO_DEMAIS);
+      const mm = motDados(); mm.ativo.parcial = v; gravaMot(mm); vibra(15); render();
+    });
     $("motOdo").onclick = () => anotaPainelMot();
     motRelogio = setInterval(() => { const el = $("motCron"); if (!el || S.view !== "listas" || S.tab !== "mot") return clearInterval(motRelogio); const ag = motDados().ativo; if (!ag) return clearInterval(motRelogio); el.textContent = relogio(msAndamento(ag)); $("motVivo").innerHTML = vivo(); }, 1000);
     return;
@@ -5320,7 +5328,16 @@ function paneFechar(host) {
       <div class="actions wide"><button class="btn primary" type="submit">Salvar jornada</button><button class="btn" type="button" id="mtVolta">Voltar à jornada</button></div></form></div>`;
   $("mtVolta").onclick = motSai;
   // Soma dos apps enquanto a pessoa digita, para conferir com o que os apps mostram.
-  const somaApps = () => { const t = round2([...host.querySelectorAll("[data-app]")].reduce((s2, i) => s2 + (Number(parseMoney(i.value)) > 0 ? parseMoney(i.value) : 0), 0)); $("mtTot").innerHTML = `Total do dia: <b>${brl(t)}</b>`; };
+  // Enquanto a pessoa digita: o total, o que sobra depois dos gastos da jornada e quanto isso deu por hora.
+  const msTrab = Math.max(0, fim - ini - pausado);
+  const somaApps = () => {
+    const t = round2([...host.querySelectorAll("[data-app]")].reduce((s2, i) => s2 + (Number(parseMoney(i.value)) > 0 ? parseMoney(i.value) : 0), 0)), r = contaDoDia({ ganho: t, gasto: gastosJ, ms: msTrab });
+    $("mtTot").innerHTML = `Total do dia: <b>${brl(t)}</b>${t > 0 ? `${gastosJ ? ` · gastos da jornada ${brl(gastosJ)}` : ""} · sobra <b>${brl(r.sobra)}</b>${r.sobraPorHora !== null ? `, <b>${brl(r.sobraPorHora)} por hora</b>` : ""}` : ""}`;
+  };
+  // O ganho informado durante a jornada já vem no campo quando a pessoa roda em um app só (com mais de um, o texto do alto já lembra o total).
+  const camposG = host.querySelectorAll("[data-app]"), parcial = Number(m.ativo.parcial) || 0;
+  if (parcial > 0 && camposG.length === 1 && !camposG[0].value) camposG[0].value = parcial.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+  somaApps();
   host.querySelectorAll("[data-app]").forEach((i) => i.addEventListener("input", somaApps)); ligaKm();
   $("mtForm").addEventListener("submit", async (e) => {
     e.preventDefault();

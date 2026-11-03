@@ -2357,3 +2357,8 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .cx-graf .barras i{display:block;width:100%;max-width:28px;border-radius:6px 6px 2px 2px;background:var(--series);opacity:.55} .cx-graf .barras i.hoje{opacity:1}
 .cx-graf .barras small{font-size:11px;color:var(--muted)}
 .cx-graf p{margin:8px 0 0;font-size:13px;color:var(--ink-2)} .cx-graf p b{color:var(--good)}
+/* Jornada rodando: o ganho direto na tela, no espaço que ficava vazio. */
+.mot-ganho-rap{display:grid;gap:8px;margin:18px 0 0;padding:14px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
+.mot-ganho-rap label{font-weight:700;font-size:15px}
+.mot-ganho-rap>div{display:flex;gap:8px} .mot-ganho-rap .in{flex:1;min-width:0;min-height:52px;font-size:20px;font-weight:700;text-align:right} .mot-ganho-rap .btn{flex:none;min-height:52px;padding:0 16px}
+.mot-ganho-rap small{font-size:12.5px;color:var(--muted)}

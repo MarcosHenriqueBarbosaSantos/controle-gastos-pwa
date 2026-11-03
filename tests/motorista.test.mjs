@@ -283,3 +283,9 @@ test("sua semana: no domingo a semana que termina, na segunda a que acabou, com 
   assert.equal(semanaDoMotorista(t, "2026-10-13", carro), null, "terça não mostra");
   assert.equal(semanaDoMotorista(t, "2026-10-19", carro), null, "semana sem jornada");
 });
+
+test("ritmo ao vivo: sem ganho informado, nada de veredito (nem com gasto de combustível)", () => {
+  const h = 3600000;
+  assert.equal(ritmoAoVivo({ ganho: 0, gastos: 0, ms: 2 * h, liquidoDia: 200, horasDia: 8 }).veredito, null);
+  assert.equal(ritmoAoVivo({ ganho: 0, gastos: 50, ms: 2 * h, liquidoDia: 200, horasDia: 8 }).veredito, null);
+});

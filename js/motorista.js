@@ -181,7 +181,8 @@ export function ritmoAoVivo({ ganho, gastos, ms, liquidoDia = 0, horasDia = 8 })
   const h = ms / 3600000, liquido = r2(ganho - gastos), ok = h >= 0.05;
   const minimo = liquidoDia > 0 && horasDia > 0 ? r2(liquidoDia / horasDia) : 0;
   const liquidoPorHora = ok ? r2(liquido / h) : null;
-  const veredito = liquidoPorHora !== null && minimo > 0 && h >= 0.25 ? (liquidoPorHora >= minimo ? "bom" : "abaixo") : null;
+  // Sem ganho informado não há o que julgar: dizer "abaixo" só porque a pessoa ainda não contou quanto fez desanima à toa.
+  const veredito = ganho > 0 && liquidoPorHora !== null && minimo > 0 && h >= 0.25 ? (liquidoPorHora >= minimo ? "bom" : "abaixo") : null;
   return { liquido, porHora: ok ? r2(ganho / h) : null, liquidoPorHora, minimo, veredito };
 }
 
