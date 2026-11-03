@@ -1347,6 +1347,12 @@ export function formaDaCategoria(lancs, cat, hojeISO, formas = FORMAS) {
   const [forma, n] = [...conta.entries()].sort((a, b) => b[1] - a[1] || formas.indexOf(a[0]) - formas.indexOf(b[0]))[0];
   return n / total >= 0.6 ? forma : null;
 }
+/** Soma dos gastos lançados num mês até certo dia (inclusive): serve para comparar o mês atual com o anterior no mesmo ponto. */
+export function gastoAteODia(lancs, mes, dia) {
+  let t = 0;
+  for (const x of lancs || []) if (x.tipo === "Despesa" && mKey(x.data) === mes && Number(x.data.slice(8, 10)) <= dia) t += Number(x.valor) || 0;
+  return round2(t);
+}
 /**
  * O último lançamento de uma categoria (o mais recente, até hoje), para oferecer "última vez: R$ X" no formulário.
  * @returns {null | {valor: number, data: string, descricao: string, dias: number}}

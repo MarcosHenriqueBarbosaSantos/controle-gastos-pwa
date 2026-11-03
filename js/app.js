@@ -4,7 +4,7 @@ import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey,
   categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, usoDoLimite, proximaFatura, parcelasPorMes, dim, diaNoMes, diasEntre, semanaNoCombinado, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, mesesEntre, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, agendaDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
-  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, formaDaCategoria, ultimoDaCategoria, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
+  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, formaDaCategoria, ultimoDaCategoria, gastoAteODia, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
 import { leEtiquetaDePreco } from "./etiqueta.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
@@ -2289,7 +2289,13 @@ function fraseDoExtrato(c) {
   const mes = nomeMes(S.mes), faltaPagar = round2(contasDoExtrato(c).filter((x) => x.aPagar).reduce((t, x) => t + x.valor, 0));
   if (c.fase === "futuro") return `<h2 class="ocultavel">Devem sair ${brl(c.custo)} em ${mes}.</h2><p class="ocultavel">${c.rec > 0 ? `Devem entrar ${brl(c.rec)}.` : "Nenhuma entrada prevista."}</p>`;
   const entrou = round2(c.rec - c.frAReceber);
-  return `<h2 class="ocultavel">Saíram ${brl(round2(c.custo - faltaPagar))} em ${mes}.</h2><p class="ocultavel">${entrou > 0 ? `Entraram ${brl(entrou)}.` : "Nenhuma entrada ainda."}${faltaPagar > 0 ? ` Faltam pagar ${brl(faltaPagar)}.` : ""}</p>`;
+  // No mês atual, a partir do dia 3: os gastos lançados até hoje contra os do mês passado até o mesmo dia.
+  let contra = "";
+  if (c.fase === "atual") {
+    const d = Number(hoje().slice(8, 10)), ant = addM(S.mes, -1), a = gastoAteODia(S.data.lancamentos, S.mes, d), b = gastoAteODia(S.data.lancamentos, ant, d), dif = round2(a - b);
+    if (d >= 3 && b > 0 && dif !== 0) contra = ` Nos gastos lançados até o dia ${d}: ${brl(Math.abs(dif))} ${dif > 0 ? "a mais" : "a menos"} que em ${nomeMes(ant)}.`;
+  }
+  return `<h2 class="ocultavel">Saíram ${brl(round2(c.custo - faltaPagar))} em ${mes}.</h2><p class="ocultavel">${entrou > 0 ? `Entraram ${brl(entrou)}.` : "Nenhuma entrada ainda."}${faltaPagar > 0 ? ` Faltam pagar ${brl(faltaPagar)}.` : ""}${contra}</p>`;
 }
 /** As contas fixas e as faturas do mês no Extrato, pagas ou não. Conta no cartão fica de fora: ela já está dentro da fatura. */
 function contasDoExtrato(c) {
@@ -2301,11 +2307,72 @@ function contasDoExtrato(c) {
 function linhaPaga(x, toque) {
   const atrasada = x.aPagar && x.data < hoje();
   const opcoes = (x.aPagar || x.fora) && x.id;   // conta que ainda pode mudar: o toque abre as opções daquele mês
-  return `<tr class="${x.aPagar || x.fora ? "previsto" : ""}"${x.id ? ` data-fixa="${esc(x.id)}"${opcoes ? ` data-chave="${esc(x.chave)}" data-venc="${esc(x.data)}"` : ""}${toque}` : ""}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Despesa")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.fora ? "fora do mês" : atrasada ? "atrasada" : x.aPagar ? "a pagar" : "paga"}</span><span class="sub show-sm">${x.aPagar ? `Vence ${ddmm(x.data)} · ` : ""}${esc(x.categoria)}</span></span></td>
+  return `<tr class="${x.aPagar || x.fora ? "previsto" : ""}"${x.id ? ` data-fixa="${esc(x.id)}"${opcoes ? ` data-chave="${esc(x.chave)}" data-venc="${esc(x.data)}"` : ""}${toque}` : ""}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Despesa")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.fora ? "fora do mês" : atrasada ? "atrasada" : x.aPagar ? "a pagar" : "paga"}</span><span class="sub show-sm">${x.aPagar ? `Vence ${ddmm(x.data)} · ` : ""}${esc(x.categoria)}</span>${opcoes && x.aPagar ? `<button class="paguei-rapido" type="button" data-paguei>Já paguei</button>` : ""}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${esc(x.categoria)}</td><td class="hide-sm" style="color:var(--ink-2);font-size:13px">Conta do mês</td><td class="num">− ${brl(x.valor)}</td><td class="acts">${opcoes ? `<button class="act" type="button" data-conta>Opções</button>` : ""}</td></tr>`;
 }
+/* ---------- Escolher vários lançamentos no Extrato: trocar a categoria ou apagar de uma vez ---------- */
+/** S.sel = null fora do modo; dentro dele, o conjunto dos ids marcados. */
+function alternaSel(id) {
+  if (!S.sel) return;
+  if (S.sel.has(id)) S.sel.delete(id); else S.sel.add(id);
+  listaL(calcMes(S.data, S.mes, hoje()));
+}
+function desenhaSelBarra() {
+  const b = $("selBarra"); if (!b) return;
+  b.hidden = !S.sel; if (!S.sel) { b.innerHTML = ""; return; }
+  const n = S.sel.size, ls = [...S.sel].map(lancPorId).filter(Boolean);
+  const saiu = round2(ls.filter((x) => x.tipo === "Despesa").reduce((t, x) => t + Number(x.valor), 0)), entrou = round2(ls.filter((x) => x.tipo === "Receita").reduce((t, x) => t + Number(x.valor), 0));
+  const soma = [saiu ? `− ${brl(saiu)}` : "", entrou ? `+ ${brl(entrou)}` : ""].filter(Boolean).join(" · ");
+  b.innerHTML = `<b role="status">${n === 0 ? "Toque nos lançamentos" : n === 1 ? "1 escolhido" : `${n} escolhidos`}${soma ? ` · ${soma}` : ""}</b>
+    <button type="button" class="btn sm" id="selTodos">${n ? "Limpar" : "Marcar todos"}</button><button type="button" class="btn sm" id="selRep"${n ? "" : " disabled"}>Repetir hoje</button>
+    <button type="button" class="btn sm" id="selCat"${n ? "" : " disabled"}>Trocar categoria</button><button type="button" class="btn sm del" id="selDel"${n ? "" : " disabled"}>Apagar</button><button type="button" class="btn sm" id="selFim">Pronto</button>`;
+  $("selFim").onclick = () => { S.sel = null; listaL(calcMes(S.data, S.mes, hoje())); };
+  $("selCat").onclick = selTrocaCat; $("selDel").onclick = selApaga; $("selRep").onclick = selRepete;
+  $("selTodos").onclick = () => { if (n) S.sel.clear(); else $("lLista").querySelectorAll("tr[data-id]").forEach((tr) => S.sel.add(tr.dataset.id)); listaL(calcMes(S.data, S.mes, hoje())); };
+}
+/** Lança de novo, com a data de hoje, todos os escolhidos (os que não são lançamentos de verdade ficam de fora). */
+async function selRepete() {
+  const rows = [...S.sel].map(lancPorId).filter((x) => x && !x.auto && x.forma !== JA_TINHA).map(copiaParaHoje), n = rows.length; if (!n) return;
+  let novos = [];
+  if (!(await grava(async () => { novos = await S.store.addLancamentos(rows); }))) return;
+  const gs = (novos?.length ? novos : rows).map((g) => ({ ...g, valor: Number(g.valor) }));
+  S.data.lancamentos.push(...gs); S.sel = null; vibra(); render();
+  toastDesfazer(`${n === 1 ? "1 lançamento repetido" : `${n} lançamentos repetidos`} para hoje.`, async () => { let ok = true; for (const g of gs) ok = (await apagaLancamento(g.id)) && ok; render(); if (ok) toast("Repetição desfeita."); });
+}
+function selTrocaCat() {
+  const ls = [...S.sel].map(lancPorId).filter(Boolean), tipos = new Set(ls.map((x) => x.tipo));
+  if (!ls.length) return;
+  if (tipos.size !== 1) return toast("Para trocar a categoria, escolha só gastos ou só entradas.");
+  const tipo = [...tipos][0], n = ls.length;
+  openDlg(`<h3>Trocar a categoria</h3><p class="hint">${n === 1 ? "1 lançamento vai" : `${n} lançamentos vão`} para a categoria que você escolher.</p>
+    <label class="f">Nova categoria<select class="in" id="selNova">${opts(cats(tipo))}</select></label>
+    <div class="actions"><button class="btn primary" type="button" id="selOk">Trocar</button><button class="btn" type="button" data-close>Cancelar</button></div>`);
+  $("selOk").onclick = async () => {
+    const nova = $("selNova").value, antes = new Map(ls.map((x) => [x.id, x.categoria]));
+    $("dlg").close();
+    if (!(await grava(async () => { for (const x of ls) await S.store.updateLancamento(x.id, { categoria: nova }); }))) return;
+    ls.forEach((x) => { x.categoria = nova; });
+    S.sel = null; render();
+    toastDesfazer(`${n === 1 ? "1 lançamento foi" : `${n} lançamentos foram`} para ${nova}.`, async () => {
+      if (await grava(async () => { for (const [id, c] of antes) await S.store.updateLancamento(id, { categoria: c }); })) { ls.forEach((x) => { x.categoria = antes.get(x.id); }); render(); toast("Categorias de volta como estavam."); }
+    });
+  };
+}
+function selApaga() {
+  const ids = [...S.sel].filter(lancPorId), n = ids.length; if (!n) return;
+  openDlg(`<h3>Apagar ${n === 1 ? "1 lançamento" : `${n} lançamentos`}?</h3><p class="hint">Eles saem do app. Não dá para desfazer depois de confirmar.</p>
+    <div class="actions"><button class="btn primary" type="button" id="selApagaOk">Apagar</button><button class="btn" type="button" data-close>Voltar</button></div>`);
+  $("selApagaOk").onclick = async () => {
+    $("selApagaOk").disabled = true; let feitos = 0;
+    for (const id of ids) if (await apagaLancamento(id)) feitos++;
+    $("dlg").close(); S.sel = null; render();
+    toast(feitos === n ? `${n === 1 ? "Lançamento apagado" : `${n} lançamentos apagados`}.` : `${feitos} de ${n} apagados. Os outros não saíram: tente de novo.`);
+  };
+}
+/** O maior gasto do mês na tela (só com 5 gastos ou mais): ganha a marca "maior do mês" no Extrato. */
+let maiorDoMesId = "";
 function linhaLanc(x, toque, comAno = false) {
-  return `<tr data-id="${esc(x.id)}"${toque}><td class="d">${comAno ? ddmm(x.data) + "/" + x.data.slice(2, 4) : ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}${x.pendente ? ` <span class="tag espera">aguardando internet</span>` : ""}${quemTag(x)}${marcaComprovante(x)}<span class="sub"><span class="tp">${tipoDoLanc(x)}</span>${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
+  return `<tr data-id="${esc(x.id)}"${S.sel?.has(x.id) ? ` class="sel" aria-selected="true"` : ""}${toque}><td class="d">${comAno ? ddmm(x.data) + "/" + x.data.slice(2, 4) : ddmm(x.data)}</td><td class="desc">${ava(x.categoria, x.tipo)}<span class="tx">${esc(x.descricao || x.categoria)}${x.pendente ? ` <span class="tag espera">aguardando internet</span>` : ""}${x.id && x.id === maiorDoMesId ? ` <span class="tag maior">maior do mês</span>` : ""}${quemTag(x)}${marcaComprovante(x)}<span class="sub"><span class="tp">${tipoDoLanc(x)}</span>${esc(x.categoria)}${x.tipo === "Despesa" && x.forma ? " · " + esc(pagoCom(x)) : x.tipo === "Reserva" ? (x.forma === RETIRADA ? " · retirou" : " · guardou") : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(x.categoria)}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.tipo === "Despesa" ? esc(pagoCom(x)) : x.tipo === "Receita" ? "Entrada" : x.forma === RETIRADA ? "Retirou" : x.forma === JA_TINHA ? "Já tinha" : "Guardou"}</td>
       <td class="num ${x.tipo === "Receita" ? "pos" : x.tipo === "Reserva" ? "res" : ""}">${x.tipo === "Receita" ? "+ " : x.tipo === "Reserva" ? (x.forma === RETIRADA ? "← " : "→ ") : "− "}${brl(x.valor)}</td>
       <td class="acts"><button class="act" type="button" data-ed="${esc(x.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-del="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">${ico("lixo")}</span></button></td></tr>`;
@@ -2314,14 +2381,26 @@ function paneL(c) {
   const host = $("pane-l");
   // A busca fica fora da parte que é redesenhada, para o teclado não fechar enquanto a pessoa digita.
   if (!$("lBusca")) {
-    host.innerHTML = `<div class="busca"><label class="so-leitor" for="lBusca">Buscar lançamento</label>${ico("lupa")}<input class="in" id="lBusca" type="search" placeholder="Buscar em todos os meses" autocomplete="off" enterkeyhint="search" maxlength="60"><button type="button" class="busca-x" id="lBuscaX" aria-label="Limpar a busca" hidden>${ico("x")}</button></div><div class="filtros" id="lFiltros" role="group" aria-label="Filtrar o extrato"></div><div class="seg quem-filtro" id="lQuem" role="group" aria-label="De quem são os lançamentos" hidden></div><div id="lLista"></div>`;
+    host.innerHTML = `<div class="busca"><label class="so-leitor" for="lBusca">Buscar lançamento</label>${ico("lupa")}<input class="in" id="lBusca" type="search" placeholder="Buscar em todos os meses" autocomplete="off" enterkeyhint="search" maxlength="60"><button type="button" class="busca-x" id="lBuscaX" aria-label="Limpar a busca" hidden>${ico("x")}</button></div><div class="chips-rap buscas-rec" id="lBuscasRec" role="group" aria-label="Buscas recentes" hidden></div><div class="filtros" id="lFiltros" role="group" aria-label="Filtrar o extrato"></div><div class="seg quem-filtro" id="lQuem" role="group" aria-label="De quem são os lançamentos" hidden></div><div id="lLista"></div><div class="sel-barra" id="selBarra" hidden></div>`;
     $("lBusca").value = S.busca || "";
-    $("lBusca").addEventListener("input", (e) => { S.busca = e.target.value; listaL(calcMes(S.data, S.mes, hoje())); });
-    $("lBuscaX").onclick = () => { S.busca = ""; $("lBusca").value = ""; listaL(calcMes(S.data, S.mes, hoje())); $("lBusca").focus(); };
+    const lerBuscas = () => { try { return JSON.parse(localStorage.getItem("cg-buscas")) || []; } catch { return []; } };
+    const buscasRec = () => {   // as últimas buscas ficam à mão enquanto o campo está vazio
+      const l = lerBuscas().slice(0, 5), el = $("lBuscasRec"); el.hidden = !l.length || Boolean((S.busca || "").trim());
+      el.innerHTML = l.map((t) => `<button type="button" class="chip" data-busca="${esc(t)}">${ico("lupa")} ${esc(t)}</button>`).join("");
+    };
+    $("lBuscasRec").addEventListener("click", (e) => { const b = e.target.closest("[data-busca]"); if (!b) return; S.busca = b.dataset.busca; $("lBusca").value = S.busca; buscasRec(); listaL(calcMes(S.data, S.mes, hoje())); });
+    $("lBusca").addEventListener("change", (e) => {   // ao terminar de digitar (Enter ou sair do campo), guarda a busca
+      const t = e.target.value.trim(); if (t.length < 2) return;
+      try { localStorage.setItem("cg-buscas", JSON.stringify([t, ...lerBuscas().filter((x) => x.toLowerCase() !== t.toLowerCase())].slice(0, 5))); } catch { /* sem armazenamento */ }
+    });
+    $("lBusca").addEventListener("input", (e) => { S.busca = e.target.value; buscasRec(); listaL(calcMes(S.data, S.mes, hoje())); });
+    buscasRec();
+    $("lBuscaX").onclick = () => { S.busca = ""; $("lBusca").value = ""; buscasRec(); listaL(calcMes(S.data, S.mes, hoje())); $("lBusca").focus(); };
   }
   listaL(c);
 }
 function listaL(c) {
+  maiorDoMesId = ""; desenhaSelBarra();
   const host = $("lLista"), q = (S.busca || "").trim(), toque = noCelular() ? ` tabindex="0" role="button"` : "";
   $("lBuscaX").hidden = !q;
   // Conta de casal: dá para ver só os lançamentos de um dos dois.
@@ -2343,11 +2422,15 @@ function listaL(c) {
   const catsDoExtrato = [...new Set(S.data.lancamentos.map((x) => x.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   $("lFiltros").innerHTML = `${S.prefs.motorista?.usa ? `<button class="btn sm l-dia" type="button" id="lDia">Lançar uma jornada</button>` : ""}${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
     <div class="chips-rap" role="group" aria-label="Filtros rápidos">${Object.entries(RAP).filter(([k]) => S.mes === mKey(hjL) || !["hoje", "semana"].includes(k)).map(([k, [r]]) => `<button type="button" class="chip" data-frap="${k}" aria-pressed="${S.fRap === k}">${r}</button>`).join("")}</div>
+    ${q.length >= 2 ? "" : (() => { const top = catMap(c).slice(0, 6); return top.length >= 2 ? `<div class="chips-rap chips-cat" role="group" aria-label="Categorias do mês">${top.map(([k, v]) => `<button type="button" class="chip" data-fcat="${esc(k)}" aria-pressed="${filtro.categoria === k}">${esc(k)} <small>${brl0(v)}</small></button>`).join("")}</div>` : ""; })()}
     <details class="manual lf-mais"${filtro.categoria ? " open" : ""}><summary>Mais filtros${filtro.categoria ? ": " + esc(filtro.categoria) : ""}</summary>
     <label class="so-leitor" for="fCatSel">Categoria</label><select class="in" id="fCatSel"><option value="">Todas as categorias</option>${catsDoExtrato.map((c) => `<option${c === filtro.categoria ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></details>
-    ${filtrando ? `<button class="link" type="button" id="fLimpa">Limpar filtros</button>` : ""}`;
+    ${filtrando ? `<button class="link" type="button" id="fLimpa">Limpar filtros</button>` : ""}
+    ${S.sel ? "" : `<button class="link" type="button" id="fSelecionar">Escolher vários lançamentos</button>`}`;
+  if ($("fSelecionar")) $("fSelecionar").onclick = () => { S.sel = new Set(); listaL(calcMes(S.data, S.mes, hoje())); };
   $("lFiltros").querySelectorAll("[data-ftipo]").forEach((b) => (b.onclick = () => { S.fTipo = b.dataset.ftipo; listaL(calcMes(S.data, S.mes, hoje())); }));
   if ($("lDia")) $("lDia").onclick = () => lancarDiaMot();
+  $("lFiltros").querySelectorAll("[data-fcat]").forEach((b) => (b.onclick = () => { S.fCat = S.fCat === b.dataset.fcat ? "" : b.dataset.fcat; listaL(calcMes(S.data, S.mes, hoje())); }));
   $("fCatSel").onchange = (e) => { S.fCat = e.target.value; listaL(calcMes(S.data, S.mes, hoje())); };
   $("lFiltros").querySelectorAll("[data-frap]").forEach((b) => (b.onclick = () => { S.fRap = S.fRap === b.dataset.frap ? "" : b.dataset.frap; guardaRap(); listaL(calcMes(S.data, S.mes, hoje())); }));
   if ($("fLimpa")) $("fLimpa").onclick = () => { S.fTipo = ""; S.fCat = ""; S.fRap = ""; S.fDia = ""; guardaRap(); listaL(calcMes(S.data, S.mes, hoje())); };
@@ -2367,6 +2450,7 @@ function listaL(c) {
     return { auto: true, id: f.id, data: f.data, descricao: f.descricao, categoria: f.categoria, tipo: "Receita", valor: f.valor,
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
   const it = filtraLancamentos([...c.it, ...auto, ...contasDoExtrato(c)].filter(doQuem).filter(rap).filter((x) => !S.fDia || x.data === S.fDia), filtro).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
+  { const gastos = c.it.filter((x) => x.tipo === "Despesa" && !x.auto && x.id); if (gastos.length >= 5) maiorDoMesId = gastos.reduce((m, x) => (Number(x.valor) > Number(m.valor) ? x : m)).id; }
   if (!it.length && deQuem) { host.innerHTML = `<div class="welcome"><p><b>${deQuem === "eu" ? "Você não lançou nada" : `${esc(nomeDoOutro())} não lançou nada`} em ${nomeMes(S.mes)}.</b></p></div>`; return; }
   const navDia = () => `<div class="dia-nav"><button class="btn sm" type="button" data-dia-anda="-1"${S.fDia.slice(8) === "01" ? " disabled" : ""}>${ico("esq")}Dia anterior</button><button class="btn sm" type="button" data-dia-anda="1"${S.fDia >= hoje() || Number(S.fDia.slice(8)) >= dim(S.mes) ? " disabled" : ""}>Próximo dia${ico("chev")}</button></div>`;
   if (!it.length && S.fDia) { host.innerHTML = `<div class="welcome"><p><b>Nada lançado em ${esc(rotuloDia(S.fDia).toLowerCase())}.</b></p></div>${navDia()}<p style="text-align:center"><button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>`; ligaDiaNav(); return; }
@@ -2396,7 +2480,14 @@ function listaL(c) {
   host.innerHTML = `${S.fDia ? `<p class="rap-res" role="status"><b>Só ${esc(rotuloDia(S.fDia).toLowerCase())}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`} <button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>${navDia()}` : ""}${S.fRap ? `<p class="rap-res" role="status"><b>${esc(RAP[S.fRap][0])}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`}${somaRap ? `, <b>${brl(somaRap)}</b> em gastos` : ""}.${compSem}</p>` : ""}${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
     feitos.map((x, i) => dia(x, i) + linha(x)).join("")}${falta.length ? `<tr class="dia falta"><td colspan="6"><span>${tituloFalta}</span>${totalFalta ? `<b>− ${brl(totalFalta)}</b>` : ""}</td></tr>${falta.map(linha).join("")}` : ""}${deFora.length ? `<tr class="dia falta"><td colspan="6"><span>Fora de ${nomeMes(S.mes)}</span></td></tr>${deFora.map(linha).join("")}` : ""}</tbody></table></div>`;
   }
-  $("pane-l").querySelectorAll("[data-so-dia]").forEach((tr) => (tr.onclick = () => { S.fDia = S.fDia ? "" : tr.dataset.soDia; listaL(calcMes(S.data, S.mes, hoje())); }));
+  $("pane-l").querySelectorAll("[data-so-dia]").forEach((tr) => (tr.onclick = () => {
+    if (S.sel) {   // escolhendo vários: tocar no dia marca (ou solta) os lançamentos daquele dia
+      const ids = []; for (let r = tr.nextElementSibling; r && !r.classList.contains("dia"); r = r.nextElementSibling) if (r.dataset.id) ids.push(r.dataset.id);
+      const todos = ids.length && ids.every((id) => S.sel.has(id)); ids.forEach((id) => (todos ? S.sel.delete(id) : S.sel.add(id)));
+      return listaL(calcMes(S.data, S.mes, hoje()));
+    }
+    S.fDia = S.fDia ? "" : tr.dataset.soDia; listaL(calcMes(S.data, S.mes, hoje()));
+  }));
   ligaDiaNav();
   $("pane-l").querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { S.view = "listas"; S.tab = b.dataset.ir; render(); }));
   $("pane-l").querySelectorAll("[data-ed]").forEach((b) => (b.onclick = () => editarLancamento(b.dataset.ed)));
@@ -2404,10 +2495,17 @@ function listaL(c) {
   $("pane-l").querySelectorAll("tr[data-id],tr[data-fixa]").forEach((tr) => {
     tr.querySelector("[data-conta]")?.addEventListener("click", () => opcoesDaConta(tr.dataset.fixa, tr.dataset.chave, tr.dataset.venc));
     const abre = () => { if (tr.dataset.chave) opcoesDaConta(tr.dataset.fixa, tr.dataset.chave, tr.dataset.venc); else if (tr.dataset.id) editarLancamento(tr.dataset.id); else if (tr.dataset.fixa && tr.dataset.fixa !== "1") editarFixo(tr.dataset.fixa); else { S.view = "listas"; S.tab = "r"; render(); } };
-    tr.addEventListener("click", (e) => { if (Date.now() - fimDeslizar < 450) return; if (noCelular() && !e.target.closest("button")) abre(); });
+    tr.querySelector("[data-paguei]")?.addEventListener("click", () => {
+      const f = S.data.fixos.find((z) => z.id === tr.dataset.fixa); if (!f) return;
+      pagarConta({ tipo: "fixo", id: f.id, chave: tr.dataset.chave, titulo: f.descricao, valor: Number(f.valor), data: tr.dataset.venc, mes: mKey(tr.dataset.venc) });
+    });
+    tr.addEventListener("click", (e) => {
+      if (S.sel && tr.dataset.id) { if (!e.target.closest("button")) alternaSel(tr.dataset.id); return; }   // escolhendo vários: o toque marca a linha
+      if (Date.now() - fimDeslizar < 450) return; if (noCelular() && !e.target.closest("button")) abre();
+    });
     tr.addEventListener("keydown", (e) => { if (noCelular() && e.target === tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); abre(); } });
   });
-  if (noCelular()) ligaDeslizar($("pane-l"));
+  if (noCelular() && !S.sel) ligaDeslizar($("pane-l"));
   $("pane-l").querySelectorAll("[data-del]").forEach((b) => armDelete(b, async () => {
     await apagaComDesfazer(b.dataset.del, () => conferirRepetidos());   // com "Desfazer", igual ao deslizar
   }));

@@ -2379,3 +2379,12 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .mais-atalho .ava{width:34px;height:34px;flex:none} .mais-atalho b{font-size:14px;line-height:1.2;overflow-wrap:anywhere}
 .soma-rap{display:flex;gap:6px;grid-column:1/-1} .soma-rap button{flex:1;min-height:40px;border:1px solid var(--border);background:var(--sunk);color:var(--ink);border-radius:999px;font-size:14px;font-weight:600}
 .ultima-vez{grid-column:1/-1;justify-self:start;border:1px dashed var(--border);background:none;color:var(--ink-2);border-radius:999px;padding:8px 14px;font-size:13.5px;text-align:left} .ultima-vez b{color:var(--ink)} .ultima-vez[hidden]{display:none}
+.chips-cat{margin-top:4px} .chips-cat .chip small{font-size:12px;font-weight:500;color:var(--muted);margin-left:2px}
+.buscas-rec[hidden]{display:none} .buscas-rec .chip{display:inline-flex;align-items:center;gap:6px;min-height:34px;font-size:13px} .buscas-rec .chip .ic{width:14px;height:14px}
+.tag.maior{background:var(--warn-soft);color:var(--warn);border-color:transparent}
+.paguei-rapido{margin-top:6px;justify-self:start;border:1px solid color-mix(in srgb,var(--good) 55%,var(--border));background:color-mix(in srgb,var(--good) 12%,var(--surface));color:var(--ink);border-radius:999px;padding:6px 14px;font-size:13px;font-weight:600;min-height:34px}
+.sel-barra{position:fixed;left:12px;right:12px;bottom:calc(78px + env(safe-area-inset-bottom));z-index:40;display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:10px 12px;border-radius:16px;background:var(--surface);border:1px solid var(--series);box-shadow:0 8px 28px rgba(0,0,0,.35)}
+.sel-barra[hidden]{display:none} .sel-barra b{flex:1 1 100%;font-size:14px} .sel-barra .btn{flex:1}
+#fSelecionar{justify-self:start;margin-top:6px}
+.lanc tr.sel{background:var(--series-soft);outline:2px solid var(--series);outline-offset:-2px}
+@media (min-width:900px){.sel-barra{bottom:16px;left:auto;right:24px;max-width:520px}}

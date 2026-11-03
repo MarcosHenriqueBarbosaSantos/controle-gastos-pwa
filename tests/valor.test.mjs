@@ -66,3 +66,10 @@ test("último da categoria: o mais recente até hoje, com os dias desde então",
   assert.equal(ultimoDaCategoria(l, "Saúde", "Despesa", "2026-10-10"), null);
   assert.equal(ultimoDaCategoria(l, "Mercado", "Receita", "2026-10-10"), null);
 });
+
+import { gastoAteODia } from "../js/calc.js";
+test("gasto até o dia: soma só gastos do mês até o dia pedido", () => {
+  const l = [GC("2026-10-02", "Pix", "Mercado"), GC("2026-10-05", "Pix", "Mercado"), GC("2026-10-06", "Pix", "Mercado"), GC("2026-11-03", "Pix", "Mercado"), { ...GC("2026-10-03", "Pix", "Mercado"), tipo: "Receita" }];
+  assert.equal(gastoAteODia(l, "2026-10", 5), 20);
+  assert.equal(gastoAteODia(l, "2026-11", 2), 0);
+});
