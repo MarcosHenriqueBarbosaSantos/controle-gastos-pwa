@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { semanaDoMotorista, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { semanaDoMotorista, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -4517,7 +4517,7 @@ function meuVeiculo() {
    gastos do turno (combustível, pedágio...) viram gastos no extrato, então o saldo do mês já conta tudo. Os turnos ficam nas preferências da conta. */
 const motDados = () => {
   const m = S.prefs.motorista || {}, a = m.ativo;
-  return { ativo: a?.ini ? { ini: Number(a.ini), parcial: Math.max(0, Number(a.parcial) || 0), antes: Array.isArray(a.antes) ? a.antes : [], pausado: Math.max(0, Number(a.pausado) || 0), pausaIni: Number(a.pausaIni) > 0 ? Number(a.pausaIni) : null, categoria: String(a.categoria || ""), odoIni: Number(a.odoIni) > 0 ? Number(a.odoIni) : null } : null,
+  return { ativo: a?.ini ? { ini: Number(a.ini), parcial: Math.max(0, Number(a.parcial) || 0), antes: Array.isArray(a.antes) ? a.antes : [], pausado: Math.max(0, Number(a.pausado) || 0), pausaIni: Number(a.pausaIni) > 0 ? Number(a.pausaIni) : null, categoria: String(a.categoria || ""), odoIni: Number(a.odoIni) > 0 ? Number(a.odoIni) : null, parcialEm: Number(a.parcialEm) > 0 ? Number(a.parcialEm) : null } : null,
     turnos: Array.isArray(m.turnos) ? m.turnos : [], diasSemana: Math.min(7, Math.max(1, Math.round(Number(m.diasSemana)) || 6)),
     horasDia: Math.min(16, Math.max(1, Math.round(Number(m.horasDia)) || 8)), extra: Math.max(0, Number(m.extra) || 0), perfil: m.perfil?.veiculo ? m.perfil : null };
 };
@@ -4691,6 +4691,14 @@ function contasMotTela() {
 }
 /** "Domingo, 1º de novembro". */
 const dataPorExtenso = (iso) => { const d = Number(iso.slice(8, 10)), s = DIAS_SEMANA[diaDaSemana(iso)]; return `${s[0].toUpperCase()}${s.slice(1)}, ${d === 1 ? "1º" : d} de ${nomeMes(mKey(iso))}`; };
+/** Rodando há mais de 2 horas sem atualizar o ganho: um lembrete na tela (e uma vibração leve, uma vez a cada 2 horas). */
+function lembraGanho(a) {
+  if (!a || !(Number(a.parcial) > 0) || a.pausaIni) return "";
+  const desde = Number(a.parcialEm) || Number(a.ini), passou = Date.now() - desde;
+  if (passou < 2 * 3600000) return "";
+  const vez = Math.floor(passou / (2 * 3600000)); if (S.lembrouGanho !== desde + ":" + vez) { S.lembrouGanho = desde + ":" + vez; vibra(25); }
+  return `<button type="button" class="mot-lembra" data-mot-lembra>${ico("agenda")}<span>Faz ${horasCurtas(passou)} que o ganho não é atualizado. <b>Atualizar agora</b></span></button>`;
+}
 /** "Sua semana", no domingo e na segunda: quanto ganhou, quanto foi para o carro, quanto sobrou e por hora. */
 /** Quanto o que sobrou na semana ajudou nas contas do mês: as contas já cobertas, ou a parte do que faltava que a semana cobriu. */
 function cobre(s, meta) {
@@ -5102,22 +5110,27 @@ function paneMot() {
   const vivo = () => {
     const ganho = m.ativo.parcial, gastos = gastosDaJornada(m.ativo), ms = msAndamento(m.ativo);
     const v = ritmoAoVivo({ ganho, gastos, ms, liquidoDia: liqRef, horasDia: m.horasDia });
+    // Ganho de mais de 2 horas atrás contra todas as horas rodadas dá um "abaixo" que não é verdade: aí o app só pede para atualizar.
+    if (ganho > 0 && Date.now() - (Number(m.ativo.parcialEm) || Number(m.ativo.ini)) >= 2 * 3600000) { v.veredito = null; v.desatualizado = true; }
     const alvo = refNormal ? "do seu ritmo normal" : "do que você precisa";
     const frase = v.veredito === "bom" ? `Acima ${alvo}: ${brl(v.minimo)} por hora.`
       : v.veredito === "abaixo" ? `Você precisa de ${brl(v.minimo)} por hora. Vale olhar horário e região.`
       : v.minimo > 0 ? `${refNormal ? "Seu ritmo normal" : "Meta do dia"}: ${brl(v.minimo)} líquidos por hora, rodando ${m.horasDia}h. Depois de 15 minutos o app diz se está valendo a pena.` : semContas ? "Cadastre suas contas para ter uma meta." : "Suas contas do mês estão cobertas: o que entrar agora é sobra.";
     const totalHoje = round2(doDia.ganho + ganho), bateu = meta.brutoDia > 0 && totalHoje >= meta.brutoDia && v.veredito !== "abaixo", cobriu = ganho > 0 && ganho >= gastos && gastos > 0;
     const aviso = bateu ? `<p class="mot-ver bom"><b>Meta do dia batida:</b> você fez ${brl(totalHoje)} e a meta era ${brl(meta.brutoDia)}. O que passar disso adianta os próximos dias.</p>`
+      : ganho > 0 && gastos > 0 && ganho < gastos ? `<p class="mot-ver">As corridas já pagaram <b>${Math.round((ganho / gastos) * 100)}%</b> dos gastos de hoje (${brl(gastos)} em combustível e pedágio). Faltam ${brl(round2(gastos - ganho))} para empatar.</p>`
       : cobriu ? `<p class="mot-ver bom"><b>Os gastos de hoje já estão pagos.</b> Daqui para a frente é lucro.${meta.brutoDia > 0 ? ` Faltam ${brl(round2(meta.brutoDia - totalHoje))} para a meta do dia.` : ""}</p>` : "";
-    const titulo = v.veredito === "bom" ? "Está valendo a pena." : v.veredito === "abaixo" ? `Abaixo ${alvo}.` : ganho > 0 ? "Jornada em andamento." : "Boa jornada.";
+    const titulo = v.desatualizado ? "Atualize o ganho para ver o ritmo." : v.veredito === "bom" ? "Está valendo a pena." : v.veredito === "abaixo" ? `Abaixo ${alvo}.` : ganho > 0 ? "Jornada em andamento." : "Boa jornada.";
     const pctGastos = ganho > 0 ? Math.min(100, Math.round((gastos / ganho) * 100)) : 0, sobra = round2(ganho - gastos);
     const txtSobra = sobra < 0 ? `Faltam ${brl(-sobra)}` : `Sobram ${brl(sobra)}`, apertado = pctGastos > 50;   // sem espaço na parte amarela, o valor desce para a legenda
     return `<h2 class="mot-frase">${titulo}</h2>
-      ${ganho > 0 ? `<p class="mot-hora ocultavel${v.liquidoPorHora < 0 ? " neg" : ""}" aria-label="${tracos(v.liquidoPorHora, brl)} líquidos por hora"><b>${tracos(v.liquidoPorHora, brl)}</b> por hora</p>
+      ${ganho > 0 && !v.desatualizado ? `<p class="mot-hora ocultavel${v.liquidoPorHora < 0 ? " neg" : ""}" aria-label="${tracos(v.liquidoPorHora, brl)} líquidos por hora"><b>${tracos(v.liquidoPorHora, brl)}</b> por hora</p>
       <div class="mot-barra ocultavel" role="img" aria-label="De ${brl(ganho)} ganhos, ${brl(gastos)} foram gastos e ${sobra < 0 ? `faltam ${brl(-sobra)}` : `sobram ${brl(sobra)}`}">${pctGastos ? `<i style="width:${pctGastos}%">${sobra < 0 ? txtSobra : pctGastos >= 18 ? "Gastos" : ""}</i>` : ""}${sobra < 0 ? "" : `<span>${apertado ? "" : txtSobra}</span>`}</div>
       <small class="mot-barra-leg ocultavel">${apertado && sobra >= 0 ? `${txtSobra} de` : "De"} ${brl(ganho)} ganhos ${doDia.n ? "nesta jornada" : "hoje"}</small>` : ""}
       ${aviso || (v.veredito ? `<p class="mot-ver ${v.veredito}">${frase}</p>` : "")}
-      <div class="gan-stats mot-vivo-st"><p><b class="ocultavel">${semContas ? "Sem meta" : meta.coberto ? "Coberta" : brl(meta.brutoDia)}</b><small>Meta de hoje</small></p><p><b class="ocultavel">${semContas ? "—" : meta.coberto || totalHoje >= meta.brutoDia ? "Nada" : brl(round2(meta.brutoDia - totalHoje))}</b><small>Faltam</small></p><p><b class="ocultavel">${brl(regra.minimo)}</b><small>Mínimo por km</small></p></div>`;
+      <div class="gan-stats mot-vivo-st"><p><b class="ocultavel">${semContas ? "Sem meta" : meta.coberto ? "Coberta" : brl(meta.brutoDia)}</b><small>Meta de hoje</small></p><p><b class="ocultavel">${semContas ? "—" : meta.coberto || totalHoje >= meta.brutoDia ? "Nada" : brl(round2(meta.brutoDia - totalHoje))}</b><small>Faltam</small></p><p><b class="ocultavel">${brl(regra.minimo)}</b><small>Mínimo por km</small></p></div>
+      ${!semContas && meta.brutoDia > 0 ? `<div class="mot-meta-bar ocultavel" role="img" aria-label="${Math.min(100, Math.round((totalHoje / meta.brutoDia) * 100))}% da meta de hoje"><i style="width:${Math.min(100, Math.round((totalHoje / meta.brutoDia) * 100))}%"></i></div><small class="mot-meta-leg ocultavel">${totalHoje >= meta.brutoDia ? "Meta de hoje batida." : `Faltam ${brl(round2(meta.brutoDia - totalHoje))} para a meta de hoje (${Math.round((totalHoje / meta.brutoDia) * 100)}%).`}</small>` : ""}
+      ${lembraGanho(m.ativo)}`;
   };
   if (m.ativo) {   // jornada em andamento: uma tela só com o cronômetro, no estilo "dirigindo"
     const a = m.ativo, pausada = Boolean(a.pausaIni), gastosTot = gastosDaJornada(a);
@@ -5155,12 +5168,13 @@ function paneMot() {
       gravaMot(mm); vibra(30); render();
     };
     $("motParar").onclick = () => fecharTurno();
+    $("motVivo").onclick = (e) => { if (e.target.closest("[data-mot-lembra]")) motEntra("ganho"); };   // o quadro se refaz a cada segundo: o toque é pego aqui
     // Ganho direto na tela, sem abrir outra: com ele o app já diz se está valendo a pena.
     if ($("motGanhoRap")) $("motGanhoRap").addEventListener("submit", (e) => {
       e.preventDefault(); const v = round2(nm($("mgrVal").value));
       if (!(v > 0)) { toast("Digite quanto já ganhou, por exemplo 85,00."); return $("mgrVal").focus(); }
       if (v > VALOR_MAX) return void toast(ALTO_DEMAIS);
-      const mm = motDados(); mm.ativo.parcial = v; gravaMot(mm); vibra(15); render();
+      const mm = motDados(); mm.ativo.parcial = v; mm.ativo.parcialEm = Date.now(); gravaMot(mm); vibra(15); render();
     });
     $("motOdo").onclick = () => anotaPainelMot();
     motRelogio = setInterval(() => { const el = $("motCron"); if (!el || S.view !== "listas" || S.tab !== "mot") return clearInterval(motRelogio); const ag = motDados().ativo; if (!ag) return clearInterval(motRelogio); el.textContent = relogio(msAndamento(ag)); $("motVivo").innerHTML = vivo(); }, 1000);
@@ -5269,7 +5283,7 @@ function paneMotSub(host) {
     $("motGanho").addEventListener("submit", (e) => {
       e.preventDefault(); const v = round2(nm($("mgnVal").value));
       if (v < 0 || v > VALOR_MAX) { toast(ALTO_DEMAIS); return; }
-      const mm = motDados(); mm.ativo.parcial = v; gravaMot(mm); vibra(15); volta();
+      const mm = motDados(); mm.ativo.parcial = v; mm.ativo.parcialEm = Date.now(); gravaMot(mm); vibra(15); volta();
     });
   }
   $("motVolta").onclick = volta;
@@ -5318,6 +5332,7 @@ function paneFechar(host) {
   const gastosJ = gastosDaJornada(m.ativo);
   host.innerHTML = `<div id="motRoot"><h3 class="mot-h" style="margin-top:0">Encerrar a jornada</h3><p class="hint" style="margin:0 0 10px">Você trabalhou <b>${horasCurtas(fim - ini - pausado)}</b>${pausado > 60000 ? ` (sem contar ${horasCurtas(pausado)} de pausa)` : ""}. Informe o <b>total de cada app</b>: o ganho entra no extrato como entrada.${m.ativo.parcial > 0 ? ` Você anotou ${brl(m.ativo.parcial)} até agora.` : ""}${gastosJ > 0 ? ` Os ${brl(gastosJ)} que você gastou na jornada já estão no extrato, não precisa lançar de novo.` : ""}</p>
     <form id="mtForm" class="dlg-form" autocomplete="off">
+      <button class="btn wide mt-print" type="button" id="mtPrint">${ico("camera")}Ler o print dos ganhos do app</button>
       ${camposApps(null)}
       <p class="hint wide mt-tot" id="mtTot" aria-live="polite">Total do dia: <b>R$ 0,00</b></p>
       ${campoCategoria("mtCat", m.ativo.categoria || categoriaAtual())}
@@ -5327,7 +5342,6 @@ function paneFechar(host) {
       <p class="auth-msg err wide" id="mtMsg"></p>
       <div class="actions wide"><button class="btn primary" type="submit">Salvar jornada</button><button class="btn" type="button" id="mtVolta">Voltar à jornada</button></div></form></div>`;
   $("mtVolta").onclick = motSai;
-  // Soma dos apps enquanto a pessoa digita, para conferir com o que os apps mostram.
   // Enquanto a pessoa digita: o total, o que sobra depois dos gastos da jornada e quanto isso deu por hora.
   const msTrab = Math.max(0, fim - ini - pausado);
   const somaApps = () => {
@@ -5339,6 +5353,23 @@ function paneFechar(host) {
   if (parcial > 0 && camposG.length === 1 && !camposG[0].value) camposG[0].value = parcial.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
   somaApps();
   host.querySelectorAll("[data-app]").forEach((i) => i.addEventListener("input", somaApps)); ligaKm();
+  // Print da tela de ganhos (um por app): o app lê o valor e põe no campo do app certo. A pessoa confere antes de salvar.
+  $("mtPrint").onclick = () => {
+    const f = document.createElement("input"); f.type = "file"; f.accept = "image/*";
+    f.onchange = async () => {
+      const arq = f.files?.[0]; if (!arq) return;
+      toastOuFlash("Lendo o print…");
+      try {
+        const campos = [...host.querySelectorAll("[data-app]")], { texto } = await lerImagem(arq, () => {}, hoje()), r = ganhosDoPrint(texto, campos.map((i) => i.dataset.app));
+        if (!r) return void toastOuFlash("Não achei um valor em reais nesse print. Digite o ganho de cada app.");
+        const alvo = campos.find((i) => i.dataset.app === r.app) || (campos.length === 1 ? campos[0] : null);
+        if (!alvo) return void toastOuFlash(`Li ${brl(r.valor)}, mas não sei de qual app é. Digite no campo certo.`);
+        alvo.value = r.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); alvo.dispatchEvent(new Event("input", { bubbles: true }));
+        toastOuFlash(`Li ${brl(r.valor)} do ${(APPS.find(([k]) => k === alvo.dataset.app) || [0, "app"])[1]}. Confira antes de salvar.`);
+      } catch { toastOuFlash("Não consegui ler o print agora. Digite o ganho de cada app."); }
+    };
+    f.click();
+  };
   $("mtForm").addEventListener("submit", async (e) => {
     e.preventDefault();
     const erro = (t) => { $("mtMsg").textContent = t; };

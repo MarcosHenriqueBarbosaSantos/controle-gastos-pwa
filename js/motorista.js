@@ -186,6 +186,22 @@ export function ritmoAoVivo({ ganho, gastos, ms, liquidoDia = 0, horasDia = 8 })
   return { liquido, porHora: ok ? r2(ganho / h) : null, liquidoPorHora, minimo, veredito };
 }
 
+/**
+ * O print da tela de ganhos de um app (lido pela câmera): de qual app é e quanto mostra.
+ * O valor é o que vem logo depois de "ganhos", "total", "hoje" ou "saldo"; sem isso, o maior valor em reais da tela.
+ * `apps` são as chaves que a pessoa usa (["uber", "99"]): o app só é reconhecido se estiver entre elas.
+ */
+export function ganhosDoPrint(texto, apps = []) {
+  const t = String(texto || ""), baixo = t.toLowerCase();
+  const nomes = [["ubermoto", /uber\s*moto\b/], ["99moto", /99\s*moto\b/], ["99food", /99\s*food\b/], ["indrive", /in\s*drive/], ["ifood", /ifood/], ["uber", /\buber\b/], ["99", /\b99\b(?!\s*(moto|food)\b)/]];
+  const app = nomes.find(([k, re]) => apps.includes(k) && re.test(baixo))?.[0] || null;
+  const valores = [...t.matchAll(/R\$\s*([\d.]{1,9},\d{2})/g)].map((x) => ({ i: x.index, v: Number(x[1].replace(/\./g, "").replace(",", ".")) })).filter((x) => x.v > 0 && x.v < 100000);
+  if (!valores.length) return null;
+  const chave = /(ganhos?|total|hoje|saldo)/gi; let perto = null;
+  for (const k of baixo.matchAll(chave)) { const depois = valores.find((x) => x.i > k.index && x.i - k.index < 60); if (depois) { perto = depois; break; } }
+  return { app, valor: r2((perto || valores.reduce((a, b) => (b.v > a.v ? b : a))).v) };
+}
+
 /** Horas digitadas de um jeito simples ("8", "8:30", "8h30" ou "8,5") em milissegundos. Devolve null se não der para entender. */
 export function lerHoras(txt) {
   const s = String(txt ?? "").trim().toLowerCase().replace(/\s/g, "");

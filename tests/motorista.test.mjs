@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { linhaDasContas, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes, semanaDoMotorista } from "../js/motorista.js";
+import { linhaDasContas, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, motivoDoPlacar, regrasEmTexto, appsDoPerfil, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, lerHoras, contaDoDia, fraseDoDia, msAndamento, ritmoAoVivo, somaValores, custoTotalPorKm, ganhoDoTurno, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, resumoTurnos, kmPorDia, metaDoDia, isoLocal, valeAPena, ganhoPorApp, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes, semanaDoMotorista, ganhosDoPrint } from "../js/motorista.js";
 
 test("perfil: quem roda de carro não vê apps de moto, e o inverso", () => {
   const nomes = (l) => l.map(([k]) => k);
@@ -288,4 +288,12 @@ test("ritmo ao vivo: sem ganho informado, nada de veredito (nem com gasto de com
   const h = 3600000;
   assert.equal(ritmoAoVivo({ ganho: 0, gastos: 0, ms: 2 * h, liquidoDia: 200, horasDia: 8 }).veredito, null);
   assert.equal(ritmoAoVivo({ ganho: 0, gastos: 50, ms: 2 * h, liquidoDia: 200, horasDia: 8 }).veredito, null);
+});
+
+test("print dos ganhos: acha o app e o valor que vem depois de ganhos ou total", () => {
+  assert.deepEqual(ganhosDoPrint("Uber Driver\nGanhos de hoje\nR$ 245,30\nViagens 12\nGorjetas R$ 10,00", ["uber", "99"]), { app: "uber", valor: 245.3 });
+  assert.deepEqual(ganhosDoPrint("99 Motorista\nSemana R$ 1.020,50\nTotal R$ 182,00", ["uber", "99"]), { app: "99", valor: 182 });
+  assert.deepEqual(ganhosDoPrint("R$ 12,00 corrida R$ 80,40", ["uber"]), { app: null, valor: 80.4 }, "sem palavra-chave: o maior valor");
+  assert.equal(ganhosDoPrint("Uber 99 Moto R$ 50,00", ["uber"]).app, "uber");
+  assert.equal(ganhosDoPrint("sem valor nenhum", ["uber"]), null);
 });

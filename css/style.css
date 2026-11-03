@@ -2362,3 +2362,8 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .mot-ganho-rap label{font-weight:700;font-size:15px}
 .mot-ganho-rap>div{display:flex;gap:8px} .mot-ganho-rap .in{flex:1;min-width:0;min-height:52px;font-size:20px;font-weight:700;text-align:right} .mot-ganho-rap .btn{flex:none;min-height:52px;padding:0 16px}
 .mot-ganho-rap small{font-size:12.5px;color:var(--muted)}
+/* Jornada: barra até a meta de hoje, lembrete de atualizar o ganho e o botão de ler o print. */
+.mot-meta-bar{height:8px;margin:12px 0 4px;border-radius:999px;background:var(--sunk);overflow:hidden} .mot-meta-bar i{display:block;height:100%;border-radius:inherit;background:var(--good)}
+.mot-meta-leg{display:block;font-size:12.5px;color:var(--ink-2)}
+.mot-lembra{display:flex;align-items:center;gap:8px;width:100%;margin:12px 0 0;padding:10px 12px;border:1px solid var(--warn);border-radius:12px;background:var(--warn-soft);color:var(--ink);font:inherit;font-size:13.5px;text-align:left;cursor:pointer} .mot-lembra .ic{flex:none;width:18px;height:18px}
+.mt-print{min-height:46px;gap:6px;justify-content:center} .mt-print .ic{width:18px;height:18px}
