@@ -163,8 +163,9 @@ export function andamentoDaMeta(st, destino, meta, hoje) {
   const marco = [100, 75, 50, 25].find((x) => pct >= x) || 0, noMes = mapa[cur] || 0;
   const janela = [1, 2, 3].map((k) => addM(cur, -k)).filter((m) => meses.length && m >= meses[0]);
   const ritmo = round2(Math.max(0, janela.length ? janela.reduce((t, m) => t + (mapa[m] || 0), 0) / janela.length : noMes));
-  const plano = round2(Math.max(0, Number(meta?.plano?.valor) || 0)), diaDoPlano = Math.min(31, Math.max(1, Math.round(Number(meta?.plano?.dia)) || 1));
-  const pulou = plano > 0 && (meta?.pulos || []).includes(cur), passo = plano > 0 ? plano : ritmo;
+  const porDia = meta?.plano?.freq === "dia" ? round2(Math.max(0, Number(meta.plano.valor) || 0)) : 0;
+  const plano = porDia > 0 ? round2(porDia * dim(cur)) : round2(Math.max(0, Number(meta?.plano?.valor) || 0)), diaDoPlano = Math.min(31, Math.max(1, Math.round(Number(meta?.plano?.dia)) || 1));
+  const pulou = plano > 0 && (meta?.pulos || []).includes(porDia > 0 ? hoje : cur), passo = plano > 0 ? plano : ritmo;
   let previsao = null;
   if (!concluida && passo > 0) {
     const depois = round2(falta - (pulou ? 0 : Math.max(0, passo - Math.max(0, noMes))));
@@ -183,7 +184,9 @@ export function andamentoDaMeta(st, destino, meta, hoje) {
   }
   const ref = concluida ? null : plano > 0 ? plano : porMes ?? (ritmo > 0 ? ritmo : null);
   const esteMes = ref === null ? null : round2(Math.min(falta, Math.max(0, ref - Math.max(0, noMes))));
-  return { destino, alvo, guardado, falta, pct, marco, concluida, noMes, ritmo, mesesDeBase: janela.length, plano, diaDoPlano, pulou, previsao, ate, porMes, prazoPassou, noPrazo, ref, esteMes };
+  let porDiaNec = null;
+  if (ate && !concluida && !prazoPassou) { const diasAte = diasEntre(hoje, `${ate}-${String(dim(ate)).padStart(2, "0")}`) + 1; if (diasAte > 0) porDiaNec = Math.ceil((falta / diasAte) * 100) / 100; }
+  return { destino, alvo, guardado, falta, pct, marco, concluida, noMes, ritmo, mesesDeBase: janela.length, plano, porDia, porDiaNec, diaDoPlano, pulou, previsao, ate, porMes, prazoPassou, noPrazo, ref, esteMes };
 }
 export function metasEmAndamento(st, metas, hoje) {
   return Object.entries(metas || {}).map(([destino, m]) => andamentoDaMeta(st, destino, m, hoje)).filter(Boolean)

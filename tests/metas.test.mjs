@@ -209,3 +209,19 @@ test("metas no custo do mês (opcional): quanto falta guardar e a sobra desconta
   assert.equal(com.aGuardar, 500); assert.equal(com.livre, Math.round((sem.livre - 500) * 100) / 100);
   assert.equal(sobraDoMes(calcMes(st, "2026-08", HOJE), 500).aGuardar, 0);   // mês que já passou não muda
 });
+
+import { andamentoDaMeta as _and, combinadosDoMes as _comb } from "../js/calc.js";
+test("meta com combinado por dia: o mês vale o dia vezes os dias dele, e hoje aparece como combinado", () => {
+  const st = { lancamentos: [], fixos: [], pagos: [], faturas: [], cartoes: [] };
+  const metas = { Viagem: { valor: 3000, ate: "2027-06", plano: { valor: 20, freq: "dia" } } };
+  const a = _and(st, "Viagem", metas.Viagem, "2026-11-12");
+  assert.equal(a.porDia, 20); assert.equal(a.plano, 600);   // 20 por dia × 30 dias de novembro
+  assert.ok(a.porDiaNec > 0 && a.porDiaNec < 20);           // para chegar em junho bastam ~R$ 11 por dia
+  const c = _comb(st, metas, "2026-11-12");
+  assert.deepEqual(c.map((x) => [x.destino, x.valor, x.diario, x.data]), [["Viagem", 20, true, "2026-11-12"]]);
+  // já guardou 20 hoje: o combinado de hoje some; pulando o dia, também
+  const jaGuardou = { ...st, lancamentos: [{ tipo: "Reserva", categoria: "Viagem", data: "2026-11-12", valor: 20, forma: "" }] };
+  assert.equal(_comb(jaGuardou, metas, "2026-11-12").length, 0);
+  assert.equal(_comb(st, { Viagem: { ...metas.Viagem, pulos: ["2026-11-12"] } }, "2026-11-12").length, 0);
+  assert.equal(_comb(st, { Viagem: { ...metas.Viagem, pulos: ["2026-11-12"] } }, "2026-11-13").length, 1);
+});

@@ -692,8 +692,10 @@ export function andamentoDaMeta(st, destino, meta, hoje) {
   const marco = [100, 75, 50, 25].find((x) => pct >= x) || 0, noMes = mapa[cur] || 0;
   const janela = [1, 2, 3].map((k) => addM(cur, -k)).filter((m) => meses.length && m >= meses[0]);
   const ritmo = round2(Math.max(0, janela.length ? janela.reduce((t, m) => t + (mapa[m] || 0), 0) / janela.length : noMes));
-  const plano = round2(Math.max(0, Number(meta?.plano?.valor) || 0)), diaDoPlano = Math.min(31, Math.max(1, Math.round(Number(meta?.plano?.dia)) || 1));
-  const pulou = plano > 0 && (meta?.pulos || []).includes(cur), passo = plano > 0 ? plano : ritmo;
+  // Combinado por mês (valor do mês) ou por dia (valor de cada dia; o mês equivale a esse valor vezes os dias dele).
+  const porDia = meta?.plano?.freq === "dia" ? round2(Math.max(0, Number(meta.plano.valor) || 0)) : 0;
+  const plano = porDia > 0 ? round2(porDia * dim(cur)) : round2(Math.max(0, Number(meta?.plano?.valor) || 0)), diaDoPlano = Math.min(31, Math.max(1, Math.round(Number(meta?.plano?.dia)) || 1));
+  const pulou = plano > 0 && (meta?.pulos || []).includes(porDia > 0 ? hoje : cur), passo = plano > 0 ? plano : ritmo;
   let previsao = null;
   if (!concluida && passo > 0) {
     const depois = round2(falta - (pulou ? 0 : Math.max(0, passo - Math.max(0, noMes))));   // o que ainda falta se este mês repetir o passo
@@ -712,7 +714,10 @@ export function andamentoDaMeta(st, destino, meta, hoje) {
   }
   const ref = concluida ? null : plano > 0 ? plano : porMes ?? (ritmo > 0 ? ritmo : null);
   const esteMes = ref === null ? null : round2(Math.min(falta, Math.max(0, ref - Math.max(0, noMes))));
-  return { destino, alvo, guardado, falta, pct, marco, concluida, noMes, ritmo, mesesDeBase: janela.length, plano, diaDoPlano, pulou, previsao, ate, porMes, prazoPassou, noPrazo, ref, esteMes };
+  // Quanto guardar por dia, a partir de hoje, para chegar na data (hoje até o último dia do mês escolhido).
+  let porDiaNec = null;
+  if (ate && !concluida && !prazoPassou) { const diasAte = diasEntre(hoje, `${ate}-${String(dim(ate)).padStart(2, "0")}`) + 1; if (diasAte > 0) porDiaNec = Math.ceil((falta / diasAte) * 100) / 100; }
+  return { destino, alvo, guardado, falta, pct, marco, concluida, noMes, ritmo, mesesDeBase: janela.length, plano, porDia, porDiaNec, diaDoPlano, pulou, previsao, ate, porMes, prazoPassou, noPrazo, ref, esteMes };
 }
 
 /** Quanto ainda falta guardar neste mês para todas as metas (o combinado, ou o valor por mês até a data, menos o que já foi guardado). */
@@ -794,7 +799,13 @@ export function lembreteDaMeta(st, metas, hoje) {
 export function combinadosDoMes(st, metas, hoje) {
   const cur = mKey(hoje);
   return metasEmAndamento(st, metas, hoje).filter((a) => a.plano > 0 && !a.concluida && !a.pulou && a.esteMes > 0)
-    .map((a) => { const data = diaNoMes(cur, a.diaDoPlano); return { destino: a.destino, valor: a.esteMes, data, chegou: data <= hoje }; })
+    .map((a) => {
+      if (a.porDia > 0) {   // combinado por dia: o que falta guardar hoje (menos o que já foi guardado hoje)
+        const hojeJa = round2(st.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === a.destino && x.data === hoje && x.forma !== RETIRADA && x.forma !== JA_TINHA).reduce((t, x) => t + Number(x.valor), 0));
+        return { destino: a.destino, valor: round2(Math.min(a.falta, Math.max(0, a.porDia - hojeJa))), data: hoje, chegou: true, diario: true };
+      }
+      const data = diaNoMes(cur, a.diaDoPlano); return { destino: a.destino, valor: a.esteMes, data, chegou: data <= hoje };
+    }).filter((x) => x.valor > 0)
     .sort((x, y) => x.data.localeCompare(y.data) || x.destino.localeCompare(y.destino));
 }
 

@@ -1374,7 +1374,7 @@ function textoDaMeta(a) {
     const com = a.plano > 0 ? `Com os ${brlc(a.plano)} do seu combinado` : a.ritmo > 0 ? `No seu ritmo (${brl0(a.ritmo)} por mês)` : "";
     return base + (!com ? "" : a.noPrazo ? ` ${com} dá tempo.` : a.previsao ? ` ${com}, ela fica pronta em ${mesAno(a.previsao)}.` : "");
   }
-  if (a.previsao) return (a.plano > 0 ? `Guardando os ${brlc(a.plano)} por mês do seu combinado` : a.mesesDeBase ? `Guardando ${brl0(a.ritmo)} por mês, como você vem fazendo` : `Guardando todo mês os ${brl0(a.ritmo)} que guardou neste`) + `, a meta fica pronta em ${mesAno(a.previsao)}.`;
+  if (a.previsao) return (a.porDia > 0 ? `Guardando os ${brlc(a.porDia)} por dia do seu combinado` : a.plano > 0 ? `Guardando os ${brlc(a.plano)} por mês do seu combinado` : a.mesesDeBase ? `Guardando ${brl0(a.ritmo)} por mês, como você vem fazendo` : `Guardando todo mês os ${brl0(a.ritmo)} que guardou neste`) + `, a meta fica pronta em ${mesAno(a.previsao)}.`;
   return a.guardado > 0 ? `Faltam ${brl(a.falta)}. Escolha uma data ou um valor por mês e o app diz quando a meta fica pronta.` : `Faltam ${brl(a.falta)}. Quando você começar a guardar, o app mostra em que mês a meta fica pronta.`;
 }
 /** O que dá para fazer neste mês, sem cobrança: em mês apertado o app só diz que tudo bem. */
@@ -1570,9 +1570,13 @@ function detalheMeta(destino, escolher = false, aviso = "") {
       <label class="f">Quanto você quer juntar (R$)<input class="in money" id="metaValor" inputmode="decimal" placeholder="Ex.: 6.000,00" value="${esc(dinheiro(Number(meta?.valor) || 0))}"></label>
       ${sugReserva.length ? `<div class="meta-sug larga"><small>Uma reserva boa cobre de 3 a 6 meses do que você gasta (${brl0(custoMedio)} por mês, em média):</small><div>${sugReserva.map(([n, v]) => `<button type="button" class="chip" data-meta-sug="${v}">${n} meses: ${brl0(v)}</button>`).join("")}</div></div>` : ""}
       <label class="f">Até quando (opcional)<select class="in" id="metaAte"><option value="">Sem data</option>${meses.map((m) => `<option value="${m}"${m === meta?.ate ? " selected" : ""}>${mesAno(m)}</option>`).join("")}</select></label>
-      <label class="f">Guardar todo mês (opcional, R$)<input class="in money" id="metaPlano" inputmode="decimal" placeholder="Ex.: 300,00" value="${esc(dinheiro(Number(meta?.plano?.valor) || 0))}"></label>
-      <label class="f">No dia<select class="in" id="metaDia">${Array.from({ length: 31 }, (_, i) => `<option${i + 1 === diaPadrao ? " selected" : ""}>${i + 1}</option>`).join("")}</select></label>
-      <p class="hint larga">O valor por mês vira um <b>combinado</b>: ele aparece todo mês em Próximos vencimentos para você marcar <b>Guardei</b>. Não é uma conta: dá para pular o mês quando precisar, sem problema.</p>
+      <div class="f larga"><span id="metaFreqLbl">Quero guardar</span><div class="seg" role="group" aria-labelledby="metaFreqLbl" id="metaFreq"><button type="button" data-freq="mes" aria-pressed="${meta?.plano?.freq === "dia" ? "false" : "true"}">Todo mês</button><button type="button" data-freq="dia" aria-pressed="${meta?.plano?.freq === "dia" ? "true" : "false"}">Todo dia</button></div></div>
+      <label class="f"><span id="metaPlanoLbl">Guardar todo mês (opcional, R$)</span><input class="in money" id="metaPlano" inputmode="decimal" placeholder="Ex.: 300,00" value="${esc(dinheiro(Number(meta?.plano?.valor) || 0))}"></label>
+      <label class="f" id="metaDiaWrap">No dia<select class="in" id="metaDia">${Array.from({ length: 31 }, (_, i) => `<option${i + 1 === diaPadrao ? " selected" : ""}>${i + 1}</option>`).join("")}</select></label>
+      <label class="f" id="metaFolgaWrap" hidden>Folga para chegar antes<select class="in" id="metaFolga">${[[0, "Sem folga"], [5, "5% a mais"], [10, "10% a mais"], [15, "15% a mais"], [20, "20% a mais"]].map(([v, t]) => `<option value="${v}"${v === (Number.isFinite(Number(meta?.folga)) && meta?.folga !== undefined ? Number(meta.folga) : 10) ? " selected" : ""}>${t}</option>`).join("")}</select></label>
+      <label class="check larga"><input type="checkbox" id="metaNoMes" ${meta?.noMes ? "checked" : ""}> Contar esta meta nas contas do mês</label>
+      <p class="hint larga" style="margin:-4px 0 0">O que falta guardar neste mês sai da sua sobra, como se fosse uma conta. Bom para uma meta que você quer cumprir sem falta, como o carro novo.</p>
+      <p class="hint larga" id="metaDicaFreq">O valor por mês vira um <b>combinado</b>: ele aparece todo mês em Próximos vencimentos para você marcar <b>Guardei</b>. Não é uma conta: dá para pular o mês quando precisar, sem problema.</p>
       <p class="hint larga meta-prev" id="metaPrev" aria-live="polite"></p>
       <p class="hint larga" id="metaErro" role="alert" hidden></p>
       <div class="meta-acoes larga"><button class="btn primary" type="submit">${a ? "Salvar mudanças" : "Criar meta"}</button>${cats("Reserva").includes(destino) ? `<button class="btn" type="button" id="metaNome">Mudar o nome</button>` : ""}${meta ? `<button class="btn perigo" type="button" id="metaTirar">${ico("lixo")}Excluir a meta</button>` : ""}</div>
@@ -1582,20 +1586,39 @@ function detalheMeta(destino, escolher = false, aviso = "") {
     <p class="hint" style="margin:6px 0 0">${demo ? "Na demonstração os recados não são enviados." : "Lembrete: no dia em que o seu dinheiro entra e dois dias antes de o mês acabar, só quando deve sobrar. Em mês apertado o app não manda nada. Parabéns: no dia seguinte a você guardar. Chegam por e-mail e notificação, como os avisos de contas."}</p>
     <p class="hint" style="margin:10px 0 0">A conta é simples: o que falta dividido pelos meses. O app não calcula rendimento de investimento.</p>
     <div class="actions"><button class="btn" type="button" data-close>Fechar</button></div>`);
+  let freq = meta?.plano?.freq === "dia" ? "dia" : "mes";
   const lido = () => {
     const v = parseMoney($("metaValor").value), pv = parseMoney($("metaPlano").value);
-    return { ...(meta || {}), valor: v > 0 ? round2(v) : 0, ate: $("metaAte").value, plano: pv > 0 ? { valor: round2(pv), dia: Number($("metaDia").value) } : undefined };
+    const plano = pv > 0 ? (freq === "dia" ? { valor: round2(pv), freq: "dia" } : { valor: round2(pv), dia: Number($("metaDia").value) }) : undefined;
+    return { ...(meta || {}), valor: v > 0 ? round2(v) : 0, ate: $("metaAte").value, plano, folga: Number($("metaFolga").value), noMes: $("metaNoMes").checked };
   };
   // Enquanto a pessoa digita, o app já mostra a conta com os valores novos.
   const previa = () => {
     const m = lido(), p = andamentoDaMeta(S.data, destino, m, hj), host = $("metaPrev");
+    $("metaPlanoLbl").textContent = freq === "dia" ? "Guardar por dia (opcional, R$)" : "Guardar todo mês (opcional, R$)";
+    $("metaPlano").placeholder = freq === "dia" ? "Ex.: 20,00" : "Ex.: 300,00";
+    $("metaDiaWrap").hidden = freq === "dia"; $("metaFolgaWrap").hidden = freq !== "dia";
+    $("metaDicaFreq").innerHTML = freq === "dia" ? "O valor por dia vira um <b>combinado diário</b>: todo dia ele aparece em Próximos vencimentos como <b>Guardar hoje</b>, para você marcar <b>Guardei</b>. Não é uma conta: dá para pular o dia quando precisar." : "O valor por mês vira um <b>combinado</b>: ele aparece todo mês em Próximos vencimentos para você marcar <b>Guardei</b>. Não é uma conta: dá para pular o mês quando precisar, sem problema.";
+    document.querySelectorAll("#metaFreq [data-freq]").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.freq === freq)));
     if (!p) { host.textContent = ""; return; }
-    const usar = !p.concluida && !m.plano && p.porMes > 0 ? p.porMes : 0;
-    host.innerHTML = esc(textoDaMeta(p)) + (usar ? ` <button class="link" type="button" id="metaUsar">Combinar ${brl(usar)} por mês</button>` : "");
+    let usar = !p.concluida && !m.plano && p.porMes > 0 ? p.porMes : 0, usarDia = 0, txt = textoDaMeta(p), htmlExtra = "";
+    if (freq === "dia" && !p.concluida) {
+      // Previsão diária: quanto guardar por dia para chegar na data, e a folga para chegar um pouco antes.
+      if (p.porDiaNec > 0) {
+        const folga = Number(m.folga) || 0, comFolga = Math.ceil(p.porDiaNec * (1 + folga / 100) * 100) / 100;
+        txt = `Para chegar em ${mesAno(p.ate)}: ${brl(p.porDiaNec)} por dia${folga > 0 ? `. Com ${folga}% de folga, para chegar antes: ${brl(comFolga)} por dia` : ""}.${p.porDia > 0 ? ` Guardando os ${brlc(p.porDia)} por dia do seu combinado, ${p.noPrazo ? "dá tempo" : p.previsao ? `ela fica pronta em ${mesAno(p.previsao)}` : "ainda não há previsão"}.` : ""}`;
+        if (!(p.porDia > 0) || Math.abs(p.porDia - comFolga) > 0.009) usarDia = comFolga;
+      } else if (p.porDia > 0) txt = `Guardando ${brl(p.porDia)} por dia (${brl0(p.plano)} por mês), a meta fica pronta em ${p.previsao ? mesAno(p.previsao) : "—"}.`;
+      else txt = "Escolha até quando e o app diz quanto guardar por dia, com uma folga para chegar antes.";
+      usar = 0;
+    }
+    host.innerHTML = esc(txt) + (usar ? ` <button class="link" type="button" id="metaUsar">Combinar ${brl(usar)} por mês</button>` : "") + (usarDia ? ` <button class="link" type="button" id="metaUsarDia">Combinar ${brl(usarDia)} por dia</button>` : "") + htmlExtra;
     if (usar) $("metaUsar").onclick = () => { $("metaPlano").value = dinheiro(usar); previa(); };
+    if (usarDia) $("metaUsarDia").onclick = () => { $("metaPlano").value = dinheiro(usarDia); previa(); };
   };
-  ["metaValor", "metaPlano"].forEach((id) => $(id).addEventListener("input", previa)); $("metaAte").onchange = previa; $("metaDia").onchange = previa;
-  if (!a) previa();
+  document.querySelectorAll("#metaFreq [data-freq]").forEach((b) => (b.onclick = () => { freq = b.dataset.freq; previa(); }));
+  ["metaValor", "metaPlano"].forEach((id) => $(id).addEventListener("input", previa)); $("metaAte").onchange = previa; $("metaDia").onchange = previa; $("metaFolga").onchange = previa;
+  previa();   // sempre: ajusta os rótulos ao modo (por mês ou por dia) e, em meta nova, já mostra a conta
   if ($("metaDest")) $("metaDest").onchange = (e) => detalheMeta(e.target.value, true);
   if ($("metaRetirar")) $("metaRetirar").onclick = () => guardarParaMeta(destino, 0, "Retirar"); if ($("metaJaTinha")) $("metaJaTinha").onclick = () => guardarParaMeta(destino, 0, "Já tinha guardado");
   $("dlgBody").querySelectorAll("[data-meta-sug]").forEach((b) => (b.onclick = () => { $("metaValor").value = dinheiro(Number(b.dataset.metaSug)); previa(); }));
@@ -1605,11 +1628,12 @@ function detalheMeta(destino, escolher = false, aviso = "") {
     const m = lido(), erro = $("metaErro");
     if (!(m.valor > 0) || m.valor > VALOR_MAX) { erro.hidden = false; erro.style.color = "var(--bad)"; erro.textContent = m.valor > VALOR_MAX ? ALTO_DEMAIS : "Digite quanto você quer juntar, por exemplo 6.000,00."; $("metaValor").focus(); return; }
     if (!m.plano) { delete m.plano; delete m.pulos; }
+    if (!m.noMes) delete m.noMes;
     S.prefs.metas = { ...metasDe(), [destino]: m }; await salvaPrefs();
     if ($("dlg").open) $("dlg").close();
     render();
     const pa = andamentoDaMeta(S.data, destino, m, hoje());
-    toast(`${a ? "Meta salva" : "Meta criada"}: ${destino}, ${brl(m.valor)}${m.ate ? ` até ${mesAno(m.ate)}` : ""}.${pa && !pa.concluida && m.ate && pa.porMes ? ` Guarde ${brl(pa.porMes)} por mês.` : m.plano ? ` Combinado: ${brl(m.plano.valor)} por mês.` : ""}`);
+    toast(`${a ? "Meta salva" : "Meta criada"}: ${destino}, ${brl(m.valor)}${m.ate ? ` até ${mesAno(m.ate)}` : ""}.${pa && !pa.concluida && m.ate && pa.porMes && m.plano?.freq !== "dia" ? ` Guarde ${brl(pa.porMes)} por mês.` : m.plano ? ` Combinado: ${brl(m.plano.valor)} por ${m.plano.freq === "dia" ? "dia" : "mês"}.` : ""}`);
   });
   if ($("metaNome")) $("metaNome").onclick = () => renomearCategoria("Reserva", destino, (novo) => detalheMeta(novo || destino));
   if ($("metaTirar")) armDelete($("metaTirar"), () => excluiMeta(destino), "Toque de novo para excluir");
@@ -1627,6 +1651,11 @@ async function guardarCombinado(x) {
 /** Pular o combinado deste mês: nada é cobrado e no mês seguinte ele volta. */
 async function pularCombinado(x) {
   const cur = mKey(hoje()), m = metasDe()[x.destino]; if (!m) return;
+  if (x.diario) {   // combinado por dia: pula só hoje; amanhã ele volta
+    m.pulos = [...new Set([...(m.pulos || []), hoje()])].sort().slice(-40);
+    await salvaPrefs(); render();
+    return toastOuFlash(`Tudo bem: hoje fica sem guardar para ${x.destino}. Amanhã o combinado volta.`);
+  }
   m.pulos = [...new Set([...(m.pulos || []), cur])].sort().slice(-12);
   await salvaPrefs(); render();
   toastOuFlash(`Tudo bem: ${nomeMes(cur)} fica sem o combinado de ${x.destino}. Em ${nomeMes(addM(cur, 1))} ele volta.`);
@@ -1637,8 +1666,11 @@ async function pularCombinado(x) {
  * lançamento por lançamento, com o ritmo pelo andamento do mês. Fica no topo do Planejar.
  */
 function htmlSobra(c) {
-  const metasMes = c.fase === "atual" && S.loaded ? metasAGuardarNoMes(S.data, S.prefs.metas, hoje()) : 0, contaMetas = metasMes > 0 && S.prefs.metasNoCusto === true;
-  const s = sobraDoMes(c, contaMetas ? metasMes : 0), mes = nomeMes(S.mes), atual = c.fase === "atual";
+  const metasMes = c.fase === "atual" && S.loaded ? metasAGuardarNoMes(S.data, S.prefs.metas, hoje()) : 0;
+  // Entram na conta as metas marcadas "Contar nas contas do mês" (em cada meta) ou todas, se a opção geral estiver ligada.
+  const metasNaConta = c.fase === "atual" && S.loaded ? round2(metasEmAndamento(S.data, S.prefs.metas, hoje()).filter((x) => !x.concluida && !x.pulou && x.esteMes > 0 && (S.prefs.metasNoCusto === true || S.prefs.metas?.[x.destino]?.noMes)).reduce((t, x) => t + x.esteMes, 0)) : 0;
+  const contaMetas = metasNaConta > 0;
+  const s = sobraDoMes(c, contaMetas ? metasNaConta : 0), mes = nomeMes(S.mes), atual = c.fase === "atual";
   if (!S.loaded) return "";
   if (!(s.entra > 0)) return `<section class="sobra-pl"><h2>O que sobra para viver ${mes}</h2>
     <p class="hint">Para o app mostrar o que sobra do salário depois das contas, cadastre o que entra todo mês (o salário, por exemplo) em <b>Entradas fixas</b>.</p>
@@ -1651,7 +1683,7 @@ function htmlSobra(c) {
     ${s.faturas ? linha("− Faturas do cartão", "as que vencem neste mês", "− " + brl(s.faturas)) : ""}
     ${s.guardado ? linha("− Guardado", "reserva, investimentos e metas", "− " + brl(s.guardado)) : ""}
     ${metasMes > 0 ? `<li class="opc${contaMetas ? "" : " desligada"}"><span><b>${contaMetas ? "− " : ""}Metas das caixinhas</b><small>falta guardar neste mês · opcional</small>
-      <label class="check sm"><input type="checkbox" id="sobraMetas" ${contaMetas ? "checked" : ""}> Contar na conta do mês</label></span><b class="v">${contaMetas ? "− " : ""}${brl(metasMes)}</b></li>` : ""}
+      <label class="check sm"><input type="checkbox" id="sobraMetas" ${contaMetas ? "checked" : ""}> Contar na conta do mês</label></span><b class="v">${contaMetas ? "− " : ""}${brl(contaMetas ? metasNaConta : metasMes)}</b></li>` : ""}
     ${linha(`= Sobra para viver ${mes}`, "mercado, transporte, lazer: o dia a dia", brl(s.livre), "tot" + (s.livre <= 0 ? " neg" : ""))}</ul>`;
   if (s.livre <= 0) return `<section class="sobra-pl"><h2>O que sobra para viver ${mes}</h2>${cascata}
     <p class="sobra-aviso bad">As contas fixas e o que já tem dono passam das entradas: este mês não sobra nada para o dia a dia. Cada gasto novo aumenta o que falta.</p></section>`;
@@ -1679,7 +1711,8 @@ function htmlSobra(c) {
 }
 $("pane-m").addEventListener("change", (e) => {
   if (e.target.id !== "sobraMetas") return;
-  S.prefs.metasNoCusto = e.target.checked; salvaPrefs(); render();
+  S.prefs.metasNoCusto = e.target.checked; if (!e.target.checked) Object.values(metasDe()).forEach((m) => { delete m.noMes; });   // desligar tira todas, também as marcadas uma a uma
+  salvaPrefs(); render();
   toast(e.target.checked ? "As metas entram na conta do mês: a sobra já desconta o que falta guardar." : "As metas saíram da conta do mês.");
 });
 // Na aba Planejar: tocar num gasto da linha do tempo abre a edição; o botão do salário leva às Entradas fixas.
@@ -1917,13 +1950,14 @@ function renderVenc() {
   const comb = S.loaded ? combinadosDoMes(S.data, S.prefs.metas, hoje()) : [];
   const combHtml = comb.map((x, i) => `<li class="comb" data-u="ok">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
-      <span class="oque"><b>Guardar para ${esc(x.destino)}</b><span>Combinado da meta · você escolhe</span></span>
-      <span class="quando ok">${x.chegou ? "quando der" : "dia " + x.data.slice(8, 10)}</span>
+      <span class="oque"><b>${x.diario ? "Guardar hoje" : "Guardar"} para ${esc(x.destino)}</b><span>${x.diario ? "Combinado diário da meta" : "Combinado da meta"} · você escolhe</span></span>
+      <span class="quando ok">${x.diario ? "hoje" : x.chegou ? "quando der" : "dia " + x.data.slice(8, 10)}</span>
       <span class="valor">${brl(x.valor)}</span>
-      <span class="dupla"><button class="btn sm" type="button" data-cg="${i}">Guardei</button><button class="btn sm leve" type="button" data-cp="${i}">Pular</button></span></li>`).join("");
+      <span class="dupla"><button class="btn sm" type="button" data-cg="${i}">Guardei</button><button class="btn sm leve" type="button" data-cp="${i}">Pular</button><button class="btn sm leve" type="button" data-ca="${i}">Ajustar</button></span></li>`).join("");
   const ligaComb = () => {
     host.querySelectorAll("[data-cg]").forEach((b) => (b.onclick = () => { b.disabled = true; guardarCombinado(comb[Number(b.dataset.cg)]); }));
     host.querySelectorAll("[data-cp]").forEach((b) => (b.onclick = () => { b.disabled = true; pularCombinado(comb[Number(b.dataset.cp)]); }));
+    host.querySelectorAll("[data-ca]").forEach((b) => (b.onclick = () => detalheMeta(comb[Number(b.dataset.ca)].destino)));   // ajustar o valor ou a frequência sem sair do Início
   };
   if (!l.length) {
     const temDados = S.data.lancamentos.length || S.data.fixos.length || S.data.faturas.length;
@@ -1967,13 +2001,14 @@ $("venc").addEventListener("click", (e) => { if (e.target.closest("#vencCal")) c
 const SIT = { atrasada: ["!", "atrasada"], hoje: ["●", "vence hoje"], "a vencer": ["●", "a vencer"], paga: ["✓", "paga"] };
 function calendario(m, escolhido = "") {
   const cal = calendarioDoMes(S.data, m, hoje()), hj = hoje(), ano = m.slice(0, 4);
+  const ac = S.loaded && m === mKey(hj) && !semEntradaNoMes(calcMes(S.data, m, hj)) ? quandoOsDinheiroAcaba(S.data, hj) : null, diaZero = ac?.diaZero && ac.diaZero.startsWith(m) ? ac.diaZero : "";
   const sel = escolhido || (m === mKey(hj) ? hj : cal.dias.find((d) => d.contas.length || d.entradas.length)?.iso || `${m}-01`), dSel = cal.dias[Number(sel.slice(8, 10)) - 1];
   const curto = (v) => (v >= 1000 ? `${(v / 1000).toLocaleString("pt-BR", { maximumFractionDigits: 1 })}k` : Math.round(v).toLocaleString("pt-BR"));
   const rotulo = (d) => `${d.dia} de ${nomeMes(m)}${d.iso === hj ? ", hoje" : ""}: ${d.contas.length ? `${d.contas.length} ${d.contas.length === 1 ? "conta" : "contas"}${d.aPagar ? `, ${brl(d.aPagar)} a pagar` : ", tudo pago"}${d.situacao === "atrasada" ? ", com atraso" : ""}` : "nenhuma conta"}${d.entradas.length ? `; entra ${brl(d.entradas.reduce((t, x) => t + x.valor, 0))}` : ""}`;
   // Nos dias que já passaram, quanto foi gasto (à vista e no cartão), para o calendário contar também o dia a dia.
   const gastos = new Map(); for (const x of S.data.lancamentos) if (x.tipo === "Despesa" && x.data?.startsWith(m) && x.data <= hj) gastos.set(x.data, round2((gastos.get(x.data) || 0) + Number(x.valor)));
   const gastoDia = (iso) => gastos.get(iso) || 0;
-  const casa = (d) => `<button type="button" class="cal-d${d.situacao ? " s-" + d.situacao.replace(" ", "-") : ""}${d.iso === hj ? " hoje" : ""}${d.iso < hj && !d.aPagar ? " passado" : ""}${d.iso === sel ? " sel" : ""}" data-d="${d.iso}" aria-label="${esc(rotulo(d))}" aria-pressed="${d.iso === sel}">
+  const casa = (d) => `<button type="button" class="cal-d${d.situacao ? " s-" + d.situacao.replace(" ", "-") : ""}${d.iso === diaZero ? " acaba" : ""}${d.iso === hj ? " hoje" : ""}${d.iso < hj && !d.aPagar ? " passado" : ""}${d.iso === sel ? " sel" : ""}" data-d="${d.iso}" aria-label="${esc(rotulo(d))}" aria-pressed="${d.iso === sel}">
       <span class="n">${d.dia}</span>${d.contas.length ? `<span class="m"><i aria-hidden="true">${SIT[d.situacao][0]}</i>${d.aPagar ? curto(d.aPagar) : ""}</span>` : ""}${d.entradas.length ? `<span class="e" aria-hidden="true">+${curto(d.entradas.reduce((t, x) => t + x.valor, 0))}</span>` : ""}${!d.contas.length && !d.entradas.length && gastoDia(d.iso) > 0 ? `<span class="g" aria-hidden="true">−${curto(gastoDia(d.iso))}</span>` : ""}</button>`;
   const ag = agendaDoMes(cal, hj), sobra = round2(cal.entra - cal.aPagar - cal.pago), podeLancar = sel <= hj;
   const dd = (dia) => `${DIAS3[diaDaSemana(`${m}-${String(dia).padStart(2, "0")}`)]} ${dia}`;
@@ -1984,14 +2019,22 @@ function calendario(m, escolhido = "") {
     <div class="cal-nav"><button class="iconbtn" type="button" id="calAnt" aria-label="Mês anterior">${ico("esq")}</button><b>${nomeMes(m)} de ${ano}</b><button class="iconbtn" type="button" id="calProx" aria-label="Próximo mês">${ico("dir")}</button></div>
     ${cal.aPagar || cal.pago || cal.entra ? `<div class="cal-res3"><span><small>Entra</small><b class="ok">${brl(cal.entra)}</b></span><span><small>Contas</small><b>${brl(cal.aPagar + cal.pago)}</b>${cal.pago ? `<small>${brl(cal.pago)} já pago</small>` : ""}</span><span><small>Sobra</small><b class="${sobra < 0 ? "neg" : ""}">${brl(sobra)}</b></span></div>` : `<p class="hint cal-res">Nenhuma conta neste mês. Cadastre as contas fixas e o cartão para ver os vencimentos aqui.</p>`}
     <div class="cal" role="group" aria-label="Dias de ${nomeMes(m)}">${["D", "S", "T", "Q", "Q", "S", "S"].map((x, i) => `<span class="cal-s" aria-hidden="true" title="${DIAS_SEMANA[i]}">${x}</span>`).join("")}${"<span></span>".repeat(cal.vazios)}${cal.dias.map(casa).join("")}</div>
-    <p class="cal-leg" aria-hidden="true"><span class="s-atrasada"><i>!</i>atrasada</span><span class="s-a-vencer"><i>●</i>a vencer</span><span class="s-paga"><i>✓</i>paga</span><span class="s-entra"><i>+</i>entrada</span></p>
+    <p class="cal-leg" aria-hidden="true"><span class="s-atrasada"><i>!</i>atrasada</span><span class="s-a-vencer"><i>●</i>a vencer</span><span class="s-paga"><i>✓</i>paga</span><span class="s-entra"><i>+</i>entrada</span>${diaZero ? `<span class="s-acaba"><i>◆</i>dinheiro acaba</span>` : ""}</p>
+    ${diaZero ? `<p class="cal-acaba" role="status">No ritmo de agora, o dinheiro do mês acaba <b>dia ${diaZero.slice(8, 10)}</b>.</p>` : ""}
     <div class="cal-dia" id="calDia"><h4>${dSel.dia} de ${nomeMes(m)}${dSel.iso === hj ? " (hoje)" : ""}</h4>
       ${dSel.contas.length || dSel.entradas.length ? `<ul class="cal-lista">${dSel.contas.map(linha).join("")}${dSel.entradas.map((x, i) => `<li class="s-entra"><span class="q"><i aria-hidden="true">+</i>entrada</span><button type="button" class="t" data-ced-e="${i}" aria-label="${esc(x.titulo)}: editar"><b>${esc(x.titulo)}</b><span>Entrada fixa · toque para editar</span></button><span class="v">${brl(x.valor)}</span></li>`).join("")}</ul>` : `<p class="hint" style="margin:0">Nada vence e nada entra neste dia.</p>`}
+      ${dSel.contas.filter((x) => x.situacao !== "paga").length >= 2 ? `<button class="btn cal-todas" type="button" id="calPagaTodas">Marcar as ${dSel.contas.filter((x) => x.situacao !== "paga").length} contas como pagas</button>` : ""}
       ${gastoDia(sel) > 0 ? `<p class="hint cal-gasto">Gastos do dia: <b>${brl(gastoDia(sel))}</b> <button class="link" type="button" id="calVerGastos">ver no extrato</button></p>` : ""}
       ${podeLancar ? `<button class="btn cal-lanca" type="button" id="calLanca">${ico("mais")}Lançar um gasto ${dSel.iso === hj ? "de hoje" : "neste dia"}</button>` : ""}</div>
     ${ag.length ? `<section class="cal-ag" aria-label="Contas a pagar"><h4>${m === mKey(hj) ? "Próximas contas" : "A pagar neste mês"}</h4>${ag.map((g) => `<h5 class="${g.titulo === "Atrasadas" || g.titulo === "Ficaram sem pagar" ? "neg" : ""}">${esc(g.titulo)}<span>${brl(g.total)}</span></h5><ul>${g.itens.map((x) => `<li><button type="button" data-cag="${x.dia}"><span class="d">${dd(x.dia)}</span><b>${esc(x.titulo)}</b><span class="v">${brl(x.valor)}</span></button></li>`).join("")}</ul>`).join("")}</section>` : cal.aPagar === 0 && cal.pago > 0 ? `<p class="cal-ok">${ico("ok")}Todas as contas deste mês estão pagas.</p>` : ""}
     <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
   $("dlgBody").querySelectorAll("[data-cag]").forEach((b) => (b.onclick = () => { calendario(m, `${m}-${String(b.dataset.cag).padStart(2, "0")}`); $("calDia")?.scrollIntoView({ block: "start", behavior: "smooth" }); }));
+  if ($("calPagaTodas")) $("calPagaTodas").onclick = async () => {
+    const lista = dSel.contas.filter((x) => x.situacao !== "paga"); $("calPagaTodas").disabled = true;
+    for (const x of lista) await mudaPago(x, true);
+    calendario(m, sel);
+    toastDesfazer(`${lista.length} contas marcadas como pagas.`, async () => { for (const x of lista) await mudaPago(x, false); calendario(m, sel); toast("Voltaram para a lista."); });
+  };
   if ($("calVerGastos")) $("calVerGastos").onclick = () => { $("dlg").close(); S.mes = mKey(sel); S.fDia = sel; abrirSub("l"); };
   if ($("calLanca")) $("calLanca").onclick = () => {
     $("dlg").close(); $("fData").value = sel; renderForm();
@@ -5152,20 +5195,31 @@ function paneDesafios(host) {
       else if (antes && minha.pos < antes) mudou = `<p class="ds-mudou subiu"><b>Você subiu!</b> Antes estava em ${antes}º, agora está em ${minha.pos}º.</p>`;
       try { localStorage.setItem(chave, String(minha.pos)); } catch { /* nada */ }
     }
-    host.innerHTML = `<div id="motRoot" class="ds">${abasDesafio()}<small class="ds-quando">${esc(atual.nome)} · ${acabou ? "encerrado" : faltam === 0 ? "termina hoje" : `faltam ${faltam} ${faltam === 1 ? "dia" : "dias"}`}</small>
-      <h2 class="mot-frase">${titulo}</h2>${mudou}${(() => { const f = faltaParaPassar(rank); return f ? `<p class="ds-falta">Para passar <b>${esc(f.apelido)}</b>: faltam <b>${dsCrit === "geral" ? `${f.falta} pts` : `${brl(f.falta)}${dsCrit === "hora" ? "/h" : dsCrit === "km" ? "/km" : ""}`}</b>.</p>` : ""; })()}${motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais) ? `<p class="mot-ver">${esc(motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais))}</p>` : ""}
+    const EXPLICA_CRIT = { geral: "Pontos somados em todos os critérios.", hora: "Vence quem ganha mais por hora rodada.", km: "Vence quem sobra mais por km rodado.", sobra: "Vence quem fica com mais dinheiro depois dos custos.", total: "Vence quem fatura mais, sem descontar nada.", dia: "Vence quem fez o melhor dia do desafio." };
+    const nomesCrit = Object.fromEntries([["geral", "Geral"], ...CRITERIOS_DESAFIO]), faltaPass = faltaParaPassar(rank), qtd = rank.filter((x) => x.pos).length;
+    const quandoTxt = acabou ? "encerrado" : faltam === 0 ? "termina hoje" : `faltam ${faltam} ${faltam === 1 ? "dia" : "dias"}`;
+    host.innerHTML = `<div id="motRoot" class="ds ds2">${abasDesafio()}
       ${dsLista.length > 1 ? `<div class="ds-chips">${dsLista.map((d) => `<button type="button" data-ds="${esc(d.id)}" aria-pressed="${d.id === atual.id}">${esc(d.nome)}</button>`).join("")}</div>` : ""}
-      <div class="ds-chips" role="group" aria-label="Comparar por">${[["geral", "Geral"], ...CRITERIOS_DESAFIO].map(([k, n]) => `<button type="button" data-crit="${k}" aria-pressed="${k === dsCrit}">${n}${k === (atual.regras?.vence || "km") ? " ★" : ""}</button>`).join("")}</div>
-      <ol class="ds-rank">${rank.map((x) => `<li class="${x.eu ? "eu" : ""}"><span class="p">${x.pos ?? "–"}</span><span class="n"><b>${esc(x.eu ? `${x.apelido} (você)` : x.apelido)}</b><small>${esc([x.carro, x.categoria].filter(Boolean).join(" · "))}</small>${x.diasSemGasto ? `<small class="ds-aviso">${x.diasSemGasto} ${x.diasSemGasto === 1 ? "dia" : "dias"} sem gasto lançado</small>` : ""}${x.semCustoCarro ? `<small class="ds-aviso">sem custo do carro preenchido</small>` : ""}</span><span class="v">${fmt(x)}</span></li>`).join("")}</ol>
-      <details class="mot-como"><summary>Regras deste desafio</summary>${htmlRegras(atual.regras)}</details>
-      ${acabou ? "" : `<section class="ds-bloco"><h3 class="mot-h" style="margin-top:0">Chame os amigos</h3><p class="ds-codigo">${esc(atual.codigo)}</p><button class="btn primary" type="button" id="dsWhats">Chamar no WhatsApp</button><button class="btn" type="button" id="dsLink">Copiar link para o Instagram</button></section>`}
-      <button class="btn" type="button" id="dsPlacar">Compartilhar o placar</button>
-      <details class="mot-como"><summary>Entrar em outro ou criar um novo</summary>${novo}</details>
-      <button class="link link-toque" type="button" id="dsSair">Sair deste desafio</button></div>`;
+      <section class="ds-hero${minha?.pos === 1 ? " lider" : ""}"><small class="ds-quando">${esc(atual.nome)} · ${quandoTxt}</small>
+        ${minha?.pos ? `<div class="ds-pos"><b>${minha.pos}º</b><span>de ${qtd} no ranking</span></div>` : ""}
+        <h2 class="mot-frase">${titulo}</h2>${mudou}
+        ${faltaPass ? `<p class="ds-falta">Para passar <b>${esc(faltaPass.apelido)}</b>: faltam <b>${dsCrit === "geral" ? `${faltaPass.falta} pts` : `${brl(faltaPass.falta)}${dsCrit === "hora" ? "/h" : dsCrit === "km" ? "/km" : ""}`}</b>.</p>` : ""}
+        ${motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais) ? `<p class="mot-ver">${esc(motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais))}</p>` : ""}</section>
+      <details class="ds-crit"><summary><span class="tx"><b>Ranking por: ${nomesCrit[dsCrit]}${dsCrit === (atual.regras?.vence || "km") ? " ★" : ""}</b><span>${EXPLICA_CRIT[dsCrit]} Toque para trocar.</span></span></summary>
+        <div class="ds-chips" role="group" aria-label="Comparar por">${[["geral", "Geral"], ...CRITERIOS_DESAFIO].map(([k, n]) => `<button type="button" data-crit="${k}" aria-pressed="${k === dsCrit}">${n}${k === (atual.regras?.vence || "km") ? " ★" : ""}</button>`).join("")}</div>
+        <p class="hint" style="margin:6px 0 0">A estrela ★ é o que decide quem vence este desafio.</p></details>
+      <ol class="ds-rank">${rank.map((x) => `<li class="${x.eu ? "eu" : ""}${x.pos && x.pos <= 3 ? ` m${x.pos}` : ""}"><span class="p">${x.pos ?? "–"}</span><i class="av" aria-hidden="true">${esc((x.apelido || "?").charAt(0).toUpperCase())}</i><span class="n"><b>${esc(x.eu ? `${x.apelido} (você)` : x.apelido)}</b><small>${esc([x.carro, x.categoria].filter(Boolean).join(" · "))}</small>${x.diasSemGasto ? `<small class="ds-aviso">${x.diasSemGasto} ${x.diasSemGasto === 1 ? "dia" : "dias"} sem gasto lançado</small>` : ""}${x.semCustoCarro ? `<small class="ds-aviso">sem custo do carro preenchido</small>` : ""}</span><span class="v">${fmt(x)}</span></li>`).join("")}</ol>
+      ${acabou ? "" : `<section class="ds-conv"><span class="tx"><b>Chame os amigos</b><span>Quanto mais gente no desafio, mais divertido.</span></span><button class="btn primary" type="button" id="dsWhats">Chamar no WhatsApp</button></section>`}
+      <details class="ds-mais"><summary><span class="tx"><b>Mais opções</b><span>Código, placar, regras e outros desafios</span></span></summary><div class="ds-mais-corpo">
+        ${acabou ? "" : `<p class="ds-codigo">${esc(atual.codigo)}</p><p class="hint" style="margin:0;text-align:center">O código do desafio, para quem não usa o link.</p><button class="btn" type="button" id="dsLink">Copiar link do desafio</button>`}
+        <button class="btn" type="button" id="dsPlacar">Compartilhar o placar</button>
+        <details class="mot-como"><summary>Regras deste desafio</summary>${htmlRegras(atual.regras)}</details>
+        <details class="mot-como"><summary>Entrar em outro ou criar um novo</summary>${novo}</details>
+        <button class="link link-toque" type="button" id="dsSair">Sair deste desafio</button></div></details></div>`;
     host.querySelectorAll("[data-crit]").forEach((b) => (b.onclick = () => { dsCrit = b.dataset.crit; paneDesafios(host); }));
     host.querySelectorAll("[data-ds]").forEach((b) => (b.onclick = () => { dsAberto = b.dataset.ds; paneDesafios(host); }));
     // O link abre o app já no desafio: serve para o WhatsApp, a bio do Instagram ou qualquer outro lugar.
-    const linkDoDesafio = `https://meugastos.com.br/#desafio=${atual.codigo}`, convite = `Bora se desafiar? Baixei o Meus Gastos: controla o que você ganha e gasta rodando, e dá para ver quem rende mais de verdade. São 7 dias grátis. Entra no meu desafio: ${linkDoDesafio}`;
+    const linkDoDesafio = `https://meugastos.com.br/#desafio=${atual.codigo}`, convite = `Bora se desafiar? No Meus Gastos dá para ver quem rende mais de verdade rodando. Entra no meu desafio: ${linkDoDesafio}`;
     if ($("dsWhats")) $("dsWhats").onclick = () => window.open(`https://wa.me/?text=${encodeURIComponent(convite)}`, "_blank", "noopener");
     if ($("dsPlacar")) $("dsPlacar").onclick = () => {   // o placar de agora: imagem para o grupo, ou só o texto
       const medalha = ["🥇", "🥈", "🥉"], pos = rank.filter((x) => x.pos).slice(0, 8);
