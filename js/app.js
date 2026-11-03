@@ -1002,10 +1002,13 @@ function htmlParabensSemana(c) {
   const sem = semanaNoCombinado(S.data, c, hoje());
   return sem?.ok ? `<p class="hero-parabens">${ico("medalha")}<span><b>Semana dentro do combinado!</b> De ${ddmm(sem.de)} a ${ddmm(sem.ate)}, ${brl(sem.gasto)} de ${brl(sem.combinado)}${sem.sobrou >= 1 ? `: sobraram <b class="ocultavel">${brl(sem.sobrou)}</b> para o resto do mês` : ""}.</span></p>` : "";
 }
+/** Revisão concluída (S.prefs.revisoes: { "2026-10": true }) ou só aberta (S.prefs.revisaoVista: ["2026-10"]). Aceita a lista que a v192 gravou por engano em revisoes. */
+const revisoesFeitas = () => { const r = S.prefs.revisoes; return Array.isArray(r) ? Object.fromEntries(r.map((m) => [m, true])) : r && typeof r === "object" ? r : {}; };
+const revisaoAberta = (m) => Boolean(revisoesFeitas()[m]) || (Array.isArray(S.prefs.revisaoVista) && S.prefs.revisaoVista.includes(m));
 /** Nos primeiros 7 dias do mês: convite para fechar o mês passado em 3 passos (o que deu certo, onde ajustar, quanto guardar). Some depois de aberto. */
 function htmlFecharMes(c) {
   const hj = hoje(), ant = addM(mKey(hj), -1);
-  if (c.fase !== "atual" || Number(hj.slice(8, 10)) > 7 || (S.prefs.revisoes || []).includes(ant) || !(calcMes(S.data, ant, hj).custo > 0)) return "";
+  if (c.fase !== "atual" || Number(hj.slice(8, 10)) > 7 || revisaoAberta(ant) || !(calcMes(S.data, ant, hj).custo > 0)) return "";
   return `<button type="button" class="hero-atras hero-fecha" id="heroFecha" data-m="${ant}"><span class="t"><small>Fechar ${nomeMes(ant)}</small><b>O que deu certo e onde ajustar</b><span>3 passos rápidos para começar ${nomeMes(mKey(hj))} já organizado.</span></span>${ico("chev")}</button>`;
 }
 /** Conta de casal, nos primeiros 5 dias do mês: o acerto do mês passado (quem passa quanto para quem). Toque abre a conta de casal. */
@@ -5288,7 +5291,7 @@ function revisaoTela(m = S.mes) {
   const hojeM = mKey(hoje()), mes = m > hojeM ? hojeM : m;
   const r = revisaoDoMes(S.data, mes, hoje(), S.prefs.limites || {});
   if (!r) return void toast("Esse mês ainda não começou.");
-  if (mes < hojeM && !(S.prefs.revisoes || []).includes(mes)) { S.prefs.revisoes = [...(S.prefs.revisoes || []), mes].slice(-6); salvaPrefs(); }   // o convite do Início some depois de aberto
+  if (mes < hojeM && !revisaoAberta(mes)) { S.prefs.revisaoVista = [...(Array.isArray(S.prefs.revisaoVista) ? S.prefs.revisaoVista : []), mes].slice(-6); salvaPrefs(); }   // o convite do Início some depois de aberto
   let passo = 1, valorGuardar = r.guardar > 0 ? r.guardar : 20;
   const antes = nomeMes(addM(mes, -1)).toLowerCase(), esteMes = nomeMes(mes).toLowerCase(), parcial = r.fase === "atual";
   const desenha = () => {
@@ -5320,7 +5323,7 @@ function revisaoTela(m = S.mes) {
     if ($("rvProx")) $("rvProx").onclick = () => { passo++; desenha(); };
     $("dlgBody").querySelectorAll("[data-lim]").forEach((b) => (b.onclick = () => { S.prefs.limites = { ...(S.prefs.limites || {}), [b.dataset.lim]: Number(b.dataset.v) }; salvaPrefs(); b.replaceWith(Object.assign(document.createElement("span"), { textContent: "Limite definido.", className: "pill good" })); }));
     if ($("rvValor")) $("rvValor").addEventListener("input", () => { const v = parseMoney($("rvValor").value); if (v > 0 && v <= VALOR_MAX) { valorGuardar = round2(v); $("rvGuarda").textContent = `Guardar ${brl(valorGuardar)} agora`; } });
-    const feito = () => { const o = { ...(S.prefs.revisoes || {}), [mes]: true }; S.prefs.revisoes = Object.fromEntries(Object.entries(o).sort().slice(-24)); salvaPrefs(); };
+    const feito = () => { const o = { ...revisoesFeitas(), [mes]: true }; S.prefs.revisoes = Object.fromEntries(Object.entries(o).sort().slice(-24)); salvaPrefs(); };
     if ($("rvFim")) $("rvFim").onclick = () => { feito(); $("dlg").close(); comemora(); toast("Revisão feita. Mês que vem você já começa com um plano."); render(); };
     if ($("rvGuarda")) $("rvGuarda").onclick = () => {
       feito(); const dest = cats("Reserva")[0];
