@@ -2327,3 +2327,8 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .lim-placar{display:grid;gap:3px;margin:0 0 10px;padding:10px 12px;border-radius:12px;background:var(--warn-soft);font-size:13.5px} .lim-placar.ok{background:var(--good-soft)} .lim-placar span{color:var(--ink-2)}
 .mot-semana .melhor{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink-2);padding-top:6px;border-top:1px solid var(--border)} .mot-semana .melhor .ic{width:16px;height:16px;color:var(--series)} .mot-semana .melhor b{color:var(--ink)}
 .rv-todos{width:100%;margin:6px 0 4px;min-height:46px;justify-content:center;gap:6px} .rv-todos .ic{width:18px;height:18px}
+.dia-nav{display:flex;justify-content:space-between;gap:8px;margin:0 0 12px} .dia-nav .btn{min-height:42px;gap:4px} .dia-nav .ic{width:16px;height:16px}
+.lim-dois{display:grid;gap:6px;margin:0 0 10px;padding:10px 12px;border-radius:12px;border:1px solid var(--warn);background:var(--surface);font-size:13.5px} .lim-dois p{margin:0} .lim-dois .btn{justify-self:start;min-height:40px}
+.rv-decidiu{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
+.rv-decidiu li{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:10px;background:var(--sunk);font-size:13.5px}
+.rv-decidiu .ic{flex:none;width:18px;height:18px;margin-top:1px} .rv-decidiu li.ok .ic{color:var(--good)} .rv-decidiu li.ruim .ic{color:var(--warn)}

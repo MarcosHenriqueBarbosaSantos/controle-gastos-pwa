@@ -91,7 +91,7 @@ export const CAT_FATURA = "Faturas de cartão";
 const noCartao = (x) => x.forma === CARTAO;
 
 /* ===================== Cartões e faturas ===================== */
-const diaNoMes = (m, d) => `${m}-${pad(Math.min(dim(m), Math.max(1, Number(d) || 1)))}`;
+export const diaNoMes = (m, d) => `${m}-${pad(Math.min(dim(m), Math.max(1, Number(d) || 1)))}`;
 /** Quantos meses de a até b ("AAAA-MM"). */
 export const mesesEntre = (a, b) => (Number(b.slice(0, 4)) - Number(a.slice(0, 4))) * 12 + Number(b.slice(5, 7)) - Number(a.slice(5, 7));
 

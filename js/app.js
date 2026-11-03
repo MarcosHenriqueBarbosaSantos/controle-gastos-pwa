@@ -1,7 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO, IMPORTA_EXTRATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, usoDoLimite, proximaFatura, parcelasPorMes, semanaNoCombinado, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
+  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, usoDoLimite, proximaFatura, parcelasPorMes, dim, diaNoMes, diasEntre, semanaNoCombinado, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, mesesEntre, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, agendaDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
@@ -984,7 +984,7 @@ function mostraParcDica() {
   const u = k.id ? usoDoLimite(S.data, k, limiteDe(k.id), hoje()) : null, v = Number(parseMoney($("fValor").value)) > 0 ? parseMoney($("fValor").value) : 0, depois = u ? round2(u.livre - v) : 0;
   el.textContent = (n === 1 ? `Entra na fatura de ${nome(m1)} (vence ${dm(m1)}).` : `${n} parcelas: da fatura de ${nome(m1)} (vence ${dm(m1)}) até a de ${nome(mN)}, uma por mês.`)
     + (u ? (depois < 0 ? ` Passa ${brl(-depois)} do limite de ${brl(u.limite)}.` : ` ${v ? "Depois desta compra" : "Limite livre"}: ${brl(depois)}.`) : "")
-    + pesoNasFaturas(k, m1, n, v, nome)
+    + pesoNasFaturas(k, m1, n, v, nome) + melhorCartao(k, data, v)
     + (padrao ? " Você não preencheu os dias do cartão: usei fecha dia 3 e vence dia 10. Se for diferente, preencha acima, senão as parcelas podem cair no mês errado." : "");
 }
 /**
@@ -997,6 +997,37 @@ function pesoNasFaturas(k, m1, n, v, nome) {
   if (!meses.length) return "";
   const pior = meses.map((x) => ({ ...x, depois: round2(x.total + parc[mesesEntre(m1, x.m)]) })).sort((a, b) => b.depois - a.depois)[0];
   return ` A fatura de ${nome(pior.m)} já tem ${brl(pior.total)}; com esta compra, vai a ${brl(pior.depois)}.`;
+}
+/**
+ * Com dois cartões ou mais: se outro cartão deixa a compra para pagar mais tarde (e tem limite para ela), o app conta.
+ * O prazo é do dia da compra até o vencimento da fatura em que ela cai.
+ */
+function melhorCartao(k, data, v) {
+  const outros = cartoesAtivos(); if (!k?.id || outros.length < 2) return "";
+  const prazo = (c) => { const m = mesDaFatura(c, data); return { c, venc: diaNoMes(m, c.vencimento), dias: diasEntre(data, diaNoMes(m, c.vencimento)) }; };
+  const cabe = (c) => { const u = usoDoLimite(S.data, c, limiteDe(c.id), hoje()); return !u || u.livre >= v; };
+  const atual = prazo(k), melhor = outros.filter((c) => c.id !== k.id && cabe(c)).map(prazo).sort((a, b) => b.dias - a.dias)[0];
+  return melhor && melhor.dias - atual.dias >= 7 ? ` Dica: no ${melhor.c.nome}, esta compra vence só em ${ddmm(melhor.venc)}, ${melhor.dias - atual.dias} dias depois.` : "";
+}
+/** Extrato com um dia só: botões e deslizar para o lado levam ao dia anterior ou ao seguinte (dentro do mês, até hoje). */
+function andaDia(n) {
+  if (!S.fDia) return;
+  const d = new Date(S.fDia + "T12:00:00"); d.setDate(d.getDate() + n); const iso = toISO(d);
+  if (mKey(iso) !== S.mes || iso > hoje()) return;
+  S.fDia = iso; vibra?.(); listaL(calcMes(S.data, S.mes, hoje()));
+}
+function ligaDiaNav() {
+  const host = $("lLista");
+  host.querySelectorAll("[data-dia-anda]").forEach((b) => (b.onclick = () => andaDia(Number(b.dataset.diaAnda))));
+  if ($("fDiaTodos")) $("fDiaTodos").onclick = () => { S.fDia = ""; listaL(calcMes(S.data, S.mes, hoje())); };
+  if (host.dataset.diaSwipe) return; host.dataset.diaSwipe = "1";
+  let x0 = 0, y0 = 0;
+  host.addEventListener("touchstart", (e) => { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; }, { passive: true });
+  host.addEventListener("touchend", (e) => {
+    if (!S.fDia || e.target.closest("tr[data-id], tr[data-fixa], .tbl tbody tr:not(.dia)")) return;   // deslizar uma linha continua sendo apagar ou repetir
+    const dx = e.changedTouches[0].clientX - x0, dy = e.changedTouches[0].clientY - y0;
+    if (Math.abs(dx) > 70 && Math.abs(dx) > Math.abs(dy) * 1.5) andaDia(dx < 0 ? 1 : -1);
+  }, { passive: true });
 }
 /** Cartão e parcelas escolhidos no formulário de lançar. Sem cartão cadastrado não devolve nada: o lançamento segue como sempre foi. */
 function cartaoDoForm() {
@@ -1663,6 +1694,10 @@ function paneM(c) {
   const sugeriveis = catL.filter((k) => !(Number(lim[k]) > 0) && mediaCat.get(k) > 0);
   // Como as categorias com limite foram no mês passado: quantas ficaram dentro e quais passaram (e quanto).
   const mAnt = addM(cur, -1), cAnt = calcMes(S.data, mAnt, hoje()), usoAnt = cAnt.custo > 0 ? usoDosLimites(cAnt, lim) : [], passaram = usoAnt.filter((x) => x.passou > 0);
+  // Passou do limite dois meses seguidos: o limite não está batendo com a vida real. Sugere subir para a média dos dois meses (ou cortar).
+  const mAnt2 = addM(cur, -2), cAnt2 = calcMes(S.data, mAnt2, hoje()), passou2 = new Map((cAnt2.custo > 0 ? usoDosLimites(cAnt2, lim) : []).filter((x) => x.passou > 0).map((x) => [x.cat, x]));
+  const seguidas = passaram.filter((x) => passou2.has(x.cat)).map((x) => ({ ...x, sugere: Math.ceil((x.gasto + passou2.get(x.cat).gasto) / 2 / 10) * 10 }));
+  const doisMeses = seguidas.length ? `<div class="lim-dois">${seguidas.map((x) => `<p><b>${esc(x.cat)}</b> passou do limite em ${nomeMes(mAnt2)} e em ${nomeMes(mAnt)}. O limite de ${brl0(x.limite)} está apertado para o seu dia a dia: suba para perto da média ou corte um pouco nesta categoria.</p><button class="btn sm" type="button" data-usa-cat="${esc(x.cat)}" data-valor="${x.sugere}">Subir para ${brl0(x.sugere)}</button>`).join("")}</div>` : "";
   const placar = usoAnt.length ? `<div class="lim-placar${passaram.length ? "" : " ok"}"><b>${passaram.length ? `Em ${nomeMes(mAnt)}, ${usoAnt.length - passaram.length} de ${usoAnt.length} categorias ficaram dentro do limite.` : `Em ${nomeMes(mAnt)}, todas as ${usoAnt.length} categorias ficaram dentro do limite!`}</b>${passaram.length ? `<span>Passaram: ${passaram.slice(0, 4).map((x) => `${esc(x.cat)} (+${brl0(x.passou)})`).join(", ")}${passaram.length > 4 ? ` e mais ${passaram.length - 4}` : ""}.</span>` : ""}</div>` : "";
   host.innerHTML = `<div class="pl-analise"><button class="mais-item" type="button" data-analise><span class="ava">${ico("grafico")}</span><span class="tx"><b>Análise do mês</b><span>Gráficos, categorias e últimos meses</span></span>${ico("chev")}</button><button class="mais-item" type="button" data-planos><span class="ava">${ico("alvo")}</span><span class="tx"><b>Meus planos</b><span>Férias, casa, carro: quanto guardar por mês</span></span>${ico("chev")}</button></div>${htmlSobra(c)}${htmlCaixinhas()}<h2 class="pl-h">Limite de gasto</h2><p class="hint" style="margin-top:0;font-size:13px">O máximo que você quer gastar no mês. O app avisa quando chegar perto.</p>
     <form id="tetoForm" class="teto-form" autocomplete="off">
@@ -1674,7 +1709,7 @@ function paneM(c) {
     ${u ? `<div class="teto ${t.cls} parado"><span class="topo"><span class="l">${ico("alvo")}Uso do limite em ${nomeMes(S.mes)}</span><span class="pill ${t.cls === "ok" ? "good" : t.cls}">${t.titulo}</span></span>
       <span class="num"><b>${brl(u.gasto)}</b> de ${brl(u.teto)} <em>${u.pct}%</em></span>${barraDoTeto(u)}<span class="n">${t.frase}</span></div>` : ""}
     <h3 class="sub-h">Limite por categoria</h3>
-    ${placar}
+    ${placar}${doisMeses}
     <p class="hint" style="margin-top:0">Opcional. Deixe em branco as categorias que não precisam de limite.${sugeriveis.length ? ` O app sugere pela sua média ${antes.length === 1 ? "do último mês" : `dos últimos ${antes.length} meses`}.` : ""}</p>
     ${sugeriveis.length >= 2 ? `<button class="btn lim-todas" type="button" id="limMedias">${ico("ideia")}Usar a média em ${sugeriveis.length} categorias</button>` : ""}
     <form id="limCats" class="lim-cats" autocomplete="off">
@@ -2320,6 +2355,8 @@ function listaL(c) {
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
   const it = filtraLancamentos([...c.it, ...auto, ...contasDoExtrato(c)].filter(doQuem).filter(rap).filter((x) => !S.fDia || x.data === S.fDia), filtro).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
   if (!it.length && deQuem) { host.innerHTML = `<div class="welcome"><p><b>${deQuem === "eu" ? "Você não lançou nada" : `${esc(nomeDoOutro())} não lançou nada`} em ${nomeMes(S.mes)}.</b></p></div>`; return; }
+  const navDia = () => `<div class="dia-nav"><button class="btn sm" type="button" data-dia-anda="-1"${S.fDia.slice(8) === "01" ? " disabled" : ""}>${ico("esq")}Dia anterior</button><button class="btn sm" type="button" data-dia-anda="1"${S.fDia >= hoje() || Number(S.fDia.slice(8)) >= dim(S.mes) ? " disabled" : ""}>Próximo dia${ico("chev")}</button></div>`;
+  if (!it.length && S.fDia) { host.innerHTML = `<div class="welcome"><p><b>Nada lançado em ${esc(rotuloDia(S.fDia).toLowerCase())}.</b></p></div>${navDia()}<p style="text-align:center"><button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>`; ligaDiaNav(); return; }
   if (!it.length && S.fRap) { host.innerHTML = `<div class="welcome"><p><b>Nada em ${esc(RAP[S.fRap][0].toLowerCase())}${["hoje", "semana"].includes(S.fRap) ? "" : ` em ${nomeMes(S.mes)}`}.</b> Toque de novo no filtro para ver tudo.</p></div>`; return; }
   if (!it.length && filtrando) { host.innerHTML = `<div class="welcome"><p><b>Nenhum lançamento em ${nomeMes(S.mes)} com esse filtro.</b> Mude o tipo ou a categoria, ou toque em Limpar filtros.</p></div>`; return; }
   if (!it.length) {
@@ -2339,11 +2376,11 @@ function listaL(c) {
       <td class="acts"><button class="act" type="button" data-fed="${esc(x.id)}">Alterar</button></td></tr>`
     : linhaLanc(x, toque));
   const somaRap = S.fRap ? round2(it.filter((x) => x.tipo === "Despesa").reduce((t, x) => t + x.valor, 0)) : 0;
-  host.innerHTML = `${S.fDia ? `<p class="rap-res" role="status"><b>Só ${esc(rotuloDia(S.fDia).toLowerCase())}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`} <button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>` : ""}${S.fRap ? `<p class="rap-res" role="status"><b>${esc(RAP[S.fRap][0])}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`}${somaRap ? `, <b>${brl(somaRap)}</b> em gastos` : ""}</p>` : ""}${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
+  host.innerHTML = `${S.fDia ? `<p class="rap-res" role="status"><b>Só ${esc(rotuloDia(S.fDia).toLowerCase())}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`} <button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>${navDia()}` : ""}${S.fRap ? `<p class="rap-res" role="status"><b>${esc(RAP[S.fRap][0])}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`}${somaRap ? `, <b>${brl(somaRap)}</b> em gastos` : ""}</p>` : ""}${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
     feitos.map((x, i) => dia(x, i) + linha(x)).join("")}${falta.length ? `<tr class="dia falta"><td colspan="6"><span>${tituloFalta}</span>${totalFalta ? `<b>− ${brl(totalFalta)}</b>` : ""}</td></tr>${falta.map(linha).join("")}` : ""}${deFora.length ? `<tr class="dia falta"><td colspan="6"><span>Fora de ${nomeMes(S.mes)}</span></td></tr>${deFora.map(linha).join("")}` : ""}</tbody></table></div>`;
   }
   $("pane-l").querySelectorAll("[data-so-dia]").forEach((tr) => (tr.onclick = () => { S.fDia = S.fDia ? "" : tr.dataset.soDia; listaL(calcMes(S.data, S.mes, hoje())); }));
-  if ($("fDiaTodos")) $("fDiaTodos").onclick = () => { S.fDia = ""; listaL(calcMes(S.data, S.mes, hoje())); };
+  ligaDiaNav();
   $("pane-l").querySelectorAll("[data-ir]").forEach((b) => (b.onclick = () => { S.view = "listas"; S.tab = b.dataset.ir; render(); }));
   $("pane-l").querySelectorAll("[data-ed]").forEach((b) => (b.onclick = () => editarLancamento(b.dataset.ed)));
   $("pane-l").querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
@@ -4639,14 +4676,16 @@ function contasMotTela() {
 /** "Domingo, 1º de novembro". */
 const dataPorExtenso = (iso) => { const d = Number(iso.slice(8, 10)), s = DIAS_SEMANA[diaDaSemana(iso)]; return `${s[0].toUpperCase()}${s.slice(1)}, ${d === 1 ? "1º" : d} de ${nomeMes(mKey(iso))}`; };
 /** "Sua semana", no domingo e na segunda: quanto ganhou, quanto foi para o carro, quanto sobrou e por hora. */
-function htmlSemanaMot(m, hj) {
+function htmlSemanaMot(m, hj, meta) {
   const s = semanaDoMotorista(m.turnos, hj, S.prefs.veiculo || {}); if (!s) return "";
   // O melhor dia para rodar, pelos últimos 60 dias (o que mais rende por hora). Só com dois dias diferentes ou mais.
   const melhor = melhorDiaDaSemana(m.turnos, toISO(new Date(Date.now() - 60 * 864e5)), hj);
+  // A meta da semana que vem: a meta de hoje por dia vezes os dias que a pessoa roda. Com as contas cobertas, não tem meta a cumprir.
+  const dias = Number(m.diasSemana) || 6, proxima = meta && !meta.coberto && meta.brutoDia > 0 ? round2(meta.brutoDia * dias) : 0;
   const r = s.r, comp = s.dif === null ? "" : Math.abs(s.dif) < 1 ? "Igual à semana passada." : s.dif > 0 ? `${brl(s.dif)} a mais que na semana passada.` : `${brl(-s.dif)} a menos que na semana passada.`;
   return `<button type="button" class="mot-semana" id="motSemana" data-ref="${s.ref}"><span class="tt"><b>${s.acabou ? "Sua semana" : "Sua semana até agora"}</b><small>${ddmm(s.de)} a ${ddmm(s.ate)} · ${r.n} ${r.n === 1 ? "jornada" : "jornadas"}</small></span>
     <span class="nums ocultavel"><span><small>Ganhou</small><b>${brl(r.ganho)}</b></span><span><small>${r.comCarro ? "Carro" : "Combustível"}</small><b>− ${brl(r.custo)}</b></span><span><small>Sobrou</small><b class="${r.lucro < 0 ? "neg" : "ok"}">${brl(r.lucro)}</b></span></span>
-    <span class="pe ocultavel">${r.lucroPorHora !== null ? `<b>${brl(r.lucroPorHora)} por hora</b> depois dos custos. ` : ""}${comp}</span>${melhor ? `<span class="melhor ocultavel">${ico("raio")}Seu melhor dia para rodar: <b>${DIAS_SEMANA[melhor.dia]}</b>, ${brl(melhor.ganhoPorHora)} por hora.</span>` : ""}</button>`;
+    <span class="pe ocultavel">${r.lucroPorHora !== null ? `<b>${brl(r.lucroPorHora)} por hora</b> depois dos custos. ` : ""}${comp}</span>${proxima ? `<span class="melhor ocultavel">${ico("alvo")}Meta da próxima semana: <b>${brl(proxima)}</b>, ${brl(meta.brutoDia)} por dia em ${dias} dias.</span>` : ""}${melhor ? `<span class="melhor ocultavel">${ico("raio")}Seu melhor dia para rodar: <b>${DIAS_SEMANA[melhor.dia]}</b>, ${brl(melhor.ganhoPorHora)} por hora.</span>` : ""}</button>`;
 }
 /** A tela Jornada parada: uma frase, a regra por km e o botão de começar. */
 function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas }) {
@@ -4659,7 +4698,7 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas }) {
     ${!acima && !doDia.ganho ? "" : `<p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>`}
     ${regra ? `<p class="mot-dia-regra">Busque corridas de <b>${brl(regra.boa)} por km</b> ou mais.</p><p class="mot-dia-minimo">Seu mínimo: ${brl(regra.minimo)} por km${regra.custoKm > 0 ? ` (custo ${brl(regra.custoKm)} + ${brl(1)} de lucro)` : ""}.</p>` : ""}
     <button class="mot-dia-prog" type="button" id="motProg"><span class="t ocultavel"><b>Hoje: ${brl(doDia.ganho)}</b>${meta.coberto ? "" : `<span>de ${brl(meta.brutoDia)}</span>`}</span>${meta.coberto ? "" : `<span class="tbar"><i style="width:${pct}%"></i></span>`}</button>
-    ${htmlSemanaMot(m, hj)}
+    ${htmlSemanaMot(m, hj, meta)}
     ${htmlContasMot(semContas)}
     <div class="mot-dia-base">${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
     <label class="mot-dia-odo">Km no painel do carro<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="${ultimoPainel ? `último: ${odoTxt(ultimoPainel)}` : "ex.: 84.120"}"></label>
@@ -5310,6 +5349,15 @@ function minhaCasa() {
 }
 
 /* ---------- Revisão do mês em 3 passos ---------- */
+/** Na revisão de um mês: o que a pessoa decidiu na revisão do mês anterior (limites e quanto guardar) e se deu certo. */
+function htmlDecidido(mes) {
+  const ant = addM(mes, -1), n = S.prefs.revisaoNotas?.[ant]; if (!n) return "";
+  const c = calcMes(S.data, mes, hoje()), gasto = new Map(catMap(c)), guardou = round2(Math.max(0, Number(c.resIn) || 0));
+  const lims = Object.entries(n.limites || {}).map(([cat, v]) => { const g = gasto.get(cat) || 0, ok = g <= v; return `<li class="${ok ? "ok" : "ruim"}">${ico(ok ? "ok" : "x")}<span>Limite de ${esc(cat)} em ${brl0(v)}: ${ok ? `ficou dentro (${brl0(g)})` : `passou ${brl0(g - v)}`}</span></li>`; });
+  const g = Number(n.guardar) > 0 ? [`<li class="${guardou >= n.guardar ? "ok" : "ruim"}">${ico(guardou >= n.guardar ? "ok" : "x")}<span>Guardar ${brl0(n.guardar)}: ${guardou >= n.guardar ? "feito" : guardou > 0 ? `guardou ${brl0(guardou)}` : "ainda não guardou"}</span></li>`] : [];
+  const itens = [...lims, ...g]; if (!itens.length) return "";
+  return `<h4 class="sub-h">O que você decidiu em ${nomeMes(ant).toLowerCase()}</h4><ul class="rv-decidiu">${itens.join("")}</ul>`;
+}
 function revisaoTela(m = S.mes) {
   const hojeM = mKey(hoje()), mes = m > hojeM ? hojeM : m;
   const r = revisaoDoMes(S.data, mes, hoje(), S.prefs.limites || {});
@@ -5324,6 +5372,7 @@ function revisaoTela(m = S.mes) {
       const v = r.variacao;
       corpo = `<h4 class="rv-t">Como foi ${esc(esteMes)}${parcial ? " (até hoje)" : ""}</h4>
         <div class="rv-cards"><div><small>Entrou</small><b class="pos">${brl0(r.rec)}</b></div><div><small>Saiu</small><b>${brl0(r.custo)}</b></div><div><small>${r.sobra >= 0 ? "Sobrou" : "Faltou"}</small><b class="${r.sobra >= 0 ? "pos" : "neg"}">${brl0(Math.abs(r.sobra))}</b></div></div>
+        ${htmlDecidido(mes)}
         ${v === null ? "" : `<p class="rv-frase">Você gastou <b>${Math.abs(v)}% ${v >= 0 ? "a mais" : "a menos"}</b> do que em ${esc(antes)} (${brl(r.custoAnt)}).</p>`}
         ${r.top.length ? `<h4 class="sub-h">Para onde foi o dinheiro</h4><div class="ve-partes">${r.top.map((p) => `<div class="ve-p"><span>${esc(p.cat)}</span><b>${brl(p.valor)}</b><i style="width:${Math.max(3, p.pct)}%"></i></div>`).join("")}</div>` : `<p class="hint">Nenhum gasto neste mês.</p>`}`;
     } else if (passo === 2) {
@@ -5344,19 +5393,21 @@ function revisaoTela(m = S.mes) {
         <button class="btn" type="button" data-close>Fechar</button></div>`);
     if ($("rvVolta")) $("rvVolta").onclick = () => { passo--; desenha(); };
     if ($("rvProx")) $("rvProx").onclick = () => { passo++; desenha(); };
-    $("dlgBody").querySelectorAll("[data-lim]").forEach((b) => (b.onclick = () => { S.prefs.limites = { ...(S.prefs.limites || {}), [b.dataset.lim]: Number(b.dataset.v) }; salvaPrefs(); b.replaceWith(Object.assign(document.createElement("span"), { textContent: "Limite definido.", className: "pill good" })); }));
+    $("dlgBody").querySelectorAll("[data-lim]").forEach((b) => (b.onclick = () => { S.prefs.limites = { ...(S.prefs.limites || {}), [b.dataset.lim]: Number(b.dataset.v) }; anota({ limites: { [b.dataset.lim]: Number(b.dataset.v) } }); b.replaceWith(Object.assign(document.createElement("span"), { textContent: "Limite definido.", className: "pill good" })); }));
     // Todos os limites sugeridos de uma vez.
     if ($("rvTodos")) $("rvTodos").onclick = () => {
       const bs = [...$("dlgBody").querySelectorAll("[data-lim]")]; if (!bs.length) return;
-      S.prefs.limites = { ...(S.prefs.limites || {}), ...Object.fromEntries(bs.map((b) => [b.dataset.lim, Number(b.dataset.v)])) }; salvaPrefs();
+      S.prefs.limites = { ...(S.prefs.limites || {}), ...Object.fromEntries(bs.map((b) => [b.dataset.lim, Number(b.dataset.v)])) }; anota({ limites: Object.fromEntries(bs.map((b) => [b.dataset.lim, Number(b.dataset.v)])) });
       bs.forEach((b) => b.replaceWith(Object.assign(document.createElement("span"), { textContent: "Limite definido.", className: "pill good" })));
       $("rvTodos").remove(); vibra(); toast(`${bs.length} limites definidos. Dá para mudar em Planejar.`);
     };
     if ($("rvValor")) $("rvValor").addEventListener("input", () => { const v = parseMoney($("rvValor").value); if (v > 0 && v <= VALOR_MAX) { valorGuardar = round2(v); $("rvGuarda").textContent = `Guardar ${brl(valorGuardar)} agora`; } });
+    // O que foi decidido nesta revisão fica guardado (até 12 meses), para a revisão do mês seguinte comparar.
+    const anota = (o) => { const n = { ...(S.prefs.revisaoNotas || {}) }; n[mes] = { ...(n[mes] || {}), ...o, limites: { ...(n[mes]?.limites || {}), ...(o.limites || {}) } }; S.prefs.revisaoNotas = Object.fromEntries(Object.entries(n).sort().slice(-12)); salvaPrefs(); };
     const feito = () => { const o = { ...revisoesFeitas(), [mes]: true }; S.prefs.revisoes = Object.fromEntries(Object.entries(o).sort().slice(-24)); salvaPrefs(); };
     if ($("rvFim")) $("rvFim").onclick = () => { feito(); $("dlg").close(); comemora(); toast("Revisão feita. Mês que vem você já começa com um plano."); render(); };
     if ($("rvGuarda")) $("rvGuarda").onclick = () => {
-      feito(); const dest = cats("Reserva")[0];
+      anota({ guardar: valorGuardar }); feito(); const dest = cats("Reserva")[0];
       if (!dest) { $("dlg").close(); return void toast("Crie uma caixinha em Planejar para guardar."); }
       $("dlg").close(); S.tipo = "Reserva"; renderForm(); $("fCat").value = dest; $("fForma").value = "Guardar"; S.catManual = true; renderForm();
       $("fValor").value = valorGuardar.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); mostraEfeito();
