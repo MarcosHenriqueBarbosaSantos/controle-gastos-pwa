@@ -4,7 +4,7 @@ import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey,
   categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, usoDoLimite, proximaFatura, parcelasPorMes, dim, diaNoMes, diasEntre, semanaNoCombinado, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, mesesEntre, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, agendaDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
-  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, formaDaCategoria, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
+  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, formaDaCategoria, ultimoDaCategoria, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
 import { leEtiquetaDePreco } from "./etiqueta.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
@@ -2801,7 +2801,7 @@ $("fValor").addEventListener("input", () => { mostraConta(); });
 $("fValor").addEventListener("input", () => { rotuloDoOk(); mostraEfeito(); if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });
 /** "Livre agora → depois": o efeito do gasto na sobra do mês, antes de confirmar (só no mês atual, e só para gasto fora do cartão). */
 function mostraEfeito() {
-  mostraHoras(); mostraLimiteDaCat();
+  mostraHoras(); mostraLimiteDaCat(); mostraUltima();
   const el = $("fEfeito"), v = valorDoCampo(), d = $("fData").value || hoje();
   const jaTinha = S.tipo === "Reserva" && $("fForma").value === "Já tinha guardado";
   if (jaTinha) { el.hidden = false; el.textContent = "Dinheiro que você já tinha: não sai do seu saldo do mês"; return mostraContasSemCobrir(); }
@@ -2811,6 +2811,24 @@ function mostraEfeito() {
   el.innerHTML = `Livre agora ${brl(livre)} → depois <b class="${depois < 0 ? "txt-bad" : ""}">${brl(depois)}</b>`;
   mostraContasSemCobrir();
 }
+/** "Última vez em Mercado: R$ 87,30, ontem": um toque põe esse valor no campo (só com o valor vazio e fora de gasto fixo). */
+function mostraUltima() {
+  const b = $("fUltima"); if (!b) return;
+  const cat = $("fCat").value, u = S.loaded && S.tipo !== "Reserva" && !$("fFixo").checked && !$("fValor").value.trim() ? ultimoDaCategoria(S.data.lancamentos, cat, S.tipo, hoje()) : null;
+  b.hidden = !u; if (!u) return;
+  b.dataset.v = String(u.valor);
+  b.innerHTML = `Última vez em ${esc(cat)}: <b>${brl(u.valor)}</b>, ${u.dias === 0 ? "hoje" : u.dias === 1 ? "ontem" : `há ${u.dias} dias`}`;
+}
+$("fUltima").onclick = (e) => {
+  const v = Number(e.currentTarget.dataset.v); if (!(v > 0)) return;
+  $("fValor").value = v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); $("fValor").dispatchEvent(new Event("input", { bubbles: true })); $("fValor").focus();
+};
+/** +5, +10, +50: soma ao que já está no campo (aceita conta, como 12+8). */
+$("fSoma").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-soma]"); if (!b) return;
+  const novo = round2((valorDoCampo() > 0 ? valorDoCampo() : 0) + Number(b.dataset.soma));
+  $("fValor").value = novo.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); $("fValor").dispatchEvent(new Event("input", { bubbles: true })); $("fValor").focus();
+});
 /** Quanto do limite da categoria já foi usado no mês do gasto e quanto fica com este gasto (só para quem definiu o limite). */
 function mostraLimiteDaCat() {
   const el = $("fLimCat"); if (!el) return;

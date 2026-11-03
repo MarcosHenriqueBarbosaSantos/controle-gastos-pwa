@@ -1347,6 +1347,15 @@ export function formaDaCategoria(lancs, cat, hojeISO, formas = FORMAS) {
   const [forma, n] = [...conta.entries()].sort((a, b) => b[1] - a[1] || formas.indexOf(a[0]) - formas.indexOf(b[0]))[0];
   return n / total >= 0.6 ? forma : null;
 }
+/**
+ * O último lançamento de uma categoria (o mais recente, até hoje), para oferecer "última vez: R$ X" no formulário.
+ * @returns {null | {valor: number, data: string, descricao: string, dias: number}}
+ */
+export function ultimoDaCategoria(lancs, cat, tipo, hojeISO) {
+  let u = null;
+  for (const x of lancs || []) if (x.tipo === tipo && x.categoria === cat && x.data <= hojeISO && Number(x.valor) > 0 && (!u || x.data > u.data)) u = x;
+  return u ? { valor: Number(u.valor), data: u.data, descricao: u.descricao || "", dias: diasEntre(u.data, hojeISO) } : null;
+}
 export function valorForaDoComum(lancs, novo, hojeISO, texto = "") {
   if (!novo || novo.tipo !== "Despesa" || !(novo.valor >= 1000)) return null;
   const desde = addM(mKey(hojeISO), -6) + "-01";

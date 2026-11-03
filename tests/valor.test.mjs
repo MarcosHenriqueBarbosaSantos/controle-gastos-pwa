@@ -57,3 +57,12 @@ test("forma da categoria: sem 3 gastos, sem domínio ou fora dos 180 dias, devol
   const velho = [GC("2026-01-01", "Pix", "Mercado"), GC("2026-01-02", "Pix", "Mercado"), GC("2026-01-03", "Pix", "Mercado")];
   assert.equal(formaDaCategoria(velho, "Mercado", "2026-10-10"), null);
 });
+
+import { ultimoDaCategoria } from "../js/calc.js";
+test("último da categoria: o mais recente até hoje, com os dias desde então", () => {
+  const l = [GC("2026-10-01", "Pix", "Mercado"), { ...GC("2026-10-08", "Pix", "Mercado"), valor: 87.3 }, { ...GC("2026-10-20", "Pix", "Mercado"), valor: 5 }, GC("2026-10-09", "Pix", "Lazer")];
+  const u = ultimoDaCategoria(l, "Mercado", "Despesa", "2026-10-10");
+  assert.deepEqual([u.valor, u.data, u.dias], [87.3, "2026-10-08", 2]);
+  assert.equal(ultimoDaCategoria(l, "Saúde", "Despesa", "2026-10-10"), null);
+  assert.equal(ultimoDaCategoria(l, "Mercado", "Receita", "2026-10-10"), null);
+});

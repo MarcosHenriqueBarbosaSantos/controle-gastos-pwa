@@ -195,6 +195,8 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
       <p class="erro-campo" id="fValorErro" role="alert" hidden></p>
       <p class="hint horas-trab" id="fHoras" role="status" hidden></p>
       <p class="aviso-contas" id="fContas" role="status" aria-live="polite" hidden></p>
+      <div class="soma-rap so-mobile" id="fSoma" role="group" aria-label="Somar ao valor"><button type="button" data-soma="5">+ 5</button><button type="button" data-soma="10">+ 10</button><button type="button" data-soma="50">+ 50</button><button type="button" data-soma="100">+ 100</button></div>
+      <button class="ultima-vez" id="fUltima" type="button" hidden></button>
       <div class="rapidos" id="fRapidos" aria-label="Gastos que você mais repete" hidden></div>
       <div class="copiado" id="fCopiado" hidden></div>
       <button class="btn l-dia" id="fJornada" type="button" hidden>Lançar uma jornada</button>
