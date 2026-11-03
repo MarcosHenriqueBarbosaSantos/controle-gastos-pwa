@@ -5086,12 +5086,13 @@ function panePerfilMot(host) {
 /** Quem chegou por um convite e precisou criar a conta volta para o desafio ao entrar, mesmo depois de confirmar o e-mail em outra aba. */
 function veioDoSiteMotorista() { try { return localStorage.getItem("cg-sou-mot") === "1"; } catch { return false; } }
 function temConviteGuardado() { try { return Boolean(localStorage.getItem("cg-desafio-cod")); } catch { return false; } }
+let dsTodos = false, dsBusca = "", dsCat = "";   // ranking grande: ver todos e a busca
 let dsPrevia = null, dsRegras = { gastos: true, carro: false, vence: "km" }, dsCritDe = "", dsLista = null, dsAberto = "", dsCrit = "hora", dsErro = "", dsVista = "grupos", rkCrit = "hora", rkCat = "", rkPer = "semana", rkDados = null, dsDias = 7;
 async function enviaPlacar(dias) {
   const m = motDados();
   try { await S.store.placarEnviar?.(dias, placarDosDias(m.turnos, dias, S.prefs.veiculo || {}, m.perfil)); } catch { /* sem internet: vai de novo ao abrir os desafios */ }
 }
-const ERROS_DESAFIO = { categoria_fora: "Sua categoria não pode entrar nesse desafio.", codigo_invalido: "Esse código não existe. Confira com quem convidou.", encerrado: "Esse desafio já terminou.", cheio: "Esse desafio já está cheio.", falta_nome: "Preencha o nome e o apelido.", limite: "Você já tem 5 desafios em andamento." };
+const ERROS_DESAFIO = { categoria_fora: "Sua categoria não pode entrar nesse desafio.", codigo_invalido: "Esse código não existe. Confira com quem convidou.", encerrado: "Esse desafio já terminou.", cheio: "Esse desafio já está cheio.", removido: "Você foi removido desse desafio.", so_dono: "Só quem criou o desafio pode remover alguém.", sem_membro: "Essa pessoa já saiu do desafio.", proprio: "Você não pode remover a si mesmo. Use Sair deste desafio.", falta_nome: "Preencha o nome e o apelido.", limite: "Você já tem 5 desafios em andamento." };
 const erroDoDesafio = (e) => Object.entries(ERROS_DESAFIO).find(([k]) => String(e?.message).includes(k))?.[1] || "Não deu para falar com o servidor. Tente de novo.";
 const NO_CRITERIO = { hora: "por hora", km: "por km", sobra: "no que sobrou", total: "em faturamento", dia: "no melhor dia", geral: "na pontuação geral" };
 const htmlRegras = (regras) => { const r = regrasEmTexto(regras); return `<ul class="ds-regras">${r.slice(0, 3).map((t) => `<li>${t}</li>`).join("")}</ul><p class="ds-letra">${r.slice(3).join(" ")}</p>`; };
@@ -5179,10 +5180,12 @@ function paneDesafios(host) {
       <p class="mot-ver">Depois de criado, as regras não mudam. Quem entrar vê e aceita antes.</p>
       <button class="btn primary" type="button" id="dsCriar">Criar desafio</button></details><p class="auth-msg err" id="dsMsg" role="alert">${esc(dsErro)}</p></section>`;
   if (!atual) {
-    host.innerHTML = `<div id="motRoot" class="ds">${abasDesafio()}<h2 class="mot-frase">Quem está ganhando mais de verdade?</h2><p class="mot-ver">Monte um grupo com os seus amigos e compare um dia, uma semana ou um mês: por hora, por km, faturamento e melhor dia. Só entra quem tiver o código, e ninguém vê as suas contas.</p>${novo}</div>`;
+    host.innerHTML = `<div id="motRoot" class="ds">${abasDesafio()}<h2 class="mot-frase">Quem está ganhando mais de verdade?</h2><p class="mot-ver">Monte um grupo com os seus amigos e compare um dia, uma semana ou um mês. Só entra quem tiver o código, e ninguém vê as suas contas.</p>
+      <ol class="ds-passos"><li><b>1</b><span><strong>Crie ou entre.</strong> Escolha as regras e chame os amigos pelo WhatsApp, ou entre com um código.</span></li><li><b>2</b><span><strong>Rode e lance o seu dia.</strong> O app calcula por hora, por km, faturamento e o que sobrou, só com os totais do dia.</span></li><li><b>3</b><span><strong>Veja o ranking.</strong> Todos veem o mesmo placar, com as mesmas regras.</span></li></ol>${novo}</div>`;
   } else {
     if (dsCritDe !== atual.id) { dsCrit = atual.regras?.vence || "km"; dsCritDe = atual.id; }   // abre no critério que decide este desafio
-    const totais = totaisDoDesafio(atual.membros, atual.regras), rank = rankingDoDesafio(totais, dsCrit), minha = rank.find((x) => x.eu), hj = hoje(), acabou = atual.fim < hj;
+    const cats = [...new Set(atual.membros.map((m) => m.categoria).filter(Boolean))].sort(), catAtiva = cats.includes(dsCat) ? dsCat : "";
+    const totais = totaisDoDesafio(atual.membros.filter((m) => !catAtiva || m.categoria === catAtiva), atual.regras), rank = rankingDoDesafio(totais, dsCrit), minha = rank.find((x) => x.eu), hj = hoje(), acabou = atual.fim < hj;
     const nomeCrit = NO_CRITERIO[dsCrit], fmt = (m) => (m.valor === null ? "—" : dsCrit === "geral" ? `${m.valor} pts` : `${brl(m.valor)}${dsCrit === "hora" ? "/h" : dsCrit === "km" ? "/km" : ""}`);
     const titulo = minha?.pos === 1 ? `Você lidera ${nomeCrit}.` : minha?.pos ? `Você está em ${minha.pos}º ${nomeCrit}.` : "Lance o seu dia para entrar no placar.";
     const faltam = Math.round((new Date(`${atual.fim}T12:00:00`) - new Date(`${hj}T12:00:00`)) / 864e5);
@@ -5195,6 +5198,23 @@ function paneDesafios(host) {
       else if (antes && minha.pos < antes) mudou = `<p class="ds-mudou subiu"><b>Você subiu!</b> Antes estava em ${antes}º, agora está em ${minha.pos}º.</p>`;
       try { localStorage.setItem(chave, String(minha.pos)); } catch { /* nada */ }
     }
+    // Ranking que aguenta muita gente: até 12 aparecem todos; acima disso, os 10 primeiros, a vizinhança da pessoa e uma busca por apelido.
+    const liRank = (x) => `<li class="${x.eu ? "eu" : ""}${x.pos && x.pos <= 3 ? ` m${x.pos}` : ""}"><span class="p">${x.pos ?? "–"}</span><i class="av" aria-hidden="true">${esc((x.apelido || "?").charAt(0).toUpperCase())}</i><span class="n"><b>${esc(x.eu ? `${x.apelido} (você)` : x.apelido)}</b><small>${esc([x.carro, x.categoria].filter(Boolean).join(" · "))}</small>${x.diasSemGasto ? `<small class="ds-aviso">${x.diasSemGasto} ${x.diasSemGasto === 1 ? "dia" : "dias"} sem gasto lançado</small>` : ""}${x.semCustoCarro ? `<small class="ds-aviso">sem custo do carro preenchido</small>` : ""}</span><span class="v">${fmt(x)}</span></li>`;
+    const blocoRanking = () => {
+      if (rank.length <= 12) return `<ol class="ds-rank">${rank.map(liRank).join("")}</ol>`;
+      const q = dsBusca.trim().toLowerCase(), meuIdx = rank.findIndex((x) => x.eu);
+      if (dsTodos || q) {
+        const lista = q ? rank.filter((x) => String(x.apelido).toLowerCase().includes(q) || String(x.carro || "").toLowerCase().includes(q)) : rank;
+        return `<div class="ds-busca"><label class="so-leitor" for="dsBuscaIn">Buscar no ranking</label><input class="in" id="dsBuscaIn" type="search" placeholder="Buscar apelido ou carro" value="${esc(dsBusca)}" maxlength="30" autocomplete="off"></div>
+          <p class="hint" style="margin:0">${q ? `${lista.length} ${lista.length === 1 ? "encontrado" : "encontrados"}` : `Todos os ${rank.length} do desafio`}.</p>
+          <ol class="ds-rank">${lista.slice(0, 100).map(liRank).join("") || '<li class="vazio">Ninguém com esse nome.</li>'}</ol>${lista.length > 100 ? `<p class="hint">Mostrando os 100 primeiros. Busque pelo apelido para achar alguém.</p>` : ""}
+          <button class="link link-toque" type="button" id="dsMenos">Mostrar só o topo</button>`;
+      }
+      const topo = rank.slice(0, 10), vizinhos = meuIdx >= 10 ? rank.slice(Math.max(10, meuIdx - 1), meuIdx + 2) : [];
+      return `<ol class="ds-rank">${topo.map(liRank).join("")}</ol>
+        ${vizinhos.length ? `<p class="ds-quebra" aria-hidden="true">⋯ você está aqui ⋯</p><ol class="ds-rank">${vizinhos.map(liRank).join("")}</ol>` : ""}
+        <div class="ds-ver-todos"><button class="btn" type="button" id="dsTodosBtn">Ver todos os ${rank.length}</button><div class="busca"><input class="in" id="dsBuscaIn" type="search" placeholder="Buscar apelido ou carro" maxlength="30" autocomplete="off" aria-label="Buscar no ranking"></div></div>`;
+    };
     const EXPLICA_CRIT = { geral: "Pontos somados em todos os critérios.", hora: "Vence quem ganha mais por hora rodada.", km: "Vence quem sobra mais por km rodado.", sobra: "Vence quem fica com mais dinheiro depois dos custos.", total: "Vence quem fatura mais, sem descontar nada.", dia: "Vence quem fez o melhor dia do desafio." };
     const nomesCrit = Object.fromEntries([["geral", "Geral"], ...CRITERIOS_DESAFIO]), faltaPass = faltaParaPassar(rank), qtd = rank.filter((x) => x.pos).length;
     const quandoTxt = acabou ? "encerrado" : faltam === 0 ? "termina hoje" : `faltam ${faltam} ${faltam === 1 ? "dia" : "dias"}`;
@@ -5208,16 +5228,36 @@ function paneDesafios(host) {
       <details class="ds-crit"><summary><span class="tx"><b>Ranking por: ${nomesCrit[dsCrit]}${dsCrit === (atual.regras?.vence || "km") ? " ★" : ""}</b><span>${EXPLICA_CRIT[dsCrit]} Toque para trocar.</span></span></summary>
         <div class="ds-chips" role="group" aria-label="Comparar por">${[["geral", "Geral"], ...CRITERIOS_DESAFIO].map(([k, n]) => `<button type="button" data-crit="${k}" aria-pressed="${k === dsCrit}">${n}${k === (atual.regras?.vence || "km") ? " ★" : ""}</button>`).join("")}</div>
         <p class="hint" style="margin:6px 0 0">A estrela ★ é o que decide quem vence este desafio.</p></details>
-      <ol class="ds-rank">${rank.map((x) => `<li class="${x.eu ? "eu" : ""}${x.pos && x.pos <= 3 ? ` m${x.pos}` : ""}"><span class="p">${x.pos ?? "–"}</span><i class="av" aria-hidden="true">${esc((x.apelido || "?").charAt(0).toUpperCase())}</i><span class="n"><b>${esc(x.eu ? `${x.apelido} (você)` : x.apelido)}</b><small>${esc([x.carro, x.categoria].filter(Boolean).join(" · "))}</small>${x.diasSemGasto ? `<small class="ds-aviso">${x.diasSemGasto} ${x.diasSemGasto === 1 ? "dia" : "dias"} sem gasto lançado</small>` : ""}${x.semCustoCarro ? `<small class="ds-aviso">sem custo do carro preenchido</small>` : ""}</span><span class="v">${fmt(x)}</span></li>`).join("")}</ol>
+      ${cats.length > 1 ? `<div class="ds-chips ds-cats" role="group" aria-label="Categoria"><button type="button" data-dscat="" aria-pressed="${!catAtiva}">Todas as categorias</button>${cats.map((k) => `<button type="button" data-dscat="${esc(k)}" aria-pressed="${catAtiva === k}">${esc(k)}</button>`).join("")}</div>` : ""}
+      ${acabou && rank[0]?.pos ? `<section class="ds-fim"><b>Desafio encerrado</b><span>Vencedor${catAtiva ? ` em ${esc(catAtiva)}` : ""}: <b>${esc(rank[0].apelido)}</b> (${fmt(rank[0])})</span><button class="btn primary" type="button" id="dsRevanche">Fazer uma revanche</button></section>` : ""}
+      ${blocoRanking()}
       ${acabou ? "" : `<section class="ds-conv"><span class="tx"><b>Chame os amigos</b><span>Quanto mais gente no desafio, mais divertido.</span></span><button class="btn primary" type="button" id="dsWhats">Chamar no WhatsApp</button></section>`}
       <details class="ds-mais"><summary><span class="tx"><b>Mais opções</b><span>Código, placar, regras e outros desafios</span></span></summary><div class="ds-mais-corpo">
         ${acabou ? "" : `<p class="ds-codigo">${esc(atual.codigo)}</p><p class="hint" style="margin:0;text-align:center">O código do desafio, para quem não usa o link.</p><button class="btn" type="button" id="dsLink">Copiar link do desafio</button>`}
         <button class="btn" type="button" id="dsPlacar">Compartilhar o placar</button>
         <details class="mot-como"><summary>Regras deste desafio</summary>${htmlRegras(atual.regras)}</details>
+        ${atual.dono && atual.membros.length > 1 && typeof S.store.desafioRemover === "function" ? `<details class="mot-como"><summary>Participantes (${atual.membros.length})</summary><ul class="ds-membros">${atual.membros.map((m, i) => `<li><span class="n"><b>${esc(m.apelido)}${m.eu ? " (você)" : ""}</b><small>${esc([m.carro, m.categoria].filter(Boolean).join(" · "))}</small></span>${m.eu ? "" : `<button class="link aj-excluir" type="button" data-remove="${i}">Remover</button>`}</li>`).join("")}</ul><p class="hint" style="margin:6px 0 0">Quem for removido não volta pelo mesmo código. Só quem criou o desafio vê esta lista.</p></details>` : ""}
         <details class="mot-como"><summary>Entrar em outro ou criar um novo</summary>${novo}</details>
         <button class="link link-toque" type="button" id="dsSair">Sair deste desafio</button></div></details></div>`;
+    host.querySelectorAll("[data-remove]").forEach((b) => armDelete(b, async () => {   // dois toques: só o criador remove, e a pessoa não volta
+      const m = atual.membros[Number(b.dataset.remove)]; if (!m) return;
+      try { await S.store.desafioRemover(atual.id, m.mid || m.apelido); dsLista = null; paneDesafios(host); toast(`${m.apelido} foi removido do desafio.`); } catch (e) { toast(erroDoDesafio(e)); }
+    }, "Toque de novo para remover"));
+    if ($("dsTodosBtn")) $("dsTodosBtn").onclick = () => { dsTodos = true; paneDesafios(host); };
+    if ($("dsMenos")) $("dsMenos").onclick = () => { dsTodos = false; dsBusca = ""; paneDesafios(host); };
+    if ($("dsBuscaIn")) {
+      const campo = $("dsBuscaIn");
+      campo.addEventListener("input", () => { dsBusca = campo.value; const pos = campo.selectionStart; paneDesafios(host); const n = $("dsBuscaIn"); if (n) { n.focus(); n.setSelectionRange(pos, pos); } });
+    }
+    host.querySelectorAll("[data-dscat]").forEach((b) => (b.onclick = () => { dsCat = b.dataset.dscat; dsTodos = false; dsBusca = ""; paneDesafios(host); }));
+    if ($("dsRevanche")) $("dsRevanche").onclick = () => {   // o mesmo desafio, de novo: regras e duração iguais, nome com "revanche"
+      const dias = Math.max(1, Math.round((new Date(`${atual.fim}T12:00:00`) - new Date(`${atual.inicio || atual.fim}T12:00:00`)) / 864e5) + 1);
+      dsRegras = { ...atual.regras }; dsDias = dias <= 1 ? 1 : dias <= 10 ? 7 : 30; dsAberto = ""; dsLista = dsLista.filter((d) => d.id !== atual.id).concat(atual).filter(Boolean);
+      paneDesafios(host);
+      const nome = $("dsNome"); if (nome) { for (let d = nome.closest("details"); d; d = d.parentElement?.closest("details")) d.open = true; nome.value = `${atual.nome} (revanche)`.slice(0, 40); nome.scrollIntoView({ block: "center" }); }
+    };
     host.querySelectorAll("[data-crit]").forEach((b) => (b.onclick = () => { dsCrit = b.dataset.crit; paneDesafios(host); }));
-    host.querySelectorAll("[data-ds]").forEach((b) => (b.onclick = () => { dsAberto = b.dataset.ds; paneDesafios(host); }));
+    host.querySelectorAll("[data-ds]").forEach((b) => (b.onclick = () => { dsCat = ""; dsTodos = false; dsBusca = ""; dsAberto = b.dataset.ds; paneDesafios(host); }));
     // O link abre o app já no desafio: serve para o WhatsApp, a bio do Instagram ou qualquer outro lugar.
     const linkDoDesafio = `https://meugastos.com.br/#desafio=${atual.codigo}`, convite = `Bora se desafiar? No Meus Gastos dá para ver quem rende mais de verdade rodando. Entra no meu desafio: ${linkDoDesafio}`;
     if ($("dsWhats")) $("dsWhats").onclick = () => window.open(`https://wa.me/?text=${encodeURIComponent(convite)}`, "_blank", "noopener");

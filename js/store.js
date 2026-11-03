@@ -18,7 +18,7 @@
 //   sugestoesEnviar(row) / sugestoesMinhas()  → pedidos de melhoria e correção (supabase/sugestoes.sql); na demonstração: erro "demo"
 //   casalMeu() / casalConvidar(email) / casalResponder(aceita) / casalSair() / casalSalvar(dados)
 //                                  → conta de casal (supabase/casal.sql); na demonstração, casalMeu() devolve { situacao: "demo" }
-//   desafiosMeus() / desafioCriar(d) / desafioVer(codigo) / desafioEntrar(d) / desafioSair(id) / placarEnviar(dias, linhas)
+//   desafiosMeus() / desafioCriar(d) / desafioVer(codigo) / desafioEntrar(d) / desafioSair(id) / desafioRemover(id, mid) / placarEnviar(dias, linhas)
 //                                  → desafios entre motoristas (supabase/desafios.sql); na demonstração, os amigos são de exemplo
 
 const num = (r) => ({ ...r, valor: Number(r.valor) });
@@ -130,6 +130,7 @@ export function createSupabaseStore(client) {
     async desafioVer(codigo) { return ok(await client.rpc("desafio_ver", { cod: codigo })); },
     async desafioEntrar({ codigo, apelido, carro, categoria }) { return ok(await client.rpc("desafio_entrar", { cod: codigo, a: apelido, c: carro, k: categoria, aceito: true })); },
     async desafioSair(id) { ok(await client.rpc("desafio_sair", { d: id })); },
+    async desafioRemover(id, mid) { ok(await client.rpc("desafio_remover", { d: id, m: mid })); },   // só o criador do desafio (supabase/desafios-grande.sql)
     async rankingGeral(criterio, categoria = "", periodo = "semana") { return ok(await client.rpc("ranking_geral", { crit: criterio, cat: categoria, periodo })); },
     async rankingEntrar({ apelido, carro, categoria }) { ok(await client.rpc("ranking_entrar", { a: apelido, c: carro, k: categoria })); },
     async rankingSair() { ok(await client.rpc("ranking_sair")); },
@@ -277,7 +278,7 @@ export function createLocalStore(key, seedFn) {
     async desafioCriar({ nome, apelido, carro, categoria, dias = 7, regras = { gastos: true, carro: false, vence: "km" } }) {
       const iso = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
       const amigo = (a, c, k, dias) => ({ apelido: a, carro: c, categoria: regras.categorias?.length && !regras.categorias.includes(k) ? regras.categorias[0] : k, eu: false, dias: dias.map(([n, ganho, horas, km, viagens, gastos = Math.round(ganho * 0.22)]) => ({ dia: iso(n), ganho, gastos, custoCarro: Math.round(km * 0.55), km, ms: horas * 3600000, viagens, lucro: ganho * 0.6 })) });
-      const d = { id: "demo-" + Date.now(), nome, codigo: "DEMO2026", regras, inicio: iso(dias === 1 ? 0 : -3), fim: iso(dias === 1 ? 0 : dias - 4), membros: [
+      const d = { id: "demo-" + Date.now(), nome, codigo: "DEMO2026", dono: true, regras, inicio: iso(dias === 1 ? 0 : -3), fim: iso(dias === 1 ? 0 : dias - 4), membros: [
         { apelido, carro, categoria, eu: true, dias: [] },
         amigo("Falcão", "Onix", "UberX", [[-3, 412, 12, 238, 19], [-2, 388, 11, 221, 17], [-1, 436, 13, 251, 21]]),
         amigo("Rota 7", "HB20", "UberX", [[-3, 298, 7, 124, 13], [-2, 322, 7.5, 131, 14], [-1, 287, 6.5, 118, 12]]),
@@ -292,6 +293,7 @@ export function createLocalStore(key, seedFn) {
     },
     async desafioEntrar(d) { return this.desafioCriar({ ...d, nome: "Desafio dos amigos", regras: { gastos: true, carro: true, vence: "geral" } }); },
     async desafioSair(id) { db.desafios = (db.desafios || []).filter((d) => d.id !== id); persist(); },
+    async desafioRemover(id, mid) { const d = (db.desafios || []).find((x) => x.id === id); if (d) d.membros = d.membros.filter((m) => m.apelido !== mid); persist(); },
     // Ranking na demonstração: nomes de exemplo.
     async rankingGeral(criterio, categoria = "", periodo = "semana") {
       const escala = { dia: 0.16, semana: 1, mes: 4.1 }[periodo] ?? 1;
