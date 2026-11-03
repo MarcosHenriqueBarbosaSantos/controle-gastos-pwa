@@ -1057,7 +1057,7 @@ function htmlFecharMes(c) {
 }
 /** Conta de casal, nos primeiros 5 dias do mês: o acerto do mês passado (quem passa quanto para quem). Toque abre a conta de casal. */
 function htmlAcertoCasalIni(c) {
-  const hj = hoje(); if (!casalAtivo() || c.fase !== "atual" || Number(hj.slice(8, 10)) > 5) return "";
+  const hj = hoje(); if (!casalAtivo() || !S.prefs.casalAcerto || c.fase !== "atual" || Number(hj.slice(8, 10)) > 5) return "";
   const ant = addM(mKey(hj), -1), r = acertoDoCasal(S.data.lancamentos, ant, S.casal.eu, Number(S.prefs.casalPct) || 50);
   if (!r.total || !r.quem) return "";
   const outro = esc(nomeDoOutro());
@@ -2358,12 +2358,38 @@ function desenhaSelBarra() {
   const saiu = round2(ls.filter((x) => x.tipo === "Despesa").reduce((t, x) => t + Number(x.valor), 0)), entrou = round2(ls.filter((x) => x.tipo === "Receita").reduce((t, x) => t + Number(x.valor), 0));
   const soma = [saiu ? `− ${brl(saiu)}` : "", entrou ? `+ ${brl(entrou)}` : ""].filter(Boolean).join(" · ");
   b.innerHTML = `<b role="status">${n === 0 ? "Toque nos lançamentos" : n === 1 ? "1 escolhido" : `${n} escolhidos`}${soma ? ` · ${soma}` : ""}</b>
-    <button type="button" class="btn sm" id="selTodos">${n ? "Limpar" : "Marcar todos"}</button><button type="button" class="btn sm" id="selRep"${n ? "" : " disabled"}>Repetir hoje</button>
+    <button type="button" class="btn sm" id="selTodos">${n ? "Limpar" : "Marcar todos"}</button><button type="button" class="btn sm" id="selRep"${n ? "" : " disabled"}>Repetir hoje</button>${(() => {
+      if (!casalAtivo() || !ls.length) return "";
+      const meus = ls.filter((x) => (x.user_id || S.casal.eu) === S.casal.eu).length;   // todos meus: dá para passar; todos dele: dá para trazer; misturado: nenhum dos dois
+      return meus === ls.length ? `<button type="button" class="btn sm" id="selDono" data-para="outro">Passar para ${esc(primeiroNomeDoOutro())}</button>` : meus === 0 ? `<button type="button" class="btn sm" id="selDono" data-para="eu">Passar para mim</button>` : "";
+    })()}
     <button type="button" class="btn sm" id="selCat"${n ? "" : " disabled"}>Trocar categoria</button><button type="button" class="btn sm del" id="selDel"${n ? "" : " disabled"}>Apagar</button><button type="button" class="btn sm" id="selFim">Pronto</button>`;
   $("selFim").onclick = () => { S.sel = null; listaL(calcMes(S.data, S.mes, hoje())); };
   $("selCat").onclick = selTrocaCat; $("selDel").onclick = selApaga; $("selRep").onclick = selRepete;
+  if ($("selDono")) $("selDono").onclick = async () => { const ids = [...S.sel]; if (await passaDeDono(ids, $("selDono").dataset.para === "outro")) { S.sel = null; listaL(calcMes(S.data, S.mes, hoje())); } };
   $("selTodos").onclick = () => { if (n) S.sel.clear(); else $("lLista").querySelectorAll("tr[data-id]").forEach((tr) => S.sel.add(tr.dataset.id)); listaL(calcMes(S.data, S.mes, hoje())); };
 }
+/**
+ * Conta de casal: muda de quem é o lançamento (o dono é só uma etiqueta; a casa continua sendo uma conta só).
+ * A regra do banco (supabase/casal.sql) já deixa cada um mexer nos lançamentos do outro e passá-los para ele, então não há mudança no banco.
+ * @param {string[]} ids  @param {boolean} paraOutro  true = passar para a outra pessoa; false = trazer para mim
+ */
+async function passaDeDono(ids, paraOutro) {
+  if (!casalAtivo()) return false;
+  const destino = paraOutro ? S.casal.outro_id : S.casal.eu, nome = paraOutro ? primeiroNomeDoOutro() : "você";
+  const ls = ids.map(lancPorId).filter((x) => x && (x.user_id || S.casal.eu) !== destino), n = ls.length;
+  if (!n) { toast(`Já é ${paraOutro ? "de " + nome : "seu"}.`); return false; }
+  const antes = new Map(ls.map((x) => [x.id, { user_id: x.user_id, import_key: x.import_key ?? null }]));
+  // import_key sai junto: a chave é única por dono, e a mudança de dono poderia esbarrar nela.
+  if (!(await grava(async () => { for (const x of ls) await S.store.updateLancamento(x.id, { user_id: destino, import_key: null }); }))) return false;
+  ls.forEach((x) => { x.user_id = destino; x.import_key = null; });
+  render();
+  toastDesfazer(`${n === 1 ? "1 conta passou" : `${n} contas passaram`} para ${paraOutro ? "ser de " + nome : "ser sua"}.`, async () => {
+    if (await grava(async () => { for (const [id, a] of antes) await S.store.updateLancamento(id, a); })) { ls.forEach((x) => { Object.assign(x, antes.get(x.id)); }); render(); toast("Voltou como estava."); }
+  });
+  return true;
+}
+const primeiroNomeDoOutro = () => String(nomeDoOutro() || "").trim().split(/\s+/)[0] || "a outra pessoa";
 /** Lança de novo, com a data de hoje, todos os escolhidos (os que não são lançamentos de verdade ficam de fora). */
 async function selRepete() {
   const rows = [...S.sel].map(lancPorId).filter((x) => x && !x.auto && x.forma !== JA_TINHA).map(copiaParaHoje), n = rows.length; if (!n) return;
@@ -2441,7 +2467,7 @@ function listaL(c) {
   const fq = $("lQuem"), deQuem = casalAtivo() ? S.quem || "" : "", doQuem = (x) => !deQuem || (!x.auto && (deQuem === "eu" ? x.user_id !== S.casal.outro_id : x.user_id === S.casal.outro_id));
   fq.hidden = !casalAtivo();
   if (casalAtivo()) {
-    fq.innerHTML = [["", "Todos"], ["eu", "Meus"], ["outro", nomeDoOutro()]].map(([v, r]) => `<button type="button" data-quem="${v}" aria-pressed="${deQuem === v}">${esc(r)}</button>`).join("");
+    fq.innerHTML = [["", "Todos"], ["eu", "Meus"], ["outro", `De ${String(nomeDoOutro() || "").trim().split(/\s+/)[0]}`]].map(([v, r]) => `<button type="button" data-quem="${v}" aria-pressed="${deQuem === v}">${esc(r)}</button>`).join("");
     fq.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.quem = b.dataset.quem; listaL(calcMes(S.data, S.mes, hoje())); }));
   }
   // Filtros: por tipo e por categoria, valem para o mês e também para a busca em todos os meses.
@@ -3427,7 +3453,7 @@ async function salvaCasal() {
 function resumoDoCasal() {
   const c = S.casal;
   if (S.store?.kind !== "supabase") return "Divida as contas com outra pessoa";
-  if (c?.situacao === "ativo") return `Você e ${nomeDoOutro()} dividem as contas`;
+  if (c?.situacao === "ativo") return `Você e ${nomeDoOutro()} usam as mesmas contas`;
   if (c?.situacao === "convidei") return `Convite feito para ${c.outro}`;
   if (c?.situacao === "convidado") return `${c.outro} convidou você`;
   return "Divida as contas com outra pessoa";
@@ -3459,10 +3485,11 @@ async function abrirCasal(aviso = "", erro = false) {
   if (c.situacao === "ativo") {
     const d = divisaoDoMes(S.data.lancamentos, S.mes, S.casal.eu), nomes = c.dados?.nomes || {}, n = (q) => `${q} ${q === 1 ? "gasto" : "gastos"}`;
     openDlg(`<h3>Conta de casal</h3>
-      <p class="casal-txt">Você divide as contas com <b>${esc(nomeDoOutro())}</b> (${esc(c.outro)})${c.desde ? ` desde ${ddmmaaaa(c.desde)}` : ""}. Os dois veem e lançam nas mesmas contas.</p>
-      <div class="casal-div"><span class="t">Quem lançou em ${nomeMes(S.mes)}</span>
+      <p class="casal-txt">Você e <b>${esc(nomeDoOutro())}</b> (${esc(c.outro)}) usam as mesmas contas${c.desde ? ` desde ${ddmmaaaa(c.desde)}` : ""}. Os dois veem e anotam tudo junto, como uma conta só. Ninguém deve nada a ninguém.</p>
+      <div class="casal-div"><span class="t">Quem anotou os gastos em ${nomeMes(S.mes)}</span>
         <span><b>Você</b>${brl(d.eu.total)}<em>${n(d.eu.n)}</em></span><span><b>${esc(nomeDoOutro())}</b>${brl(d.outro.total)}<em>${n(d.outro.n)}</em></span></div>
-      <div class="casal-acerto" id="csAcerto"></div>
+      <label class="check" style="margin:4px 0"><input type="checkbox" id="csAcertoOn"${S.prefs.casalAcerto ? " checked" : ""}> Dividir os gastos entre nós (calcular quanto um passa para o outro)</label>
+      <div class="casal-acerto" id="csAcerto"${S.prefs.casalAcerto ? "" : " hidden"}></div>
       <form id="csNomes" class="dlg-form" autocomplete="off">
         <label class="f">Seu nome<input class="in" id="csMeu" maxlength="20" placeholder="${esc(apelidoDoEmail($("whoName").textContent))}" value="${esc(nomes[c.eu] || "")}"></label>
         <label class="f">Nome de quem divide com você<input class="in" id="csDele" maxlength="20" placeholder="${esc(apelidoDoEmail(c.outro))}" value="${esc(nomes[c.outro_id] || "")}"></label>
@@ -3487,6 +3514,7 @@ ${r.quem === "outro" ? `${ele} passa ${brl(r.valor)} para ${eu}.` : r.quem === "
       };
     };
     desenhaAcerto();
+    $("csAcertoOn").onchange = async (e) => { S.prefs.casalAcerto = e.target.checked; $("csAcerto").hidden = !e.target.checked; await salvaPrefs(); render(); };
     $("csNomes").addEventListener("submit", async (e) => {
       e.preventDefault();
       const novos = { ...nomes }; for (const [id, campo] of [[c.eu, "csMeu"], [c.outro_id, "csDele"]]) { const v = $(campo).value.trim().slice(0, 20); if (v) novos[id] = v; else delete novos[id]; }
@@ -3885,20 +3913,13 @@ document.addEventListener("click", async (e) => {
 function renderCasalIni(c) {
   const host = $("casalIni"); if (!host) return;
   if (!S.loaded || !casalAtivo() || c.fase === "futuro") { host.hidden = true; host.innerHTML = ""; return; }
-  const r = saldosDoCasal(S.data, S.mes, hoje(), S.casal.eu, S.casal.outro_id), outro = nomeDoOutro();
-  const col = (k, titulo, quem) => {
-    const x = r[k], falta = x.sobra < 0;
-    return `<div class="cs-col${k === "juntos" ? " juntos" : ""}" role="group" aria-label="${esc(titulo)}">
-      <b class="cs-nome">${esc(titulo)}</b>
-      <span><small>Entra</small><i>${brl0(x.rec)}</i></span>
-      <span><small>${c.fase === "atual" ? "Previsão do mês" : "Gastou"}</small><i>${brl0(x.custo)}</i></span>
-      <span class="cs-sobra ${falta ? "ruim" : "bom"}"><small>${falta ? "Faltam" : "Sobram"}</small><i>${falta ? "▼ " : "▲ "}${brl0(Math.abs(x.sobra))}</i></span>
-      ${quem !== null ? `<button class="link" type="button" data-cs-ver="${quem}">Ver lançamentos</button>` : ""}</div>`;
-  };
+  const r = saldosDoCasal(S.data, S.mes, hoje(), S.casal.eu, S.casal.outro_id), outro = String(nomeDoOutro() || "").trim().split(/\s+/)[0] || "Outro", j = r.juntos, falta = j.sobra < 0;
   host.hidden = false;
-  host.innerHTML = `<div class="teto casal-card"><span class="topo"><span class="l">${ico("casal")}Contas do casal</span></span>
-    <p class="hint" style="margin:0 0 8px;font-size:13px">O mês de cada um e dos dois juntos. A sobra de cada um não soma o que o outro ganha. O Pix entre vocês dois (categoria Casal) não entra em Juntos.</p>
-    <div class="cs-grade">${col("eu", "Eu", "eu")}${col("outro", String(outro || "").trim().split(/\s+/)[0] || "Outro", "outro")}${col("juntos", "Juntos", null)}</div></div>`;
+  host.innerHTML = `<div class="teto casal-card"><span class="topo"><span class="l">${ico("casal")}Contas dos dois</span></span>
+    <div class="cs-juntos"><span><small>Entra</small><i>${brl0(j.rec)}</i></span><span><small>${c.fase === "atual" ? "Previsão de gastos" : "Gastos"}</small><i>${brl0(j.custo)}</i></span>
+      <span class="cs-sobra ${falta ? "ruim" : "bom"}"><small>${falta ? "Faltam" : "Sobram"}</small><i>${falta ? "▼ " : "▲ "}${brl0(Math.abs(j.sobra))}</i></span></div>
+    <p class="hint" style="margin:8px 0 6px;font-size:13px">Tudo junto, como uma conta só. Toque para ver quem anotou cada gasto:</p>
+    <div class="cs-quem"><button type="button" class="btn sm" data-cs-ver="eu">Meus gastos <b>${brl0(r.eu.gasto)}</b></button><button type="button" class="btn sm" data-cs-ver="outro">Gastos de ${esc(outro)} <b>${brl0(r.outro.gasto)}</b></button></div></div>`;
   host.querySelectorAll("[data-cs-ver]").forEach((b) => (b.onclick = () => { S.quem = b.dataset.csVer; abrirSub("l"); }));
 }
 /* ---------- Meu desempenho ---------- */
@@ -6913,6 +6934,7 @@ function editarLancamento(id) {
     ${x.pendente || typeof S.store.guardaComprovante !== "function" ? "" : `<div class="f wide foto-linha"><span class="ava">${ico(temComprovante(x) ? "clipe" : "imagem")}</span>
       <span><b>Comprovante</b><small>${temComprovante(x) ? "a foto do recibo está guardada neste lançamento" : "guarde a foto do recibo para consultar depois"}</small></span>
       <button class="btn sm" type="button" id="eComp">${temComprovante(x) ? "Ver" : "Anexar"}</button></div>`}
+    ${casalAtivo() && !x.pendente ? (() => { const meu = (x.user_id || S.casal.eu) === S.casal.eu; return `<div class="f wide foto-linha"><span class="ava">${ico("casal")}</span><span><b>De quem é</b><small>${meu ? "Esta conta é sua." : `Esta conta é de ${esc(primeiroNomeDoOutro())}.`} A casa continua sendo uma conta só.</small></span><button class="btn sm" type="button" id="eDono">${meu ? `É de ${esc(primeiroNomeDoOutro())}` : "É minha"}</button></div>`; })() : ""}
     <p class="auth-msg err wide" id="edMsg"></p>
     <div class="actions wide"><button class="btn primary" type="submit">Salvar alteração</button><button class="btn" type="button" id="eDeNovo">Lançar de novo hoje</button><button class="btn" type="button" data-close>Cancelar</button><button class="btn perigo" type="button" id="eExcluir">${ico("lixo")}Excluir</button></div></form>`);
   const horasDoEditar = () => {
@@ -6920,6 +6942,7 @@ function editarLancamento(id) {
     el.hidden = !t; el.textContent = t ? `Isso é ${t} do seu trabalho (sua hora vale ${brl(vh.valor)})` : "";
   };
   $("eValor").addEventListener("input", horasDoEditar); $("eTipo").addEventListener("change", horasDoEditar); horasDoEditar();
+  if ($("eDono")) $("eDono").onclick = async () => { $("eDono").disabled = true; const meu = (x.user_id || S.casal.eu) === S.casal.eu; if (await passaDeDono([id], meu)) $("dlg").close(); else $("eDono").disabled = false; };
   // Mesmo lançamento, com a data de hoje: para o gasto que se repete.
   $("eDeNovo").onclick = async () => {
     const { id: _id, created_at: _c, user_id: _u, pendente: _p, enviando: _e, comprovante: _cp, ...copia } = x;   // o comprovante é daquele gasto, não da cópia

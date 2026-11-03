@@ -2408,3 +2408,7 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .ds-op>*:not(summary){margin-left:14px;margin-right:14px} .ds-op>*:last-child{margin-bottom:14px}
 .ds-falta{margin:0 0 8px;font-size:14px;color:var(--ink-2)} .ds-falta b{color:var(--ink)}
 .ds-mudou{margin:0 0 10px;padding:10px 14px;border-radius:14px;font-size:14px;border:1px solid var(--border)} .ds-mudou.piorou{border-color:color-mix(in srgb,var(--warn) 60%,var(--border));background:color-mix(in srgb,var(--warn) 12%,var(--surface))} .ds-mudou.subiu{border-color:color-mix(in srgb,var(--good) 60%,var(--border));background:color-mix(in srgb,var(--good) 12%,var(--surface))}
+.cs-juntos{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.cs-juntos>span{display:grid;gap:2px} .cs-juntos small{font-size:12px;color:var(--muted)} .cs-juntos i{font-style:normal;font-size:20px;font-weight:700;font-variant-numeric:tabular-nums}
+.cs-juntos .cs-sobra.bom i{color:var(--good)} .cs-juntos .cs-sobra.ruim i{color:var(--bad)}
+.cs-quem{display:flex;flex-wrap:wrap;gap:8px} .cs-quem .btn{flex:1 1 150px;justify-content:space-between;min-height:44px} .cs-quem .btn b{font-variant-numeric:tabular-nums}
