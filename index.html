@@ -191,7 +191,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
       <span class="voz-tx"><b id="vozTitulo">Ouvindo…</b><span id="vozTexto">Fale o gasto, por exemplo: “gastei 32 no mercado no débito”.</span></span>
       <button class="btn sm" type="button" id="vozParar">Parar</button></div>
     <form id="formLanc" class="fields" autocomplete="off" novalidate>
-      <label class="f">Valor (R$)<span class="efeito" id="fEfeito" hidden></span><input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" aria-describedby="fValorErro" required></label>
+      <label class="f">Valor (R$)<span class="efeito" id="fEfeito" hidden></span><span class="efeito lim-cat" id="fLimCat" role="status" aria-live="polite" hidden></span><input class="in money" id="fValor" inputmode="decimal" placeholder="0,00" aria-describedby="fValorErro" required></label>
       <p class="erro-campo" id="fValorErro" role="alert" hidden></p>
       <p class="hint horas-trab" id="fHoras" role="status" hidden></p>
       <p class="aviso-contas" id="fContas" role="status" aria-live="polite" hidden></p>
@@ -206,6 +206,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
       <label class="f" id="fFormaWrap"><span id="fFormaLbl">Forma de pagamento</span><select class="in" id="fForma"></select></label>
       <div class="f data-f"><span id="fDataLbl">Data</span><div class="seg dia-chips" role="group" aria-labelledby="fDataLbl" id="fDiaChips"><button type="button" data-dia="hoje">Hoje</button><button type="button" data-dia="ontem">Ontem</button><button type="button" data-dia="outro">Outro dia</button></div><input class="in" type="date" id="fData" aria-label="Data do lançamento" required hidden></div>
       <button class="btn primary" id="fOk" type="submit">Lançar gasto</button>
+      <button class="btn ok-outro so-mobile" id="fOkOutro" type="button">Lançar e adicionar outro</button>
       <div class="cartao-linha" id="fCartaoLinha" hidden>
         <label class="f" id="fCartaoWrap">Cartão<select class="in" id="fCartao"></select></label>
         <div id="fNovoHost"></div>

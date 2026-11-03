@@ -2367,3 +2367,5 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .mot-meta-leg{display:block;font-size:12.5px;color:var(--ink-2)}
 .mot-lembra{display:flex;align-items:center;gap:8px;width:100%;margin:12px 0 0;padding:10px 12px;border:1px solid var(--warn);border-radius:12px;background:var(--warn-soft);color:var(--ink);font:inherit;font-size:13.5px;text-align:left;cursor:pointer} .mot-lembra .ic{flex:none;width:18px;height:18px}
 .mt-print{min-height:46px;gap:6px;justify-content:center} .mt-print .ic{width:18px;height:18px}
+.lim-cat{font-size:13px} .lim-cat.atencao{color:var(--warn)} .lim-cat.ruim{color:var(--bad)}
+.ok-outro{margin-top:-4px}

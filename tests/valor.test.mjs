@@ -43,3 +43,17 @@ test("empate: a que vem primeiro na lista", () => {
   const l = [G("2026-10-01", "Débito"), G("2026-10-02", "Pix"), G("2026-10-03", "Débito"), G("2026-10-04", "Pix")];
   assert.equal(formaMaisUsada(l, "2026-10-10"), "Pix");
 });
+
+import { formaDaCategoria } from "../js/calc.js";
+const GC = (data, forma, categoria) => ({ tipo: "Despesa", data, valor: 10, forma, categoria });
+test("forma da categoria: a que domina nela (60% ou mais)", () => {
+  const l = [GC("2026-10-01", "Cartão de crédito", "Mercado"), GC("2026-10-02", "Cartão de crédito", "Mercado"), GC("2026-10-03", "Pix", "Mercado"), GC("2026-10-04", "Pix", "Transporte")];
+  assert.equal(formaDaCategoria(l, "Mercado", "2026-10-10"), "Cartão de crédito");
+});
+test("forma da categoria: sem 3 gastos, sem domínio ou fora dos 180 dias, devolve null", () => {
+  assert.equal(formaDaCategoria([GC("2026-10-01", "Pix", "Mercado"), GC("2026-10-02", "Pix", "Mercado")], "Mercado", "2026-10-10"), null);
+  const meio = [GC("2026-10-01", "Pix", "Mercado"), GC("2026-10-02", "Débito", "Mercado"), GC("2026-10-03", "Dinheiro", "Mercado")];
+  assert.equal(formaDaCategoria(meio, "Mercado", "2026-10-10"), null);
+  const velho = [GC("2026-01-01", "Pix", "Mercado"), GC("2026-01-02", "Pix", "Mercado"), GC("2026-01-03", "Pix", "Mercado")];
+  assert.equal(formaDaCategoria(velho, "Mercado", "2026-10-10"), null);
+});

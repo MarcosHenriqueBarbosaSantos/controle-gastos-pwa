@@ -1334,6 +1334,19 @@ export function formaMaisUsada(lancs, hojeISO, formas = FORMAS) {
   if (total < 3) return null;
   return [...conta.entries()].sort((a, b) => b[1] - a[1] || formas.indexOf(a[0]) - formas.indexOf(b[0]))[0][0];
 }
+/**
+ * A forma de pagamento que a pessoa mais usa numa categoria (ex.: Mercado no cartão, Transporte no Pix), nos últimos 180 dias.
+ * Só sugere com pelo menos 3 gastos na categoria e quando uma forma responde por 60% ou mais deles; senão devolve null.
+ */
+export function formaDaCategoria(lancs, cat, hojeISO, formas = FORMAS) {
+  const d = new Date(hojeISO + "T12:00:00"); d.setDate(d.getDate() - 180);
+  const desde = toISO(d), conta = new Map();
+  for (const x of lancs || []) if (x.tipo === "Despesa" && x.categoria === cat && x.data >= desde && formas.includes(x.forma)) conta.set(x.forma, (conta.get(x.forma) || 0) + 1);
+  const total = [...conta.values()].reduce((a, b) => a + b, 0);
+  if (total < 3) return null;
+  const [forma, n] = [...conta.entries()].sort((a, b) => b[1] - a[1] || formas.indexOf(a[0]) - formas.indexOf(b[0]))[0];
+  return n / total >= 0.6 ? forma : null;
+}
 export function valorForaDoComum(lancs, novo, hojeISO, texto = "") {
   if (!novo || novo.tipo !== "Despesa" || !(novo.valor >= 1000)) return null;
   const desde = addM(mKey(hojeISO), -6) + "-01";

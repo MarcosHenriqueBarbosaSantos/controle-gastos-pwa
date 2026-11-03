@@ -4,7 +4,7 @@ import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey,
   categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, usoDoLimite, proximaFatura, parcelasPorMes, dim, diaNoMes, diasEntre, semanaNoCombinado, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, mesesEntre, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, agendaDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
-  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
+  comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, formaDaCategoria, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
 import { leEtiquetaDePreco } from "./etiqueta.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
@@ -901,6 +901,7 @@ function renderForm() {
   $("fOk").textContent = fixo ? (fa.value ? (S.tipo === "Receita" ? "Cadastrar entrada com prazo" : "Cadastrar conta com prazo") : S.tipo === "Receita" ? "Cadastrar entrada fixa" : "Cadastrar conta fixa")
     : S.tipo === "Despesa" ? "Lançar gasto" : S.tipo === "Receita" ? "Lançar entrada" : guardando && $("fFixo").checked ? "Guardar e repetir todo mês" : "Lançar";
   $("fOk").dataset.base = $("fOk").textContent; rotuloDoOk();
+  $("fOkOutro").hidden = fixo || S.tipo === "Reserva";
   // Compra no cartão: a pessoa escolhe o cartão e, se não for um gasto fixo, em quantas vezes.
   const cc = S.tipo === "Despesa" && fs.value === CARTAO;
   $("fCartaoLinha").hidden = !cc; $("fCartaoWrap").hidden = false; $("fParcWrap").hidden = fixo; $("fCartaoDica").hidden = true;
@@ -2681,7 +2682,15 @@ ligaNovaCategoria($("fCat"), () => S.tipo, () => $("fDesc").value, (nome, nova) 
   renderForm(); $("fCat").value = nome; S.catManual = true; render();
   const fl = $("flash"); fl.style.color = "var(--good)"; fl.textContent = nova ? `${S.tipo === "Reserva" ? "Caixinha" : "Categoria"} ${nome} criada e escolhida.` : `${nome} já existia: escolhida.`;
 });
-$("fCat").addEventListener("change", () => { S.catManual = true; });
+$("fCat").addEventListener("change", () => {
+  S.catManual = true;
+  // Quem escolhe a categoria à mão costuma pagar sempre do mesmo jeito nela (Mercado no cartão, Transporte no Pix): a forma já vem marcada.
+  if (S.tipo === "Despesa" && !S.formaManual && S.loaded) {
+    const f = formaDaCategoria(S.data.lancamentos, $("fCat").value, hoje());
+    if (f && $("fForma").value !== f) { $("fForma").value = f; renderForm(); }
+  }
+  mostraEfeito();
+});
 $("fCartao").addEventListener("change", () => { S.formaManual = true; $("fNovo").hidden = $("fCartao").value !== NOVO_CARTAO; if (!$("fNovo").hidden) $("fNNome").focus(); });
 $("fNovoHost").innerHTML = htmlNovoCartao("f");
 /** No formulário de lançar: se a pessoa escolheu "+ Outro cartão", cadastra agora e deixa o novo escolhido. Devolve o aviso extra, ou null se deu erro (já mostrado). */
@@ -2792,7 +2801,7 @@ $("fValor").addEventListener("input", () => { mostraConta(); });
 $("fValor").addEventListener("input", () => { rotuloDoOk(); mostraEfeito(); if (!$("fCartaoLinha").hidden || !$("fPrazoDica").hidden) renderForm(); });
 /** "Livre agora → depois": o efeito do gasto na sobra do mês, antes de confirmar (só no mês atual, e só para gasto fora do cartão). */
 function mostraEfeito() {
-  mostraHoras();
+  mostraHoras(); mostraLimiteDaCat();
   const el = $("fEfeito"), v = valorDoCampo(), d = $("fData").value || hoje();
   const jaTinha = S.tipo === "Reserva" && $("fForma").value === "Já tinha guardado";
   if (jaTinha) { el.hidden = false; el.textContent = "Dinheiro que você já tinha: não sai do seu saldo do mês"; return mostraContasSemCobrir(); }
@@ -2801,6 +2810,18 @@ function mostraEfeito() {
   const livre = raioX(calcMes(S.data, mKey(hoje()), hoje())).sobra, depois = round2(livre - v);
   el.innerHTML = `Livre agora ${brl(livre)} → depois <b class="${depois < 0 ? "txt-bad" : ""}">${brl(depois)}</b>`;
   mostraContasSemCobrir();
+}
+/** Quanto do limite da categoria já foi usado no mês do gasto e quanto fica com este gasto (só para quem definiu o limite). */
+function mostraLimiteDaCat() {
+  const el = $("fLimCat"); if (!el) return;
+  const cat = $("fCat").value, v = valorDoCampo(), d = $("fData").value || hoje(), lim = Number(S.prefs.limites?.[cat]) || 0;
+  const mostra = S.loaded && S.tipo === "Despesa" && lim > 0 && v > 0 && v <= VALOR_MAX && !$("fFixo").checked;
+  el.hidden = !mostra; if (!mostra) { el.textContent = ""; return; }
+  const u = usoDosLimites(calcMes(S.data, mKey(d), hoje()), S.prefs.limites, extrasDosLimites(mKey(d))).find((x) => x.cat === cat);
+  if (!u) { el.hidden = true; return; }
+  const depois = round2(u.gasto + v), pct = Math.round((depois / u.limite) * 100), passa = round2(depois - u.limite);
+  el.className = "efeito lim-cat " + (passa > 0 ? "ruim" : pct >= 80 ? "atencao" : "");
+  el.textContent = passa > 0 ? `Limite de ${cat}: este gasto passa ${brl(passa)} do limite de ${brl(u.limite)}.` : `Limite de ${cat}: ${brl(u.gasto)} de ${brl(u.limite)}. Com este gasto, ${pct}%.`;
 }
 /** Quanto vale 1 hora da pessoa (informado em "Quanto vale minha hora" ou, sem isso, o lucro por hora dos turnos). */
 function minhaHora() {
@@ -2951,14 +2972,16 @@ function fecharLancar(viaVoltar = false) {
 /** Nível do limite do mês atual: 0, 80, 100 ou 120 (ver usoDoTeto). */
 const nivelDoTeto = () => usoDoTeto(calcMes(S.data, mKey(hoje()), hoje()), S.prefs.teto)?.nivel || 0;
 /** Depois de lançar, no celular: a tela fecha e o aviso traz Desfazer, para o lançamento feito sem querer. */
-function aposLancar(texto, idFinal = null) {
+function aposLancar(texto, idFinal = null, manter = false) {
   if (!noCelular()) return $("fValor").focus();
-  fecharLancar();
-  if (!idFinal) return toast(texto);
+  if (!manter) fecharLancar();   // "Lançar e adicionar outro": a tela continua aberta, limpa, com o foco no valor
+  if (!idFinal) toast(texto);
   // idFinal espera o envio terminar: é com o id que ficou guardado que o lançamento sai.
-  toastDesfazer(texto, async () => { const id = await idFinal; if (id && (await apagaLancamento(id))) { render(); toast("Lançamento desfeito."); } });
-  dicaSegurar();
+  else toastDesfazer(texto, async () => { const id = await idFinal; if (id && (await apagaLancamento(id))) { render(); toast("Lançamento desfeito."); } });
+  if (manter) return $("fValor").focus();
+  if (idFinal) dicaSegurar();
 }
+$("fOkOutro").onclick = () => { S.manter = true; $("formLanc").requestSubmit(); };
 /** Telas que, no celular, abrem a partir de Mais: contas fixas, entradas fixas e cartões. */
 const SUBS = ["f", "r", "c", "m", "mot"];   // telas de uma função: abrem por cima, com Voltar no alto e sem a barra de baixo
 // Botão Voltar do celular: fecha a tela de lançar; em uma tela aberta a partir de Mais, volta para Mais.
@@ -6484,6 +6507,7 @@ function naoLancouRepetido() {
 }
 $("formLanc").addEventListener("submit", async (e) => {
   e.preventDefault();
+  const manter = Boolean(S.manter); S.manter = false;   // "Lançar e adicionar outro" vale só para este envio
   const flash = $("flash"); normalizaConta(); let v = parseMoney($("fValor").value);
   if (avisoValor(v)) return erroNoValor(avisoValor(v));
   limpaErroDoValor();
@@ -6561,7 +6585,7 @@ $("formLanc").addEventListener("submit", async (e) => {
   // A data volta para o padrão (hoje): uma data antiga escolhida para este gasto não passa para o próximo sem a pessoa ver.
   $("fValor").value = ""; $("fDesc").value = ""; $("fParc").value = "1"; $("fData").value = mKey(hoje()) === S.mes ? hoje() : S.mes + "-01"; S.catManual = false; S.formaManual = false; limpaSugestoes();
   diaOutroAberto = false; formaDoCostume(); syncDiaChips();
-  aposLancar(flash.textContent, envio.then((ok) => (ok ? idGuardado : "")));
+  aposLancar(flash.textContent, envio.then((ok) => (ok ? idGuardado : "")), manter);
   if (S.listaFinalizando) concluiLista();
   if (combinar && (await envio)) {
     // "Repetir todo mês" em Guardar: o valor vira o combinado da meta desse lugar. Sem meta ainda, o app pede o valor final.
