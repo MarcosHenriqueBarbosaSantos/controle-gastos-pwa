@@ -2369,3 +2369,11 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .mt-print{min-height:46px;gap:6px;justify-content:center} .mt-print .ic{width:18px;height:18px}
 .lim-cat{font-size:13px} .lim-cat.atencao{color:var(--warn)} .lim-cat.ruim{color:var(--bad)}
 .ok-outro{margin-top:-4px}
+.aj-det{border:1px solid var(--border);border-radius:16px;background:var(--surface);margin:0 0 10px;overflow:hidden}
+.aj-det>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:56px;padding:10px 14px;cursor:pointer;list-style:none}
+.aj-det>summary::-webkit-details-marker{display:none} .aj-det>summary::after{content:"+";font-size:20px;color:var(--muted);flex:none} .aj-det[open]>summary::after{content:"−"}
+.aj-det .tx{display:grid;gap:2px;min-width:0} .aj-det .tx b{font-size:15px} .aj-det .tx span{font-size:13px;color:var(--muted)}
+.aj-corpo{padding:2px 14px 14px;display:grid;gap:4px}
+.mais-atalhos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.mais-atalho{display:flex;align-items:center;gap:10px;min-height:52px;padding:8px 12px 8px 8px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--ink);text-align:left;min-width:0}
+.mais-atalho .ava{width:34px;height:34px;flex:none} .mais-atalho b{font-size:14px;line-height:1.2;overflow-wrap:anywhere}

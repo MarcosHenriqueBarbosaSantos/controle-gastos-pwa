@@ -3215,6 +3215,18 @@ document.addEventListener("keydown", (e) => {   // "/" abre a busca, como nos si
  * Tela "Mais" do celular: o que não cabe na barra de baixo, em grupos. Cada linha diz em poucas palavras o que tem lá dentro.
  * No computador ela não existe: os mesmos botões ficam no topo e nas abas.
  */
+/** O que a pessoa mais abre em Mais, guardado neste aparelho: vira atalho no topo depois de abrir o mesmo item 2 vezes. */
+const USO_MAIS = "cg-mais-uso", FORA_DOS_ATALHOS = new Set(["btnAjustes", "btnInstall", "btnSair", "ajuda"]);
+const usoDoMais = () => { try { return JSON.parse(localStorage.getItem(USO_MAIS)) || {}; } catch { return {}; } };
+function contaUsoDoMais(id) {
+  if (FORA_DOS_ATALHOS.has(id)) return;
+  try { const u = usoDoMais(); u[id] = (u[id] || 0) + 1; localStorage.setItem(USO_MAIS, JSON.stringify(u)); } catch { /* sem armazenamento: some o atalho, o resto segue */ }
+}
+function atalhosDoMais() {
+  const todas = [...TODAS_FERR(), ...DESTINOS], icoDe = { f: "fixo", c: "cartao", cal: "agenda", casal: "casal", m: "alvo", l: "lista" };
+  const top = Object.entries(usoDoMais()).filter(([id, n]) => n >= 2 && !FORA_DOS_ATALHOS.has(id)).sort((a, b) => b[1] - a[1]).map(([id]) => todas.find((x) => x.id === id)).filter(Boolean).slice(0, 4);
+  return top.length >= 2 ? `<div class="mais-grupo"><h2>Os que você mais abre</h2><div class="mais-atalhos">${top.map((x) => `<button class="mais-atalho" type="button" data-mais="${x.id}"><span class="ava">${ico(x.ico || icoDe[x.id] || "lupa")}</span><b>${esc(x.t)}</b></button>`).join("")}</div></div>` : "";
+}
 function renderMais(c) {
   const host = $("mais");
   if (S.view !== "mais" || !S.loaded) { host.innerHTML = ""; return; }
@@ -3225,6 +3237,7 @@ function renderMais(c) {
   host.innerHTML = `<div class="mais-quem"><span class="ava">${naDemo ? ico("pessoa") : esc(quem.trim().charAt(0).toUpperCase() || "?")}</span>
       <div class="tx"><b>${esc(naDemo ? "Demonstração" : quem)}</b><span>${naDemo ? "Dados de exemplo, guardados só neste aparelho." : esc(textoDoAcesso())}</span></div>
       <button class="iconbtn" type="button" data-mais="btnAjustes" aria-label="Ajustes e categorias">${ico("ajustes")}</button></div>
+    ${atalhosDoMais()}
     ${grupo("Contas e cartões", [
       linha("f", "fixo", "Contas e entradas fixas", contas.length || c.fr.length ? `${n(contas.length, "conta", "contas")} (${brl(round2(contas.reduce((t, o) => t + Number(o.valor), 0)))})${c.frT ? ` e entradas de ${brl(c.frT)}` : ""} em ${nomeMes(S.mes)}` : "Aluguel, internet, salário e o que se repete todo mês"),
       linha("c", "cartao", "Cartões e faturas", cartoes.length ? `${n(cartoes.length, "cartão", "cartões")}${c.fatT ? `, ${brl(c.fatT)} em faturas neste mês` : ""}` : "Cadastre o cartão e a fatura se monta sozinha", "card"),
@@ -3238,6 +3251,7 @@ function renderMais(c) {
       linha("ajuda", "ajuda", "Ajuda", `Como usar, novidades da versão ${APP_VERSAO} e sugestões`),
       linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
+    contaUsoDoMais(b.dataset.mais);
     vaiPara(b.dataset.mais);
   }));
 }
@@ -7246,6 +7260,9 @@ function escolheDesenho(cat, voltar = null) {
   $("icPadrao").onclick = () => grava(null);
   $("icVolta").onclick = () => (voltar ? voltar() : ajustes());
 }
+/** Seções dos Ajustes que a pessoa abriu: ficam abertas quando a tela se redesenha (ao adicionar uma categoria, por exemplo). */
+const ajAberto = new Set();
+const secAj = (id, titulo, resumo, corpo) => `<details class="aj-det" data-id="${id}"${ajAberto.has(id) ? " open" : ""}><summary><span class="tx"><b>${titulo}</b><span>${resumo}</span></span></summary><div class="aj-corpo">${corpo}</div></details>`;
 function ajustes() {
   const first = primeiroMes(S.data) || mKey(hoje()), cur = mKey(hoje()), meses = [];
   for (let m = first, i = 0; m <= cur && i < 120; m = addM(m, 1), i++) meses.push(m);
@@ -7255,17 +7272,16 @@ function ajustes() {
     cats(tipo).map((c) => `<span class="chip">${tipo === "Despesa" ? `<button type="button" class="chip-ic" data-ic="${esc(c)}" style="--c:${corCat(c)}" aria-label="Trocar o desenho de ${esc(c)}">${ico(iconeDaCategoria(c, S.prefs.iconesCat))}</button>` : ""}<button type="button" class="chip-nome" data-rn="${esc(c)}" data-tipo="${tipo}" aria-label="Mudar o nome de ${esc(c)}">${esc(c)}</button><button type="button" data-rm="${esc(c)}" data-tipo="${tipo}" aria-label="Remover ${esc(c)}">${ico("x")}</button></span>`).join("")}</div>
     <form class="aj-add" data-add="${tipo}" autocomplete="off"><input class="in" maxlength="30" placeholder="${tipo === "Reserva" ? "Novo destino" : "Nova categoria"}" aria-label="Adicionar em ${titulo.toLowerCase()}">${tipo === "Despesa" ? `<select class="in" data-pai aria-label="Dentro de qual categoria (opcional)"><option value="">Categoria própria</option>${cats(tipo).filter((c) => !c.includes(SEP)).map((c) => `<option>${esc(c)}</option>`).join("")}</select>` : ""}<button class="btn" type="submit">Adicionar</button></form></div>`;
   openDlg(`<h3>Ajustes</h3>
-    ${bloco("Despesa", "Categorias de gasto")}${bloco("Receita", "Categorias de entrada")}${bloco("Reserva", "Onde você guarda dinheiro")}
-    <p class="hint" style="margin:-4px 0 0">Toque no nome para mudar. Remover uma categoria não apaga os lançamentos que já usam ela.</p>
-    <div class="aj-sec"><h4>Aparência</h4>
+    ${secAj("cats", "Categorias", `${cats("Despesa").length} de gasto, ${cats("Receita").length} de entrada e ${cats("Reserva").length} para guardar`, bloco("Despesa", "Categorias de gasto") + bloco("Receita", "Categorias de entrada") + bloco("Reserva", "Onde você guarda dinheiro") + `<p class="hint" style="margin:-4px 0 0">Toque no nome para mudar. Remover uma categoria não apaga os lançamentos que já usam ela.</p>`)}
+    ${secAj("aparencia", "Aparência", `Tema ${document.documentElement.dataset.tema === "claro" ? "claro" : "escuro"}, letra ${{ grande: "grande", maior: "maior" }[document.documentElement.dataset.letra] || "normal"}${document.documentElement.dataset.contraste === "alto" ? ", contraste alto" : ""}`, `<div class="aj-sec" style="margin:0">
       <label class="f">Tema<select class="in" id="ajTema"><option value="escuro">Escuro</option><option value="claro"${document.documentElement.dataset.tema === "claro" ? " selected" : ""}>Claro</option></select></label>
       <label class="f">Tamanho da letra<select class="in" id="ajLetra"><option value="">Normal</option><option value="grande"${document.documentElement.dataset.letra === "grande" ? " selected" : ""}>Grande</option><option value="maior"${document.documentElement.dataset.letra === "maior" ? " selected" : ""}>Maior</option></select></label>
       <label class="check"><input type="checkbox" id="ajContraste" ${document.documentElement.dataset.contraste === "alto" ? "checked" : ""}> Contraste alto (letras mais escuras e bordas mais fortes)</label>
-    </div>
+    </div>`)}
     ${S.store?.kind === "supabase" ? `<div class="aj-sec" id="ajSeg" hidden><h4>Segurança</h4>
       <label class="check"><input type="checkbox" id="ajTrava" ${travaId() ? "checked" : ""}> Pedir a digital ou o rosto ao abrir o app</label>
       <p class="hint" style="margin:4px 0 0">Vale para este celular. Se não conseguir desbloquear, dá para entrar com o e-mail e a senha.</p><p class="hint" id="ajTravaMsg" role="alert"></p></div>` : ""}
-    <div class="aj-sec"><h4>Saldo</h4>
+    ${secAj("saldo", "Saldo", S.prefs.levarSaldo ? `Levando o saldo de um mês para o outro, desde ${nomeMes(desde)}` : "Cada mês começa do zero", `<div class="aj-sec" style="margin:0">
       <label class="check"><input type="checkbox" id="ajLevar" ${S.prefs.levarSaldo ? "checked" : ""}> Levar o saldo de um mês para o outro</label>
       <div id="ajDesdeWrap" class="aj-saldo" ${S.prefs.levarSaldo ? "" : "hidden"}>
         <label class="f">Começar a contar em<select class="in" id="ajDesde">${meses.map((m) => `<option value="${m}"${m === desde ? " selected" : ""}>${nomeMes(m)} de ${m.slice(0, 4)}</option>`).join("")}</select></label>
@@ -7273,12 +7289,12 @@ function ajustes() {
         <label class="f">Valor do saldo inicial (R$)<input class="in money" id="ajIni" inputmode="decimal" placeholder="0,00" value="${ini ? esc(Math.abs(ini).toLocaleString("pt-BR", { minimumFractionDigits: 2 })) : ""}"></label>
         <p class="hint" style="margin:0" id="ajIniMsg">O saldo inicial entra no saldo acumulado. Deixe em branco para começar do zero.</p>
       </div>
-    </div>
+    </div>`)}
     ${S.acesso?.cobranca ? `<div class="aj-sec"><h4>Assinatura</h4><p class="aj-assina">${S.acesso.pelo_par ? `Você usa o app pela assinatura de <b>${esc(S.casal?.outro || "quem divide as contas com você")}</b>${S.acesso.ate ? `, que vale até <b>${ddmmaaaa(S.acesso.ate)}</b>` : ""}.`
       : !S.acesso.ate ? "Acesso de cortesia, sem data de fim."
       : S.acesso.status === "cancelado" ? `A renovação foi cancelada. O acesso vale até <b>${ddmmaaaa(S.acesso.ate)}</b>.`
       : `Acesso ativo até <b>${ddmmaaaa(S.acesso.ate)}</b>. A renovação é anual e feita pela Hotmart, na forma de pagamento da compra. Para cancelar, use o e-mail de compra da Hotmart ou fale com o suporte.`}</p></div>` : ""}
-    ${S.store.kind === "supabase" ? `<div class="aj-sec"><h4>Avisos de contas</h4>
+    ${S.store.kind === "supabase" ? secAj("avisos", "Avisos e lembretes", [S.prefs.avisos?.email !== false ? "e-mail ligado" : "e-mail desligado", S.prefs.avisos?.semana !== false ? "resumo da semana ligado" : "resumo da semana desligado"].join(", "), `<div class="aj-sec" style="margin:0"><h4>Avisos de contas</h4>
       <p class="hint" style="margin:0">De manhã, só nos dias em que houver conta atrasada ou vencendo em até 3 dias.</p>
       <label class="check"><input type="checkbox" id="ajEmail" ${S.prefs.avisos?.email !== false ? "checked" : ""}> Receber por e-mail (${esc($("whoName").textContent)})</label>
       <label class="check"><input type="checkbox" id="ajPush" ${pushDisponivel() ? "" : "disabled"}> Receber notificação neste aparelho</label>
@@ -7292,7 +7308,7 @@ function ajustes() {
       <p class="hint" style="margin:0">Só por notificação, e só se você não tiver lançado nada nem marcado “Não gastei nada”. Se passar uma semana sem anotar, o lembrete para sozinho e volta quando você lançar de novo.</p>
       <p class="hint" style="margin:0" id="ajResumoMsg" role="status"></p>
       <button class="btn" type="button" id="ajVerSemana" style="justify-self:start">Enviar o resumo desta semana agora</button>
-    </div>` : ""}
+    </div>`) : ""}
     ${S.store.kind === "supabase" ? `<div class="aj-sec"><h4>Sua conta</h4>
       <p class="aj-assina">Você entrou como <b>${esc($("whoName").textContent)}</b>.</p>
       <div class="aj-conta"><button class="btn" type="button" id="ajCasal">Conta de casal</button><button class="btn" type="button" id="ajSenha">Trocar a senha</button><button class="link aj-excluir" type="button" id="ajExcluir">Excluir minha conta</button></div>
@@ -7301,6 +7317,7 @@ function ajustes() {
       <p class="hint" style="margin:0">Leia os <a href="site/termos.html" target="_blank" rel="noopener">Termos de uso</a> e a <a href="site/privacidade.html" target="_blank" rel="noopener">Política de privacidade</a>.</p></div>
     <div class="actions"><button class="btn primary" data-close>Pronto</button></div>`);
   const body = $("dlgBody");
+  body.querySelectorAll("details.aj-det").forEach((d) => d.addEventListener("toggle", () => (d.open ? ajAberto.add(d.dataset.id) : ajAberto.delete(d.dataset.id))));
   if ($("ajSenha")) { $("ajCasal").onclick = () => abrirCasal(); $("ajSenha").onclick = () => trocarSenha(ajustes); $("ajExcluir").onclick = () => excluirConta(ajustes); }
   body.querySelectorAll("[data-rn]").forEach((b) => (b.onclick = () => renomearCategoria(b.dataset.tipo, b.dataset.rn)));
   body.querySelectorAll("[data-ic]").forEach((b) => (b.onclick = () => escolheDesenho(b.dataset.ic)));
@@ -8308,7 +8325,7 @@ function guiaFim() {
   }));
   $("dlg").addEventListener("close", conviteAvisos, { once: true });
 }
-$("btnAjustes").onclick = ajustes;
+$("btnAjustes").onclick = () => { ajAberto.clear(); ajustes(); };
 
 /* ================= Aviso de erros ================= */
 // Se o app quebrar no aparelho de alguém, o servidor recebe um aviso sem dado pessoal. Sem a tabela no banco, nada acontece.
