@@ -2402,3 +2402,9 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .lc-bar{display:block;height:5px;border-radius:99px;background:var(--sunk);overflow:hidden;margin-top:6px} .lc-bar i{display:block;height:100%;background:var(--series);border-radius:99px}
 .lc-bar.perto i{background:var(--warn)} .lc-bar.over i{background:var(--bad)}
 .teto-ritmo{margin:10px 0;font-size:13.5px;color:var(--ink-2)} .teto-ritmo b{color:var(--ink)}
+.ds-op{border:1px solid var(--border);border-radius:14px;background:var(--surface);margin:10px 0;overflow:hidden}
+.ds-op>summary{display:flex;align-items:center;justify-content:space-between;min-height:52px;padding:8px 14px;font-weight:700;cursor:pointer;list-style:none}
+.ds-op>summary::-webkit-details-marker{display:none} .ds-op>summary::after{content:"+";font-size:20px;color:var(--muted)} .ds-op[open]>summary::after{content:"−"}
+.ds-op>*:not(summary){margin-left:14px;margin-right:14px} .ds-op>*:last-child{margin-bottom:14px}
+.ds-falta{margin:0 0 8px;font-size:14px;color:var(--ink-2)} .ds-falta b{color:var(--ink)}
+.ds-mudou{margin:0 0 10px;padding:10px 14px;border-radius:14px;font-size:14px;border:1px solid var(--border)} .ds-mudou.piorou{border-color:color-mix(in srgb,var(--warn) 60%,var(--border));background:color-mix(in srgb,var(--warn) 12%,var(--surface))} .ds-mudou.subiu{border-color:color-mix(in srgb,var(--good) 60%,var(--border));background:color-mix(in srgb,var(--good) 12%,var(--surface))}

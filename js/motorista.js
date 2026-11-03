@@ -310,6 +310,16 @@ export function rankingDoDesafio(totais, criterio) {
   let pos = 0;
   return lista.map((m, i) => { if (m.valor === null) return { ...m, pos: null }; if (i === 0 || lista[i - 1].valor !== m.valor) pos = i + 1; return { ...m, pos }; });
 }
+/**
+ * Quanto falta para a pessoa passar quem está logo à frente dela no ranking (o próximo acima, de valor maior).
+ * @returns {null | {apelido: string, falta: number, pos: number}} null se ela lidera, ainda não pontuou ou ninguém está à frente.
+ */
+export function faltaParaPassar(rank) {
+  const eu = (rank || []).find((x) => x.eu);
+  if (!eu || !eu.pos || eu.pos === 1 || eu.valor === null) return null;
+  const acima = (rank || []).filter((x) => x.valor !== null && x.valor > eu.valor).sort((a, b) => a.valor - b.valor)[0];
+  return acima ? { apelido: acima.apelido, falta: Math.round((acima.valor - eu.valor) * 100) / 100, pos: eu.pos } : null;
+}
 /** Onde a pessoa ganhou e onde perdeu do líder: mostra que rodar mais não basta. */
 export function motivoDoPlacar(totais, criterio) {
   const rank = rankingDoDesafio(totais, criterio), eu = rank.find((m) => m.eu), lider = rank[0];

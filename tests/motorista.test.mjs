@@ -297,3 +297,12 @@ test("print dos ganhos: acha o app e o valor que vem depois de ganhos ou total",
   assert.equal(ganhosDoPrint("Uber 99 Moto R$ 50,00", ["uber"]).app, "uber");
   assert.equal(ganhosDoPrint("sem valor nenhum", ["uber"]), null);
 });
+
+import { faltaParaPassar } from "../js/motorista.js";
+test("quanto falta para passar quem está logo à frente", () => {
+  const rank = [{ apelido: "Falcão", valor: 3.2, pos: 1 }, { apelido: "Leo", valor: 2.5, pos: 2 }, { apelido: "Você", eu: true, valor: 2.1, pos: 3 }];
+  assert.deepEqual(faltaParaPassar(rank), { apelido: "Leo", falta: 0.4, pos: 3 });
+  assert.equal(faltaParaPassar([{ apelido: "Você", eu: true, valor: 5, pos: 1 }, { apelido: "Leo", valor: 4, pos: 2 }]), null);
+  assert.equal(faltaParaPassar([{ apelido: "Leo", valor: 4, pos: 1 }, { apelido: "Você", eu: true, valor: null, pos: null }]), null);
+  assert.equal(faltaParaPassar([]), null);
+});

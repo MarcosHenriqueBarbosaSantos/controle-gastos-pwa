@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { semanaDoMotorista, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { semanaDoMotorista, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -1093,7 +1093,7 @@ function renderKpis(c) {
   const est = estDoMes.nivel === "ok" && acMes?.diaZero ? { ...estDoMes, nivel: "atencao", rotulo: aperto ? `Aperto até o dia ${aperto.dia}` : "",
     motivo: aperto ? `Faltam ${brl(aperto.falta)} até a entrada do dia ${aperto.dia}. Depois, o mês fecha com sobra.` : `No ritmo de agora, o dinheiro do mês acaba dia ${acMes.diaZero.slice(8, 10)}.` } : estDoMes;
   const verbo = c.fase === "passado" ? (falta ? "Faltaram" : "Sobraram") : c.fase === "futuro" ? (falta ? "Devem faltar" : "Devem sobrar") : falta ? "Faltam" : "Sobram";
-  const ROTULO = { ok: "Tudo certo", atencao: "Atenção", estourado: falta ? "No vermelho" : "Passou do limite" };
+  const ROTULO = { ok: "Tudo certo", atencao: "Apertado", estourado: falta ? "No vermelho" : "Passou do limite" };
   const entra = c.rec > 0 ? `Entram <button type="button" class="ln" data-det="entradas">${brl(c.rec)}</button>` : `<button type="button" class="ln" data-det="entradas">Nenhuma entrada lançada</button>`;
   const guardado = c.res > 0 ? ` · guardado <button type="button" class="ln" data-det="guardado">${brl(c.res)}</button>` : "";
   const duo = c.fase === "atual" ? `
@@ -1911,8 +1911,8 @@ function renderVenc() {
   const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
   const ac = S.loaded && !semEntradaNoMes(calcMes(S.data, mKey(hoje()), hoje())) ? quandoOsDinheiroAcaba(S.data, hoje()) : null, faltaAte = ac?.minimo ? round2(-ac.minimo.saldo) : 0, aperto = apertoAteAEntrada(ac);
   const alerta = !ac?.diaZero ? "" : S.prefs.motorista?.usa ? htmlAlertaMot() : `<li class="alerta ${ac.diasAteZero === 0 && !aperto ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
-      <span class="oque"><b>${aperto ? `Falta dinheiro até a entrada do dia ${aperto.dia}` : ac.diasAteZero === 0 ? "O dinheiro deste mês já acabou" : `No ritmo de agora, o dinheiro do mês acaba dia ${ac.diaZero.slice(8, 10)}`}</b>
-      <span>${aperto ? `Faltam ${brl(aperto.falta)} até entrar ${brl(ac.proximaEntrada.valor)} no dia ${aperto.dia}.` : `Até o fim do mês faltam ${brl(faltaAte)}.`}${!aperto && ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""}</span><button class="link link-toque" type="button" data-ordem>Ver um jeito leve de fechar</button></span></li>`;
+      <span class="oque"><b>${aperto ? `Falta dinheiro até a entrada do dia ${aperto.dia}` : ac.diasAteZero === 0 ? "O dinheiro deste mês já acabou" : `Até o fim do mês faltam ${brl(faltaAte)}`}</b>
+      <span>${aperto ? `Faltam ${brl(aperto.falta)} até entrar ${brl(ac.proximaEntrada.valor)} no dia ${aperto.dia}.` : (ac.diasAteZero === 0 ? `Até o fim do mês faltam ${brl(faltaAte)}.` : `O dinheiro acaba por volta do dia ${ac.diaZero.slice(8, 10)}, mas dá tempo de ajustar.`)}${!aperto && ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""}</span><button class="link link-toque" type="button" data-ordem>Ver um jeito leve de fechar</button></span></li>`;
   // Combinados das metas: aparecem junto, mas não são contas. Não entram no total e nunca ficam atrasados.
   const comb = S.loaded ? combinadosDoMes(S.data, S.prefs.metas, hoje()) : [];
   const combHtml = comb.map((x, i) => `<li class="comb" data-u="ok">
@@ -4758,6 +4758,43 @@ function compartilharResultadoMot(titulo, r) {
     else { await baixa(); toast("Este aparelho não compartilha imagens direto daqui. A imagem foi baixada: é só enviar pelo app que quiser."); }
   };
 }
+/** Imagem do placar de um desafio (1080 × 1350), feita no aparelho: o nome, o critério e até 6 posições. */
+function desenhaPlacar(nome, criterio, linhas) {
+  const W = 1080, H = 1350, cv = document.createElement("canvas"); cv.width = W; cv.height = H;
+  const g = cv.getContext("2d"), fonte = (peso, tam) => `${peso} ${tam}px "Bricolage Grotesque","IBM Plex Sans",system-ui,sans-serif`;
+  const fundo = g.createLinearGradient(0, 0, W, H); fundo.addColorStop(0, "#0b3a8f"); fundo.addColorStop(1, "#060e1d");
+  g.fillStyle = fundo; g.fillRect(0, 0, W, H);
+  g.fillStyle = "rgba(95,212,255,.10)"; g.beginPath(); g.arc(W - 100, 150, 330, 0, Math.PI * 2); g.fill();
+  g.fillStyle = "#fff"; g.textBaseline = "alphabetic";
+  g.font = fonte(600, 40); g.globalAlpha = 0.9; g.fillText("Meus Gastos · Desafio", 90, 130); g.globalAlpha = 1;
+  let tam = 74; g.font = fonte(700, tam); while (g.measureText(nome).width > W - 180 && tam > 40) { tam -= 4; g.font = fonte(700, tam); }
+  g.fillText(nome, 90, 250);
+  g.font = fonte(600, 44); g.globalAlpha = 0.85; g.fillText(`Quem vence: ${criterio}`, 90, 325); g.globalAlpha = 1;
+  const medalha = ["#ffd24a", "#d6dde6", "#e0975a"]; let y = 460;
+  linhas.slice(0, 6).forEach((l) => {
+    if (l.eu) { g.fillStyle = "rgba(95,212,255,.18)"; g.beginPath(); g.roundRect(60, y - 86, W - 120, 124, 28); g.fill(); }
+    g.fillStyle = medalha[l.pos - 1] || "rgba(255,255,255,.7)"; g.font = fonte(800, 72); g.textAlign = "left"; g.fillText(String(l.pos), 96, y);
+    g.fillStyle = "#fff"; g.font = fonte(700, 52); g.fillText(l.apelido.length > 16 ? l.apelido.slice(0, 15) + "…" : l.apelido, 196, y - 6);
+    g.font = fonte(500, 32); g.globalAlpha = 0.75; g.fillText(l.sub || "", 196, y + 30); g.globalAlpha = 1;
+    g.textAlign = "right"; g.font = fonte(700, 50); g.fillText(l.valor, W - 96, y); g.textAlign = "left"; y += 140;
+  });
+  g.font = fonte(500, 34); g.globalAlpha = 0.85; g.fillText("meugastos.com.br/#motorista", 90, H - 70); g.globalAlpha = 1;
+  return cv;
+}
+function compartilharPlacarDoDesafio(nome, criterio, linhas, texto) {
+  const pinta = () => { const cv = desenhaPlacar(nome, criterio, linhas); $("dsImg").src = cv.toDataURL("image/png"); return cv; };
+  openDlg(`<h3>Placar do desafio</h3><p class="hint" style="margin:0 0 10px">Uma imagem para mandar no grupo. Ela é feita aqui no aparelho.</p>
+    <img id="dsImg" class="fech-img" alt="Placar do desafio ${esc(nome)}">
+    <div class="actions"><button class="btn" type="button" id="dsTexto">Compartilhar em texto</button><button class="btn primary" type="button" id="dsImgShare">Compartilhar imagem</button></div>`);
+  pinta();
+  const arquivo = () => new Promise((ok) => pinta().toBlob((b) => ok(new File([b], "placar-do-desafio.png", { type: "image/png" })), "image/png"));
+  $("dsImgShare").onclick = async () => {
+    const f = await arquivo();
+    if (navigator.canShare?.({ files: [f] })) { try { await navigator.share({ files: [f], text: texto }); } catch { /* a pessoa desistiu */ } }
+    else { const a = document.createElement("a"); a.href = URL.createObjectURL(f); a.download = f.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); toast("Este aparelho não compartilha imagens direto daqui. A imagem foi baixada: é só enviar pelo app que quiser."); }
+  };
+  $("dsTexto").onclick = async () => { try { if (navigator.share) await navigator.share({ text: texto }); else { await navigator.clipboard.writeText(texto); toast("Placar copiado. Cole no grupo."); } } catch { /* a pessoa fechou */ } };
+}
 /** A meta cabe no ritmo real da pessoa? Diz a verdade, mesmo quando a conta do mês não fecha só rodando. */
 function blocoRealidade(alc, hist, meta) {
   if (alc.nivel === "sem-historico") return `<p class="mot-real">Ainda não dá para saber se essa meta é possível: depois de 2 dias rodados, o app compara com o seu ritmo real.</p>`;
@@ -5046,10 +5083,10 @@ function paneDesafios(host) {
     <label class="f">Seu apelido<input class="in" id="dsApelido" maxlength="24" placeholder="ex.: Falcão" value="${esc(eu?.apelido || S.prefs.motorista?.apelido || "")}"></label>
     <label class="f">Veículo<input class="in" id="dsCarro" maxlength="30" value="${esc(eu?.carro || nomeCarro)}"></label>
     <label class="f">Categoria<select class="in" id="dsCat">${CATEGORIAS_DESAFIO[veiculo].map((k) => `<option${k === (eu?.categoria || motDados().perfil?.categoria) ? " selected" : ""}>${k}</option>`).join("")}</select></label>`;
-  const novo = `<section class="ds-bloco"><h3 class="mot-h" style="margin-top:0">Entrar com um código</h3>${form}
-      <label class="f">Código do desafio<input class="in ds-cod" id="dsCodigo" maxlength="8" autocapitalize="characters" value="${esc(codigoGuardado)}" placeholder="ex.: A1B2C3D4"></label>
-      <button class="btn primary" type="button" id="dsEntrar">Ver as regras do desafio</button>
-      <h3 class="mot-h">Ou criar um novo</h3><label class="f">Nome do desafio<input class="in" id="dsNome" maxlength="40" placeholder="ex.: Galera da noite"></label>
+  const novo = `<section class="ds-bloco"><h3 class="mot-h" style="margin-top:0">Você no desafio</h3>${form}
+      <details class="ds-op"${codigoGuardado ? " open" : ""}><summary>Entrar com um código</summary><label class="f">Código do desafio<input class="in ds-cod" id="dsCodigo" maxlength="8" autocapitalize="characters" value="${esc(codigoGuardado)}" placeholder="ex.: A1B2C3D4"></label>
+      <button class="btn primary" type="button" id="dsEntrar">Ver as regras do desafio</button></details>
+      <details class="ds-op"><summary>Criar um desafio novo</summary><label class="f">Nome do desafio<input class="in" id="dsNome" maxlength="40" placeholder="ex.: Galera da noite"></label>
       <div class="ds-chips" role="group" aria-label="Duração">${[[1, "Hoje"], [7, "7 dias"], [30, "30 dias"]].map(([k, n]) => `<button type="button" data-dias="${k}" aria-pressed="${k === dsDias}">${n}</button>`).join("")}</div>
       <h3 class="mot-h">Regras do desafio</h3>
       <p class="mot-ver">Quem vence?</p><div class="ds-chips" role="group" aria-label="Quem vence">${VENCE_DESAFIO.map(([k, n]) => `<button type="button" data-vence="${k}" aria-pressed="${k === dsRegras.vence}">${n}</button>`).join("")}</div>
@@ -5057,7 +5094,7 @@ function paneDesafios(host) {
       <label class="check"><input type="checkbox" id="dsRegraGastos"${dsRegras.gastos ? " checked" : ""}> Descontar combustível, pedágio e outros gastos lançados</label>
       <label class="check"><input type="checkbox" id="dsRegraCarro"${dsRegras.carro ? " checked" : ""}> Descontar o custo do carro por km</label>
       <p class="mot-ver">Depois de criado, as regras não mudam. Quem entrar vê e aceita antes.</p>
-      <button class="btn" type="button" id="dsCriar">Criar desafio</button><p class="auth-msg err" id="dsMsg" role="alert">${esc(dsErro)}</p></section>`;
+      <button class="btn primary" type="button" id="dsCriar">Criar desafio</button></details><p class="auth-msg err" id="dsMsg" role="alert">${esc(dsErro)}</p></section>`;
   if (!atual) {
     host.innerHTML = `<div id="motRoot" class="ds">${abasDesafio()}<h2 class="mot-frase">Quem está ganhando mais de verdade?</h2><p class="mot-ver">Monte um grupo com os seus amigos e compare um dia, uma semana ou um mês: por hora, por km, faturamento e melhor dia. Só entra quem tiver o código, e ninguém vê as suas contas.</p>${novo}</div>`;
   } else {
@@ -5066,13 +5103,23 @@ function paneDesafios(host) {
     const nomeCrit = NO_CRITERIO[dsCrit], fmt = (m) => (m.valor === null ? "—" : dsCrit === "geral" ? `${m.valor} pts` : `${brl(m.valor)}${dsCrit === "hora" ? "/h" : dsCrit === "km" ? "/km" : ""}`);
     const titulo = minha?.pos === 1 ? `Você lidera ${nomeCrit}.` : minha?.pos ? `Você está em ${minha.pos}º ${nomeCrit}.` : "Lance o seu dia para entrar no placar.";
     const faltam = Math.round((new Date(`${atual.fim}T12:00:00`) - new Date(`${hj}T12:00:00`)) / 864e5);
+    // A posição na última vez que a pessoa abriu o desafio fica neste aparelho: se mudou, ela é avisada (só no critério que decide o desafio).
+    let mudou = "";
+    if (minha?.pos && dsCrit === (atual.regras?.vence || "km")) {
+      const chave = `cg-ds-pos-${atual.id}`; let antes = 0; try { antes = Number(localStorage.getItem(chave)) || 0; } catch { /* nada */ }
+      const quem = rank.find((x) => x.pos === minha.pos - 1 && !x.eu);
+      if (antes && minha.pos > antes) mudou = `<p class="ds-mudou piorou"><b>${quem ? esc(quem.apelido) : "Alguém"} passou você.</b> Antes você estava em ${antes}º, agora está em ${minha.pos}º.</p>`;
+      else if (antes && minha.pos < antes) mudou = `<p class="ds-mudou subiu"><b>Você subiu!</b> Antes estava em ${antes}º, agora está em ${minha.pos}º.</p>`;
+      try { localStorage.setItem(chave, String(minha.pos)); } catch { /* nada */ }
+    }
     host.innerHTML = `<div id="motRoot" class="ds">${abasDesafio()}<small class="ds-quando">${esc(atual.nome)} · ${acabou ? "encerrado" : faltam === 0 ? "termina hoje" : `faltam ${faltam} ${faltam === 1 ? "dia" : "dias"}`}</small>
-      <h2 class="mot-frase">${titulo}</h2>${motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais) ? `<p class="mot-ver">${esc(motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais))}</p>` : ""}
+      <h2 class="mot-frase">${titulo}</h2>${mudou}${(() => { const f = faltaParaPassar(rank); return f ? `<p class="ds-falta">Para passar <b>${esc(f.apelido)}</b>: faltam <b>${dsCrit === "geral" ? `${f.falta} pts` : `${brl(f.falta)}${dsCrit === "hora" ? "/h" : dsCrit === "km" ? "/km" : ""}`}</b>.</p>` : ""; })()}${motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais) ? `<p class="mot-ver">${esc(motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais))}</p>` : ""}
       ${dsLista.length > 1 ? `<div class="ds-chips">${dsLista.map((d) => `<button type="button" data-ds="${esc(d.id)}" aria-pressed="${d.id === atual.id}">${esc(d.nome)}</button>`).join("")}</div>` : ""}
       <div class="ds-chips" role="group" aria-label="Comparar por">${[["geral", "Geral"], ...CRITERIOS_DESAFIO].map(([k, n]) => `<button type="button" data-crit="${k}" aria-pressed="${k === dsCrit}">${n}${k === (atual.regras?.vence || "km") ? " ★" : ""}</button>`).join("")}</div>
       <ol class="ds-rank">${rank.map((x) => `<li class="${x.eu ? "eu" : ""}"><span class="p">${x.pos ?? "–"}</span><span class="n"><b>${esc(x.eu ? `${x.apelido} (você)` : x.apelido)}</b><small>${esc([x.carro, x.categoria].filter(Boolean).join(" · "))}</small>${x.diasSemGasto ? `<small class="ds-aviso">${x.diasSemGasto} ${x.diasSemGasto === 1 ? "dia" : "dias"} sem gasto lançado</small>` : ""}${x.semCustoCarro ? `<small class="ds-aviso">sem custo do carro preenchido</small>` : ""}</span><span class="v">${fmt(x)}</span></li>`).join("")}</ol>
       <details class="mot-como"><summary>Regras deste desafio</summary>${htmlRegras(atual.regras)}</details>
       ${acabou ? "" : `<section class="ds-bloco"><h3 class="mot-h" style="margin-top:0">Chame os amigos</h3><p class="ds-codigo">${esc(atual.codigo)}</p><button class="btn primary" type="button" id="dsWhats">Chamar no WhatsApp</button><button class="btn" type="button" id="dsLink">Copiar link para o Instagram</button></section>`}
+      <button class="btn" type="button" id="dsPlacar">Compartilhar o placar</button>
       <details class="mot-como"><summary>Entrar em outro ou criar um novo</summary>${novo}</details>
       <button class="link link-toque" type="button" id="dsSair">Sair deste desafio</button></div>`;
     host.querySelectorAll("[data-crit]").forEach((b) => (b.onclick = () => { dsCrit = b.dataset.crit; paneDesafios(host); }));
@@ -5080,6 +5127,12 @@ function paneDesafios(host) {
     // O link abre o app já no desafio: serve para o WhatsApp, a bio do Instagram ou qualquer outro lugar.
     const linkDoDesafio = `https://meugastos.com.br/#desafio=${atual.codigo}`, convite = `Bora se desafiar? Baixei o Meus Gastos: controla o que você ganha e gasta rodando, e dá para ver quem rende mais de verdade. São 7 dias grátis. Entra no meu desafio: ${linkDoDesafio}`;
     if ($("dsWhats")) $("dsWhats").onclick = () => window.open(`https://wa.me/?text=${encodeURIComponent(convite)}`, "_blank", "noopener");
+    if ($("dsPlacar")) $("dsPlacar").onclick = () => {   // o placar de agora: imagem para o grupo, ou só o texto
+      const medalha = ["🥇", "🥈", "🥉"], pos = rank.filter((x) => x.pos).slice(0, 8);
+      const linhas = pos.map((x) => `${medalha[x.pos - 1] || `${x.pos}º`} ${x.apelido}: ${fmt(x)}`);
+      const texto = [`Placar do desafio "${atual.nome}" (${nomeCrit}):`, ...linhas, `Entra aí: ${linkDoDesafio}`].join("\n");
+      compartilharPlacarDoDesafio(atual.nome, nomeCrit, pos.map((x) => ({ pos: x.pos, apelido: x.apelido, eu: x.eu, sub: [x.carro, x.categoria].filter(Boolean).join(" · "), valor: fmt(x) })), texto);
+    };
     if ($("dsLink")) $("dsLink").onclick = async () => { try { await navigator.clipboard.writeText(linkDoDesafio); toast("Link copiado. Cole na bio ou nos stories."); } catch { toast(linkDoDesafio); } };
     armDelete($("dsSair"), async () => { try { await S.store.desafioSair(atual.id); dsLista = null; paneDesafios(host); } catch (e) { toast(erroDoDesafio(e)); } }, "Toque de novo para sair");
   }
