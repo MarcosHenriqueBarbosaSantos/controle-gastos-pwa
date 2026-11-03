@@ -2388,3 +2388,17 @@ button.ct-linha:not(:disabled){cursor:pointer}
 #fSelecionar{justify-self:start;margin-top:6px}
 .lanc tr.sel{background:var(--series-soft);outline:2px solid var(--series);outline-offset:-2px}
 @media (min-width:900px){.sel-barra{bottom:16px;left:auto;right:24px;max-width:520px}}
+.pl-det{border:1px solid var(--border);border-radius:16px;background:var(--surface);margin:12px 0;overflow:hidden}
+.pl-det>summary{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:60px;padding:10px 14px;cursor:pointer;list-style:none}
+.pl-det>summary::-webkit-details-marker{display:none} .pl-det>summary::after{content:"+";font-size:20px;color:var(--muted);flex:none} .pl-det[open]>summary::after{content:"−"}
+.pl-det .tx{display:grid;gap:2px;min-width:0} .pl-det .tx b{font-size:16px} .pl-det .tx span{font-size:13px;color:var(--muted)}
+.pl-corpo{padding:2px 14px 16px}
+.lc-outras{margin-top:8px} .lc-outras>summary{min-height:44px;display:flex;align-items:center;font-size:13.5px;font-weight:600;color:var(--series);cursor:pointer}
+.pl-alertas{display:grid;gap:8px;margin:12px 0}
+.pl-alerta{display:grid;gap:2px;text-align:left;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--ink);padding:12px 14px} .pl-alerta b{font-size:15px} .pl-alerta span{font-size:13px;color:var(--muted)}
+.pl-alerta.atencao{border-color:color-mix(in srgb,var(--warn) 60%,var(--border));background:color-mix(in srgb,var(--warn) 12%,var(--surface))}
+.pl-alerta.ruim{border-color:color-mix(in srgb,var(--bad) 60%,var(--border));background:color-mix(in srgb,var(--bad) 12%,var(--surface))}
+.cx-falta{margin:0 0 10px;font-size:13.5px;color:var(--ink-2)} .cx-falta b{color:var(--ink)}
+.lc-bar{display:block;height:5px;border-radius:99px;background:var(--sunk);overflow:hidden;margin-top:6px} .lc-bar i{display:block;height:100%;background:var(--series);border-radius:99px}
+.lc-bar.perto i{background:var(--warn)} .lc-bar.over i{background:var(--bad)}
+.teto-ritmo{margin:10px 0;font-size:13.5px;color:var(--ink-2)} .teto-ritmo b{color:var(--ink)}

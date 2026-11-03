@@ -1687,9 +1687,34 @@ $("pane-m").addEventListener("click", (e) => {
   const li = e.target.closest(".sobra-pl [data-ref]"); if (li) return abrirItem(JSON.parse(li.dataset.ref));
   const ir = e.target.closest("[data-sobra-ir]"); if (ir) { S.view = "listas"; S.tab = ir.dataset.sobraIr; render(); scrollTo(0, 0); }
 });
+/** No alto do Planejar: o que pede atenção sem abrir nenhuma seção (sem limite do mês, categorias perto de estourar). */
+function alertasDoPlanejar(u, usos, c) {
+  const perto = usos.filter((x) => x.pct >= 80), itens = [], dia = Number(hoje().slice(8, 10)), noMes = c?.fase === "atual";
+  // No ritmo atual: categoria que ainda está abaixo de 80% do limite, mas que fecha o mês acima dele (a partir do dia 5, para o ritmo valer alguma coisa).
+  // Só o dia a dia entra na conta do ritmo: conta fixa e fatura já têm valor certo no mês, e uma compra grande de uma vez (o mercado do mês) não é ritmo.
+  const projeta = (x) => {
+    const ls = (c?.it || []).filter((l) => l.tipo === "Despesa" && l.categoria === x.cat), diaADia = Math.min(x.gasto, ls.reduce((t, l) => t + Number(l.valor), 0)), maior = Math.max(0, ...ls.map((l) => Number(l.valor)));
+    if (!(diaADia > 0) || maior > diaADia * 0.5) return null;
+    return Math.round(x.gasto - diaADia + (diaADia / dia) * dim(mKey(hoje())));
+  };
+  const vaoPassar = noMes && dia >= 5 ? usos.filter((x) => x.pct < 80 && x.gasto > 0).map((x) => ({ ...x, fecha: projeta(x) })).filter((x) => x.fecha && x.fecha > x.limite * 1.05) : [];
+  if (!u) itens.push(`<button type="button" class="pl-alerta" data-pl-abre="teto"><b>Defina o limite do mês</b><span>Dizer o máximo que você quer gastar faz o app avisar antes de estourar.</span></button>`);
+  if (perto.length) itens.push(`<button type="button" class="pl-alerta ${perto.some((x) => x.passou > 0) ? "ruim" : "atencao"}" data-pl-abre="cats"><b>${perto.length === 1 ? "1 categoria" : `${perto.length} categorias`} perto ou acima do limite</b><span>${perto.slice(0, 3).map((x) => `${esc(x.cat)} ${x.pct}%`).join(", ")}${perto.length > 3 ? ` e mais ${perto.length - 3}` : ""}. Toque para ver.</span></button>`);
+  if (vaoPassar.length) itens.push(`<button type="button" class="pl-alerta atencao" data-pl-abre="cats"><b>${vaoPassar.length === 1 ? "1 categoria vai" : `${vaoPassar.length} categorias vão`} passar do limite no ritmo atual</b><span>${vaoPassar.slice(0, 3).map((x) => `${esc(x.cat)}: fecha em ${brl0(x.fecha)} (limite ${brl0(x.limite)})`).join("; ")}. Toque para ver.</span></button>`);
+  // Fim de mês com sobra: sugere guardar uma parte.
+  const sobra = noMes && c ? raioX(c).sobra : 0, diasQueFaltam = dim(mKey(hoje())) - dia;
+  if (noMes && diasQueFaltam <= 7 && sobra >= 100) {
+    const parte = Math.floor(sobra / 2 / 10) * 10, dest = cats("Reserva").includes("Reserva de emergência") ? "Reserva de emergência" : cats("Reserva")[0];
+    if (parte >= 50 && dest) itens.push(`<button type="button" class="pl-alerta" data-pl-guarda="${esc(dest)}" data-valor="${parte}"><b>Sobraram ${brl0(sobra)} neste mês</b><span>Que tal guardar ${brl0(parte)} em ${esc(dest)}? Toque para preencher o lançamento.</span></button>`);
+  }
+  return itens.length ? `<div class="pl-alertas">${itens.join("")}</div>` : "";
+}
+/** Seções do Planejar que a pessoa abriu: ficam abertas quando a tela se redesenha (ao salvar um limite, por exemplo). */
+const plAberto = new Set();
 /** Aba Limites: o limite do mês, os avisos e os limites por categoria. */
 function paneM(c) {
   const host = $("pane-m"), u = usoDoTeto(c, S.prefs.teto), cur = mKey(hoje()), catL = cats("Despesa"), gasto = new Map(catMap(c));
+  const nComLimite = catL.filter((k) => Number((S.prefs.limites || {})[k]) > 0).length, nPerto = usoDosLimites(c, S.prefs.limites, extrasDosLimites()).filter((x) => x.pct >= 80).length;
   // Para ajudar a estimar: a média do custo dos últimos meses fechados que têm lançamentos.
   const antes = [1, 2, 3].map((k) => calcMes(S.data, addM(cur, -k), hoje())).filter((x) => x.custo > 0), media = antes.length ? round2(antes.reduce((t, x) => t + x.custo, 0) / antes.length) : 0;
   const atual = calcMes(S.data, cur, hoje()), dinheiro = (v) => (v > 0 ? v.toLocaleString("pt-BR", { minimumFractionDigits: 2 }) : "");
@@ -1712,29 +1737,38 @@ function paneM(c) {
   const seguidas = passaram.filter((x) => passou2.has(x.cat)).map((x) => ({ ...x, sugere: Math.ceil((x.gasto + passou2.get(x.cat).gasto) / 2 / 10) * 10 }));
   const doisMeses = seguidas.length ? `<div class="lim-dois">${seguidas.map((x) => `<p><b>${esc(x.cat)}</b> passou do limite em ${nomeMes(mAnt2)} e em ${nomeMes(mAnt)}. O limite de ${brl0(x.limite)} está apertado para o seu dia a dia: suba para perto da média ou corte um pouco nesta categoria.</p><button class="btn sm" type="button" data-usa-cat="${esc(x.cat)}" data-valor="${x.sugere}">Subir para ${brl0(x.sugere)}</button>`).join("")}</div>` : "";
   const placar = usoAnt.length ? `<div class="lim-placar${passaram.length ? "" : " ok"}"><b>${passaram.length ? `Em ${nomeMes(mAnt)}, ${usoAnt.length - passaram.length} de ${usoAnt.length} categorias ficaram dentro do limite.` : `Em ${nomeMes(mAnt)}, todas as ${usoAnt.length} categorias ficaram dentro do limite!`}</b>${passaram.length ? `<span>Passaram: ${passaram.slice(0, 4).map((x) => `${esc(x.cat)} (+${brl0(x.passou)})`).join(", ")}${passaram.length > 4 ? ` e mais ${passaram.length - 4}` : ""}.</span>` : ""}</div>` : "";
-  host.innerHTML = `<div class="pl-analise"><button class="mais-item" type="button" data-analise><span class="ava">${ico("grafico")}</span><span class="tx"><b>Análise do mês</b><span>Gráficos, categorias e últimos meses</span></span>${ico("chev")}</button><button class="mais-item" type="button" data-planos><span class="ava">${ico("alvo")}</span><span class="tx"><b>Meus planos</b><span>Férias, casa, carro: quanto guardar por mês</span></span>${ico("chev")}</button></div>${htmlSobra(c)}${htmlCaixinhas()}<h2 class="pl-h">Limite de gasto</h2><p class="hint" style="margin-top:0;font-size:13px">O máximo que você quer gastar no mês. O app avisa quando chegar perto.</p>
+  host.innerHTML = `<div class="pl-analise"><button class="mais-item" type="button" data-analise><span class="ava">${ico("grafico")}</span><span class="tx"><b>Análise do mês</b><span>Gráficos, categorias e últimos meses</span></span>${ico("chev")}</button><button class="mais-item" type="button" data-planos><span class="ava">${ico("alvo")}</span><span class="tx"><b>Meus planos</b><span>Férias, casa, carro: quanto guardar por mês</span></span>${ico("chev")}</button></div>${alertasDoPlanejar(u, usoDosLimites(c, S.prefs.limites, extrasDosLimites()), c)}${htmlSobra(c)}${htmlCaixinhas()}<details class="pl-det" data-id="teto"${plAberto.has("teto") ? " open" : ""}><summary><span class="tx"><b>Limite de gasto do mês</b><span>${u ? `${brl(u.teto)} · ${u.pct}% usado (${t.titulo})` : "Sem limite definido"}</span></span></summary><div class="pl-corpo"><p class="hint" style="margin-top:0;font-size:13px">O máximo que você quer gastar no mês. O app avisa quando chegar perto.</p>
     <form id="tetoForm" class="teto-form" autocomplete="off">
       <label class="f">Limite de gastos por mês (R$)<input class="in money" id="tetoValor" inputmode="decimal" placeholder="Ex.: 3.500,00" value="${esc(dinheiro(Number(S.prefs.teto) || 0))}"></label>
       <button class="btn primary" type="submit">${u ? "Mudar limite" : "Salvar limite"}</button>${Number(S.prefs.teto) > 0 ? `<button class="btn perigo" type="button" id="tetoTirar">${ico("lixo")}Tirar o limite</button>` : ""}
       <p class="hint">Entra na conta tudo o que sai no mês: contas fixas, gastos do dia a dia e faturas de cartão. Dinheiro guardado não entra.${media ? ` Para se basear: ${antes.length === 1 ? "no último mês" : `nos últimos ${antes.length} meses`} seu custo foi de <b>${brl(media)}</b>${antes.length > 1 ? " em média" : ""}${atual.rec ? `, e neste mês entram ${brl(atual.rec)}` : ""}. <button class="link" type="button" id="tetoUsar">Usar ${brl0(Math.ceil(media / 50) * 50)}</button>` : ""}${u ? " Para tirar o limite, apague o valor e salve." : ""}</p>
     </form>
     ${htmlLimiteCabe()}
+    ${(() => { if (!u || c.fase !== "atual" || !(u.resta > 0)) return ""; const dias = Math.max(1, dim(cur) - Number(hoje().slice(8, 10)) + 1); return `<p class="teto-ritmo">Ainda cabem <b>${brl(u.resta)}</b> no limite: dá para gastar cerca de <b>${brl(round2(u.resta / dias))} por dia</b>, ou <b>${brl(round2((u.resta / dias) * 7))} por semana</b>, nos ${dias} dias que faltam.</p>`; })()}
     ${u ? `<div class="teto ${t.cls} parado"><span class="topo"><span class="l">${ico("alvo")}Uso do limite em ${nomeMes(S.mes)}</span><span class="pill ${t.cls === "ok" ? "good" : t.cls}">${t.titulo}</span></span>
       <span class="num"><b>${brl(u.gasto)}</b> de ${brl(u.teto)} <em>${u.pct}%</em></span>${barraDoTeto(u)}<span class="n">${t.frase}</span></div>` : ""}
-    <h3 class="sub-h">Limite por categoria</h3>
+    </div></details>
+    <details class="pl-det" data-id="cats"${plAberto.has("cats") ? " open" : ""}><summary><span class="tx"><b>Limite por categoria</b><span>${nComLimite ? `${nComLimite} ${nComLimite === 1 ? "categoria" : "categorias"} com limite${nPerto ? `, ${nPerto} perto ou acima` : ""}` : "Nenhuma categoria com limite ainda"}</span></span></summary><div class="pl-corpo">
     ${placar}${doisMeses}
     <p class="hint" style="margin-top:0">Opcional. Deixe em branco as categorias que não precisam de limite.${sugeriveis.length ? ` O app sugere pela sua média ${antes.length === 1 ? "do último mês" : `dos últimos ${antes.length} meses`}.` : ""}</p>
     ${sugeriveis.length >= 2 ? `<button class="btn lim-todas" type="button" id="limMedias">${ico("ideia")}Usar a média em ${sugeriveis.length} categorias</button>` : ""}
     <form id="limCats" class="lim-cats" autocomplete="off">
-      ${catL.map((k, i) => `<label class="lc">${ava(k)}<span class="tx"><b>${esc(k)}</b><span>${brl(gasto.get(k) || 0)} em ${nomeMes(S.mes)}${sobraLim[k] ? ` · limite com +${brl0(sobraLim[k])} do mês passado` : ""}${mediaCat.get(k) > 0 ? ` · média ${brl0(mediaCat.get(k))}${Number(lim[k]) > 0 ? "" : ` <button class="link" type="button" data-usa-media="${i}">usar</button>`}` : ""}</span>${spark(k)}</span><input class="in money" data-cat="${i}" inputmode="decimal" placeholder="Sem limite" aria-label="Limite para ${esc(k)}" value="${esc(dinheiro(Number(lim[k]) || 0))}"></label>`).join("")}
+      ${(() => { const linhaCat = (k, i) => `<label class="lc">${ava(k)}<span class="tx"><b>${esc(k)}</b><span>${brl(gasto.get(k) || 0)} em ${nomeMes(S.mes)}${sobraLim[k] ? ` · limite com +${brl0(sobraLim[k])} do mês passado` : ""}${mediaCat.get(k) > 0 ? ` · média ${brl0(mediaCat.get(k))}${Number(lim[k]) > 0 ? "" : ` <button class="link" type="button" data-usa-media="${i}">usar</button>`}` : ""}</span>${spark(k)}${(() => { const L = (Number(lim[k]) || 0) + (Number(sobraLim[k]) || 0), g = gasto.get(k) || 0; return L > 0 ? `<span class="lc-bar${g > L ? " over" : g >= L * 0.8 ? " perto" : ""}" aria-hidden="true"><i style="width:${Math.min(100, Math.round((g / L) * 100))}%"></i></span>` : ""; })()}</span><input class="in money" data-cat="${i}" inputmode="decimal" placeholder="Sem limite" aria-label="Limite para ${esc(k)}" value="${esc(dinheiro(Number(lim[k]) || 0))}"></label>`; const vazia = (k) => !(Number(lim[k]) > 0) && !(gasto.get(k) > 0) && !(mediaCat.get(k) > 0), pctDe = (k) => { const L = (Number(lim[k]) || 0) + (Number(sobraLim[k]) || 0); return L > 0 ? (gasto.get(k) || 0) / L : -1; }, uteis = catL.map((k, i) => [k, i]).filter(([k]) => !vazia(k)).sort((a, b) => pctDe(b[0]) - pctDe(a[0])), outras = catL.map((k, i) => [k, i]).filter(([k]) => vazia(k)); return uteis.map(([k, i]) => linhaCat(k, i)).join("") + (outras.length ? `<details class="lc-outras"><summary>Outras ${outras.length} categorias, sem gasto nem média</summary>${outras.map(([k, i]) => linhaCat(k, i)).join("")}</details>` : ""); })()}
       <button class="btn" type="submit">Salvar limites das categorias</button>
     </form>
     <label class="check" style="margin-top:10px"><input type="checkbox" id="limRolar" ${S.prefs.limitesRolagem ? "checked" : ""}> Somar ao limite o que sobrou no mês passado</label>
     <p class="hint" style="margin:6px 0 0">Se você não usou todo o limite de uma categoria no mês passado, a sobra vale a mais neste mês (só do mês anterior, sem acumular). Vale só dentro do app: os avisos por e-mail usam o limite normal.</p>
-    <h3 class="sub-h">Avisos do limite</h3>
+    </div></details>
+    <details class="pl-det" data-id="avisos"${plAberto.has("avisos") ? " open" : ""}><summary><span class="tx"><b>Avisos do limite</b><span>${avisar ? "Ligados" : "Desligados"}</span></span></summary><div class="pl-corpo">
     <label class="check"><input type="checkbox" id="tetoAvisar" ${avisar ? "checked" : ""}> Avisar por e-mail e notificação no celular</label>
     <p class="hint" style="margin:6px 0 0">Você recebe um aviso de manhã quando chegar a <b>80%</b> do limite, outro quando <b>passar</b> e outro se passar em <b>mais de 20%</b>. Cada um chega uma vez no mês. Dentro do app, o quadro do início muda de cor na hora.
-      ${S.store?.kind === "local" ? "Na demonstração os avisos por e-mail e notificação não são enviados." : `Os canais (e-mail e notificação neste aparelho) são os mesmos dos avisos de contas. <button class="link" type="button" id="tetoCanais">Ver em Ajustes</button>`}</p>`;
+      ${S.store?.kind === "local" ? "Na demonstração os avisos por e-mail e notificação não são enviados." : `Os canais (e-mail e notificação neste aparelho) são os mesmos dos avisos de contas. <button class="link" type="button" id="tetoCanais">Ver em Ajustes</button>`}</p></div></details>`;
+  host.querySelectorAll("[data-pl-guarda]").forEach((b) => (b.onclick = () => {
+    S.tipo = "Reserva"; renderForm(); $("fCat").value = b.dataset.plGuarda; $("fForma").value = "Guardar"; S.catManual = true; renderForm();
+    $("fValor").value = Number(b.dataset.valor).toLocaleString("pt-BR", { minimumFractionDigits: 2 }); mostraEfeito(); abrirLancar();
+  }));
+  host.querySelectorAll("[data-pl-abre]").forEach((b) => (b.onclick = () => { plAberto.add(b.dataset.plAbre); paneM(c); const d = host.querySelector(`details.pl-det[data-id="${b.dataset.plAbre}"]`); d?.scrollIntoView({ block: "start", behavior: "smooth" }); if (b.dataset.plAbre === "teto") $("tetoValor")?.focus({ preventScroll: true }); }));
+  host.querySelectorAll("details.pl-det").forEach((d) => d.addEventListener("toggle", () => (d.open ? plAberto.add(d.dataset.id) : plAberto.delete(d.dataset.id))));
   if ($("tetoUsar")) $("tetoUsar").onclick = () => { $("tetoValor").value = dinheiro(Math.ceil(media / 50) * 50); $("tetoValor").focus(); };
   if ($("tetoCanais")) $("tetoCanais").onclick = () => $("btnAjustes").click();
   // Sugestão pela média: preenche o campo (um ou todos os vazios) e a pessoa confere antes de salvar.
@@ -6301,6 +6335,7 @@ function htmlCaixinhas() {
   };
   return `<section class="caixas"><div class="caixas-h"><h2>Caixinhas</h2><span class="ocultavel">${brl(total)} guardados</span></div>
     <p class="hint" style="margin:0 0 8px;font-size:13px">Dinheiro separado para um objetivo, como viagem ou reserva.</p>
+    ${(() => { const falta = metasAGuardarNoMes(S.data, S.prefs.metas, hoje()); return falta > 0 ? `<p class="cx-falta">Para cumprir as suas metas, ainda faltam <b>${brl(falta)}</b> para guardar em ${nomeMes(cur)}.</p>` : ""; })()}
     <div class="caixas-grid">${nomes.map(card).join("")}
       <button type="button" class="caixa nova" data-caixa-nova="1"><span class="capa"><b>+</b></span><span class="info"><b class="nome">Nova caixinha</b><small>viagem, carro, reserva…</small></span></button></div></section>`;
 }
