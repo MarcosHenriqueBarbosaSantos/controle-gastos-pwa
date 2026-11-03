@@ -2332,3 +2332,11 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .rv-decidiu{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:6px}
 .rv-decidiu li{display:flex;gap:8px;align-items:flex-start;padding:8px 10px;border-radius:10px;background:var(--sunk);font-size:13.5px}
 .rv-decidiu .ic{flex:none;width:18px;height:18px;margin-top:1px} .rv-decidiu li.ok .ic{color:var(--good)} .rv-decidiu li.ruim .ic{color:var(--warn)}
+.rap-res .ok{color:var(--good);font-weight:600} .rap-res .aten{color:var(--warn);font-weight:600}
+.cartoes .melhor-dia{font-weight:600;color:var(--good)}
+.rv-conquista{display:flex;gap:10px;align-items:flex-start;margin:0 0 8px;padding:10px 12px;border-radius:12px;background:var(--good-soft);font-size:14px} .rv-conquista .ic{flex:none;width:22px;height:22px;color:var(--good)}
+/* Planejar: mini gráfico dos últimos 3 meses ao lado do limite (a linha é o limite; laranja passou). */
+.lim-spark{position:relative;display:flex;align-items:flex-end;gap:4px;width:54px;height:22px;margin-top:4px;padding:0 1px;border-bottom:1px solid var(--border)}
+.lim-spark .b{flex:1;border-radius:3px 3px 0 0;background:var(--series);opacity:.75} .lim-spark .b.over{background:var(--warn);opacity:1}
+.lim-spark .lin{position:absolute;left:-2px;right:-2px;height:0;border-top:1.5px dashed var(--ink-2);opacity:.7}
+.lim-cats .lc .tx .lim-spark{display:flex;flex-direction:row;align-items:flex-end} .lim-cats .lc .tx .lim-spark i{display:block}

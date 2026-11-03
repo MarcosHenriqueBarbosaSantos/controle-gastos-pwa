@@ -1692,6 +1692,13 @@ function paneM(c) {
   // Média de cada categoria nos últimos meses fechados (até 3, só os que têm lançamentos), arredondada para cima de 10 em 10: vira a sugestão de limite.
   const mediaCat = new Map(); if (antes.length) { const soma = new Map(); antes.forEach((x) => catMap(x).forEach(([k, v]) => soma.set(k, (soma.get(k) || 0) + v))); soma.forEach((v, k) => mediaCat.set(k, Math.ceil(v / antes.length / 10) * 10)); }
   const sugeriveis = catL.filter((k) => !(Number(lim[k]) > 0) && mediaCat.get(k) > 0);
+  // Mini gráfico ao lado de cada categoria com limite: os últimos 3 meses, com a linha do limite (barra laranja = passou).
+  const mes3 = [3, 2, 1].map((k) => addM(cur, -k)), hist3 = mes3.map((m) => new Map(catMap(calcMes(S.data, m, hoje()))));
+  const spark = (k) => {
+    const L = Number(lim[k]) || 0, vs = hist3.map((h) => h.get(k) || 0); if (!(L > 0) || !vs.some((v) => v > 0)) return "";
+    const max = Math.max(L, ...vs) * 1.08;
+    return `<span class="lim-spark" role="img" aria-label="${esc(k)} nos últimos 3 meses: ${vs.map((v, i) => `${nomeMes(mes3[i])} ${brl0(v)}`).join(", ")}; limite ${brl0(L)}"><i class="lin" style="bottom:${(L / max) * 100}%"></i>${vs.map((v, i) => `<i class="b${v > L ? " over" : ""}" style="height:${Math.max(4, (v / max) * 100)}%" title="${nomeMes(mes3[i])}: ${brl0(v)}"></i>`).join("")}</span>`;
+  };
   // Como as categorias com limite foram no mês passado: quantas ficaram dentro e quais passaram (e quanto).
   const mAnt = addM(cur, -1), cAnt = calcMes(S.data, mAnt, hoje()), usoAnt = cAnt.custo > 0 ? usoDosLimites(cAnt, lim) : [], passaram = usoAnt.filter((x) => x.passou > 0);
   // Passou do limite dois meses seguidos: o limite não está batendo com a vida real. Sugere subir para a média dos dois meses (ou cortar).
@@ -1713,7 +1720,7 @@ function paneM(c) {
     <p class="hint" style="margin-top:0">Opcional. Deixe em branco as categorias que não precisam de limite.${sugeriveis.length ? ` O app sugere pela sua média ${antes.length === 1 ? "do último mês" : `dos últimos ${antes.length} meses`}.` : ""}</p>
     ${sugeriveis.length >= 2 ? `<button class="btn lim-todas" type="button" id="limMedias">${ico("ideia")}Usar a média em ${sugeriveis.length} categorias</button>` : ""}
     <form id="limCats" class="lim-cats" autocomplete="off">
-      ${catL.map((k, i) => `<label class="lc">${ava(k)}<span class="tx"><b>${esc(k)}</b><span>${brl(gasto.get(k) || 0)} em ${nomeMes(S.mes)}${sobraLim[k] ? ` · limite com +${brl0(sobraLim[k])} do mês passado` : ""}${mediaCat.get(k) > 0 ? ` · média ${brl0(mediaCat.get(k))}${Number(lim[k]) > 0 ? "" : ` <button class="link" type="button" data-usa-media="${i}">usar</button>`}` : ""}</span></span><input class="in money" data-cat="${i}" inputmode="decimal" placeholder="Sem limite" aria-label="Limite para ${esc(k)}" value="${esc(dinheiro(Number(lim[k]) || 0))}"></label>`).join("")}
+      ${catL.map((k, i) => `<label class="lc">${ava(k)}<span class="tx"><b>${esc(k)}</b><span>${brl(gasto.get(k) || 0)} em ${nomeMes(S.mes)}${sobraLim[k] ? ` · limite com +${brl0(sobraLim[k])} do mês passado` : ""}${mediaCat.get(k) > 0 ? ` · média ${brl0(mediaCat.get(k))}${Number(lim[k]) > 0 ? "" : ` <button class="link" type="button" data-usa-media="${i}">usar</button>`}` : ""}</span>${spark(k)}</span><input class="in money" data-cat="${i}" inputmode="decimal" placeholder="Sem limite" aria-label="Limite para ${esc(k)}" value="${esc(dinheiro(Number(lim[k]) || 0))}"></label>`).join("")}
       <button class="btn" type="submit">Salvar limites das categorias</button>
     </form>
     <label class="check" style="margin-top:10px"><input type="checkbox" id="limRolar" ${S.prefs.limitesRolagem ? "checked" : ""}> Somar ao limite o que sobrou no mês passado</label>
@@ -2376,7 +2383,11 @@ function listaL(c) {
       <td class="acts"><button class="act" type="button" data-fed="${esc(x.id)}">Alterar</button></td></tr>`
     : linhaLanc(x, toque));
   const somaRap = S.fRap ? round2(it.filter((x) => x.tipo === "Despesa").reduce((t, x) => t + x.valor, 0)) : 0;
-  host.innerHTML = `${S.fDia ? `<p class="rap-res" role="status"><b>Só ${esc(rotuloDia(S.fDia).toLowerCase())}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`} <button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>${navDia()}` : ""}${S.fRap ? `<p class="rap-res" role="status"><b>${esc(RAP[S.fRap][0])}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`}${somaRap ? `, <b>${brl(somaRap)}</b> em gastos` : ""}</p>` : ""}${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
+  // "Esta semana": compara com a semana passada até o mesmo dia da semana (domingo a hoje contra domingo a hoje − 7).
+  const semAnt = S.fRap === "semana" ? (() => { const d = (iso, n) => { const x = new Date(iso + "T12:00:00"); x.setDate(x.getDate() + n); return toISO(x); }; const de = d(iniSemana, -7), ate = d(hjL, -7);
+    return round2(S.data.lancamentos.filter((x) => x.tipo === "Despesa" && x.data >= de && x.data <= ate).filter(doQuem).reduce((t, x) => t + Number(x.valor), 0)); })() : null;
+  const compSem = semAnt === null || !(semAnt > 0 || somaRap > 0) ? "" : Math.abs(somaRap - semAnt) < 1 ? " Igual à semana passada até o mesmo dia." : somaRap < semAnt ? ` <span class="ok">${brl(semAnt - somaRap)} a menos</span> que na semana passada até o mesmo dia.` : ` <span class="aten">${brl(somaRap - semAnt)} a mais</span> que na semana passada até o mesmo dia.`;
+  host.innerHTML = `${S.fDia ? `<p class="rap-res" role="status"><b>Só ${esc(rotuloDia(S.fDia).toLowerCase())}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`} <button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>${navDia()}` : ""}${S.fRap ? `<p class="rap-res" role="status"><b>${esc(RAP[S.fRap][0])}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`}${somaRap ? `, <b>${brl(somaRap)}</b> em gastos` : ""}.${compSem}</p>` : ""}${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
     feitos.map((x, i) => dia(x, i) + linha(x)).join("")}${falta.length ? `<tr class="dia falta"><td colspan="6"><span>${tituloFalta}</span>${totalFalta ? `<b>− ${brl(totalFalta)}</b>` : ""}</td></tr>${falta.map(linha).join("")}` : ""}${deFora.length ? `<tr class="dia falta"><td colspan="6"><span>Fora de ${nomeMes(S.mes)}</span></td></tr>${deFora.map(linha).join("")}` : ""}</tbody></table></div>`;
   }
   $("pane-l").querySelectorAll("[data-so-dia]").forEach((tr) => (tr.onclick = () => { S.fDia = S.fDia ? "" : tr.dataset.soDia; listaL(calcMes(S.data, S.mes, hoje())); }));
@@ -2516,7 +2527,7 @@ function paneC(c) {
   const linhaCartao = (k) => {
     const prox = futuras.find((x) => x.cartao_id === k.id), off = k.ativo === false, u = off ? null : usoDoLimite(S.data, k, limiteDe(k.id), hoje());
     return `<li class="${off ? "off" : ""}" data-kid="${esc(k.id)}">${ava("", "Cartao")}<span class="oque"><b>${esc(k.nome)}${off ? ` <span class="tag">desativado</span>` : ""}</b>
-      <span>Fecha dia ${pad(k.fechamento)} · vence dia ${pad(k.vencimento)}${prox ? ` · próxima fatura ${brl(prox.valor)} em ${ddmm(prox.vencimento)}` : ""}</span>
+      <span>Fecha dia ${pad(k.fechamento)} · vence dia ${pad(k.vencimento)}${off ? "" : ` · <b class="melhor-dia" title="Comprando a partir desse dia, a compra cai na fatura seguinte e você tem mais tempo para pagar">melhor dia para comprar: ${Number(k.fechamento) >= 31 ? 1 : Number(k.fechamento) + 1}</b>`}${prox ? ` · próxima fatura ${brl(prox.valor)} em ${ddmm(prox.vencimento)}` : ""}</span>
       ${u ? `<span class="cart-lim${u.pct >= 80 ? " alto" : ""}" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, u.pct))}%"></i></span><span class="ocultavel">${textoDoLimite(u)}</span>` : off ? "" : `<button class="link" type="button" data-klim="${esc(k.id)}">Informar o limite</button>`}</span>
       <span class="acts"><button class="act" type="button" data-ked="${esc(k.id)}">Editar</button>${off ? `<button class="act" type="button" data-kon="${esc(k.id)}">Reativar</button>`
         : usados.has(k.id) ? `<button class="act" type="button" data-koff="${esc(k.id)}" title="Sai da lista de novas compras; as faturas continuam">Desativar</button>` : ""}<button class="del icone" type="button" data-kapaga="${esc(k.id)}" aria-label="Apagar o cartão ${esc(k.nome)}" title="Apagar o cartão">${ico("lixo")}</button></span></li>`;
@@ -4676,6 +4687,14 @@ function contasMotTela() {
 /** "Domingo, 1º de novembro". */
 const dataPorExtenso = (iso) => { const d = Number(iso.slice(8, 10)), s = DIAS_SEMANA[diaDaSemana(iso)]; return `${s[0].toUpperCase()}${s.slice(1)}, ${d === 1 ? "1º" : d} de ${nomeMes(mKey(iso))}`; };
 /** "Sua semana", no domingo e na segunda: quanto ganhou, quanto foi para o carro, quanto sobrou e por hora. */
+/** Quanto o que sobrou na semana ajudou nas contas do mês: as contas já cobertas, ou a parte do que faltava que a semana cobriu. */
+function cobre(s, meta) {
+  if (!meta || !(s.r.lucro > 0)) return "";
+  const mes = nomeMes(mKey(hoje())).toLowerCase();
+  if (meta.coberto) return `<span class="melhor ocultavel">${ico("ok")}As contas de ${mes} já estão cobertas.</span>`;
+  const pct = Math.min(99, Math.round((s.r.lucro / (meta.falta + s.r.lucro)) * 100));
+  return `<span class="melhor ocultavel">${ico("ok")}Esta semana cobriu <b>${pct}%</b> do que faltava para as contas de ${mes}. Faltam ${brl(meta.falta)}.</span>`;
+}
 function htmlSemanaMot(m, hj, meta) {
   const s = semanaDoMotorista(m.turnos, hj, S.prefs.veiculo || {}); if (!s) return "";
   // O melhor dia para rodar, pelos últimos 60 dias (o que mais rende por hora). Só com dois dias diferentes ou mais.
@@ -4685,7 +4704,7 @@ function htmlSemanaMot(m, hj, meta) {
   const r = s.r, comp = s.dif === null ? "" : Math.abs(s.dif) < 1 ? "Igual à semana passada." : s.dif > 0 ? `${brl(s.dif)} a mais que na semana passada.` : `${brl(-s.dif)} a menos que na semana passada.`;
   return `<button type="button" class="mot-semana" id="motSemana" data-ref="${s.ref}"><span class="tt"><b>${s.acabou ? "Sua semana" : "Sua semana até agora"}</b><small>${ddmm(s.de)} a ${ddmm(s.ate)} · ${r.n} ${r.n === 1 ? "jornada" : "jornadas"}</small></span>
     <span class="nums ocultavel"><span><small>Ganhou</small><b>${brl(r.ganho)}</b></span><span><small>${r.comCarro ? "Carro" : "Combustível"}</small><b>− ${brl(r.custo)}</b></span><span><small>Sobrou</small><b class="${r.lucro < 0 ? "neg" : "ok"}">${brl(r.lucro)}</b></span></span>
-    <span class="pe ocultavel">${r.lucroPorHora !== null ? `<b>${brl(r.lucroPorHora)} por hora</b> depois dos custos. ` : ""}${comp}</span>${proxima ? `<span class="melhor ocultavel">${ico("alvo")}Meta da próxima semana: <b>${brl(proxima)}</b>, ${brl(meta.brutoDia)} por dia em ${dias} dias.</span>` : ""}${melhor ? `<span class="melhor ocultavel">${ico("raio")}Seu melhor dia para rodar: <b>${DIAS_SEMANA[melhor.dia]}</b>, ${brl(melhor.ganhoPorHora)} por hora.</span>` : ""}</button>`;
+    <span class="pe ocultavel">${r.lucroPorHora !== null ? `<b>${brl(r.lucroPorHora)} por hora</b> depois dos custos. ` : ""}${comp}</span>${cobre(s, meta)}${proxima ? `<span class="melhor ocultavel">${ico("alvo")}Meta da próxima semana: <b>${brl(proxima)}</b>, ${brl(meta.brutoDia)} por dia em ${dias} dias.</span>` : ""}${melhor ? `<span class="melhor ocultavel">${ico("raio")}Seu melhor dia para rodar: <b>${DIAS_SEMANA[melhor.dia]}</b>, ${brl(melhor.ganhoPorHora)} por hora.</span>` : ""}</button>`;
 }
 /** A tela Jornada parada: uma frase, a regra por km e o botão de começar. */
 function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas }) {
@@ -5356,7 +5375,8 @@ function htmlDecidido(mes) {
   const lims = Object.entries(n.limites || {}).map(([cat, v]) => { const g = gasto.get(cat) || 0, ok = g <= v; return `<li class="${ok ? "ok" : "ruim"}">${ico(ok ? "ok" : "x")}<span>Limite de ${esc(cat)} em ${brl0(v)}: ${ok ? `ficou dentro (${brl0(g)})` : `passou ${brl0(g - v)}`}</span></li>`; });
   const g = Number(n.guardar) > 0 ? [`<li class="${guardou >= n.guardar ? "ok" : "ruim"}">${ico(guardou >= n.guardar ? "ok" : "x")}<span>Guardar ${brl0(n.guardar)}: ${guardou >= n.guardar ? "feito" : guardou > 0 ? `guardou ${brl0(guardou)}` : "ainda não guardou"}</span></li>`] : [];
   const itens = [...lims, ...g]; if (!itens.length) return "";
-  return `<h4 class="sub-h">O que você decidiu em ${nomeMes(ant).toLowerCase()}</h4><ul class="rv-decidiu">${itens.join("")}</ul>`;
+  const tudo = !itens.some((x) => x.includes('class="ruim"'));
+  return `<h4 class="sub-h">O que você decidiu em ${nomeMes(ant).toLowerCase()}</h4>${tudo ? `<p class="rv-conquista">${ico("medalha")}<span><b>Tudo o que você decidiu deu certo!</b> ${itens.length === 1 ? "O plano funcionou" : `Os ${itens.length} combinados funcionaram`}. É assim que o dinheiro começa a sobrar.</span></p>` : ""}<ul class="rv-decidiu">${itens.join("")}</ul>`;
 }
 function revisaoTela(m = S.mes) {
   const hojeM = mKey(hoje()), mes = m > hojeM ? hojeM : m;
