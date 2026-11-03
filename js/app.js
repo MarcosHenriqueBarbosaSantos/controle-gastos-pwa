@@ -2669,6 +2669,18 @@ function quadroDosPrazos(tipo) {
 }
 
 /** Cartões: o que já está comprometido nas próximas faturas, mês a mês, com cada parcela. Toque no mês para ver os itens. */
+/** As faturas dos últimos 6 meses em barras, com uma frase comparando este mês com a média dos anteriores. Só com 2 meses com fatura ou mais. */
+function htmlGraficoFaturas() {
+  if (!S.loaded) return "";
+  const cur = S.mes, ms = [5, 4, 3, 2, 1, 0].map((k) => addM(cur, -k)), vs = ms.map((m) => calcMes(S.data, m, hoje()).fatT || 0);
+  if (vs.filter((v) => v > 0).length < 2) return "";
+  const max = Math.max(...vs), antes = vs.slice(0, 5).filter((v) => v > 0), media = antes.length ? round2(antes.reduce((a, b) => a + b, 0) / antes.length) : 0, agora = vs[5];
+  let frase = "";
+  if (media > 0 && agora > 0) { const dif = Math.round(((agora - media) / media) * 100); frase = Math.abs(dif) < 5 ? `Em ${nomeMes(cur)} a fatura está na média dos meses anteriores (${brl0(media)}).` : dif > 0 ? `Em ${nomeMes(cur)} a fatura está ${dif}% acima da média dos meses anteriores (${brl0(media)}).` : `Em ${nomeMes(cur)} a fatura está ${-dif}% abaixo da média dos meses anteriores (${brl0(media)}).`; }
+  return `<h3 class="sub-h">Faturas dos últimos meses</h3><div class="cx-graf" role="img" aria-label="Faturas dos últimos 6 meses: ${ms.map((m, i) => `${nomeMes(m)} ${brl0(vs[i])}`).join(", ")}">
+    <div class="barras">${vs.map((v, i) => `<span><i style="height:${Math.max(3, (v / max) * 100)}%"${i === 5 ? ' class="hoje"' : ""} title="${nomeMes(ms[i])}: ${brl0(v)}"></i><small>${MES3[Number(ms[i].slice(5)) - 1]}</small></span>`).join("")}</div>
+    ${frase ? `<p class="ocultavel" style="margin:8px 0 2px;font-size:13.5px">${frase}</p>` : ""}</div>`;
+}
 function htmlProximasFaturas() {
   if (!S.data.cartoes.length) return "";
   const meses = parcelasPorMes(S.data, addM(S.mes, 1), 6); if (!meses.length) return "";
@@ -2691,7 +2703,10 @@ function paneC(c) {
   const linhaCartao = (k) => {
     const prox = futuras.find((x) => x.cartao_id === k.id), off = k.ativo === false, u = off ? null : usoDoLimite(S.data, k, limiteDe(k.id), hoje());
     return `<li class="${off ? "off" : ""}" data-kid="${esc(k.id)}">${ava("", "Cartao")}<span class="oque"><b>${esc(k.nome)}${off ? ` <span class="tag">desativado</span>` : ""}</b>
-      <span>Fecha dia ${pad(k.fechamento)} · vence dia ${pad(k.vencimento)}${off ? "" : ` · <b class="melhor-dia" title="Comprando a partir desse dia, a compra cai na fatura seguinte e você tem mais tempo para pagar">melhor dia para comprar: ${Number(k.fechamento) >= 31 ? 1 : Number(k.fechamento) + 1}</b>`}${prox ? ` · próxima fatura ${brl(prox.valor)} em ${ddmm(prox.vencimento)}` : ""}</span>
+      ${off ? `<span>Fecha dia ${pad(k.fechamento)} · vence dia ${pad(k.vencimento)}</span>` : (() => {
+        const pf = proximaFatura(S.data, k, hoje()), aberta = pf.valor > 0 ? pf.valor : prox?.valor || 0, quando = pf.dias <= 0 ? "fecha hoje" : pf.dias === 1 ? "fecha amanhã" : `fecha em ${pf.dias} dias`;
+        return `<span class="cart-chips"><span class="chip-c">${quando}</span><span class="chip-c">vence ${ddmm(pf.vencimento)}</span><b class="melhor-dia chip-c" title="Comprando a partir desse dia, a compra cai na fatura seguinte e você tem mais tempo para pagar">melhor dia para comprar: ${Number(k.fechamento) >= 31 ? 1 : Number(k.fechamento) + 1}</b></span>${aberta > 0 ? `<span class="cart-aberta ocultavel">Fatura aberta: <b>${brl(aberta)}</b></span>` : ""}`;
+      })()}
       ${u ? `<span class="cart-lim${u.pct >= 80 ? " alto" : ""}" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, u.pct))}%"></i></span><span class="ocultavel">${textoDoLimite(u)}</span>` : off ? "" : `<button class="link" type="button" data-klim="${esc(k.id)}">Informar o limite</button>`}</span>
       <span class="acts"><button class="act" type="button" data-ked="${esc(k.id)}">Editar</button>${off ? `<button class="act" type="button" data-kon="${esc(k.id)}">Reativar</button>`
         : usados.has(k.id) ? `<button class="act" type="button" data-koff="${esc(k.id)}" title="Sai da lista de novas compras; as faturas continuam">Desativar</button>` : ""}<button class="del icone" type="button" data-kapaga="${esc(k.id)}" aria-label="Apagar o cartão ${esc(k.nome)}" title="Apagar o cartão">${ico("lixo")}</button></span></li>`;
@@ -2703,7 +2718,7 @@ function paneC(c) {
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.auto ? `${x.itens.length} ${x.itens.length === 1 ? "compra" : "compras"}` : "Lançada à mão"}</td>
       <td class="num">${brl(x.valor)}</td>
       <td class="st"><button type="button" class="chk ${paga ? "on" : x.vencimento < hj ? "late" : "off"}" data-st="${i}">${paga ? "✓ Paga" : x.vencimento < hj ? "○ Atrasada" : "○ Em aberto"}</button></td>
-      <td class="acts"><button class="act" type="button" data-fat="${i}">${x.auto ? "Ver compras" : "Editar"}</button>${x.auto ? "" : `<button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">${ico("lixo")}</span></button>`}</td></tr>`;
+      <td class="acts">${paga ? "" : `<button class="act" type="button" data-fcopia="${i}">Copiar valor</button>`}<button class="act" type="button" data-fat="${i}">${x.auto ? "Ver compras" : "Editar"}</button>${x.auto ? "" : `<button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">${ico("lixo")}</span></button>`}</td></tr>`;
   };
   const fatMes = calcMes(S.data, S.mes, hoje()).fatT;
   host.innerHTML = `${fatMes ? `<div class="tela-frase"><h2 class="ocultavel">${brl(fatMes)} em faturas em ${nomeMes(S.mes)}.</h2></div>` : ""}<h3 class="sub-h">Meus cartões</h3>
@@ -2720,9 +2735,9 @@ function paneC(c) {
    </form>${cartoes.length ? `</details>` : ""}
    <h3 class="sub-h">Faturas de ${nomeMes(S.mes)}</h3><div class="fat-acoes"><button class="btn sm ler" type="button" id="lerFatura">${ico("camera")}Ler fatura</button>${IMPORTA_EXTRATO ? `<button class="btn sm ler" type="button" id="impExtrato">${ico("subir")}Importar extrato</button>` : ""}<button class="btn sm ler" type="button" id="expCartao">${ico("baixar")}Exportar</button></div>
    ${vis.length ? `<div class="tbl"><table class="cards"><thead><tr><th>Vence</th><th>Cartão</th><th class="hide-sm">Origem</th><th class="num">Fatura</th><th>Situação</th><th></th></tr></thead><tbody>${vis.map(linhaFatura).join("")}</tbody>
-     <tfoot><tr><td class="d"></td><td style="font-weight:600">Faturas de ${nomeMes(S.mes)}</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} de meses anteriores</span>` : ""}</td></tr></tfoot></table></div>`
+     <tfoot><tr><td class="d"></td><td style="font-weight:600">Total do mês</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(c.fatT)}</td><td colspan="2" class="st">${atrasadas ? `<span class="pill warn">${brl0(atrasadas)} de meses anteriores</span>` : ""}</td></tr></tfoot></table></div>`
      : `<div class="empty">Nenhuma fatura com vencimento em ${nomeMes(S.mes)}.</div>`}
-   ${htmlProximasFaturas()}
+   ${htmlGraficoFaturas()}${htmlProximasFaturas()}
    ${semCartao ? `<p class="aviso">${brl(semCartao)} em compras no cartão deste mês ${cartoes.length ? "estão sem cartão escolhido e não entram em nenhuma fatura. Edite o lançamento e escolha o cartão." : "ainda não entram em nenhuma fatura. Cadastre o cartão acima, ou lance a fatura à mão quando ela chegar."}</p>` : ""}
    <details class="manual"${cartoes.length ? "" : " open"}><summary>Lançar uma fatura à mão</summary>
    <p class="hint" style="margin:6px 0 0">Para um cartão que você não cadastrou: digite só o total e a data de vencimento.</p>
@@ -2740,6 +2755,10 @@ function paneC(c) {
     if (x.auto) await gravaFaturaAuto(x, { status });
     else { const f = S.data.faturas.find((z) => z.id === x.id); if (f && await grava(() => S.store.updateFatura(f.id, { status }))) f.status = status; }
     render();
+  }));
+  host.querySelectorAll("[data-fcopia]").forEach((b) => (b.onclick = async () => {   // o valor pronto para colar no app do banco
+    const x = vis[Number(b.dataset.fcopia)], txt = x.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+    try { await navigator.clipboard.writeText(txt); toast(`Valor copiado: ${brl(x.valor)}. Cole no app do banco para pagar.`); } catch { toast(`Valor da fatura: ${brl(x.valor)}.`); }
   }));
   host.querySelectorAll("[data-fat]").forEach((b) => (b.onclick = () => editarFatura(vis[Number(b.dataset.fat)])));
   host.querySelectorAll("tr[data-frow2]").forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest("button,a")) editarFatura(vis[Number(tr.dataset.frow2)]); }));
