@@ -11,9 +11,9 @@
 // Conta de casal: quem divide as contas com outra pessoa é avisado sobre as contas, o limite e as metas dos dois juntos.
 // As dependências chegam por parâmetro para o mesmo código rodar nos testes (Node) e no Supabase (Deno).
 import { pendenciasParaAviso, calcMes, usoDoTeto, mKey, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias, diasEntre,
-  lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, diaDaSemana, resumoDaSemana, lembreteDoDia, comumDoCasal, proximaFatura, usoDoLimite } from "./regras.js";
+  lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, diaDaSemana, resumoDaSemana, lembreteDoDia, comumDoCasal, proximaFatura, usoDoLimite, rotaDoMes } from "./regras.js";
 import { enviaPush, gerarChaves, cifra, b64u, deB64u, cabecalhoVapid } from "./webpush.js";
-import { montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, avisoDaSemana, avisoDaNoite, avisoDoCartao } from "./mensagem.js";
+import { montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, avisoDaSemana, avisoDaNoite, avisoDoCartao, avisoSemDinheiro } from "./mensagem.js";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
@@ -80,7 +80,7 @@ export async function autoteste() {
  */
 export function assinatura() {
   const texto = [criaHandler, autoteste, montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, pendenciasParaAviso, calcMes, usoDoTeto, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias,
-    lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, resumoDaSemana, lembreteDoDia, avisoDaSemana, avisoDaNoite, avisoDoCartao, proximaFatura, usoDoLimite,
+    lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, resumoDaSemana, lembreteDoDia, avisoDaSemana, avisoDaNoite, avisoDoCartao, avisoSemDinheiro, proximaFatura, usoDoLimite, rotaDoMes,
     enviaPush, gerarChaves, cifra, cabecalhoVapid].map(String).join("\n");
   let h = 5381; for (let i = 0; i < texto.length; i++) h = ((h << 5) + h + texto.charCodeAt(i)) | 0;
   return `${texto.length}-${(h >>> 0).toString(36)}`;
@@ -215,16 +215,33 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
     return novos.map((x) => ({ chave: chaveDe(x), nome: x.k.nome, valor: x.p.valor, dias: x.p.dias, u: usoDoLimite(st, x.k, Number(dados?.limiteCartao?.[x.k.id]) || 0, dia) }));
   }
 
+  /**
+   * Falta dinheiro para uma conta nos próximos 5 dias: a rota do mês (entradas e contas dia a dia) fica negativa numa data que tem conta a pagar.
+   * Quem usa o modo motorista não conta o que ainda vai ganhar: o aviso diz quanto o Uber precisa trazer por dia.
+   * Um aviso por data de prazo (anotada em avisos_enviados como "sem: <dia>"). Desligado em Ajustes (avisos.semDinheiro === false).
+   */
+  async function semDinheiroParaAvisar(db, uid, st, dados, dia) {
+    if (dados?.avisos?.semDinheiro === false) return null;
+    const motorista = Boolean(dados?.motorista?.usa), rota = rotaDoMes(st, dia, { comMedia: !motorista }), p = rota?.prazo;
+    if (!p || !p.saidas.length || p.dias > 5) return null;
+    const { data } = await db.from("avisos_enviados").select("canais").eq("user_id", uid);
+    if ((data || []).some((r) => String(r.canais || "").includes(`sem: ${p.data}`))) return null;
+    const quando = p.dias <= 0 ? "hoje" : p.dias === 1 ? "amanhã" : `dia ${p.data.slice(8, 10)}`;
+    const nomes = [...new Set(p.saidas.map((x) => x.titulo))], contas = nomes.length <= 1 ? nomes.join("") : `${nomes.slice(0, -1).join(", ")} e ${nomes[nomes.length - 1]}`;
+    const depois = rota.pontos.find((x) => x.dias > p.dias && x.entradas.length);
+    return { chave: p.data, quando, falta: p.precisa, contas, motorista, porDia: Math.round((p.precisa / (p.dias + 1)) * 100) / 100, entra: !motorista && depois ? `Depois entra ${depois.entradas.map((x) => x.titulo).join(" e ")} no dia ${depois.data.slice(8, 10)}.` : "" };
+  }
+
   async function avisaUsuario(db, user, k, { teste = false } = {}) {
     const dia = hoje(), casal = await casalDe(db, user.id), st = await estado(db, user.id, casal), p = pendenciasParaAviso(st, dia);
     const dados = await prefsDe(db, user.id, casal);
-    const lim = await limiteParaAvisar(db, user.id, st, dados, dia), rec = await metaParaAvisar(db, user.id, st, dados, dia), car = await cartaoParaAvisar(db, user.id, st, dados, dia);
-    if (!p.itens.length && !lim && !rec && !car && !teste) return null;
-    const aviso = p.itens.length || lim || rec || car ? montaAviso(p, urlApp(), lim && avisoDoLimite(lim, dia), rec && avisoDaMeta(rec, dia), car && avisoDoCartao(car)) : avisoDeTeste(urlApp());
+    const lim = await limiteParaAvisar(db, user.id, st, dados, dia), rec = await metaParaAvisar(db, user.id, st, dados, dia), car = await cartaoParaAvisar(db, user.id, st, dados, dia), sem = await semDinheiroParaAvisar(db, user.id, st, dados, dia);
+    if (!p.itens.length && !lim && !rec && !car && !sem && !teste) return null;
+    const aviso = p.itens.length || lim || rec || car || sem ? montaAviso(p, urlApp(), lim && avisoDoLimite(lim, dia), rec && avisoDaMeta(rec, dia), car && avisoDoCartao(car), sem && avisoSemDinheiro(sem)) : avisoDeTeste(urlApp());
     const querEmail = dados.avisos?.email !== false;
     const email = user.email && querEmail ? await mandaEmail(user.email, aviso) : "desligado";
     const push = await mandaPush(db, user.id, aviso, k);
-    return { pendencias: p.itens.length, limite: lim ? lim.nivel : 0, meta: rec ? (rec.tipo === "parabens" ? "parabens" : rec.quando) : "", ...(car ? { cartao: car.map((x) => x.chave) } : {}), email, push };
+    return { pendencias: p.itens.length, limite: lim ? lim.nivel : 0, meta: rec ? (rec.tipo === "parabens" ? "parabens" : rec.quando) : "", ...(car ? { cartao: car.map((x) => x.chave) } : {}), ...(sem ? { sem: sem.chave } : {}), email, push };
   }
 
   /**
@@ -302,7 +319,7 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
         if (!r) return;
         res.avisados++; if (r.email === "enviado") res.emails++; res.notificacoes += r.push.entregues;
         if (/^erro/.test(r.email)) res.erros.push(`e-mail: ${r.email}`);
-        await anota(db, user.id, dia, `${r.limite ? `limite: ${r.limite}; ` : ""}${r.meta ? `meta: ${r.meta}; ` : ""}${(r.cartao || []).map((c) => `cartao: ${c}; `).join("")}email: ${r.email}; push: ${r.push.entregues}/${r.push.aparelhos}`, true);
+        await anota(db, user.id, dia, `${r.limite ? `limite: ${r.limite}; ` : ""}${r.meta ? `meta: ${r.meta}; ` : ""}${(r.cartao || []).map((c) => `cartao: ${c}; `).join("")}${r.sem ? `sem: ${r.sem}; ` : ""}email: ${r.email}; push: ${r.push.entregues}/${r.push.aparelhos}`, true);
       } catch (e) { res.erros.push(String(e?.message || e).slice(0, 200)); }
     });
     res.erros = res.erros.slice(0, 20);

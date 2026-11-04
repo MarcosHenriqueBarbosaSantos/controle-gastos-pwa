@@ -2484,3 +2484,18 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .fx-resumo p.mal{border-color:color-mix(in srgb,#e5534b 55%,var(--border))} .fx-resumo p.mal small:last-child{color:#e5534b;font-weight:600}
 /* v219: quando as duas colunas viram uma só (celular e tablet), "Por categoria" vem antes do custo acumulado */
 @media (max-width:980px){#graficos>section:last-child{order:-1}}
+
+/* v222: o mês dia a dia — o que entra e sai em cada data e até onde o dinheiro vai */
+.hero .rota-sub{display:block;margin-top:6px;font-size:16px;line-height:1.35;color:#fff;font-weight:600}
+.rota-resumo{display:grid;gap:4px;margin:0 0 10px;padding:12px 14px;border-radius:14px;background:var(--good-soft);color:var(--ink);font-size:15px;line-height:1.35}
+.rota-resumo b{font-size:17px} .rota-resumo.bad{background:var(--warn-soft)} .rota-resumo span{color:var(--ink-2)}
+.rota-lista{list-style:none;margin:0 0 12px;padding:0;display:grid}
+.rota-dia{display:grid;grid-template-columns:72px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--border)} .rota-dia:first-child{border-top:0}
+.rota-data{display:grid;align-content:start;gap:1px} .rota-data b{font-size:16px} .rota-data small{font-size:12.5px;color:var(--muted)}
+.rota-corpo{display:grid;gap:6px;min-width:0}
+.rota-corpo p{display:flex;justify-content:space-between;gap:10px;margin:0;font-size:15px;line-height:1.3}
+.rota-in{color:var(--good)} .rota-out{color:var(--ink)}
+.rota-corpo p b{white-space:nowrap}
+.rota-fim{font-size:13px!important;color:var(--muted);padding-top:2px} .rota-fim.bad{color:var(--bad);font-weight:600}
+.rota-dia.aperto{margin:0 -10px;padding:12px 10px;border-radius:12px;background:var(--warn-soft);border-top-color:transparent}
+.rota-corpo p.rota-fim{display:block}

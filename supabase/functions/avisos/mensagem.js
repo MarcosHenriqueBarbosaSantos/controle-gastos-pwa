@@ -34,6 +34,19 @@ export function avisoDoCartao(lista) {
 }
 
 /**
+ * Vai faltar dinheiro para uma conta nos próximos dias: o prazo, quanto falta e quais contas não fecham.
+ * @param {{quando:string, falta:number, contas:string, motorista:boolean, porDia:number, entra:string}} r  quando = "hoje", "amanhã" ou "dia 10"
+ * @returns {{titulo:string, frase:string, cor:string}}
+ */
+export function avisoSemDinheiro(r) {
+  const titulo = r.motorista ? `Faltam ${brl(r.falta)} até ${r.quando}` : `O dinheiro não chega para ${r.contas}`;
+  const frase = r.motorista
+    ? `Contas até ${r.quando}: ${r.contas}. O Uber precisa trazer cerca de ${brl(r.porDia)} por dia até lá.`
+    : `Faltam ${brl(r.falta)} ${r.quando === "hoje" ? "hoje" : `até ${r.quando}`}.${r.entra ? ` ${r.entra}` : ""} Ainda dá tempo de ajustar: adiar uma conta, segurar gastos ou esperar uma entrada.`;
+  return { titulo, frase, cor: "#c42f2f" };
+}
+
+/**
  * Recado da meta do dinheiro guardado: lembrete (o dinheiro entrou, ou deve sobrar no fim do mês) ou parabéns (guardou ontem).
  * O tom é de apoio: nunca cobra, e em mês apertado nem chega a ser enviado.
  * @param {{tipo:"lembrete", quando:"entrou"|"sobra", meta:any, valor:number, sobra:number, completo:boolean}
@@ -62,20 +75,21 @@ export function avisoDaMeta(r, dia) {
  * @param {{titulo:string, frase:string, cor:string, fundo:string, botao:string}|null} meta  recado da meta (avisoDaMeta), quando há
  * @returns {{titulo, corpo, assunto, html, texto, url}}
  */
-export function montaAviso(p, urlApp, lim = null, meta = null, cartao = null) {
+export function montaAviso(p, urlApp, lim = null, meta = null, cartao = null, sem = null) {
   const caixaDe = (x, fundo) => (x ? `<div style="margin:0 0 16px;padding:12px 14px;border-radius:8px;background:${fundo};border-left:4px solid ${x.cor}"><b style="color:${x.cor}">${esc(x.titulo)}</b><br><span style="font-size:14px">${esc(x.frase)}</span></div>` : "");
-  const caixa = caixaDe(lim, "#fdf3e1") + caixaDe(cartao, "#fdf3e1") + caixaDe(meta, meta?.fundo);
+  const caixa = caixaDe(sem, "#fdecea") + caixaDe(lim, "#fdf3e1") + caixaDe(cartao, "#fdf3e1") + caixaDe(meta, meta?.fundo);
   const rodape = "Para deixar de receber, abra o app e desmarque em Ajustes &rarr; Avisos de contas ou na aba Limites.";
   const sairDaMeta = "Para deixar de receber os recados da meta, abra o app, toque em Planejar, abra a caixinha da meta e desmarque os recados.";
-  const recados = [lim, cartao, meta].filter(Boolean);
+  const recados = [sem, lim, cartao, meta].filter(Boolean);
+  const sairDoSem = "Para deixar de receber o aviso de falta de dinheiro, abra o app, vá em Ajustes e, em Avisos e lembretes, desmarque Falta de dinheiro para uma conta.";
   const sairDoCartao = "Para deixar de receber o aviso do cartão, abra o app, vá em Ajustes e, em Aviso do cartão, escolha Não avisar. Lá também dá para mudar quantos dias antes de fechar você quer ser avisado.";
   if (!p.itens.length && recados.length) {   // só o limite ou a meta, sem conta para vencer
-    const um = recados[0], botao = lim ? "Abrir o app e ver para onde foi o dinheiro" : cartao ? "Abrir o app e ver o cartão" : meta.botao;
-    const porque = [lim ? `Você recebe este aviso uma vez quando chega a 80% do limite, quando passa dele e quando passa em mais de 20%. ${rodape}` : "",
+    const um = recados[0], botao = sem ? "Abrir o app e ver o mês dia a dia" : lim ? "Abrir o app e ver para onde foi o dinheiro" : cartao ? "Abrir o app e ver o cartão" : meta.botao;
+    const porque = [sem ? `O aviso de falta de dinheiro chega uma vez por prazo, até 5 dias antes de a conta vencer. ${sairDoSem}` : "", lim ? `Você recebe este aviso uma vez quando chega a 80% do limite, quando passa dele e quando passa em mais de 20%. ${rodape}` : "",
       cartao ? `O aviso do cartão chega uma vez por fatura, no prazo antes de ela fechar que você escolheu em Ajustes. ${sairDoCartao}` : "",
       meta ? `Os recados da meta chegam no dia em que o seu dinheiro entra, perto do fim do mês quando deve sobrar, e depois que você guarda. ${sairDaMeta}` : ""].filter(Boolean).join(" ");
     return { titulo: um.titulo, corpo: [um.frase, ...recados.slice(1).map((x) => x.titulo)].join("\n"), assunto: `Meus Gastos: ${um.titulo}`, url: urlApp,
-      texto: `${recados.map((x) => `${x.titulo}\n\n${x.frase}`).join("\n\n")}\n\nAbrir o app: ${urlApp}\n\n${lim ? "Para deixar de receber, abra o app e desmarque na aba Limites." : ""}${lim && (cartao || meta) ? " " : ""}${cartao ? sairDoCartao : ""}${cartao && meta ? " " : ""}${meta ? sairDaMeta : ""}`,
+      texto: `${recados.map((x) => `${x.titulo}\n\n${x.frase}`).join("\n\n")}\n\nAbrir o app: ${urlApp}\n\n${sem ? sairDoSem : ""}${sem && (lim || cartao || meta) ? " " : ""}${lim ? "Para deixar de receber, abra o app e desmarque na aba Limites." : ""}${lim && (cartao || meta) ? " " : ""}${cartao ? sairDoCartao : ""}${cartao && meta ? " " : ""}${meta ? sairDaMeta : ""}`,
       html: `<div style="font-family:Arial,Helvetica,sans-serif;max-width:520px;margin:0 auto;color:#0b0b0b"><h2 style="margin:0 0 12px;font-size:20px;color:#1f3a5f">Meus Gastos</h2>${caixa}
   <p style="margin:20px 0"><a href="${esc(urlApp)}" style="background:#2a78d6;color:#fff;text-decoration:none;padding:11px 18px;border-radius:8px;font-weight:bold;font-size:14px">${botao}</a></p>
   <p style="font-size:12px;color:#77756f;margin:0">${porque}</p></div>` };

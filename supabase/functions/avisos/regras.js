@@ -277,6 +277,35 @@ export function proximosVencimentos(st, hoje, janela = 30) {
   });
   return out.sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
 }
+export function rotaDoMes(st, hoje, { comMedia = true } = {}) {
+  const m = mKey(hoje), c = calcMes(st, m, hoje);
+  if (c.fase !== "atual") return null;
+  const n = c.n, hj = Number(hoje.slice(8, 10)), iso = (d) => `${m}-${pad(d)}`;
+  const entradas = [
+    ...c.fr.map((o) => ({ data: o.data, titulo: o.descricao || "Entrada", valor: Number(o.valor) })),
+    ...c.it.filter((x) => x.tipo === "Receita").map((x) => ({ data: String(x.data).slice(0, 10), titulo: x.descricao || x.categoria || "Entrada", valor: Number(x.valor) })),
+  ];
+  const recebidas = round2(entradas.filter((e) => e.data <= hoje).reduce((t, e) => t + e.valor, 0));
+  const fixosPagos = round2(c.fxCusto - c.fxPend), fatPagas = round2(c.fatT - c.fatAberta);
+  const saldoHoje = round2(recebidas - c.vari - fixosPagos - fatPagas - c.res);
+  const saidas = [
+    ...c.fx.filter((o) => !noCartao(o) && !c.pagosSet.has(o.id + "|" + o.chave)).map((o) => ({ data: o.data, titulo: o.descricao || "Conta", valor: Number(o.valor) })),
+    ...c.fat.filter((f) => f.status !== "Paga").map((f) => ({ data: String(f.vencimento).slice(0, 10), titulo: `Fatura ${f.cartao}`, valor: Number(f.valor) })),
+  ].filter((x) => x.valor > 0);
+  const mediaDia = comMedia && hj >= 5 ? round2(c.vari / hj) : 0;
+  let saldo = saldoHoje, minimo = saldoHoje, zerou = false;
+  const pontos = [];
+  for (let d = hj; d <= n; d++) {
+    const dia = iso(d);
+    const ent = d === hj ? [] : entradas.filter((e) => e.data === dia), sai = saidas.filter((x) => (d === hj ? x.data <= dia : x.data === dia));
+    saldo = round2(saldo + ent.reduce((t, e) => t + e.valor, 0) - sai.reduce((t, x) => t + x.valor, 0) - (d > hj ? mediaDia : 0));
+    minimo = Math.min(minimo, saldo);
+    const zera = saldo < 0 && !zerou;
+    if (zera) zerou = true;
+    if (ent.length || sai.length || zera) pontos.push({ data: dia, dias: d - hj, entradas: ent.map(({ titulo, valor }) => ({ titulo, valor })), saidas: sai.map(({ titulo, valor }) => ({ titulo, valor })), saldo, precisa: Math.max(0, round2(-minimo)), zera });
+  }
+  return { saldoHoje, mediaDia, pontos, prazo: pontos.find((p) => p.precisa > 0) || null, proximo: pontos.find((p) => p.saidas.length) || null, pior: pontos.reduce((a, p) => (!a || p.precisa > a.precisa ? p : a), null) };
+}
 export function pendenciasParaAviso(st, hoje, { antes = 3, atrasoMax = 30 } = {}) {
   const itens = proximosVencimentos(st, hoje, antes).filter((x) => x.dias >= -atrasoMax);
   return { itens, atrasadas: itens.filter((x) => x.dias < 0).length, hoje: itens.filter((x) => x.dias === 0).length,

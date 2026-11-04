@@ -476,3 +476,38 @@ test("rotina diária: o prazo do aviso do cartão é o que a pessoa escolheu (1,
   // e ninguém é avisado duas vezes pela mesma fatura
   amb.avanca(86400000); await roda(); assert.equal(quem().length, 3);
 });
+
+import { avisoSemDinheiro } from "../supabase/functions/avisos/mensagem.js";
+
+test("texto do aviso de falta de dinheiro: para quem recebe por mês e para o motorista", () => {
+  const a = avisoSemDinheiro({ quando: "dia 10", falta: 360, contas: "Luz e Condomínio", motorista: false, porDia: 0, entra: "Depois entra Salário no dia 20." });
+  assert.equal(limpa(a.titulo), "O dinheiro não chega para Luz e Condomínio");
+  assert.equal(limpa(a.frase), "Faltam R$ 360,00 até dia 10. Depois entra Salário no dia 20. Ainda dá tempo de ajustar: adiar uma conta, segurar gastos ou esperar uma entrada.");
+  const m = avisoSemDinheiro({ quando: "dia 10", falta: 905.3, contas: "Aluguel", motorista: true, porDia: 129.33, entra: "" });
+  assert.equal(limpa(m.titulo), "Faltam R$ 905,30 até dia 10");
+  assert.equal(limpa(m.frase), "Contas até dia 10: Aluguel. O Uber precisa trazer cerca de R$ 129,33 por dia até lá.");
+  const sozinho = montaAviso({ itens: [], atrasadas: 0, hoje: 0, total: 0 }, "https://app.exemplo/", null, null, null, a);
+  assert.equal(sozinho.titulo, a.titulo);
+  assert.ok(sozinho.texto.includes("desmarque Falta de dinheiro para uma conta") && sozinho.html.includes("Abrir o app e ver o mês dia a dia"));
+});
+
+test("rotina diária: avisa quando o dinheiro não chega para uma conta dos próximos dias, uma vez por data, e respeita quem desligou", async () => {
+  const aluguel = (uid) => ({ ...fixo("alu-" + uid, "Aluguel", 6, 800, "Pix"), user_id: uid });
+  const amb = ambiente({
+    fixos: ["u1", "u2", "u3", "u4"].map(aluguel),
+    lancamentos: [{ id: "r4", user_id: "u4", data: "2026-10-01", descricao: "Salário", tipo: "Receita", categoria: "Salário", forma: "Pix", valor: 3000 }],
+    preferencias: [{ user_id: "u2", dados: { motorista: { usa: true } } }, { user_id: "u3", dados: { avisos: { semDinheiro: false } } }],
+  }, ["u1", "u2", "u3", "u4"].map((id) => ({ id, email: id + "@exemplo.com" })));
+  const roda = async () => (await amb.handler(pedido("POST", { "x-avisos-segredo": "segredo-certo" }))).json();
+  const emails = () => amb.enviados.filter((e) => e.url.includes("resend")).map((e) => JSON.parse(e.init.body));
+  await roda();   // 3 de outubro: o aluguel do dia 6 não cabe para u1, u2 e u3; u4 tem o salário
+  const de = (u) => emails().filter((e) => e.to[0] === u + "@exemplo.com");
+  assert.ok(de("u1")[0].text.includes("O dinheiro não chega para Aluguel") && de("u1")[0].text.includes("Faltam R$ 800,00 até dia 06."));
+  assert.ok(de("u2")[0].text.includes("Faltam R$ 800,00 até dia 06") && de("u2")[0].text.includes("O Uber precisa trazer cerca de R$ 200,00 por dia"));   // 4 dias (3, 4, 5 e 6)
+  assert.equal(de("u3")[0].text.includes("não chega"), false);   // desligou: recebe só a conta a vencer
+  assert.equal(de("u4").some((e) => e.text.includes("não chega")), false);   // u4 recebeu o salário: a conta cabe (só o aviso de conta a vencer)
+  assert.match(amb.t.avisos_enviados.find((x) => x.user_id === "u1").canais, /sem: 2026-10-06/);
+  // no dia seguinte a conta ainda não foi paga, mas o aviso de falta não repete
+  amb.avanca(86400000); await roda();
+  assert.equal(de("u1").filter((e) => e.text.includes("não chega para")).length, 1);
+});

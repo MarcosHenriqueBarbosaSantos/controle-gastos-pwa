@@ -929,6 +929,45 @@ export function apertoAteAEntrada(ac) {
 }
 
 /**
+ * A rota do mês: o que entra e o que sai em cada data, e quanto falta ter de dinheiro de fora para cada prazo.
+ * Parte do dinheiro de hoje e anda dia a dia até o fim do mês: entradas fixas e lançadas no dia delas, contas ainda sem pagar no dia do vencimento
+ * (as atrasadas, hoje). Com `comMedia` o dia a dia também gasta a média de agora (só depois do 5º dia); sem ela, só contas e entradas
+ * (é o caso de quem ganha todo dia, como o motorista: o que ele ainda vai ganhar não entra, vira "quanto precisa trazer").
+ * `precisa` de um ponto = o maior buraco do caixa até aquela data (0 quando as entradas já cobrem).
+ * @returns {{saldoHoje:number, mediaDia:number, pontos:{data:string, dias:number, entradas:{titulo:string,valor:number}[], saidas:{titulo:string,valor:number}[], saldo:number, precisa:number, zera:boolean}[], prazo:object|null, proximo:object|null, pior:object|null}|null}
+ *   `prazo` é o primeiro ponto em que falta dinheiro (precisa > 0); `proximo` é a próxima data com conta a pagar; `pior` é o ponto de maior `precisa`.
+ */
+export function rotaDoMes(st, hoje, { comMedia = true } = {}) {
+  const m = mKey(hoje), c = calcMes(st, m, hoje);
+  if (c.fase !== "atual") return null;
+  const n = c.n, hj = Number(hoje.slice(8, 10)), iso = (d) => `${m}-${pad(d)}`;
+  const entradas = [
+    ...c.fr.map((o) => ({ data: o.data, titulo: o.descricao || "Entrada", valor: Number(o.valor) })),
+    ...c.it.filter((x) => x.tipo === "Receita").map((x) => ({ data: String(x.data).slice(0, 10), titulo: x.descricao || x.categoria || "Entrada", valor: Number(x.valor) })),
+  ];
+  const recebidas = round2(entradas.filter((e) => e.data <= hoje).reduce((t, e) => t + e.valor, 0));
+  const fixosPagos = round2(c.fxCusto - c.fxPend), fatPagas = round2(c.fatT - c.fatAberta);
+  const saldoHoje = round2(recebidas - c.vari - fixosPagos - fatPagas - c.res);
+  const saidas = [
+    ...c.fx.filter((o) => !noCartao(o) && !c.pagosSet.has(o.id + "|" + o.chave)).map((o) => ({ data: o.data, titulo: o.descricao || "Conta", valor: Number(o.valor) })),
+    ...c.fat.filter((f) => f.status !== "Paga").map((f) => ({ data: String(f.vencimento).slice(0, 10), titulo: `Fatura ${f.cartao}`, valor: Number(f.valor) })),
+  ].filter((x) => x.valor > 0);
+  const mediaDia = comMedia && hj >= 5 ? round2(c.vari / hj) : 0;
+  let saldo = saldoHoje, minimo = saldoHoje, zerou = false;
+  const pontos = [];
+  for (let d = hj; d <= n; d++) {
+    const dia = iso(d);
+    const ent = d === hj ? [] : entradas.filter((e) => e.data === dia), sai = saidas.filter((x) => (d === hj ? x.data <= dia : x.data === dia));
+    saldo = round2(saldo + ent.reduce((t, e) => t + e.valor, 0) - sai.reduce((t, x) => t + x.valor, 0) - (d > hj ? mediaDia : 0));
+    minimo = Math.min(minimo, saldo);
+    const zera = saldo < 0 && !zerou;
+    if (zera) zerou = true;
+    if (ent.length || sai.length || zera) pontos.push({ data: dia, dias: d - hj, entradas: ent.map(({ titulo, valor }) => ({ titulo, valor })), saidas: sai.map(({ titulo, valor }) => ({ titulo, valor })), saldo, precisa: Math.max(0, round2(-minimo)), zera });
+  }
+  return { saldoHoje, mediaDia, pontos, prazo: pontos.find((p) => p.precisa > 0) || null, proximo: pontos.find((p) => p.saidas.length) || null, pior: pontos.reduce((a, p) => (!a || p.precisa > a.precisa ? p : a), null) };
+}
+
+/**
  * Cartões cadastrados cuja fatura vai vencer em breve mas ainda não tem nenhuma compra nem valor informado.
  * Sem isso o cartão sumia dos vencimentos até a primeira compra ser lançada. A pessoa vê a data e informa o valor da fatura.
  * Só olha o dia de hoje em diante (fatura sem valor não "atrasa"). Não entra no servidor de avisos.
