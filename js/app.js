@@ -1176,16 +1176,22 @@ function renderKpis(c) {
   ${c.fase === "futuro" ? htmlPrevisaoFuturo(c, rx) : ""}
 `;
   // Abaixo dos Próximos vencimentos: o acesso às telas, o cartão, a lista de mercado e a previsão do mês.
-  $("resumo2").innerHTML = `${htmlMotoristaIni()}
-  <nav class="ir-para" aria-label="Ir para">
+  // No celular, o que dá acesso às telas e aos cartões fica À VISTA, fora do bloco fechado "Mais do seu mês"; no computador segue dentro dele.
+  const celIni = noCelular();
+  const navIr = `<nav class="ir-para" aria-label="Ir para">
     <button type="button" data-atalho="fixas">${ico("fixo")}<span>Contas fixas</span></button>
     <button type="button" data-atalho="cart">${ico("cartao")}<span>Cartões</span></button>
-    <button type="button" data-atalho="ext">${ico("saldo")}<span>Lançamentos</span></button>
-    <button type="button" data-atalho="plan">${ico("alvo")}<span>Planejar</span></button>
-    ${noCelular() ? `<button type="button" data-atalho="graficos">${ico("grafico")}<span>Gráficos</span></button>` : ""}
+    ${celIni ? "" : `<button type="button" data-atalho="ext">${ico("saldo")}<span>Lançamentos</span></button>
+    <button type="button" data-atalho="plan">${ico("alvo")}<span>Planejar</span></button>`}
+    ${celIni ? `<button type="button" data-atalho="merc">${ico("carrinho")}<span>Mercado</span></button>` : ""}
+    ${celIni ? `<button type="button" data-atalho="graficos">${ico("grafico")}<span>Gráficos</span></button>` : ""}
     <button type="button" data-atalho="cal">${ico("agenda")}<span>Calendário</span></button>
-  </nav>
-  ${htmlCartoesIni()}
+  </nav>`;
+  if ($("atalhosIni")) $("atalhosIni").innerHTML = celIni ? `${navIr}${htmlCartoesIni()}` : "";
+  { const sub = document.querySelector("#maisDoMes summary .tx span"); if (sub) sub.textContent = celIni ? "Casal, previsão e dicas" : "Atalhos, casal, cartões, previsão e dicas"; }
+  $("resumo2").innerHTML = `${htmlMotoristaIni()}
+  ${celIni ? "" : `${navIr}
+  ${htmlCartoesIni()}`}
   ${htmlMercadoIni()}
   <div class="resumo3 proj ocultavel">${projecaoDoMes(c, est, rx, acum)}
     <div class="resumo3-links">${c.fase === "passado" ? `<button type="button" class="link" id="verFech">Fechamento para compartilhar</button>` : ""}<button type="button" class="link" id="entenda">Entenda essa conta</button></div>
@@ -1199,7 +1205,7 @@ function renderKpis(c) {
   ligaMercadoIni();
   if ($("usaMetaIni")) $("usaMetaIni").onclick = () => usaMeta(Number($("usaMetaIni").dataset.valor), () => {});
   inicioQ("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
-  inicioQ("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), cal: () => calendario(mKey(hoje())), motorista: motoristaTela, ordem: () => equilibrioTela() })[b.dataset.atalho]()));
+  inicioQ("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), merc: () => mercado(), cal: () => calendario(mKey(hoje())), motorista: motoristaTela, ordem: () => equilibrioTela() })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
@@ -1309,7 +1315,7 @@ function contaValor(el, para) {
 }
 
 /** Cartão "Hoje" do Início: quanto ainda cabe hoje e o que pede ação agora (no máximo 3 itens). Substitui o quadro "Seu dia". */
-const inicioQ = (s) => [...$("resumo").querySelectorAll(s), ...$("resumo2").querySelectorAll(s)];
+const inicioQ = (s) => [...$("resumo").querySelectorAll(s), ...$("resumo2").querySelectorAll(s), ...($("atalhosIni") ? $("atalhosIni").querySelectorAll(s) : [])];
 function htmlHoje(c) {
   const hj = hoje(), g = gastoDoDia(S.data, hj), avista = gastoAVistaDoDia(S.data, hj), pg = semEntradaNoMes(c) ? null : podeGastarHoje(c, avista), itens = oQueFazerAgora(S.data, hj, S.prefs.semGasto || []);
   // O número de atrasadas é o mesmo da lista de vencimentos, de qualquer mês.

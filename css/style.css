@@ -2467,3 +2467,12 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .ds-meu.on{border-color:var(--series);background:color-mix(in srgb,var(--series) 14%,var(--surface))}
 .ds-meu .n{flex:1;min-width:0;display:grid;gap:1px} .ds-meu .n b{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap} .ds-meu small{font-size:12.5px;color:var(--ink-2)}
 .ds-meu .p{flex:none;display:grid;justify-items:end;gap:0;text-align:right} .ds-meu .p b{font-family:var(--display);font-size:22px;line-height:1.1} .ds-meu .p b.um{color:#e0a800}
+/* v217: no celular, atalhos e cartões ficam à vista, fora do bloco fechado "Mais do seu mês" */
+.ir-para.q4{grid-template-columns:repeat(4,minmax(0,1fr))}
+#atalhosIni{display:grid;gap:0}
+@media (min-width:701px){#atalhosIni{display:none}}
+#atalhosIni .ir-para,#atalhosIni .cart-ini{margin-inline:0}
+#atalhosIni .cart-ini{margin-top:10px}
+#atalhosIni .cart-lista{padding-inline:0}
+#atalhosIni .ir-para{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px} #atalhosIni .ir-para button{padding-inline:1px;min-height:66px}
+#atalhosIni .ir-para span{font-size:clamp(10px,2.9vw,11.5px);letter-spacing:-.02em}
