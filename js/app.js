@@ -5590,7 +5590,7 @@ function paneMot() {
     const pctGastos = ganho > 0 ? Math.min(100, Math.round((gastos / ganho) * 100)) : 0, sobra = round2(ganho - gastos);
     const txtSobra = sobra < 0 ? `Faltam ${brl(-sobra)}` : `Sobram ${brl(sobra)}`, apertado = pctGastos > 50;   // sem espaço na parte amarela, o valor desce para a legenda
     return `<h2 class="mot-frase">${titulo}</h2>
-      ${ganho > 0 && !v.desatualizado ? `<p class="mot-hora ocultavel${v.liquidoPorHora < 0 ? " neg" : ""}" aria-label="${tracos(v.liquidoPorHora, brl)} líquidos por hora"><b>${tracos(v.liquidoPorHora, brl)}</b> por hora</p>
+      ${ganho > 0 && !v.desatualizado ? `${v.liquidoPorHora === null || v.liquidoPorHora === undefined ? `<p class="mot-ver">Depois de 15 minutos de jornada o app mostra quanto você faz por hora.</p>` : `<p class="mot-hora ocultavel${v.liquidoPorHora < 0 ? " neg" : ""}" aria-label="${tracos(v.liquidoPorHora, brl)} líquidos por hora"><b>${tracos(v.liquidoPorHora, brl)}</b> por hora</p>`}
       <div class="mot-barra ocultavel" role="img" aria-label="De ${brl(ganho)} ganhos, ${brl(gastos)} foram gastos e ${sobra < 0 ? `faltam ${brl(-sobra)}` : `sobram ${brl(sobra)}`}">${pctGastos ? `<i style="width:${pctGastos}%">${sobra < 0 ? txtSobra : pctGastos >= 18 ? "Gastos" : ""}</i>` : ""}${sobra < 0 ? "" : `<span>${apertado ? "" : txtSobra}</span>`}</div>
       <small class="mot-barra-leg ocultavel">${apertado && sobra >= 0 ? `${txtSobra} de` : "De"} ${brl(ganho)} ganhos ${doDia.n ? "nesta jornada" : "hoje"}</small>` : ""}
       ${aviso || (v.veredito ? `<p class="mot-ver ${v.veredito}">${frase}</p>` : "")}
@@ -5625,7 +5625,10 @@ function paneMot() {
       $("dlgBody").querySelectorAll("[data-mot-op]").forEach((b) => (b.onclick = () => { $("dlg").close(); acaoRapida(b.dataset.motOp); }));
       $("motComida").onclick = () => { $("dlg").close(); lancaGastoMot("Alimentação"); };
       $("motIrInicio").onclick = () => { $("dlg").close(); $("bnav").querySelector('[data-nav="inicio"]').click(); };
-      armDelete($("motDescartar"), () => { $("dlg").close(); gravaMot({ ...motDados(), ativo: null }); render(); }, "Toque de novo para descartar");
+      armDelete($("motDescartar"), () => {
+        const guardada = motDados().ativo; $("dlg").close(); gravaMot({ ...motDados(), ativo: null }); render();
+        if (guardada) toastDesfazer("Jornada descartada.", () => { gravaMot({ ...motDados(), ativo: guardada }); render(); });
+      }, "Toque de novo para descartar");
     };
     host.querySelectorAll("[data-mot-gasto]").forEach((b) => (b.onclick = () => lancaGastoMot(b.dataset.motGasto)));
     $("motPausa").onclick = () => {
@@ -5819,6 +5822,12 @@ function paneFechar(host) {
   const camposG = host.querySelectorAll("[data-app]"), parcial = Number(m.ativo.parcial) || 0;
   if (parcial > 0 && camposG.length === 1 && !camposG[0].value) camposG[0].value = parcial.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
   somaApps();
+  // Com mais de um app, o app não sabe de qual veio o valor anotado: um toque põe no primeiro campo e a pessoa ajusta.
+  if (parcial > 0 && camposG.length > 1 && !camposG[0].value) {
+    const nomeApp = (camposG[0].closest("label")?.firstChild?.textContent || "primeiro app").replace(/\s*\(R\$\)\s*/, "").trim() || "primeiro app";
+    $("mtTot").insertAdjacentHTML("afterend", `<button type="button" class="link link-toque wide" id="mtUsaParcial">Pôr os ${brl(parcial)} que anotei em ${esc(nomeApp)}</button>`);
+    $("mtUsaParcial").onclick = () => { camposG[0].value = parcial.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); somaApps(); $("mtUsaParcial").remove(); camposG[0].focus(); };
+  }
   host.querySelectorAll("[data-app]").forEach((i) => i.addEventListener("input", somaApps)); ligaKm();
   // Print da tela de ganhos (um por app): o app lê o valor e põe no campo do app certo. A pessoa confere antes de salvar.
   $("mtPrint").onclick = () => {
