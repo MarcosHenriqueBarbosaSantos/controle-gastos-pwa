@@ -27,6 +27,7 @@ import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, iten
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
 import { pareceConta, leConta, arrumaNome, nomeDoEmail, CATEGORIA_PIX_PESSOA, CATEGORIA_CASAL } from "./conta.js";
 import { criaEscuta, mensagemDeErro } from "./escuta.js";
+import { criaMedidor, codigoDoAparelho, diasDeUso } from "./uso.js";
 
 const $ = (id) => document.getElementById(id);
 const NS = "http://www.w3.org/2000/svg";
@@ -277,6 +278,14 @@ const pagoCom = (x) => {
 
 /* ================= inicialização e login ================= */
 const configured = () => Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && window.supabase);
+/* Medição de uso: só o nome do que foi usado, sem dado pessoal (js/uso.js). Só em conta de verdade e se a pessoa não desligou em Ajustes. */
+const medidor = criaMedidor({
+  versao: APP_VERSAO, aparelho: () => codigoDoAparelho(), perfil: () => (S.prefs?.motorista?.usa ? "motorista" : "geral"),
+  ativo: () => Boolean(SUPABASE_URL && SUPABASE_ANON_KEY && S.store?.kind === "supabase" && S.prefs?.medirUso !== false),
+  envia: async (linhas) => { const r = await fetch(SUPABASE_URL + "/rest/v1/eventos_uso", { method: "POST", keepalive: true, headers: { apikey: SUPABASE_ANON_KEY, "Content-Type": "application/json", Prefer: "return=minimal" }, body: JSON.stringify(linhas) }); if (!r.ok) throw new Error("uso " + r.status); },
+});
+const uso = (nome, dados) => { try { medidor.evento(nome, dados); } catch { /* medir nunca atrapalha o app */ } };
+addEventListener("pagehide", () => { try { medidor.manda(); } catch { /* nada */ } });
 
 /** Links de e-mail (confirmação, nova senha) voltam com o resultado no endereço. Se veio erro, explica na tela de entrada. */
 function erroDoLink() {
@@ -593,6 +602,7 @@ document.addEventListener("visibilitychange", () => {
 });
 async function startApp(store, quem) {
   S.store = store; S.loaded = false; S.acesso = null; S.casal = null; S.quem = "";
+  if (store.addLancamentos && !store.medido) { const orig = store.addLancamentos.bind(store); store.addLancamentos = async (rows) => { const r = await orig(rows); uso("lancamento", { n: (rows || []).length }); return r; }; store.medido = true; }
   $("auth").hidden = true; $("acesso").hidden = true; $("app").hidden = false; $("bnav").hidden = false;
   $("whoName").textContent = quem;
   $("btnSair").textContent = store.kind === "supabase" ? "Sair" : "Sair da demonstração";
@@ -619,6 +629,7 @@ async function startApp(store, quem) {
     // Acesso de quem comprou. Se a conferência falhar (sem internet, banco sem essa parte), o app abre normalmente.
     S.acesso = await store.meuAcesso().catch((e) => { console.warn("Acesso não conferido:", e?.message); return null; });
     S.loaded = true;
+    uso("aberto", { d: diasDeUso() });
     guardaParceiro();
     if (S.acesso?.cobranca && !S.acesso.ativo) { telaDeAcesso(); if (S.recuperando) pedirNovaSenha(); return; }
     render(); avisoDeRenovacao();
@@ -2598,6 +2609,7 @@ function ligaReservaUnica(partes = S.prefs.reservaCarro?.partes, aviso = S.prefs
   S.prefs.reservasMot = { ...(S.prefs.reservasMot || {}), carro: { nome: NOME_RESERVA_CARRO, porMes: r.porMes } };
   S.prefs.reservaCarro = { ...(S.prefs.reservaCarro || {}), partes: flags, aviso, porDia: r.porDia, porMes: r.porMes };
   gravaMot({ ...m, extra: Math.max(0, round2((Number(m.extra) || 0) - antes + r.porMes)) });
+  uso("reserva_ligada", { aviso });
   vibra(30); render(); return true;
 }
 /** Guarda um valor na Reserva do carro (uma data qualquer): vira um lançamento de dinheiro guardado. */
@@ -3580,6 +3592,7 @@ $("lancFechar").onclick = () => fecharLancar();
 $("bnav").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   const n = b.dataset.nav;
+  uso("tela", { t: n === "mais" ? "lancar" : n === "l" ? "extrato" : n });
   if (n === "mais") return abrirLancar();
   if (n === "mot") return motoristaTela();
   if (n === "ferr") return ferramentas();   // calculadoras, carro, casa e as outras ferramentas
@@ -5899,6 +5912,7 @@ function paneReservas(host) {
  * e os botões Aceitei e Recusei, que guardam a oferta num histórico. Com o tempo o app mostra o que costuma valer a pena aceitar.
  */
 function corridaValeTela() {
+  uso("vale_usado");
   const { regra } = painelDoMotorista(), minimoHora = 0;
   const campos = { valor: "", km: "", min: "" }; let ativo = "valor";
   const nome = { boa: ["cv-boa", "Corrida boa"], vale: ["cv-vale", "Vale"], limite: ["cv-limite", "No limite"], nao: ["cv-nao", "Não vale"] };
@@ -5948,6 +5962,7 @@ function corridaValeTela() {
   document.querySelectorAll("[data-cv-acao]").forEach((b) => (b.onclick = () => {
     const r = leitura(); if (!r) return;
     S.prefs.ofertas = [...(S.prefs.ofertas || []), { t: Date.now(), valor: parseMoney(campos.valor), km: Number(campos.km.replace(",", ".")), min: Number(campos.min) || 0, acao: b.dataset.cvAcao, v: r.veredito }].slice(-MAX_OFERTAS);
+    uso("oferta", { acao: b.dataset.cvAcao });
     salvaPrefs(); vibra(15); campos.valor = campos.km = campos.min = ""; ativo = "valor"; pinta(); hist();
     toast(b.dataset.cvAcao === "aceitei" ? "Aceita, registrada." : "Recusada, registrada.");
   }));
@@ -5978,6 +5993,7 @@ const escutaCorrida = criaEscuta({
 /** Rodou sem iniciar a jornada: lança o dia pronto, de Lançar ou do Extrato. */
 function lancarDiaMot() { fecharLancar(true); motoristaTela(); motEntra("dia"); }
 function iniciarJornada(odoIni = null) {
+  uso("jornada_iniciada");
   const ini = Date.now();
   gravaMot({ ...motDados(), ativo: { ini, odoIni, categoria: categoriaAtual(), parcial: 0, antes: S.data.lancamentos.filter((x) => x.data >= isoLocal(ini)).map((x) => x.id), pausado: 0, pausaIni: null } });
   vibra(30);
@@ -6290,6 +6306,7 @@ function paneFechar(host) {
     if (rows.length && !(await grava(async () => { criados = await S.store.addLancamentos(rows); }))) return;
     criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) }));
     const turno = { id: crypto.randomUUID(), categoria: $("mtCat")?.value || m.ativo.categoria || "", ini: i2, fim: f2, pausado: Math.round(pausado), apps, viagensApp, gastos, viagens, ...k, comb, rid: criados.find((g) => g.tipo === "Receita")?.id || null, cids: criados.filter((g) => g.tipo === "Despesa").map((g) => g.id) };
+    uso("jornada_encerrada");
     const mm = motDados(); gravaMot({ ...mm, ativo: null, turnos: [...mm.turnos, turno] });
     enviaPlacar([dia]);
     motSai(); vibra(30);
@@ -7276,6 +7293,7 @@ function ouvirGasto() {
 }
 /** Preenche o formulário com o que foi entendido da fala e diz o que entendeu. */
 function aplicaFala(txt) {
+  uso("voz");
   const meses = entendeMeses(txt, hoje());
   if (meses) return previaMeses(meses);
   const varios = entendeVarios(txt, hoje());
@@ -7324,6 +7342,7 @@ function previaMeses({ meses, fimAssumido, texto }, cartaoId = "") {
     for (const x of ls) { if (await gravaFaturaAuto({ id: null, cartao_id: k.id, cartao: k.nome, vencimento: diaNoMes(x.mes, k.vencimento), valor: x.valor }, { valor: x.valor, valor_fixo: true })) feitos++; }
     $("dlg").close(); render();
     if (!feitos) return;
+    uso("meses_cartao", { n: feitos });
     toastDesfazer(`${feitos} ${feitos === 1 ? "fatura gravada" : "faturas gravadas"} no ${k.nome}.`, async () => {
       for (const a of antes) {
         const atual = S.data.faturas.find((z) => z.cartao_id === k.id && mKey(z.vencimento) === a.mes); if (!atual) continue;
@@ -7539,6 +7558,7 @@ $("formLanc").addEventListener("submit", async (e) => {
     const ok = await grava(async () => { S.data.fixos.push(await S.store.addFixo(fx)); if (duas) S.data.fixos.push(await S.store.addFixo({ ...fx, dia: dia2 })); });
     $("fOk").disabled = false;
     if (!ok) return render();
+    if (dd) uso("fixo_diario", { fim: Boolean(fx.fim) });
     flash.style.color = "var(--good)";
     const nVezes = fx.ate ? vezesNoPrazo(fx, mKey(fx.ate)) * (duas ? 2 : 1) : 0;
     flash.textContent = `${fx.ate ? (ent ? "Entrada com prazo cadastrada" : "Conta com prazo cadastrada") : ent ? "Entrada fixa cadastrada" : "Conta fixa cadastrada"}: ${fx.descricao} · ${brl(fx.valor)}, ${sem ? "toda semana, " + DIAS_SEMANA[wd] : dd ? "todo dia, a partir de " + ddmm(data) + (fx.fim ? `, até somar ${brl(parseMoney($("fSomar").value))} (termina em ${ddmm(fx.fim)})` : "") : duas ? `todo mês, nos dias ${pad(dia)} e ${pad(dia2)}` : "todo dia " + pad(dia)}${fx.ate ? `, até ${mesAno(mKey(fx.ate))} (${vezesTxt(nVezes)}, ${brl(round2(nVezes * fx.valor))} no total)` : ""}. Para alterar, abra ${ent ? "Entradas fixas" : "Contas fixas"}.`;
@@ -8305,7 +8325,10 @@ function ajustes() {
       <p class="hint" style="margin:0" id="ajResumoMsg" role="status"></p>
       <button class="btn" type="button" id="ajVerSemana" style="justify-self:start">Enviar o resumo desta semana agora</button>
     </div>`) : ""}
-    ${S.store.kind === "supabase" ? `<div class="aj-sec"><h4>Sua conta</h4>
+    ${S.store.kind === "supabase" ? `<div class="aj-sec"><h4>Ajude a melhorar o app</h4>
+      <label class="check"><input type="checkbox" id="ajUso" ${S.prefs.medirUso !== false ? "checked" : ""}> Mandar o uso do app, sem dados pessoais</label>
+      <p class="hint" style="margin:0">Só conta quais telas e funções são usadas (por exemplo, abrir a Jornada). Não manda valores, nomes, descrições nem e-mail. Dá para desligar quando quiser.</p></div>
+    <div class="aj-sec"><h4>Sua conta</h4>
       <p class="aj-assina">Você entrou como <b>${esc($("whoName").textContent)}</b>.</p>
       <div class="aj-conta"><button class="btn" type="button" id="ajCasal">Conta de casal</button><button class="btn" type="button" id="ajSenha">Trocar a senha</button><button class="link aj-excluir" type="button" id="ajExcluir">Excluir minha conta</button></div>
     </div>` : ""}
@@ -9125,6 +9148,7 @@ function ligaAjustesDeAvisos() {
     S.prefs.avisos = { ...S.prefs.avisos, cartao: !off, ...(off ? {} : { cartaoDias: Number(v) }) }; await salvaPrefs();
     msgR(off ? "Aviso do cartão desligado." : `Você será avisado ${v} ${Number(v) === 1 ? "dia" : "dias"} antes de a fatura fechar.`);
   };
+  if ($("ajUso")) $("ajUso").onchange = async (e) => { S.prefs.medirUso = e.target.checked; await salvaPrefs(); msgR(e.target.checked ? "Obrigado! Só o uso do app, sem dados pessoais." : "Pronto, não mando mais o uso do app."); };
   $("ajSemDin").onchange = async (e) => { S.prefs.avisos = { ...S.prefs.avisos, semDinheiro: e.target.checked }; await salvaPrefs(); msgR(e.target.checked ? "Aviso de falta de dinheiro ligado." : "Aviso de falta de dinheiro desligado."); };
   $("ajSemana").onchange = async (e) => { S.prefs.avisos = { ...S.prefs.avisos, semana: e.target.checked }; await salvaPrefs(); msgR(e.target.checked ? "Resumo ligado. O próximo chega no domingo à noite." : "Resumo desligado."); };
   $("ajNoite").onchange = async (e) => {
