@@ -5198,6 +5198,34 @@ function paneRanking(host) {
     catch (e) { $("rkMsg").textContent = erroDoDesafio(e); }
   };
 }
+/** Uma linha com a posição em cada desafio, para o cartão da Jornada: "3º em Galera da noite · 1º em Tropa". Fica guardada neste aparelho. */
+function textoResumoDosDesafios(lista, hj) {
+  const ativos = (lista || []).map((d) => ({ d, r: resumoDoDesafio(d, hj) })).filter((x) => !x.r.acabou && x.r.pos);
+  if (!ativos.length) return "";
+  if (ativos.length > 3) return `${ativos.length} desafios · melhor posição: ${Math.min(...ativos.map((x) => x.r.pos))}º`;
+  return ativos.map((x) => `${x.r.pos}º em ${x.d.nome}`).join(" · ");
+}
+/** Guardado com o dono (o e-mail da conta, ou a demonstração): em um celular com duas contas, uma não vê o resumo da outra. */
+const donoDoResumo = () => String($("whoName")?.textContent || "") + "|" + (S.store?.kind || "");
+function resumoGuardadoDosDesafios() { try { const j = JSON.parse(localStorage.getItem("cg-ds-resumo") || "null"); return j && j.q === donoDoResumo() ? String(j.t || "") : ""; } catch { return ""; } }
+let dsResumoEm = 0;
+/** Ao abrir a Jornada: atualiza em segundo plano (no máximo a cada 5 minutos) a linha do cartão Desafios. */
+function atualizaResumoDosDesafios() {
+  if (Date.now() - dsResumoEm < 300000 || typeof S.store?.desafiosMeus !== "function") return;
+  dsResumoEm = Date.now();
+  (async () => {
+    try {
+      const t = textoResumoDosDesafios(await S.store.desafiosMeus(), hoje());
+      try { localStorage.setItem("cg-ds-resumo", JSON.stringify({ q: donoDoResumo(), t })); } catch { /* nada */ }
+      const el = $("motDsResumo"); if (el) el.textContent = t || "Compare com os seus amigos";
+    } catch { /* sem rede: fica o que já estava */ }
+  })();
+}
+/** O resumo de um desafio para a lista "Meus desafios": minha posição no critério que decide aquele desafio, quantos disputam e quanto falta. */
+function resumoDoDesafio(d, hj) {
+  const crit = d.regras?.vence || "km", rk = rankingDoDesafio(totaisDoDesafio(d.membros, d.regras), crit), eu = rk.find((x) => x.eu);
+  return { pos: eu?.pos || 0, qtd: rk.filter((x) => x.pos).length, acabou: d.fim < hj, faltam: Math.round((new Date(`${d.fim}T12:00:00`) - new Date(`${hj}T12:00:00`)) / 864e5), critNome: { hora: "hora", km: "km", sobra: "sobra", total: "faturamento", dia: "melhor dia", geral: "pontos" }[crit] || crit };
+}
 function paneDesafios(host) {
   if (dsVista === "ranking") return paneRanking(host);
   if (dsLista === null) {
@@ -5283,8 +5311,8 @@ function paneDesafios(host) {
     const nomesCrit = Object.fromEntries([["geral", "Geral"], ...CRITERIOS_DESAFIO]), faltaPass = faltaParaPassar(rank), qtd = rank.filter((x) => x.pos).length;
     const quandoTxt = acabou ? "encerrado" : faltam === 0 ? "termina hoje" : `faltam ${faltam} ${faltam === 1 ? "dia" : "dias"}`;
     host.innerHTML = `<div id="motRoot" class="ds ds2">${abasDesafio()}
-      ${dsLista.length > 1 ? `<div class="ds-chips">${dsLista.map((d) => `<button type="button" data-ds="${esc(d.id)}" aria-pressed="${d.id === atual.id}">${esc(d.nome)}</button>`).join("")}</div>` : ""}
-      <section class="ds-hero${minha?.pos === 1 ? " lider" : ""}"><small class="ds-quando">${esc(atual.nome)} · ${quandoTxt}</small>
+      ${dsLista.length > 1 ? `<div class="ds-meus" role="group" aria-label="Meus desafios"><p class="ds-meus-t">Meus desafios · toque para abrir</p>${dsLista.map((d) => { const r = resumoDoDesafio(d, hj); return `<button type="button" class="ds-meu${d.id === atual.id ? " on" : ""}" data-ds="${esc(d.id)}" aria-pressed="${d.id === atual.id}" aria-label="${esc(d.nome)}: ${r.pos ? `você está em ${r.pos}º de ${r.qtd}` : "sem posição ainda"}"><span class="n"><b>${esc(d.nome)}</b><small>${r.acabou ? "encerrado" : r.faltam === 0 ? "termina hoje" : `faltam ${r.faltam} ${r.faltam === 1 ? "dia" : "dias"}`} · por ${r.critNome}</small></span><span class="p">${r.pos ? `<b class="${r.pos === 1 ? "um" : ""}">${r.pos}º</b><small>de ${r.qtd}</small>` : `<small>sem posição</small>`}</span></button>`; }).join("")}</div>` : ""}
+      <section class="ds-hero${minha?.pos === 1 ? " lider" : ""}"><small class="ds-quando">Desafio · ${quandoTxt} · ${atual.membros.length} ${atual.membros.length === 1 ? "pessoa" : "pessoas"}</small><h3 class="ds-nome">${esc(atual.nome)}</h3>
         ${minha?.pos ? `<div class="ds-pos"><b>${minha.pos}º</b><span>de ${qtd} no ranking</span></div>` : ""}
         <h2 class="mot-frase">${titulo}</h2>${mudou}
         ${faltaPass ? `<p class="ds-falta">Para passar <b>${esc(faltaPass.apelido)}</b>: faltam <b>${dsCrit === "geral" ? `${faltaPass.falta} pts` : `${brl(faltaPass.falta)}${dsCrit === "hora" ? "/h" : dsCrit === "km" ? "/km" : ""}`}</b>.</p>` : ""}
@@ -5618,8 +5646,9 @@ function paneMot() {
     motRelogio = setInterval(() => { const el = $("motCron"); if (!el || S.view !== "listas" || S.tab !== "mot") return clearInterval(motRelogio); const ag = motDados().ativo; if (!ag) return clearInterval(motRelogio); el.textContent = relogio(msAndamento(ag)); $("motVivo").innerHTML = vivo(); }, 1000);
     return;
   }
+  atualizaResumoDosDesafios();
   const turno = `${htmlFraseMot(painelDoMotorista())}<!--ganhos-->${htmlRitmoMot(painelDoMotorista())}
-    <button class="mot-desafios" type="button" data-mot-sub="desafios"><b>Desafios</b><span>Compare com os seus amigos</span></button>
+    <button class="mot-desafios" type="button" data-mot-sub="desafios"><b>Desafios</b><span id="motDsResumo">${esc(resumoGuardadoDosDesafios() || "Compare com os seus amigos")}</span></button>
     <button class="mot-desafios" type="button" data-mot-sub="reservas"><b>Salário de autônomo</b><span>Carro, férias e 13º: quanto guardar por dia</span></button>
     <div class="mot-atalhos"><button class="btn sm" type="button" data-mot-acao="ler">Escanear nota ou QR</button><button class="btn sm" type="button" data-mot-acao="lancar">Lançar um gasto</button></div>`;
   const semana = barrasDoPeriodo(m.turnos, "semana", hj, veicD), maxSem = Math.max(1, ...semana.map((b) => b.ganho)), totalSem = round2(semana.reduce((t, b) => t + b.ganho, 0));
