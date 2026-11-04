@@ -2514,3 +2514,8 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .comb-aviso{margin:14px 16px 0;padding:14px;border-radius:16px;background:var(--warn-soft);border:1px solid var(--border);display:grid;gap:8px}
 .comb-aviso h3{margin:0;font-size:16px} .comb-aviso p{margin:0;font-size:15px;line-height:1.4;color:var(--ink)} .comb-aviso small{color:var(--muted);font-size:12.5px}
 .comb-acoes{display:flex;flex-wrap:wrap;gap:8px} .comb-acoes .btn{min-height:44px}
+
+/* v225: reserva do carro e meta contra os km (motorista) */
+.res-carro{margin:14px 16px 0;padding:14px;border-radius:16px;background:var(--surface);border:1px solid var(--border);display:grid;gap:8px}
+.res-carro h3{margin:0;font-size:16px} .res-carro p{margin:0;font-size:15px;line-height:1.4;color:var(--ink)} .res-carro small{color:var(--muted);font-size:12.5px}
+.res-carro.km{background:var(--warn-soft)}

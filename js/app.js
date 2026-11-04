@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -1180,7 +1180,7 @@ function renderKpis(c) {
   </div>`}
   ${atualM && (dMot || !semEnt) ? htmlAgora(c, dMot) : ""}
   ${atualM ? htmlDiarios() : ""}
-  ${atualM && dMot ? htmlCombustivel() : ""}
+  ${atualM && dMot ? cartoesMot(dMot) : ""}
   ${!semEnt && !dMot && (rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
   ${atualM ? htmlHoje(c) : ""}
   ${c.fase === "futuro" ? htmlPrevisaoFuturo(c, rx) : ""}
@@ -1290,6 +1290,17 @@ function ligaMotoristaIni() {
   if ($("heroFora")) $("heroFora").onclick = () => ($("heroFora").textContent.includes("dia a dia") ? rotaTela() : contaDoMesTela());
   if ($("heroRota")) $("heroRota").onclick = () => rotaTela();
   if ($("combLanca")) $("combLanca").onclick = () => lancaCombustivelEstimado(Number($("combLanca").dataset.v));
+  if ($("resLiga")) $("resLiga").onclick = () => ligaReservasDoCarro();
+  if ($("resVer")) $("resVer").onclick = () => { motoristaTela(); motEntra("reservas"); };
+  if ($("resGuarda")) $("resGuarda").onclick = () => guardaReservaDoCarro(Number($("resGuarda").dataset.v));
+  if ($("resDepois")) $("resDepois").onclick = async () => {
+    const r = reservaDoCarroAgora(); if (!r) return;
+    S.prefs.resOculto = { ...(S.prefs.resOculto || {}), [mKey(hoje())]: Math.round(r.falta) }; await salvaPrefs(); render();
+    toast("Ok. Aviso de novo quando a diferença crescer uns R$ 30.");
+  };
+  if ($("kmVer")) $("kmVer").onclick = () => motoristaTela();
+  if ($("kmEntendi")) $("kmEntendi").onclick = async () => { S.prefs.kmOculto = mKey(hoje()); await salvaPrefs(); render(); toast("Ok. Não mostro mais este aviso em " + nomeMes(mKey(hoje())) + "."); };
+  if ($("resSemDepois")) $("resSemDepois").onclick = async () => { S.prefs.resSemAte = toISO(new Date(Date.now() + 14 * 864e5)); await salvaPrefs(); render(); toast("Ok. Eu lembro de novo em 14 dias."); };
   if ($("combDepois")) $("combDepois").onclick = async () => {
     const r = combustivelAviso(); if (!r) return;
     S.prefs.combOculto = { ...(S.prefs.combOculto || {}), [mKey(hoje())]: Math.round(r.falta) }; await salvaPrefs(); render();
@@ -2343,8 +2354,9 @@ function fraseDaRota(rota, motorista) {
   const entra = rota.pontos.find((x) => x.dias > p.dias && x.entradas.length);
   if (motorista) {
     const porDia = round2(p.precisa / (p.dias + 1));
-    return { falta: true, frase: ult ? `Seu dinheiro paga as contas até ${rotaQuando(ult)}.` : p.dias <= 0 ? `Hoje faltam ${brl(p.precisa)}.` : `Ainda não há dinheiro para as contas de ${rotaQuando(p)}.`,
-      sub: [ult ? `${contasCob}.` : "", ult ? depois : contas ? `Para ${contas}: faltam ${brl(p.precisa)}.` : "", `O Uber precisa trazer cerca de ${brl(porDia)} por dia ${p.dias <= 0 ? "hoje" : p.dias === 1 ? "até amanhã" : `até ${rotaQuando(p)}`}.`].filter(Boolean).join("\n") };
+    return { falta: true, frase: ult ? `Seu dinheiro paga as contas até ${rotaQuando(ult)}.` : p.dias <= 0 ? `Hoje faltam ${brl(p.precisa)}${contas ? ` para ${contas}` : ""}.` : `Ainda não há dinheiro para as contas de ${rotaQuando(p)}.`,
+      sub: [ult ? `${contasCob}.` : "", ult ? depois : contas && p.dias > 0 ? `Para ${contas}: faltam ${brl(p.precisa)}.` : "",
+        `Para pagar ${contas || "as contas"} em dia, o Uber precisa trazer ${brl(p.precisa)} ${p.dias <= 0 ? "hoje" : p.dias === 1 ? "até amanhã" : `até ${rotaQuando(p)}`}${p.dias >= 1 ? ` (cerca de ${brl(porDia)} por dia)` : ""}.`].filter(Boolean).join("\n") };
   }
   if (contas) return { falta: true, frase: ult ? `Seu dinheiro paga as contas até ${rotaQuando(ult)}.` : `${rotaQuando(p)[0].toUpperCase()}${rotaQuando(p).slice(1)} faltam ${brl(p.precisa)} para ${contas}.`,
     sub: [ult ? `${contasCob}.` : "", ult ? `${depois} Arrume um jeito de pagar essa parte.` : "Arrume um jeito de pagar.", entra ? `Depois entra ${juntaNomes(entra.entradas)}, ${rotaQuando(entra)}.` : ""].filter(Boolean).join("\n") };
@@ -2358,7 +2370,7 @@ function rotaTela() {
   const ponto = (p, i) => {
     const apertado = prazo && p.data === prazo.data;
     const antes = i > 0 ? rota.pontos[i - 1].precisa : -1;
-    const rod = mot ? (p.precisa > 0 ? (p.precisa === antes ? "" : `Até aqui o Uber precisa trazer <b class="ocultavel">${brl(p.precisa)}</b> (${brl(round2(p.precisa / (p.dias + 1)))} por dia)`) : `Dinheiro coberto${p.saldo > 0 ? `, sobram <b class="ocultavel">${brl(p.saldo)}</b>` : ""}`)
+    const rod = mot ? (p.precisa > 0 ? (p.precisa === antes ? "" : `Até aqui o Uber precisa trazer <b class="ocultavel">${brl(p.precisa)}</b>${p.dias >= 1 ? ` (${brl(round2(p.precisa / (p.dias + 1)))} por dia)` : ""}`) : `Dinheiro coberto${p.saldo > 0 ? `, sobram <b class="ocultavel">${brl(p.saldo)}</b>` : ""}`)
       : p.saldo < 0 ? `Faltam <b class="ocultavel">${brl(-p.saldo)}</b> neste dia` : `Sobram <b class="ocultavel">${brl(p.saldo)}</b>`;
     return `<li class="rota-dia${apertado ? " aperto" : ""}"><div class="rota-data"><b>${p.dias <= 0 ? "Hoje" : `Dia ${p.data.slice(8, 10)}`}</b><small>${DIAS3[diaDaSemana(p.data)]} · ${p.dias <= 0 ? "hoje" : p.dias === 1 ? "amanhã" : `em ${p.dias} dias`}</small></div>
       <div class="rota-corpo">${p.entradas.map((x) => `<p class="rota-in"><span>▲ Entra ${esc(x.titulo)}</span><b class="ocultavel">+ ${brl(x.valor)}</b></p>`).join("")}${p.saidas.map((x) => `<p class="rota-out"><span>▼ ${esc(x.titulo)}</span><b class="ocultavel">− ${brl(x.valor)}</b></p>`).join("")}${p.zera && !p.saidas.length ? `<p class="rota-out"><span>O dinheiro do dia a dia acaba</span></p>` : ""}
@@ -2476,6 +2488,59 @@ async function lancaCombustivelEstimado(valor) {
   let novos; if (!(await grava(async () => { novos = await S.store.addLancamentos([row]); }))) return render();
   S.data.lancamentos.push(...novos); render();
   toastDesfazer(`Combustível lançado: ${brl(valor)}.`, async () => { for (const x of novos) await apagaLancamento(x.id); });
+}
+/**
+ * "Nunca passe perrengue" (modo motorista): o carro custa por dia rodado e esse dinheiro precisa estar separado antes da manutenção chegar.
+ * Sem reserva ligada: convida a guardar. Com reserva abaixo do que devia: mostra a diferença e deixa guardar com um toque.
+ * Também diz, quando a meta do dia não fecha com os km de hoje, quantos km a mais (ou quanto a mais por km) são precisos.
+ */
+function reservaDoCarroAgora() {
+  if (!S.loaded || !S.prefs.motorista?.usa) return null;
+  const m = motDados();
+  return reservaDoCarro(S.prefs.veiculo, { turnos: m.turnos, lancamentos: S.data.lancamentos, hoje: hoje(), diasSemana: m.diasSemana, veiculo: m.perfil?.veiculo, ativas: S.prefs.reservasMot || {} });
+}
+/** Os avisos do motorista no Início: no máximo dois de uma vez (reserva do carro, combustível, km), para a tela não virar uma fila de recados. */
+function cartoesMot(dMot) {
+  const { reserva, km } = htmlReservaCarro(dMot);
+  return [reserva, htmlCombustivel(), km].filter(Boolean).slice(0, 2).join("");
+}
+function htmlReservaCarro(dMot) {
+  const r = reservaDoCarroAgora(), mes = nomeMes(mKey(hoje()));
+  let reserva = "";
+  if (r?.estado === "sem" && (S.prefs.resSemAte || "") <= hoje()) {
+    reserva = `<section class="res-carro" aria-label="Reserva do carro"><h3>Nunca passe perrengue</h3>
+      <p class="ocultavel">Seu carro custa uns <b>${brl(r.porDia)} por dia rodado</b> só com manutenção, IPVA, seguro e a troca. Se esse dinheiro não ficar separado, quando a manutenção chegar não vai ter de onde tirar.</p>
+      <div class="comb-acoes"><button type="button" class="btn primary" id="resLiga">Separar ${brl(r.porDia)} por dia rodado</button><button type="button" class="btn" id="resVer">Ver detalhes</button><button type="button" class="btn" id="resSemDepois">Agora não</button></div>
+      <small>O valor entra na sua meta do dia, para o carro ser pago por você mesmo.</small></section>`;
+  } else if (r?.estado === "abaixo" && r.falta >= (Number(S.prefs.resOculto?.[mKey(hoje())]) || 0) + 30) {
+    reserva = `<section class="res-carro" aria-label="Reserva do carro"><h3>Reserva do carro abaixo</h3>
+      <p class="ocultavel">Rodando ${r.diasRodados} ${r.diasRodados === 1 ? "dia" : "dias"} em ${mes}, você devia ter <b>${brl(r.devia)}</b> separados para o carro. Tem <b>${brl(r.guardou)}</b>. Faltam <b>${brl(r.falta)}</b>.</p>
+      <div class="comb-acoes"><button type="button" class="btn primary" id="resGuarda" data-v="${Math.round(r.falta)}">Guardar ${brl(Math.round(r.falta))} agora</button><button type="button" class="btn" id="resDepois">Agora não</button></div>
+      <small>Esse dinheiro paga a manutenção, o IPVA e o seguro quando chegarem.</small></section>`;
+  }
+  const m = motDados(), k = dMot ? metaVsKm({ meta: dMot.meta, turnos: m.turnos, hoje: hoje(), veic: S.prefs.veiculo, diasSemana: m.diasSemana }) : null;
+  const km = k && S.prefs.kmOculto !== mKey(hoje()) ? `<section class="res-carro km" aria-label="Meta e km"><h3>Com esses km, a meta não fecha</h3>
+      <p class="ocultavel">No seu ritmo (${brl(k.ganhoPorKm)} por km e ${Math.round(k.kmAtual)} km por dia) você faz uns <b>${brl(k.fazPorDia)}</b> por dia. A meta é <b>${brl(k.brutoDia)}</b>. Para chegar: rodar uns <b>${Math.round(k.kmPreciso)} km por dia</b> (${Math.round(k.faltaKm)} a mais), ou fazer <b>${brl(k.ganhoKmPreciso)} por km</b>.</p>
+      <div class="comb-acoes"><button type="button" class="btn" id="kmVer">Ver minha meta</button><button type="button" class="btn" id="kmEntendi">Entendi</button></div></section>` : "";
+  return { reserva, km };
+}
+/** Liga as caixinhas do carro de uma vez: cada uma entra na meta do dia pelo valor do mês. */
+function ligaReservasDoCarro() {
+  const r = reservaDoCarroAgora(); if (!r) return;
+  const ate = addM(mKey(hoje()), 12), ativas = S.prefs.reservasMot || {};
+  r.itens.filter((x) => !ativas[x.k]).forEach((x) => ligaReserva({ ...x, alvo: x.porMes * 12, ate }));
+  toast(`Reserva do carro ligada: ${brl(r.porMes)} por mês entram na sua meta do dia. Depois de rodar, é só guardar o valor aqui no Início.`);
+}
+/** Guarda o que falta da reserva do carro, dividido entre as caixinhas na proporção do custo de cada uma. */
+async function guardaReservaDoCarro(valor) {
+  const r = reservaDoCarroAgora(); if (!r || !(valor > 0)) return;
+  const lista = cats("Reserva"), faltam = r.itens.map((x) => x.nome).filter((n) => !lista.includes(n));
+  if (faltam.length) S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), Reserva: [...lista, ...faltam] };
+  let resto = round2(valor);
+  const rows = r.itens.map((x, i) => { const v = i === r.itens.length - 1 ? resto : Math.min(resto, round2(valor * (x.porMes / r.porMes))); resto = round2(resto - v); return { data: hoje(), descricao: "Reserva do carro", tipo: "Reserva", categoria: x.nome, forma: "", valor: v, import_key: null }; }).filter((x) => x.valor > 0);
+  let novos; if (!(await grava(async () => { novos = await S.store.addLancamentos(rows); }))) return render();
+  S.data.lancamentos.push(...novos); render();
+  toastDesfazer(`Guardado para o carro: ${brl(valor)}.`, async () => { for (const x of novos) await apagaLancamento(x.id); });
 }
 /** Os três cartões da primeira tela: o que importa agora, sem precisar rolar. */
 function htmlAgora(c, dMot) {

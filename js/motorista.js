@@ -378,6 +378,40 @@ export function reservasDoMotorista(veic, { diasSemana = 6, lucroMes = 0, veicul
   return { itens, porMes, porDia: r2(porMes / diasMes), diasMes, temVeiculo: Boolean(r) };
 }
 
+/** As reservas do carro: o que chega de uma vez (manutenção, IPVA, seguro) e a troca do carro. O combustível fica de fora: sai do bolso a cada abastecimento. */
+export const RESERVAS_DO_CARRO = ["manut", "docs", "seguro", "troca"];
+/**
+ * A reserva do carro neste mês: quanto devia estar separado (o custo por dia rodado vezes os dias rodados) contra o que a pessoa guardou
+ * nas caixinhas do carro (lançamentos de "Reserva" dessas categorias, menos as retiradas).
+ * estado: "sem" = nada ligado e nada guardado; "abaixo" = guardou menos que devia; "ok" = em dia. Sem o carro preenchido, devolve null.
+ * @returns {{itens:object[], porMes:number, porDia:number, diasRodados:number, devia:number, guardou:number, falta:number, estado:"sem"|"abaixo"|"ok"}|null}
+ */
+export function reservaDoCarro(veic, { turnos = [], lancamentos = [], hoje, diasSemana = 6, veiculo = "carro", ativas = {} } = {}) {
+  const d = reservasDoMotorista(veic, { diasSemana, veiculo }), itens = d.itens.filter((x) => RESERVAS_DO_CARRO.includes(x.k));
+  if (!d.temVeiculo || !itens.length) return null;
+  const mes = hoje.slice(0, 7), nomes = new Set(itens.map((x) => x.nome));
+  const porMes = r2(itens.reduce((t, x) => t + x.porMes, 0)), porDia = r2(porMes / d.diasMes);
+  const diasRodados = new Set((turnos || []).filter((t) => t.fim && isoLocal(t.ini).slice(0, 7) === mes && isoLocal(t.ini) <= hoje).map((t) => isoLocal(t.ini))).size;
+  const devia = r2(porDia * diasRodados);
+  const guardou = r2((lancamentos || []).filter((x) => x.tipo === "Reserva" && nomes.has(x.categoria) && String(x.data).slice(0, 7) === mes && x.forma !== "Já tinha")
+    .reduce((t, x) => t + (x.forma === "Retirada" ? -1 : 1) * (Number(x.valor) || 0), 0));
+  const ligado = itens.some((x) => ativas[x.k]), falta = Math.max(0, r2(devia - guardou));
+  return { itens, porMes, porDia, diasRodados, devia, guardou, falta, estado: !ligado && guardou <= 0 ? "sem" : falta >= 20 ? "abaixo" : "ok" };
+}
+/**
+ * A meta do dia contra os km: no seu ritmo (R$ por km e km por dia dos últimos 30 dias), dá para fazer a meta?
+ * Se não dá, diz quantos km por dia faltam ou quanto cada km precisaria render. Meta coberta ou sem histórico: null.
+ * @returns {{brutoDia:number, kmAtual:number, ganhoPorKm:number, fazPorDia:number, kmPreciso:number, faltaKm:number, ganhoKmPreciso:number}|null}
+ */
+export function metaVsKm({ meta, turnos = [], hoje, veic, diasSemana = 6 } = {}) {
+  if (!meta || meta.coberto || !(meta.brutoDia > 0)) return null;
+  const de = isoLocal(Date.parse(`${hoje}T12:00:00`) - 29 * 864e5), r30 = resumoTurnos(turnos, de, hoje, veic), kmAtual = kmPorDia(turnos, veic, diasSemana);
+  if (!(r30.ganhoPorKm > 0) || !(kmAtual > 0)) return null;
+  const fazPorDia = r2(kmAtual * r30.ganhoPorKm);
+  if (fazPorDia >= meta.brutoDia) return null;
+  return { brutoDia: meta.brutoDia, kmAtual, ganhoPorKm: r30.ganhoPorKm, fazPorDia, kmPreciso: r2(meta.brutoDia / r30.ganhoPorKm), faltaKm: r2(meta.brutoDia / r30.ganhoPorKm - kmAtual), ganhoKmPreciso: r2(meta.brutoDia / kmAtual) };
+}
+
 /** A frase do dia do motorista: uma resposta só, no alto da tela. `brl` formata o dinheiro. */
 export function fraseDoDia({ meta, ganhoHoje = 0, brl, semContas = false }) {
   if (semContas) return { titulo: "Falta cadastrar suas contas.", sub: "Com elas, o app calcula quanto fazer por dia." };
