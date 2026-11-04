@@ -7774,6 +7774,8 @@ function ajustes() {
     <div class="aj-sec"><h4>Resumo e lembrete</h4>
       <label class="check"><input type="checkbox" id="ajSemana" ${S.prefs.avisos?.semana !== false ? "checked" : ""}> Resumo da semana, no domingo à noite</label>
       <p class="hint" style="margin:0">Quanto você gastou na semana, onde pesou mais e as contas dos próximos 7 dias. Chega por e-mail e por notificação, pelos canais marcados acima.</p>
+      <label class="f">Aviso do cartão: fatura perto de fechar<select class="in" id="ajCartao">${[["off", "Não avisar"], ["1", "1 dia antes"], ["3", "3 dias antes"], ["5", "5 dias antes"], ["7", "7 dias antes"], ["10", "10 dias antes"]].map(([v, n]) => `<option value="${v}"${v === (S.prefs.avisos?.cartao === false ? "off" : String(S.prefs.avisos?.cartaoDias ?? 5)) ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+      <p class="hint" style="margin:0">Um aviso por fatura, no prazo que você escolher: quanto ela já soma e quanto do limite está livre. Chega pelos canais marcados acima.</p>
       <label class="check"><input type="checkbox" id="ajNoite" ${S.prefs.avisos?.noite === true ? "checked" : ""}> Lembrete às 20h, nos dias em que eu não anotar nada</label>
       <p class="hint" style="margin:0">Só por notificação, e só se você não tiver lançado nada nem marcado “Não gastei nada”. Se passar uma semana sem anotar, o lembrete para sozinho e volta quando você lançar de novo.</p>
       <p class="hint" style="margin:0" id="ajResumoMsg" role="status"></p>
@@ -8594,6 +8596,11 @@ function ligaAjustesDeAvisos() {
   $("ajTeste").onclick = () => pedeEnvio($("ajTeste"), true, msg, "Enviando o aviso de teste…");
   // Resumo da semana (domingo à noite) e lembrete do fim do dia.
   const msgR = (t, erro = false) => { $("ajResumoMsg").textContent = t; $("ajResumoMsg").style.color = erro ? "var(--bad)" : ""; };
+  $("ajCartao").onchange = async (e) => {
+    const v = e.target.value, off = v === "off";
+    S.prefs.avisos = { ...S.prefs.avisos, cartao: !off, ...(off ? {} : { cartaoDias: Number(v) }) }; await salvaPrefs();
+    msgR(off ? "Aviso do cartão desligado." : `Você será avisado ${v} ${Number(v) === 1 ? "dia" : "dias"} antes de a fatura fechar.`);
+  };
   $("ajSemana").onchange = async (e) => { S.prefs.avisos = { ...S.prefs.avisos, semana: e.target.checked }; await salvaPrefs(); msgR(e.target.checked ? "Resumo ligado. O próximo chega no domingo à noite." : "Resumo desligado."); };
   $("ajNoite").onchange = async (e) => {
     const cx = e.target; S.prefs.avisos = { ...S.prefs.avisos, noite: cx.checked }; await salvaPrefs();

@@ -41,6 +41,11 @@ export function mesDaFatura(cartao, data) {
   const fecha = d < Math.min(Number(cartao.fechamento), dim(m)) ? m : addM(m, 1);
   return Number(cartao.vencimento) > Number(cartao.fechamento) ? fecha : addM(fecha, 1);
 }
+export function periodoDaFatura(cartao, m) {
+  const fim = Number(cartao.vencimento) > Number(cartao.fechamento) ? m : addM(m, -1), ini = addM(fim, -1);
+  const d = (mm) => Math.min(Number(cartao.fechamento), dim(mm));
+  return { de: `${ini}-${pad(d(ini))}`, ate: toISO(new Date(Number(fim.slice(0, 4)), Number(fim.slice(5)) - 1, d(fim) - 1)), fecha: `${fim}-${pad(d(fim))}` };
+}
 export function valorDasParcelas(valor, n) {
   n = Math.max(1, Math.floor(Number(n) || 1));
   const base = Math.floor((Number(valor) * 100) / n + 1e-6) / 100, out = Array(n).fill(base);
@@ -82,6 +87,24 @@ export function faturasAte(st, ate) {
   if (!ms.length) return out;
   for (let m = ms.sort()[0], g = 0; m <= ate && g < 600; m = addM(m, 1), g++) out.push(...faturasDoMes(st, m));
   return out;
+}
+export function proximaFatura(st, cartao, hoje) {
+  const m = mesDaFatura(cartao, hoje), f = faturasDoMes(st, m).find((x) => x.cartao_id === cartao.id);
+  const fecha = periodoDaFatura(cartao, m).fecha;
+  return { mes: m, fecha, dias: diasEntre(hoje, fecha), vencimento: diaNoMes(m, cartao.vencimento), valor: f ? f.valor : 0, paga: f?.status === "Paga" };
+}
+export function usoDoLimite(st, cartao, limite, hoje) {
+  const lim = round2(Number(limite) || 0);
+  if (!(lim > 0)) return null;
+  const aberta = mesDaFatura(cartao, hoje);
+  let usado = faturasAte(st, aberta).filter((f) => f.cartao_id === cartao.id && f.status !== "Paga" && f.vencimento >= hoje).reduce((t, f) => t + f.valor, 0);
+  for (const x of st.lancamentos) {
+    if (x.tipo !== "Despesa" || x.forma !== CARTAO || x.cartao_id !== cartao.id) continue;
+    const n = Math.max(1, Number(x.parcelas) || 1), vals = valorDasParcelas(x.valor, n);
+    for (let k = Math.max(0, mesesEntre(mesDaFatura(cartao, x.data), aberta) + 1); k < n; k++) usado += vals[k];
+  }
+  usado = round2(usado);
+  return { limite: lim, usado, livre: round2(lim - usado), pct: Math.round((usado / lim) * 100) };
 }
 export function calcMes(st, m, hoje) {
   const sum = (a) => round2(a.reduce((s, x) => s + Number(x.valor), 0));

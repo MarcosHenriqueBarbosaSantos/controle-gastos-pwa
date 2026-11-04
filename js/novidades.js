@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "221", itens: ["Aviso do cartão no celular e por e-mail: um pouco antes de a fatura fechar você recebe uma notificação com quanto ela já soma e quanto do limite está livre. Um aviso por fatura.", "Você escolhe o prazo em Ajustes, Avisos e lembretes, em Aviso do cartão: 1, 3, 5, 7 ou 10 dias antes, ou não avisar."] },
   { versao: "220", itens: ["Quem já tem conta e toca em Entrar no site agora cai direto na aba Entrar do app, e não mais em Criar conta."] },
   { versao: "219", itens: ["Gráficos, Últimos meses: o quanto sobrou (ou faltou) em cada mês agora mostra o R$, por exemplo + R$ 682.", "Gráficos no celular: Por categoria (para onde foi o dinheiro) agora vem logo depois da sobra, antes do custo acumulado."] },
   { versao: "218", itens: ["Contas fixas: no alto da lista, três quadros mostram quanto falta pagar (e quanto disso está atrasado), quanto já foi pago e quanto vai na fatura do cartão. Antes só havia o total no fim da lista."] },

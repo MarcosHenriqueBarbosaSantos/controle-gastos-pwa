@@ -410,3 +410,69 @@ test("conta de casal: cada um é avisado sobre as contas, o limite e a semana do
   const s = await (await amb.handler(pedido("POST", { authorization: "Bearer tok-u2" }, { teste: "semana" }))).json();
   assert.equal(s.tipo, "semana"); assert.equal(limpa(emails().at(-1).subject), "Meus Gastos: sua semana, R$ 870,00 em 2 gastos");
 });
+
+import { avisoDoCartao } from "../supabase/functions/avisos/mensagem.js";
+
+test("texto do aviso do cartão: um cartão (com e sem limite) e vários", () => {
+  const um = avisoDoCartao([{ nome: "Roxo", valor: 454.6, dias: 5, u: null }]);
+  assert.equal(um.titulo, "Cartão Roxo fecha em 5 dias");
+  assert.equal(limpa(um.frase), "A fatura aberta está em R$ 454,60. O que você comprar no cartão até lá ainda entra nessa fatura.");
+  const comLimite = avisoDoCartao([{ nome: "Roxo", valor: 454.6, dias: 1, u: { limite: 2000, usado: 900, livre: 1100, pct: 45 } }]);
+  assert.equal(comLimite.titulo, "Cartão Roxo fecha amanhã"); assert.ok(limpa(comLimite.frase).includes("Ainda há R$ 1.100,00 livres do limite de R$ 2.000,00."));
+  const passou = avisoDoCartao([{ nome: "Azul", valor: 100, dias: 0, u: { limite: 500, usado: 600, livre: -100, pct: 120 } }]);
+  assert.equal(passou.titulo, "Cartão Azul fecha hoje"); assert.ok(limpa(passou.frase).includes("Passou R$ 100,00 do limite de R$ 500,00."));
+  const dois = avisoDoCartao([{ nome: "Roxo", valor: 100, dias: 2, u: null }, { nome: "Azul", valor: 50, dias: 4, u: null }]);
+  assert.equal(dois.titulo, "2 cartões fecham nos próximos dias"); assert.ok(limpa(dois.frase).startsWith("Roxo: R$ 100,00, fecha em 2 dias. Azul: R$ 50,00, fecha em 4 dias."));
+  const so = montaAviso({ itens: [], atrasadas: 0, hoje: 0, total: 0 }, "https://app/", null, null, um);
+  assert.equal(so.titulo, "Cartão Roxo fecha em 5 dias"); assert.ok(so.html.includes("Abrir o app e ver o cartão") && so.texto.includes("Aviso do cartão"));
+});
+
+test("rotina diária: avisa quando a fatura do cartão está para fechar, uma vez por fatura, e respeita quem desligou", async () => {
+  const cartao = (uid) => ({ id: "cartao-" + uid + "-xxxx", user_id: uid, nome: "Roxo", fechamento: 8, vencimento: 15, ativo: true });
+  const compra = (id, uid, c, data, valor) => ({ id, user_id: uid, data, descricao: "Compra", tipo: "Despesa", categoria: "Outros", forma: "Cartão de crédito", cartao_id: c.id, parcelas: 1, valor });
+  const [k1, k2, k3, k4] = ["u1", "u2", "u3", "u4"].map(cartao);
+  const amb = ambiente({
+    cartoes: [k1, k2, k3, k4],
+    lancamentos: [compra("c1", "u1", k1, "2026-09-20", 300), compra("c2", "u2", k2, "2026-09-20", 200), compra("c3", "u3", k3, "2026-09-20", 100)],   // u4 não comprou nada
+    preferencias: [{ user_id: "u1", dados: { limiteCartao: { [k1.id]: 1000 } } }, { user_id: "u3", dados: { avisos: { cartao: false } } }],
+    faturas: [{ id: "f2", user_id: "u2", cartao_id: k2.id, cartao: "Roxo", vencimento: "2026-10-15", valor: 200, status: "Paga" }],
+  }, ["u1", "u2", "u3", "u4"].map((id) => ({ id, email: id + "@exemplo.com" })));
+  const roda = async () => (await amb.handler(pedido("POST", { "x-avisos-segredo": "segredo-certo" }))).json();
+  const emails = () => amb.enviados.filter((e) => e.url.includes("resend")).map((e) => JSON.parse(e.init.body));
+  // 3 de outubro: a fatura fecha dia 8, faltam 5 dias.
+  let r = await roda();
+  assert.equal(r.avisados, 1);   // só u1: u2 já pagou, u3 desligou, u4 não tem fatura com valor
+  assert.deepEqual(emails().map((e) => [e.to[0], e.subject]), [["u1@exemplo.com", "Meus Gastos: Cartão Roxo fecha em 5 dias"]]);
+  assert.ok(emails()[0].text.includes("A fatura aberta está em R$ 300,00.") && emails()[0].text.includes("R$ 700,00 livres do limite de R$ 1.000,00"));
+  assert.match(amb.t.avisos_enviados[0].canais, /cartao: cartaou1@2026-10-08/);
+  // dias seguintes, mesma fatura: não repete
+  amb.avanca(86400000); r = await roda(); assert.equal(r.avisados, 0);
+  amb.avanca(86400000); r = await roda(); assert.equal(r.avisados, 0); assert.equal(emails().length, 1);
+  // a fatura seguinte, no mês que vem, avisa de novo (compra nova no ciclo de outubro)
+  amb.t.lancamentos.push(compra("c4", "u1", k1, "2026-10-12", 80));
+  amb.avanca(86400000 * 30); r = await roda(); assert.equal(r.dia, "2026-11-04");
+  // (a fatura de outubro, que ninguém marcou como paga, também aparece como conta atrasada: o aviso do cartão vem junto, no mesmo e-mail)
+  const deU1 = emails().filter((e) => e.to[0] === "u1@exemplo.com");
+  assert.equal(deU1.length, 2); assert.ok(deU1[1].text.includes("Cartão Roxo fecha em 4 dias") && deU1[1].text.includes("A fatura aberta está em R$ 80,00."));
+  assert.equal(emails().filter((e) => e.to[0] === "u3@exemplo.com").every((e) => !e.text.includes("fecha em")), true);   // u3 desligou o aviso do cartão
+});
+
+test("rotina diária: o prazo do aviso do cartão é o que a pessoa escolheu (1, 3 ou 7 dias antes)", async () => {
+  const cartao = (uid) => ({ id: "cartao-" + uid + "-xxxx", user_id: uid, nome: "Roxo", fechamento: 8, vencimento: 15, ativo: true });
+  const compra = (id, uid, c) => ({ id, user_id: uid, data: "2026-09-20", descricao: "Compra", tipo: "Despesa", categoria: "Outros", forma: "Cartão de crédito", cartao_id: c.id, parcelas: 1, valor: 100 });
+  const ks = ["u1", "u2", "u3"].map(cartao);
+  const amb = ambiente({
+    cartoes: ks, lancamentos: ks.map((k, i) => compra("c" + i, k.user_id, k)),
+    preferencias: [{ user_id: "u1", dados: { avisos: { cartaoDias: 3 } } }, { user_id: "u2", dados: { avisos: { cartaoDias: 7 } } }, { user_id: "u3", dados: { avisos: { cartaoDias: 1 } } }],
+  }, ["u1", "u2", "u3"].map((id) => ({ id, email: id + "@exemplo.com" })));
+  const roda = async () => (await amb.handler(pedido("POST", { "x-avisos-segredo": "segredo-certo" }))).json();
+  const quem = () => amb.enviados.filter((e) => e.url.includes("resend")).map((e) => JSON.parse(e.init.body).to[0].slice(0, 2));
+  // 3 de outubro (faltam 5 dias): só quem escolheu 7 dias antes
+  await roda(); assert.deepEqual(quem(), ["u2"]);
+  // 5 de outubro (faltam 3 dias): entra quem escolheu 3
+  amb.avanca(86400000 * 2); await roda(); assert.deepEqual(quem(), ["u2", "u1"]);
+  // 7 de outubro (falta 1 dia): entra quem escolheu 1 dia antes
+  amb.avanca(86400000 * 2); await roda(); assert.deepEqual(quem(), ["u2", "u1", "u3"]);
+  // e ninguém é avisado duas vezes pela mesma fatura
+  amb.avanca(86400000); await roda(); assert.equal(quem().length, 3);
+});
