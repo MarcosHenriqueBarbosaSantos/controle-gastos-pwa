@@ -2476,3 +2476,9 @@ button.ct-linha:not(:disabled){cursor:pointer}
 #atalhosIni .cart-lista{padding-inline:0}
 #atalhosIni .ir-para{grid-template-columns:repeat(5,minmax(0,1fr));gap:6px} #atalhosIni .ir-para button{padding-inline:1px;min-height:66px}
 #atalhosIni .ir-para span{font-size:clamp(10px,2.9vw,11.5px);letter-spacing:-.02em}
+/* v218: resumo no alto das contas fixas */
+.fx-resumo{display:flex;gap:8px;margin:0 0 12px}
+.fx-resumo p{flex:1;min-width:0;margin:0;padding:10px 12px;border-radius:14px;background:var(--sunk);border:1px solid var(--border);display:grid;gap:1px}
+.fx-resumo small{font-size:12px;color:var(--ink-2)}
+.fx-resumo b{font-family:var(--display);font-size:18px;line-height:1.2;font-variant-numeric:tabular-nums}
+.fx-resumo p.mal{border-color:color-mix(in srgb,#e5534b 55%,var(--border))} .fx-resumo p.mal small:last-child{color:#e5534b;font-weight:600}

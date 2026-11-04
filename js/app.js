@@ -2638,6 +2638,14 @@ function listaL(c) {
   }));
 }
 
+/** No alto da lista de contas fixas: quanto ainda falta pagar (e quanto disso já está atrasado), quanto já foi pago e quanto vai na fatura do cartão. */
+function resumoDasFixas(fx, c, ent) {
+  if (ent || !fx.length) return "";
+  let pago = 0, pend = 0, atras = 0, fatura = 0; const hj = hoje();
+  for (const f of fx) { const v = Number(f.valor) || 0; if (f.forma === CARTAO) fatura += v; else if (c.pagosSet.has(f.id + "|" + f.chave)) pago += v; else if (f.data < hj) atras += v; else pend += v; }
+  const aPagar = round2(pend + atras);
+  return `<div class="fx-resumo" role="group" aria-label="Resumo das contas fixas"><p class="${atras > 0 ? "mal" : ""}"><small>${aPagar > 0 ? "Falta pagar" : "Tudo pago"}</small><b class="ocultavel">${brl(aPagar)}</b>${atras > 0 ? `<small class="ocultavel">${brl(round2(atras))} atrasado</small>` : ""}</p><p><small>Já pago</small><b class="ocultavel">${brl(round2(pago))}</b></p>${fatura > 0 ? `<p><small>No cartão</small><b class="ocultavel">${brl(round2(fatura))}</b></p>` : ""}</div>`;
+}
 function paneF(c, tipo) {
   const ent = tipo === "Receita", host = $(ent ? "pane-r" : "pane-f");
   const fx = ent ? c.fr : c.fx;   // uma linha por ocorrência: os semanais aparecem uma vez por semana
@@ -2659,6 +2667,7 @@ function paneF(c, tipo) {
       ? "Cadastre uma vez o que você recebe sempre, como o salário. A entrada é lançada sozinha, todo mês ou toda semana, no dia que você escolher."
       : "Cadastre uma vez o que se repete: todo mês, como o aluguel, ou toda semana, como o Uber de sexta ou a terapia. Entra no custo sozinho; é só marcar quando pagar. Acerto, acordo ou parcelamento: escolha até que mês vai."}</p></details>
    ${quadroDosPrazos(tipo)}
+   ${resumoDasFixas(fx, c, ent)}
    ${fx.length ? `<div class="tbl"><table class="cards"><thead><tr><th>${ent ? "Recebe" : "Vence"}</th><th>Descrição</th><th class="hide-sm">Categoria</th><th class="num">Valor</th><th>${MES3[Number(S.mes.slice(5)) - 1]}</th><th></th></tr></thead><tbody>${rows}</tbody>
      <tfoot><tr><td class="d"></td><td style="font-weight:600">Total</td><td class="hide-sm"></td><td class="num" style="font-weight:600">${brl(ent ? c.frT : c.fxT)}</td><td colspan="2" class="vazio"></td></tr></tfoot></table></div>`
      : `<div class="empty">${ent ? "Nenhuma entrada fixa neste mês. Adicione seu salário, aposentadoria, aluguel que recebe…" : "Nenhuma conta fixa neste mês. Adicione aluguel, condomínio, internet, faculdade, parcelas…"}</div>`}
