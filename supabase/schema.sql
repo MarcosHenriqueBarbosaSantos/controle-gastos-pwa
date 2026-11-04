@@ -46,6 +46,8 @@ alter table public.fixos add column if not exists repete text not null default '
 alter table public.fixos add column if not exists dia_semana smallint;
 alter table public.fixos drop constraint if exists fixos_repete_check;
 alter table public.fixos add constraint fixos_repete_check check (repete in ('mensal', 'semanal', 'diario'));
+-- repete = 'diario' pode acabar num dia exato (ex.: parcela diária até somar um valor): "fim" é o último dia, inclusive.
+alter table public.fixos add column if not exists fim date;
 alter table public.fixos drop constraint if exists fixos_dia_semana_check;
 alter table public.fixos add constraint fixos_dia_semana_check check (dia_semana is null or dia_semana between 0 and 6);
 

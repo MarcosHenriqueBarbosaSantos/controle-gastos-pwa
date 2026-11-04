@@ -452,7 +452,7 @@ export function conferirDivisao(total, partes) {
    Um arquivo com tudo o que a pessoa tem no app. A restauração só traz de volta o que faltar (pelo código de cada registro): nada é apagado nem duplicado. */
 const COLUNAS = {
   lancamentos: ["id", "data", "descricao", "tipo", "categoria", "forma", "valor", "import_key", "cartao_id", "parcelas"],
-  fixos: ["id", "tipo", "descricao", "categoria", "dia", "valor", "forma", "desde", "ate", "cartao_id", "repete", "dia_semana"],
+  fixos: ["id", "tipo", "descricao", "categoria", "dia", "valor", "forma", "desde", "ate", "cartao_id", "repete", "dia_semana", "fim"],
   faturas: ["id", "cartao_id", "cartao", "vencimento", "valor", "status", "valor_fixo"],
   cartoes: ["id", "nome", "fechamento", "vencimento", "ativo"],
 };

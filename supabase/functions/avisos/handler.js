@@ -11,9 +11,9 @@
 // Conta de casal: quem divide as contas com outra pessoa é avisado sobre as contas, o limite e as metas dos dois juntos.
 // As dependências chegam por parâmetro para o mesmo código rodar nos testes (Node) e no Supabase (Deno).
 import { pendenciasParaAviso, calcMes, usoDoTeto, mKey, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias, diasEntre,
-  lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, diaDaSemana, resumoDaSemana, lembreteDoDia, comumDoCasal, proximaFatura, usoDoLimite, rotaDoMes } from "./regras.js";
+  lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, diaDaSemana, resumoDaSemana, lembreteDoDia, comumDoCasal, proximaFatura, usoDoLimite, rotaDoMes, round2 } from "./regras.js";
 import { enviaPush, gerarChaves, cifra, b64u, deB64u, cabecalhoVapid } from "./webpush.js";
-import { montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, avisoDaSemana, avisoDaNoite, avisoDoCartao, avisoSemDinheiro } from "./mensagem.js";
+import { montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, avisoDaSemana, avisoDaNoite, avisoDoCartao, avisoSemDinheiro, avisoDaReserva } from "./mensagem.js";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
@@ -80,7 +80,7 @@ export async function autoteste() {
  */
 export function assinatura() {
   const texto = [criaHandler, autoteste, montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, pendenciasParaAviso, calcMes, usoDoTeto, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias,
-    lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, resumoDaSemana, lembreteDoDia, avisoDaSemana, avisoDaNoite, avisoDoCartao, avisoSemDinheiro, proximaFatura, usoDoLimite, rotaDoMes,
+    lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, resumoDaSemana, lembreteDoDia, avisoDaSemana, avisoDaNoite, avisoDoCartao, avisoSemDinheiro, avisoDaReserva, proximaFatura, usoDoLimite, rotaDoMes,
     enviaPush, gerarChaves, cifra, cabecalhoVapid].map(String).join("\n");
   let h = 5381; for (let i = 0; i < texto.length; i++) h = ((h << 5) + h + texto.charCodeAt(i)) | 0;
   return `${texto.length}-${(h >>> 0).toString(36)}`;
@@ -232,16 +232,34 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
     return { chave: p.data, quando, falta: p.precisa, contas, motorista, porDia: Math.round((p.precisa / (p.dias + 1)) * 100) / 100, entra: !motorista && depois ? `Depois entra ${depois.entradas.map((x) => x.titulo).join(" e ")} no dia ${depois.data.slice(8, 10)}.` : "" };
   }
 
+  /**
+   * Lembrete da Reserva do carro (modo motorista): quem escolheu guardar todo dia rodado recebe, de manhã, um lembrete enquanto não marcou o dia
+   * (Guardei ou Hoje não) e não lançou nada na Reserva do carro naquele dia. Quem escolheu mensal recebe no dia 5, se o mês ainda não está guardado.
+   * Desligado em Jornada, Salário de autônomo, com "Não me lembrar". O valor por dia vem do app (prefs.reservaCarro.porDia).
+   */
+  function reservaParaAvisar(st, dados, dia) {
+    const rc = dados?.reservaCarro;
+    if (!dados?.reservasMot?.carro || !(Number(rc?.porDia) > 0) || !["diario", "mensal"].includes(rc.aviso)) return null;
+    const guardou = (x) => x.tipo === "Reserva" && x.categoria === "Reserva do carro" && x.forma !== "Retirada";
+    if (rc.aviso === "diario") {
+      if (dados?.reservaDias?.[dia] || st.lancamentos.some((x) => guardou(x) && String(x.data).slice(0, 10) === dia)) return null;
+      return { modo: "diario", valor: Number(rc.porDia) };
+    }
+    if (Number(dia.slice(8, 10)) !== 5) return null;
+    const mes = dia.slice(0, 7), feito = round2(st.lancamentos.filter((x) => guardou(x) && String(x.data).slice(0, 7) === mes).reduce((t, x) => t + (Number(x.valor) || 0), 0));
+    return feito >= Number(rc.porMes) ? null : { modo: "mensal", valor: round2(Number(rc.porMes) - feito) };
+  }
+
   async function avisaUsuario(db, user, k, { teste = false } = {}) {
     const dia = hoje(), casal = await casalDe(db, user.id), st = await estado(db, user.id, casal), p = pendenciasParaAviso(st, dia);
     const dados = await prefsDe(db, user.id, casal);
-    const lim = await limiteParaAvisar(db, user.id, st, dados, dia), rec = await metaParaAvisar(db, user.id, st, dados, dia), car = await cartaoParaAvisar(db, user.id, st, dados, dia), sem = await semDinheiroParaAvisar(db, user.id, st, dados, dia);
-    if (!p.itens.length && !lim && !rec && !car && !sem && !teste) return null;
-    const aviso = p.itens.length || lim || rec || car || sem ? montaAviso(p, urlApp(), lim && avisoDoLimite(lim, dia), rec && avisoDaMeta(rec, dia), car && avisoDoCartao(car), sem && avisoSemDinheiro(sem)) : avisoDeTeste(urlApp());
+    const lim = await limiteParaAvisar(db, user.id, st, dados, dia), rec = await metaParaAvisar(db, user.id, st, dados, dia), car = await cartaoParaAvisar(db, user.id, st, dados, dia), sem = await semDinheiroParaAvisar(db, user.id, st, dados, dia), res = reservaParaAvisar(st, dados, dia);
+    if (!p.itens.length && !lim && !rec && !car && !sem && !res && !teste) return null;
+    const aviso = p.itens.length || lim || rec || car || sem || res ? montaAviso(p, urlApp(), lim && avisoDoLimite(lim, dia), rec && avisoDaMeta(rec, dia), car && avisoDoCartao(car), sem && avisoSemDinheiro(sem), res && avisoDaReserva(res)) : avisoDeTeste(urlApp());
     const querEmail = dados.avisos?.email !== false;
     const email = user.email && querEmail ? await mandaEmail(user.email, aviso) : "desligado";
     const push = await mandaPush(db, user.id, aviso, k);
-    return { pendencias: p.itens.length, limite: lim ? lim.nivel : 0, meta: rec ? (rec.tipo === "parabens" ? "parabens" : rec.quando) : "", ...(car ? { cartao: car.map((x) => x.chave) } : {}), ...(sem ? { sem: sem.chave } : {}), email, push };
+    return { pendencias: p.itens.length, limite: lim ? lim.nivel : 0, meta: rec ? (rec.tipo === "parabens" ? "parabens" : rec.quando) : "", ...(car ? { cartao: car.map((x) => x.chave) } : {}), ...(sem ? { sem: sem.chave } : {}), ...(res ? { reserva: res.modo } : {}), email, push };
   }
 
   /**
@@ -319,7 +337,7 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
         if (!r) return;
         res.avisados++; if (r.email === "enviado") res.emails++; res.notificacoes += r.push.entregues;
         if (/^erro/.test(r.email)) res.erros.push(`e-mail: ${r.email}`);
-        await anota(db, user.id, dia, `${r.limite ? `limite: ${r.limite}; ` : ""}${r.meta ? `meta: ${r.meta}; ` : ""}${(r.cartao || []).map((c) => `cartao: ${c}; `).join("")}${r.sem ? `sem: ${r.sem}; ` : ""}email: ${r.email}; push: ${r.push.entregues}/${r.push.aparelhos}`, true);
+        await anota(db, user.id, dia, `${r.limite ? `limite: ${r.limite}; ` : ""}${r.meta ? `meta: ${r.meta}; ` : ""}${(r.cartao || []).map((c) => `cartao: ${c}; `).join("")}${r.sem ? `sem: ${r.sem}; ` : ""}${r.reserva ? `reserva: ${r.reserva}; ` : ""}email: ${r.email}; push: ${r.push.entregues}/${r.push.aparelhos}`, true);
       } catch (e) { res.erros.push(String(e?.message || e).slice(0, 200)); }
     });
     res.erros = res.erros.slice(0, 20);

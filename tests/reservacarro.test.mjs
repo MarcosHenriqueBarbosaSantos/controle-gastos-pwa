@@ -49,3 +49,22 @@ test("meta contra os km: sem aviso quando cabe, quando está coberta ou sem hist
   assert.equal(metaVsKm({ meta: { brutoDia: 0, coberto: true }, turnos, hoje: "2026-11-04", veic }), null);
   assert.equal(metaVsKm({ meta: { brutoDia: 300, coberto: false }, turnos: [], hoje: "2026-11-04", veic: {} }), null);
 });
+
+import { NOME_RESERVA_CARRO, PARTES_PADRAO } from "../js/motorista.js";
+
+test("reserva do carro numa caixinha só: conta o que foi guardado em 'Reserva do carro' e as partes ligadas", () => {
+  const turnos = [2, 3, 4].map((d) => turno(d, 100));
+  const ativas = { carro: { nome: NOME_RESERVA_CARRO, porMes: 400 } };
+  // só as partes do carro ligadas por padrão; ligando férias e 13º o valor sobe
+  const padrao = reservaDoCarro(veic, { turnos, lancamentos: [], hoje: "2026-11-04", ativas, lucroMes: 6000 });
+  const com = reservaDoCarro(veic, { turnos, lancamentos: [], hoje: "2026-11-04", ativas, lucroMes: 6000, partes: { ferias: true, decimo: true } });
+  assert.equal(PARTES_PADRAO.ferias, false);
+  assert.ok(com.porMes > padrao.porMes);
+  assert.deepEqual(padrao.itens.map((x) => x.k), ["manut", "docs", "seguro"]);   // sem desvalorização no carro de teste
+  // o guardado vem da categoria única, e as caixinhas antigas deixam de contar quando a reserva única está ligada
+  const g = (id, categoria, valor) => ({ id, data: "2026-11-03", tipo: "Reserva", categoria, forma: "", valor });
+  const r = reservaDoCarro(veic, { turnos, lancamentos: [g("a", NOME_RESERVA_CARRO, 30), g("b", "Seguro", 500)], hoje: "2026-11-04", ativas });
+  assert.equal(r.guardou, 30); assert.equal(r.ligado, true);
+  const antigo = reservaDoCarro(veic, { turnos, lancamentos: [g("b", "Seguro", 500)], hoje: "2026-11-04", ativas: {} });
+  assert.equal(antigo.guardou, 500);   // quem ainda tem a caixinha antiga continua contando
+});

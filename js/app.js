@@ -1,7 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO, IMPORTA_EXTRATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, rotaDoMes, diariosDeHoje, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, usoDoLimite, proximaFatura, parcelasPorMes, dim, diaNoMes, diasEntre, semanaNoCombinado, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
+  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, rotaDoMes, diariosDeHoje, fimPorTotal, totalAteFim, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, usoDoLimite, proximaFatura, parcelasPorMes, dim, diaNoMes, diasEntre, semanaNoCombinado, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, mesesEntre, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, agendaDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, formaDaCategoria, ultimoDaCategoria, gastoAteODia, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, NOME_RESERVA_CARRO, PARTES_DO_CARRO, PARTES_PADRAO, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -891,13 +891,17 @@ function renderForm() {
   // Até quando repete: sem data para acabar (conta fixa) ou até um mês (acerto, acordo, parcelamento).
   fr.options[3].textContent = "Todo dia (marcar se mandou ou não)";
   const fa = $("fAte"), dica = $("fPrazoDica"), semF = fr.value === "semanal", diaF = fr.value === "diario";
-  fa.hidden = !fixo; $("fVezesWrap").hidden = !fixo;
+  fa.hidden = !fixo; $("fVezesWrap").hidden = !fixo || diaF;
+  $("fSomarWrap").hidden = !(fixo && diaF);
   if (fixo) {
     const base = { tipo: S.tipo, desde: semF || diaF ? dt : mKey(dt) + "-01", dia: semF || diaF ? 1 : Number(dt.slice(8, 10)), ...(semF ? { repete: "semanal", dia_semana: diaDaSemana(dt) } : diaF ? { repete: "diario" } : {}) }, kb = JSON.stringify(base);
     if (fa.dataset.k !== kb) { fa.innerHTML = opcoesDePrazo(base, fa.value); fa.dataset.k = kb; }
     const n = fa.value ? vezesNoPrazo(base, fa.value) * (fr.value === "duas" ? 2 : 1) : 0, vF = valorDoCampo();
     const quanto = n === 1 ? `Uma vez só${vF > 0 ? `, de ${brl(vF)}` : ""}` : `${vezesTxt(n)}${vF > 0 ? ` de ${brl(vF)}: ${brl(round2(n * vF))} no total` : ""}`;
     dica.textContent = fa.value ? `${quanto}. Começa em ${ddmm(dt)} e acaba em ${mesAno(fa.value)}.` : "";
+    // Todo dia que acaba quando soma um valor: mostra quantos dias dá e quando termina.
+    const somar = diaF ? parseMoney($("fSomar").value) : 0, vDia = valorDoCampo();
+    if (somar > 0 && vDia > 0) { const fimD = fimPorTotal(dt, vDia, somar), nd = diasEntre(dt, fimD) + 1; dica.textContent = `${nd} ${nd === 1 ? "dia" : "dias"} de ${brl(vDia)} = ${brl(round2(nd * vDia))}. Para de cobrar em ${ddmm(fimD)}/${fimD.slice(0, 4)}.`; }
   }
   dica.hidden = !(fixo && fa.value);
   $("fOk").textContent = fixo ? (fa.value ? (S.tipo === "Receita" ? "Cadastrar entrada com prazo" : "Cadastrar conta com prazo") : S.tipo === "Receita" ? "Cadastrar entrada fixa" : "Cadastrar conta fixa")
@@ -1290,7 +1294,8 @@ function ligaMotoristaIni() {
   if ($("heroFora")) $("heroFora").onclick = () => ($("heroFora").textContent.includes("dia a dia") ? rotaTela() : contaDoMesTela());
   if ($("heroRota")) $("heroRota").onclick = () => rotaTela();
   if ($("combLanca")) $("combLanca").onclick = () => lancaCombustivelEstimado(Number($("combLanca").dataset.v));
-  if ($("resLiga")) $("resLiga").onclick = () => ligaReservasDoCarro();
+  if ($("resLiga")) $("resLiga").onclick = () => { if (ligaReservaUnica(undefined, "diario")) toast("Reserva do carro ligada. Todo dia rodado você marca Guardei aqui no Início."); };
+  document.querySelectorAll("[data-res]").forEach((b) => (b.onclick = () => marcaReservaDia(b.dataset.res, b.dataset.d)));
   if ($("resVer")) $("resVer").onclick = () => { motoristaTela(); motEntra("reservas"); };
   if ($("resGuarda")) $("resGuarda").onclick = () => guardaReservaDoCarro(Number($("resGuarda").dataset.v));
   if ($("resDepois")) $("resDepois").onclick = async () => {
@@ -1310,8 +1315,8 @@ function ligaMotoristaIni() {
     const { id, chave, nome } = b.dataset, k = `${id}|${chave}`, a = b.dataset.dia, dia = chave.slice(8, 10) + "/" + chave.slice(5, 7);
     if (a === "mandei") { mudaPago({ tipo: "fixo", id, chave }, true); toastDesfazer(`${nome}: mandou em ${dia}.`, () => mudaPago({ tipo: "fixo", id, chave }, false)); }
     else if (a === "desfaz") mudaPago({ tipo: "fixo", id, chave }, false);
-    else if (a === "nao") { mudaFora([k], true); toastDesfazer(`${nome}: não mandou em ${dia}. O dia saiu do mês.`, () => mudaFora([k], false)); }
-    else mudaFora([k], false);
+    else if (a === "nao") { empurraFimDiario(id, 1); mudaFora([k], true); toastDesfazer(`${nome}: não mandou em ${dia}. O dia saiu do mês.`, () => { empurraFimDiario(id, -1); mudaFora([k], false); }); }
+    else { empurraFimDiario(id, -1); mudaFora([k], false); }
   }));
   if ($("heroAtras")) $("heroAtras").onclick = () => atrasadasTela();
   if ($("heroFecha")) $("heroFecha").onclick = () => revisaoTela($("heroFecha").dataset.m);
@@ -2446,6 +2451,12 @@ function contaDoMesTela() {
   if ($("ctMeta")) $("ctMeta").onclick = () => { $("dlg").close(); motoristaTela(); motEntra("ajustes"); };
   if ($("ctAtrasadas")) $("ctAtrasadas").onclick = () => atrasadasTela();
 }
+/** Gasto de todo dia que acaba ao somar um valor: um dia "Não mandei" empurra o último dia em um dia (e desfazer traz de volta). */
+function empurraFimDiario(id, delta) {
+  const f = S.data.fixos.find((x) => x.id === id); if (!f?.fim) return;
+  const d = new Date(`${f.fim}T12:00:00`); d.setDate(d.getDate() + delta);
+  const fim = toISO(d); f.fim = fim; grava(() => S.store.updateFixo(id, { fim }));
+}
 /**
  * Os gastos de todo dia (como um envio diário): hoje, com "Mandei" e "Não mandei", e os dias recentes que ficaram sem marca.
  * "Mandei" marca o dia como pago. "Não mandei" deixa o dia fora do mês (não conta como gasto); dá para voltar atrás.
@@ -2494,25 +2505,56 @@ async function lancaCombustivelEstimado(valor) {
  * Sem reserva ligada: convida a guardar. Com reserva abaixo do que devia: mostra a diferença e deixa guardar com um toque.
  * Também diz, quando a meta do dia não fecha com os km de hoje, quantos km a mais (ou quanto a mais por km) são precisos.
  */
-function reservaDoCarroAgora() {
+function reservaDoCarroAgora(partes = S.prefs.reservaCarro?.partes) {
   if (!S.loaded || !S.prefs.motorista?.usa) return null;
   const m = motDados();
-  return reservaDoCarro(S.prefs.veiculo, { turnos: m.turnos, lancamentos: S.data.lancamentos, hoje: hoje(), diasSemana: m.diasSemana, veiculo: m.perfil?.veiculo, ativas: S.prefs.reservasMot || {} });
+  return reservaDoCarro(S.prefs.veiculo, { turnos: m.turnos, lancamentos: S.data.lancamentos, hoje: hoje(), diasSemana: m.diasSemana, veiculo: m.perfil?.veiculo, ativas: S.prefs.reservasMot || {}, partes });
 }
+/** Como a pessoa quer ser lembrada de guardar: "diario" (marca Guardei todo dia rodado), "mensal", "nenhum" ou "" (nunca escolheu). */
+const avisoDaReserva = () => S.prefs.reservaCarro?.aviso || "";
 /** Os avisos do motorista no Início: no máximo dois de uma vez (reserva do carro, combustível, km), para a tela não virar uma fila de recados. */
 function cartoesMot(dMot) {
   const { reserva, km } = htmlReservaCarro(dMot);
   return [reserva, htmlCombustivel(), km].filter(Boolean).slice(0, 2).join("");
 }
+/** Os dias de hoje para trás (até 3) em que a pessoa rodou e ainda não marcou se guardou, mais hoje: cada um com a sua situação. */
+function diasDaReserva(r) {
+  const hj = hoje(), marcas = S.prefs.reservaDias || {}, turnos = motDados().turnos;
+  const guardouNoDia = (d) => S.data.lancamentos.some((x) => x.tipo === "Reserva" && x.categoria === NOME_RESERVA_CARRO && x.data === d && x.forma !== "Retirada");
+  return [0, 1, 2, 3].map((n) => {
+    const dt = new Date(`${hj}T12:00:00`); dt.setDate(dt.getDate() - n); const d = toISO(dt);
+    const marca = marcas[d], estado = marca?.e || (guardouNoDia(d) ? "ok" : "falta");
+    return { d, n, estado, id: marca?.id || null, rodou: n === 0 || turnos.some((t) => t.fim && isoLocal(t.ini) === d) };
+  }).filter((x) => x.n === 0 || (x.estado === "falta" && x.rodou));
+}
+/** "Guardar hoje R$ X para a Reserva do carro: Guardei / Hoje não": o lembrete diário de quem escolheu guardar todo dia rodado. */
+function htmlReservaDiaria(r) {
+  if (!r?.ligado || avisoDaReserva() !== "diario" || !(r.porDia > 0)) return "";
+  const dias = diasDaReserva(r), quando = (x) => (x.n === 0 ? "Hoje" : x.n === 1 ? "Ontem" : `${DIAS3[diaDaSemana(x.d)]} ${ddmm(x.d)}`);
+  const linha = (x) => {
+    const dado = `data-d="${x.d}"`;
+    const acao = x.estado === "ok" ? `<span class="dia-ok">Guardei ✓</span>${x.id ? `<button type="button" class="link" data-res="desfaz" ${dado}>Desfazer</button>` : ""}`
+      : x.estado === "nao" ? `<span class="dia-nao">Não guardei</span><button type="button" class="link" data-res="volta" ${dado}>Desfazer</button>`
+      : `<button type="button" class="btn sm primary" data-res="guardei" ${dado}>Guardei</button><button type="button" class="btn sm" data-res="nao" ${dado}>Hoje não</button>`;
+    return `<li><span class="dia-q"><b>Guardar para a ${esc(NOME_RESERVA_CARRO)}</b><small>${quando(x)} · <span class="ocultavel">${brl(r.porDia)}</span></small></span><span class="dia-acao">${acao}</span></li>`;
+  };
+  return `<section class="diarios res-dia" aria-label="Reserva do carro"><h3>Nunca passe perrengue</h3><ul>${dias.map(linha).join("")}</ul></section>`;
+}
 function htmlReservaCarro(dMot) {
-  const r = reservaDoCarroAgora(), mes = nomeMes(mKey(hoje()));
+  const r = reservaDoCarroAgora(), mes = nomeMes(mKey(hoje())), aviso = avisoDaReserva();
   let reserva = "";
   if (r?.estado === "sem" && (S.prefs.resSemAte || "") <= hoje()) {
     reserva = `<section class="res-carro" aria-label="Reserva do carro"><h3>Nunca passe perrengue</h3>
       <p class="ocultavel">Seu carro custa uns <b>${brl(r.porDia)} por dia rodado</b> só com manutenção, IPVA, seguro e a troca. Se esse dinheiro não ficar separado, quando a manutenção chegar não vai ter de onde tirar.</p>
       <div class="comb-acoes"><button type="button" class="btn primary" id="resLiga">Separar ${brl(r.porDia)} por dia rodado</button><button type="button" class="btn" id="resVer">Ver detalhes</button><button type="button" class="btn" id="resSemDepois">Agora não</button></div>
-      <small>O valor entra na sua meta do dia, para o carro ser pago por você mesmo.</small></section>`;
-  } else if (r?.estado === "abaixo" && r.falta >= (Number(S.prefs.resOculto?.[mKey(hoje())]) || 0) + 30) {
+      <small>Tudo numa caixinha só, a Reserva do carro. Todo dia rodado você marca se guardou.</small></section>`;
+  } else if (r?.ligado && aviso === "diario") reserva = htmlReservaDiaria(r);
+  else if (r?.ligado && aviso === "mensal" && r.guardou < r.porMes) {
+    const falta = Math.round(r.porMes - r.guardou);
+    if (falta >= 1) reserva = `<section class="res-carro" aria-label="Reserva do carro"><h3>Guarde a Reserva do carro</h3>
+      <p class="ocultavel">Este mês a reserva pede <b>${brl(r.porMes)}</b>. Você guardou <b>${brl(r.guardou)}</b>. Faltam <b>${brl(falta)}</b>.</p>
+      <div class="comb-acoes"><button type="button" class="btn primary" id="resGuarda" data-v="${falta}">Guardar ${brl(falta)} agora</button></div></section>`;
+  } else if (r?.estado === "abaixo" && !aviso && r.falta >= (Number(S.prefs.resOculto?.[mKey(hoje())]) || 0) + 30) {
     reserva = `<section class="res-carro" aria-label="Reserva do carro"><h3>Reserva do carro abaixo</h3>
       <p class="ocultavel">Rodando ${r.diasRodados} ${r.diasRodados === 1 ? "dia" : "dias"} em ${mes}, você devia ter <b>${brl(r.devia)}</b> separados para o carro. Tem <b>${brl(r.guardou)}</b>. Faltam <b>${brl(r.falta)}</b>.</p>
       <div class="comb-acoes"><button type="button" class="btn primary" id="resGuarda" data-v="${Math.round(r.falta)}">Guardar ${brl(Math.round(r.falta))} agora</button><button type="button" class="btn" id="resDepois">Agora não</button></div>
@@ -2524,23 +2566,86 @@ function htmlReservaCarro(dMot) {
       <div class="comb-acoes"><button type="button" class="btn" id="kmVer">Ver minha meta</button><button type="button" class="btn" id="kmEntendi">Entendi</button></div></section>` : "";
   return { reserva, km };
 }
-/** Liga as caixinhas do carro de uma vez: cada uma entra na meta do dia pelo valor do mês. */
-function ligaReservasDoCarro() {
-  const r = reservaDoCarroAgora(); if (!r) return;
-  const ate = addM(mKey(hoje()), 12), ativas = S.prefs.reservasMot || {};
-  r.itens.filter((x) => !ativas[x.k]).forEach((x) => ligaReserva({ ...x, alvo: x.porMes * 12, ate }));
-  toast(`Reserva do carro ligada: ${brl(r.porMes)} por mês entram na sua meta do dia. Depois de rodar, é só guardar o valor aqui no Início.`);
+/**
+ * Liga (ou muda) a Reserva do carro: UMA caixinha com as partes escolhidas (manutenção, IPVA, seguro, troca, férias, 13º).
+ * O valor do mês entra na meta do dia, e a pessoa escolhe como ser lembrada: todo dia rodado, uma vez por mês ou nunca.
+ * Sem nenhuma parte, desliga e tira o valor da meta.
+ */
+function ligaReservaUnica(partes = S.prefs.reservaCarro?.partes, aviso = S.prefs.reservaCarro?.aviso || "diario") {
+  const r = reservaDoCarroAgora(partes); if (!r) return false;
+  const m = motDados(), antes = Number(S.prefs.reservasMot?.carro?.porMes) || 0, hj = hoje();
+  const flags = Object.fromEntries(r.todas.map((x) => [x.k, r.itens.some((y) => y.k === x.k)]));
+  if (!r.itens.length) {
+    const { carro, ...resto } = S.prefs.reservasMot || {};
+    S.prefs.reservasMot = resto; S.prefs.reservaCarro = { ...(S.prefs.reservaCarro || {}), partes: flags, aviso, porDia: 0, porMes: 0 };
+    gravaMot({ ...m, extra: Math.max(0, round2((Number(m.extra) || 0) - antes)) }); render(); return true;
+  }
+  const lista = cats("Reserva");
+  if (!lista.includes(NOME_RESERVA_CARRO)) S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), Reserva: [...lista, NOME_RESERVA_CARRO] };
+  S.prefs.metas = { ...metasDe(), [NOME_RESERVA_CARRO]: { valor: round2(r.porMes * 12), ate: addM(mKey(hj), 12) } };
+  S.prefs.reservasMot = { ...(S.prefs.reservasMot || {}), carro: { nome: NOME_RESERVA_CARRO, porMes: r.porMes } };
+  S.prefs.reservaCarro = { ...(S.prefs.reservaCarro || {}), partes: flags, aviso, porDia: r.porDia, porMes: r.porMes };
+  gravaMot({ ...m, extra: Math.max(0, round2((Number(m.extra) || 0) - antes + r.porMes)) });
+  vibra(30); render(); return true;
 }
-/** Guarda o que falta da reserva do carro, dividido entre as caixinhas na proporção do custo de cada uma. */
+/** Guarda um valor na Reserva do carro (uma data qualquer): vira um lançamento de dinheiro guardado. */
+async function guardaNaReserva(valor, data = hoje()) {
+  if (!(valor > 0)) return null;
+  const lista = cats("Reserva");
+  if (!lista.includes(NOME_RESERVA_CARRO)) S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), Reserva: [...lista, NOME_RESERVA_CARRO] };
+  const row = { data, descricao: NOME_RESERVA_CARRO, tipo: "Reserva", categoria: NOME_RESERVA_CARRO, forma: "", valor: round2(valor), import_key: null };
+  let novos; if (!(await grava(async () => { novos = await S.store.addLancamentos([row]); }))) { render(); return null; }
+  S.data.lancamentos.push(...novos); return novos[0];
+}
+/** "Guardar R$ X agora": o que falta da reserva do mês, em uma caixinha só. */
 async function guardaReservaDoCarro(valor) {
-  const r = reservaDoCarroAgora(); if (!r || !(valor > 0)) return;
-  const lista = cats("Reserva"), faltam = r.itens.map((x) => x.nome).filter((n) => !lista.includes(n));
-  if (faltam.length) S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), Reserva: [...lista, ...faltam] };
-  let resto = round2(valor);
-  const rows = r.itens.map((x, i) => { const v = i === r.itens.length - 1 ? resto : Math.min(resto, round2(valor * (x.porMes / r.porMes))); resto = round2(resto - v); return { data: hoje(), descricao: "Reserva do carro", tipo: "Reserva", categoria: x.nome, forma: "", valor: v, import_key: null }; }).filter((x) => x.valor > 0);
-  let novos; if (!(await grava(async () => { novos = await S.store.addLancamentos(rows); }))) return render();
-  S.data.lancamentos.push(...novos); render();
-  toastDesfazer(`Guardado para o carro: ${brl(valor)}.`, async () => { for (const x of novos) await apagaLancamento(x.id); });
+  const x = await guardaNaReserva(valor); if (!x) return;
+  render(); toastDesfazer(`Guardado na ${NOME_RESERVA_CARRO}: ${brl(valor)}.`, async () => { await apagaLancamento(x.id); });
+}
+/** Marca o dia da Reserva do carro: guardei (lança o valor do dia), hoje não, ou desfaz uma dessas. Só guarda as marcas dos últimos 60 dias. */
+async function marcaReservaDia(acao, d) {
+  const r = reservaDoCarroAgora(); if (!r) return;
+  const salva = async (marcas) => { const corte = toISO(new Date(Date.now() - 60 * 864e5)); S.prefs.reservaDias = Object.fromEntries(Object.entries(marcas).filter(([k]) => k >= corte)); await salvaPrefs(); render(); };
+  const marcas = { ...(S.prefs.reservaDias || {}) };
+  if (acao === "guardei") {
+    const x = await guardaNaReserva(r.porDia, d); if (!x) return;
+    await salva({ ...marcas, [d]: { e: "ok", id: x.id } });
+    toastDesfazer(`Reserva do carro: ${brl(r.porDia)} guardados.`, async () => { await apagaLancamento(x.id); const m2 = { ...(S.prefs.reservaDias || {}) }; delete m2[d]; await salva(m2); });
+  } else if (acao === "nao") {
+    await salva({ ...marcas, [d]: { e: "nao" } });
+    toastDesfazer("Ok, sem guardar neste dia.", async () => { const m2 = { ...(S.prefs.reservaDias || {}) }; delete m2[d]; await salva(m2); });
+  } else {
+    const id = marcas[d]?.id; if (id && lancPorId(id)) await apagaLancamento(id);
+    delete marcas[d]; await salva(marcas);
+  }
+}
+/**
+ * Junta as caixinhas separadas de antes (Manutenção, IPVA, Seguro, Troca, Férias, 13º) na Reserva do carro.
+ * O que já foi guardado em cada uma passa para a nova (a categoria do lançamento muda); nada é apagado.
+ */
+function juntaReservasAntigas() {
+  const ativas = S.prefs.reservasMot || {}, antigas = PARTES_DO_CARRO.filter((k) => ativas[k]);
+  if (!antigas.length) return;
+  const nomes = new Set(antigas.map((k) => ativas[k].nome)), mover = S.data.lancamentos.filter((x) => x.tipo === "Reserva" && nomes.has(x.categoria));
+  const total = round2(mover.reduce((t, x) => t + (x.forma === "Retirada" ? -1 : 1) * (Number(x.valor) || 0), 0));
+  openDlg(`<h3>Juntar numa caixinha só?</h3>
+    <p class="hint" style="margin:0 0 12px">As ${antigas.length} caixinhas viram uma só: <b>${esc(NOME_RESERVA_CARRO)}</b>. ${mover.length ? `O que você já guardou nelas (${brl(total)}, em ${mover.length} ${mover.length === 1 ? "lançamento" : "lançamentos"}) passa para ela.` : "Ainda não havia nada guardado nelas."} Nada é apagado e o valor na sua meta do dia continua o mesmo.</p>
+    <div class="actions"><button class="btn primary" type="button" id="jtOk">Juntar</button><button class="btn" type="button" data-close>Cancelar</button></div>`);
+  $("jtOk").onclick = async () => {
+    $("jtOk").disabled = true;
+    for (const x of mover) { if (!(await grava(() => S.store.updateLancamento(x.id, { categoria: NOME_RESERVA_CARRO })))) { $("jtOk").disabled = false; render(); return; } x.categoria = NOME_RESERVA_CARRO; }
+    const soma = round2(antigas.reduce((t, k) => t + (Number(ativas[k].porMes) || 0), 0)), flags = Object.fromEntries(PARTES_DO_CARRO.map((k) => [k, antigas.includes(k)]));
+    const { ...resto } = ativas; antigas.forEach((k) => delete resto[k]); resto.carro = { nome: NOME_RESERVA_CARRO, porMes: soma };
+    const metas = { ...metasDe() }; let ate = addM(mKey(hoje()), 12); antigas.forEach((k) => { if (metas[ativas[k].nome]?.ate) ate = metas[ativas[k].nome].ate; delete metas[ativas[k].nome]; });
+    metas[NOME_RESERVA_CARRO] = { valor: round2(soma * 12), ate };
+    const lista = cats("Reserva").filter((c) => !nomes.has(c)); if (!lista.includes(NOME_RESERVA_CARRO)) lista.push(NOME_RESERVA_CARRO);
+    S.prefs.categorias = { ...(S.prefs.categorias || categoriasIniciais(S.data)), Reserva: lista };
+    S.prefs.reservasMot = resto; S.prefs.metas = metas;
+    const rc = reservaDoCarroAgora(flags);
+    S.prefs.reservaCarro = { ...(S.prefs.reservaCarro || {}), partes: flags, aviso: S.prefs.reservaCarro?.aviso || "diario", porMes: soma, porDia: rc?.porDia || 0 };
+    await salvaPrefs(); $("dlg").close(); render();
+    toast(`Juntei tudo na ${NOME_RESERVA_CARRO}.${mover.length ? ` ${brl(total)} guardados passaram para ela.` : ""}`);
+  };
 }
 /** Os três cartões da primeira tela: o que importa agora, sem precisar rolar. */
 function htmlAgora(c, dMot) {
@@ -2859,6 +2964,7 @@ function paneF(c, tipo) {
      <label class="f">Descrição<input class="in" id="xDesc" required maxlength="60" placeholder="${ent ? "Ex.: Salário" : "Ex.: Condomínio"}"></label>
      <label class="f">Categoria<select class="in" id="xCat">${opts(cats(tipo), ent ? "Salário" : "Moradia")}</select></label>
      <label class="f">Repete<select class="in" id="xRep"><option value="mensal">Todo mês</option><option value="semanal">Toda semana</option><option value="diario">Todo dia</option></select></label>
+     <label class="f" id="xSomarWrap" hidden>Até somar (R$)<input class="in money" id="xSomar" inputmode="decimal" placeholder="ex.: 7.500,00 (em branco: sem fim)"></label>
      <label class="f" id="xDiaWrap">${ent ? "Dia que recebe" : "Dia venc."}<input class="in" id="xDia" type="number" min="1" max="31" value="${ent ? 5 : 10}" required></label>
      <label class="f" id="xSemWrap" hidden>Dia da semana<select class="in" id="xSem">${DIAS_SEMANA.map((d, i) => `<option value="${i}"${i === 5 ? " selected" : ""}>${d}</option>`).join("")}</select></label>
      <label class="f">Valor${ent ? "" : " por vez"} (R$)<input class="in money" id="xVal" inputmode="decimal" placeholder="0,00" required></label>
@@ -2871,7 +2977,7 @@ function paneF(c, tipo) {
   const comecoX = () => { const sem = $("xRep").value === "semanal", dd = $("xRep").value === "diario"; return { tipo, desde: (sem || dd) && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", dia: sem || dd ? 1 : Math.min(31, Math.max(1, Number($("xDia").value) || 1)), ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : dd ? { repete: "diario" } : {}) }; };
   const prazoX = () => { $("xAte").innerHTML = opcoesDePrazo(comecoX(), $("xAte").value); };
   prazoX(); $("xSem").onchange = prazoX;
-  $("xRep").onchange = () => { const sem = $("xRep").value === "semanal", dd = $("xRep").value === "diario"; $("xDiaWrap").hidden = sem || dd; $("xSemWrap").hidden = !sem; prazoX(); };
+  $("xRep").onchange = () => { const sem = $("xRep").value === "semanal", dd = $("xRep").value === "diario"; $("xDiaWrap").hidden = sem || dd; $("xSemWrap").hidden = !sem; $("xSomarWrap").hidden = !dd; prazoX(); };
   if (!ent) $("xForma").onchange = () => { $("xCartaoWrap").hidden = $("xForma").value !== CARTAO || !cartoesAtivos().length; };
   host.querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
   host.querySelectorAll("tr[data-frow]").forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest("button,a")) editarFixo(tr.dataset.frow); }));
@@ -2908,7 +3014,7 @@ function paneF(c, tipo) {
     // Semanal e diário começam a contar de hoje (ou do dia 1, se a pessoa está olhando outro mês).
     const row = { tipo, descricao: $("xDesc").value.trim(), categoria: $("xCat").value, dia: sem || dd ? 1 : Math.min(31, Math.max(1, Number($("xDia").value) || 1)),
       valor: round2(v), forma: ent ? "" : $("xForma").value, desde: (sem || dd) && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", ate: $("xAte").value ? $("xAte").value + "-01" : null,
-      ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : dd ? { repete: "diario" } : {}),
+      ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : dd ? { repete: "diario", ...(parseMoney($("xSomar").value) > 0 ? { fim: fimPorTotal((sem || dd) && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", round2(v), parseMoney($("xSomar").value)) } : {}) } : {}),
       ...(!ent && $("xForma").value === CARTAO && cartoesAtivos().length ? { cartao_id: $("xCartao").value } : {}) };
     let novo; if (await grava(async () => { novo = await S.store.addFixo(row); })) {
       S.data.fixos.push(novo); render();
@@ -3325,6 +3431,7 @@ function confirmaSemCobrir(r) {
 }   // atualiza o valor de cada parcela e o total do prazo
 $("fRepete").addEventListener("change", renderForm);
 $("fAte").addEventListener("change", renderForm);
+$("fSomar").addEventListener("input", renderForm);
 // "Quantas vezes?" no formulário de lançar: a base é a mesma que monta as opções do "Vai até".
 ligaVezes($("fVezes"), $("fAte"), () => { const dt = $("fData").value || hoje(), sem = $("fRepete").value === "semanal", dd = $("fRepete").value === "diario";
   return { tipo: S.tipo, desde: sem || dd ? dt : mKey(dt) + "-01", dia: sem || dd ? 1 : Number(dt.slice(8, 10)), ...(sem ? { repete: "semanal", dia_semana: diaDaSemana(dt) } : dd ? { repete: "diario" } : {}) }; });
@@ -5726,11 +5833,22 @@ function paneReservas(host) {
   const d = reservasDoMotorista(veic, { diasSemana: m.diasSemana, lucroMes: r30.comCarro ? r30.lucro : 0, veiculo: m.perfil?.veiculo }), ativas = S.prefs.reservasMot || {}, ate = addM(mKey(hj), 12);
   const linha = (x) => `<li><span class="rs-tx"><b>${esc(x.nome)}</b><small>${esc(x.sub)}</small><small class="ocultavel">${brl(x.porDia)} por dia rodado · ${brl(x.porMes)} por mês</small></span>${ativas[x.k] ? `<button class="btn sm" type="button" data-rs-tira="${x.k}">Tirar da meta</button>` : `<button class="btn sm primary" type="button" data-rs-liga="${x.k}">Guardar</button>`}</li>`;
   const somaAtiva = round2(Object.values(ativas).reduce((t, x) => t + x.porMes, 0));
+  // A reserva do carro é uma caixinha só, com partes que se ligam e desligam (manutenção, IPVA, seguro, troca, férias, 13º).
+  const rp = S.prefs.reservaCarro || {}, ligada = Boolean(ativas.carro), flags = { ...PARTES_PADRAO, ...(rp.partes || {}) };
+  const rc = reservaDoCarro(veic, { turnos: m.turnos, lancamentos: S.data.lancamentos, hoje: hj, diasSemana: m.diasSemana, veiculo: m.perfil?.veiculo, ativas, partes: rp.partes, lucroMes: r30.comCarro ? r30.lucro : 0 });
+  const antigas = PARTES_DO_CARRO.filter((k) => ativas[k]);
+  const guardadoTotal = round2(S.data.lancamentos.filter((x) => x.tipo === "Reserva" && x.categoria === NOME_RESERVA_CARRO).reduce((s, x) => s + (x.forma === RETIRADA ? -1 : 1) * (Number(x.valor) || 0), 0));
+  const parte = (x) => `<li><label class="rs-parte"><input type="checkbox" data-rs-parte="${x.k}"${flags[x.k] ? " checked" : ""}><span class="rs-tx"><b>${esc(x.nome)}</b><small>${esc(x.sub)}</small><small class="ocultavel">${brl(x.porDia)} por dia rodado · ${brl(x.porMes)} por mês</small></span></label></li>`;
+  const blocoCarro = !rc ? `<h2 class="mot-frase">Guarde para o carro e para você.</h2><p class="mot-ver">Preencha o seu veículo e o app calcula quanto separar por dia rodado.</p><button class="btn primary" type="button" id="rsVeic">Preencher meu veículo</button>`
+    : `<h2 class="mot-frase ocultavel" id="rsTitulo">Guarde ${brl(rc.porDia)} por dia rodado.</h2>
+    <p class="mot-ver" id="rsSub">São ${brl(rc.porMes)} por mês, numa caixinha só: a ${esc(NOME_RESERVA_CARRO)}. Quem é autônomo paga o próprio carro, as próprias férias e o próprio 13º: o app faz a conta para você.</p>
+    <ul class="rs-lista">${rc.todas.map(parte).join("")}</ul>
+    <label class="f wide">Quero ser lembrado de guardar<select class="in" id="rsAviso">${[["diario", "Todo dia rodado (eu marco Guardei no Início)"], ["mensal", "Uma vez por mês"], ["nenhum", "Não me lembrar"]].map(([v, n]) => `<option value="${v}"${(rp.aviso || "diario") === v ? " selected" : ""}>${n}</option>`).join("")}</select></label>
+    ${ligada ? `<p class="mot-ver bom ocultavel">Guardado até agora na ${esc(NOME_RESERVA_CARRO)}: ${brl(guardadoTotal)}.</p>` : ""}
+    <button class="btn primary" type="button" id="rsSalva">${ligada ? "Salvar mudanças" : "Ligar a reserva do carro"}</button>
+    ${antigas.length ? `<p class="mot-ver">Você ainda tem ${antigas.length} ${antigas.length === 1 ? "caixinha separada" : "caixinhas separadas"} de antes. Juntas numa só, fica mais fácil de acompanhar.</p><button class="btn" type="button" id="rsJunta">Juntar numa caixinha só</button>` : ""}`;
   host.innerHTML = `<div id="motRoot" class="rs"><button class="mot-voltar" type="button" id="motVolta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Voltar</button>
-    <h2 class="mot-frase ocultavel">Guarde ${brl(d.porDia)} por dia rodado.</h2>
-    <p class="mot-ver">São ${brl(d.porMes)} por mês. Quem é autônomo paga o próprio carro, as próprias férias e o próprio 13º: o app faz a conta para você.</p>
-    <ul class="rs-lista">${d.itens.map(linha).join("")}</ul>
-    ${d.temVeiculo ? "" : `<button class="btn primary" type="button" id="rsVeic">Preencher meu veículo</button>`}
+    ${blocoCarro}
     ${somaAtiva ? `<p class="mot-ver bom ocultavel">${brl(somaAtiva)} por mês já entram na sua meta do dia.</p>` : ""}
     <h3 class="mot-h">Quero juntar para</h3>
     <form id="rsForm" class="dlg-form" autocomplete="off">
@@ -5750,6 +5868,16 @@ function paneReservas(host) {
   host.querySelectorAll("[data-rs-liga]").forEach((b) => (b.onclick = () => { const x = d.itens.find((i) => i.k === b.dataset.rsLiga); ligaReserva({ ...x, alvo: x.porMes * 12, ate }); }));
   host.querySelectorAll("[data-rs-tira]").forEach((b) => (b.onclick = () => tiraReserva(b.dataset.rsTira)));
   if ($("rsVeic")) $("rsVeic").onclick = () => meuVeiculo();
+  if (rc) {
+    const marcadas = () => Object.fromEntries(rc.todas.map((x) => [x.k, host.querySelector(`[data-rs-parte="${x.k}"]`).checked]));
+    const recalcula = () => { const f = marcadas(), mes = round2(rc.todas.filter((x) => f[x.k]).reduce((s, x) => s + x.porMes, 0)); $("rsTitulo").textContent = `Guarde ${brl(round2(mes / d.diasMes))} por dia rodado.`; $("rsSub").textContent = `São ${brl(mes)} por mês, numa caixinha só: a ${NOME_RESERVA_CARRO}.`; };
+    host.querySelectorAll("[data-rs-parte]").forEach((b) => (b.onchange = recalcula));
+    $("rsSalva").onclick = () => {
+      const f = marcadas(), tem = Object.values(f).some(Boolean);
+      if (ligaReservaUnica(f, $("rsAviso").value)) { toast(tem ? `${NOME_RESERVA_CARRO} salva. O valor do mês entra na sua meta do dia.` : `${NOME_RESERVA_CARRO} desligada. A caixinha e o que foi guardado continuam.`); paneReservas(host); }
+    };
+    if ($("rsJunta")) $("rsJunta").onclick = () => juntaReservasAntigas();
+  }
   $("rsLiberdade").onclick = () => calculadoras();
   $("motVolta").onclick = motSai;
 }
@@ -7200,7 +7328,7 @@ function aplicaEntendido(f, txt, fonte = "fala") {
 const quemLancou = (x) => (casalAtivo() && x.user_id && x.user_id === S.casal.outro_id ? nomeDoOutro() : "Você");
 /** Para comparar repetidos: cada linha vira "eu" ou "outro" (a pessoa da conta de casal). A linha nova é sempre "eu". */
 const comAutor = (x) => ({ ...x, user_id: casalAtivo() && x.user_id && x.user_id === S.casal.outro_id ? "outro" : "eu" });
-const quandoFixo = (f) => (f.repete === "diario" ? "todo dia" : f.repete === "semanal" ? `toda ${DIAS_SEMANA[Number(f.dia_semana)]}` : `todo dia ${pad(Number(f.dia) || 1)}`);
+const quandoFixo = (f) => (f.repete === "diario" ? (f.fim ? `todo dia, até ${ddmm(f.fim)}` : "todo dia") : f.repete === "semanal" ? `toda ${DIAS_SEMANA[Number(f.dia_semana)]}` : `todo dia ${pad(Number(f.dia) || 1)}`);
 /**
  * Antes de gravar: se já existe um lançamento (ou fixo) que parece o mesmo, pergunta.
  * Na conta de casal é o que evita a mesma conta entrar duas vezes, uma por pessoa.
@@ -7305,7 +7433,7 @@ $("formLanc").addEventListener("submit", async (e) => {
     // Vira um fixo: conta em todo mês a partir do mês da data, no mesmo dia.
     const dia = Number(data.slice(8, 10)), ent = S.tipo === "Receita", sem = $("fRepete").value === "semanal", dd = $("fRepete").value === "diario", wd = diaDaSemana(data);
     const fx = { tipo: S.tipo, descricao: $("fDesc").value.trim() || $("fCat").value, categoria: $("fCat").value, dia: sem || dd ? 1 : dia, valor: round2(v),
-      forma: ent ? "" : $("fForma").value, desde: sem || dd ? data : mKey(data) + "-01", ate: $("fAte").value ? $("fAte").value + "-01" : null, ...(sem ? { repete: "semanal", dia_semana: wd } : dd ? { repete: "diario" } : {}),
+      forma: ent ? "" : $("fForma").value, desde: sem || dd ? data : mKey(data) + "-01", ate: $("fAte").value ? $("fAte").value + "-01" : null, ...(sem ? { repete: "semanal", dia_semana: wd } : dd ? { repete: "diario", ...(parseMoney($("fSomar").value) > 0 ? { fim: fimPorTotal(data, round2(v), parseMoney($("fSomar").value)) } : {}) } : {}),
       ...(cartaoDoForm().cartao_id ? { cartao_id: cartaoDoForm().cartao_id } : {}) };
     const igual = fixoRepetido(S.data.fixos, fx);
     if (igual) { const r = await confirmaRepetido(igual, true); if (r === "nao") return naoLancouRepetido(); if (r === "voltar") return $("fValor").focus(); }
@@ -7318,8 +7446,8 @@ $("formLanc").addEventListener("submit", async (e) => {
     if (!ok) return render();
     flash.style.color = "var(--good)";
     const nVezes = fx.ate ? vezesNoPrazo(fx, mKey(fx.ate)) * (duas ? 2 : 1) : 0;
-    flash.textContent = `${fx.ate ? (ent ? "Entrada com prazo cadastrada" : "Conta com prazo cadastrada") : ent ? "Entrada fixa cadastrada" : "Conta fixa cadastrada"}: ${fx.descricao} · ${brl(fx.valor)}, ${sem ? "toda semana, " + DIAS_SEMANA[wd] : dd ? "todo dia, a partir de " + ddmm(data) : duas ? `todo mês, nos dias ${pad(dia)} e ${pad(dia2)}` : "todo dia " + pad(dia)}${fx.ate ? `, até ${mesAno(mKey(fx.ate))} (${vezesTxt(nVezes)}, ${brl(round2(nVezes * fx.valor))} no total)` : ""}. Para alterar, abra ${ent ? "Entradas fixas" : "Contas fixas"}.`;
-    $("fValor").value = ""; $("fDesc").value = ""; S.catManual = false; S.formaManual = false; limpaSugestoes(); $("fFixo").checked = false; $("fRepete").value = "mensal"; $("fDia2").value = ""; $("fAte").value = ""; $("fVezes").value = "";
+    flash.textContent = `${fx.ate ? (ent ? "Entrada com prazo cadastrada" : "Conta com prazo cadastrada") : ent ? "Entrada fixa cadastrada" : "Conta fixa cadastrada"}: ${fx.descricao} · ${brl(fx.valor)}, ${sem ? "toda semana, " + DIAS_SEMANA[wd] : dd ? "todo dia, a partir de " + ddmm(data) + (fx.fim ? `, até somar ${brl(parseMoney($("fSomar").value))} (termina em ${ddmm(fx.fim)})` : "") : duas ? `todo mês, nos dias ${pad(dia)} e ${pad(dia2)}` : "todo dia " + pad(dia)}${fx.ate ? `, até ${mesAno(mKey(fx.ate))} (${vezesTxt(nVezes)}, ${brl(round2(nVezes * fx.valor))} no total)` : ""}. Para alterar, abra ${ent ? "Entradas fixas" : "Contas fixas"}.`;
+    $("fValor").value = ""; $("fDesc").value = ""; S.catManual = false; S.formaManual = false; limpaSugestoes(); $("fFixo").checked = false; $("fRepete").value = "mensal"; $("fDia2").value = ""; $("fAte").value = ""; $("fVezes").value = ""; $("fSomar").value = "";
     aposLancar(flash.textContent);
     return render();
   }
@@ -7764,7 +7892,9 @@ function editarFixo(id) {
     <label class="f wide">Descrição<input class="in" id="eDesc" required maxlength="60" value="${esc(f.descricao)}"></label>
     <label class="f">Valor (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${esc(f.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}"></label>
     ${sem ? `<label class="f">Dia da semana<select class="in" id="eSem">${DIAS_SEMANA.map((d, i) => `<option value="${i}"${i === Number(f.dia_semana) ? " selected" : ""}>${d}</option>`).join("")}</select></label>`
-      : dd ? `<p class="hint wide" style="margin:0">Todo dia, a partir de ${ddmm(f.desde)}. Marque no Início se mandou ou não.</p>`
+      : dd ? `<p class="hint wide" style="margin:0">Todo dia, a partir de ${ddmm(f.desde)}. Marque no Início se mandou ou não.</p>
+        <label class="f wide">Termina quando somar (R$)<input class="in money" id="eSomar" inputmode="decimal" placeholder="em branco: sem data para acabar" value="${f.fim ? esc(virg(totalAteFim(f.desde, f.valor, f.fim))) : ""}"></label>
+        <p class="hint wide" id="eSomarDica" style="margin:0">${f.fim ? `Para de cobrar em ${ddmm(f.fim)}/${f.fim.slice(0, 4)}. Dia em que você marca Não mandei empurra o fim um dia.` : ""}</p>`
       : `<label class="f">${ent ? "Dia que recebe" : "Dia do vencimento"}<input class="in" id="eDia" type="number" min="1" max="31" required value="${esc(f.dia)}"></label>`}
     <label class="f">Categoria<select class="in" id="eCat">${opts(l.includes(f.categoria) ? l : [f.categoria, ...l], f.categoria)}</select></label>
     ${ent ? "" : `<label class="f">Pagamento<select class="in" id="eForma">${opts(FORMAS, f.forma)}</select></label>
@@ -7789,12 +7919,12 @@ function editarFixo(id) {
     const v = parseMoney($("eValor").value);
     if (avisoValor(v, "350,00")) { $("edMsg").textContent = avisoValor(v, "350,00"); return; }
     const patch = { descricao: $("eDesc").value.trim(), categoria: $("eCat").value, valor: round2(v), forma: ent ? "" : $("eForma").value,
-      ...(sem ? { dia_semana: Number($("eSem").value) } : dd ? {} : { dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)) }),
+      ...(sem ? { dia_semana: Number($("eSem").value) } : dd ? { fim: parseMoney($("eSomar").value) > 0 ? fimPorTotal(f.desde, round2(v), parseMoney($("eSomar").value)) : null } : { dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)) }),
       ...(ent || !S.data.cartoes.length ? {} : { cartao_id: noCartao() ? $("eCartao").value || null : null }) };
     // O fim do prazo é do fixo inteiro: se só ele mudou, não precisa criar uma versão nova.
     const ate = $("eAte").value ? $("eAte").value + "-01" : null, antes = f.ate || null, soOPrazo = Object.keys(patch).every((k) => String(patch[k] ?? "") === String(f[k] ?? ""));
     patch.ate = ate;
-    if (!temPassado || $("eDesde").value === "tudo" || soOPrazo) {
+    if (!temPassado || dd || $("eDesde").value === "tudo" || soOPrazo) {
       if (await grava(() => S.store.updateFixo(id, soOPrazo ? { ate } : patch))) { Object.assign(f, soOPrazo ? { ate } : patch); $("dlg").close(); render(); if (soOPrazo && ate !== antes) toastOuFlash(ate ? `${f.descricao}: vai até ${mesAno(mKey(ate))}.` : `${f.descricao}: sem data para acabar.`); }
       return;
     }

@@ -378,26 +378,34 @@ export function reservasDoMotorista(veic, { diasSemana = 6, lucroMes = 0, veicul
   return { itens, porMes, porDia: r2(porMes / diasMes), diasMes, temVeiculo: Boolean(r) };
 }
 
-/** As reservas do carro: o que chega de uma vez (manutenção, IPVA, seguro) e a troca do carro. O combustível fica de fora: sai do bolso a cada abastecimento. */
-export const RESERVAS_DO_CARRO = ["manut", "docs", "seguro", "troca"];
+/** A caixinha única da reserva do carro, e as partes que entram nela. O combustível fica de fora: sai do bolso a cada abastecimento. */
+export const NOME_RESERVA_CARRO = "Reserva do carro";
+export const PARTES_DO_CARRO = ["manut", "docs", "seguro", "troca", "ferias", "decimo"];
+/** Quais partes ligam sozinhas: as do carro. Férias e 13º a pessoa liga se quiser. */
+export const PARTES_PADRAO = { manut: true, docs: true, seguro: true, troca: true, ferias: false, decimo: false };
+/** As caixinhas separadas de antes (uma por parte), que "Juntar numa caixinha só" traz para a Reserva do carro. */
+export const NOMES_ANTIGOS = ["Manutenção do carro", "Manutenção da moto", "IPVA e licenciamento", "Seguro", "Trocar de carro", "Trocar de moto", "Férias", "13º salário"];
 /**
- * A reserva do carro neste mês: quanto devia estar separado (o custo por dia rodado vezes os dias rodados) contra o que a pessoa guardou
- * nas caixinhas do carro (lançamentos de "Reserva" dessas categorias, menos as retiradas).
- * estado: "sem" = nada ligado e nada guardado; "abaixo" = guardou menos que devia; "ok" = em dia. Sem o carro preenchido, devolve null.
- * @returns {{itens:object[], porMes:number, porDia:number, diasRodados:number, devia:number, guardou:number, falta:number, estado:"sem"|"abaixo"|"ok"}|null}
+ * A reserva do carro neste mês, numa caixinha só ("Reserva do carro"): quanto devia estar separado (o custo por dia rodado das partes ligadas
+ * vezes os dias rodados) contra o que a pessoa guardou nela (lançamentos de "Reserva" dessa categoria, menos as retiradas).
+ * `partes` diz quais partes entram (padrão: as do carro). estado: "sem" = nada ligado nem guardado; "abaixo" = guardou menos que devia; "ok" = em dia.
+ * Sem o carro preenchido, devolve null.
+ * @returns {{itens:object[], todas:object[], porMes:number, porDia:number, diasRodados:number, devia:number, guardou:number, falta:number, estado:"sem"|"abaixo"|"ok", ligado:boolean}|null}
  */
-export function reservaDoCarro(veic, { turnos = [], lancamentos = [], hoje, diasSemana = 6, veiculo = "carro", ativas = {} } = {}) {
-  const d = reservasDoMotorista(veic, { diasSemana, veiculo }), itens = d.itens.filter((x) => RESERVAS_DO_CARRO.includes(x.k));
-  if (!d.temVeiculo || !itens.length) return null;
-  const mes = hoje.slice(0, 7), nomes = new Set(itens.map((x) => x.nome));
+export function reservaDoCarro(veic, { turnos = [], lancamentos = [], hoje, diasSemana = 6, veiculo = "carro", ativas = {}, partes = null, lucroMes = 0 } = {}) {
+  const d = reservasDoMotorista(veic, { diasSemana, veiculo, lucroMes }), todas = d.itens.filter((x) => PARTES_DO_CARRO.includes(x.k));
+  const flags = { ...PARTES_PADRAO, ...(partes || {}) }, itens = todas.filter((x) => flags[x.k]);
+  if (!d.temVeiculo || !todas.length) return null;
+  const mes = hoje.slice(0, 7), nomes = new Set([NOME_RESERVA_CARRO, ...(ativas.carro ? [] : todas.map((x) => x.nome))]);
   const porMes = r2(itens.reduce((t, x) => t + x.porMes, 0)), porDia = r2(porMes / d.diasMes);
   const diasRodados = new Set((turnos || []).filter((t) => t.fim && isoLocal(t.ini).slice(0, 7) === mes && isoLocal(t.ini) <= hoje).map((t) => isoLocal(t.ini))).size;
   const devia = r2(porDia * diasRodados);
   const guardou = r2((lancamentos || []).filter((x) => x.tipo === "Reserva" && nomes.has(x.categoria) && String(x.data).slice(0, 7) === mes && x.forma !== "Já tinha")
     .reduce((t, x) => t + (x.forma === "Retirada" ? -1 : 1) * (Number(x.valor) || 0), 0));
-  const ligado = itens.some((x) => ativas[x.k]), falta = Math.max(0, r2(devia - guardou));
-  return { itens, porMes, porDia, diasRodados, devia, guardou, falta, estado: !ligado && guardou <= 0 ? "sem" : falta >= 20 ? "abaixo" : "ok" };
+  const ligado = Boolean(ativas.carro) || todas.some((x) => ativas[x.k]), falta = Math.max(0, r2(devia - guardou));
+  return { itens, todas, porMes, porDia, diasRodados, devia, guardou, falta, ligado, estado: !ligado && guardou <= 0 ? "sem" : falta >= 20 ? "abaixo" : "ok" };
 }
+
 /**
  * A meta do dia contra os km: no seu ritmo (R$ por km e km por dia dos últimos 30 dias), dá para fazer a meta?
  * Se não dá, diz quantos km por dia faltam ou quanto cada km precisaria render. Meta coberta ou sem histórico: null.

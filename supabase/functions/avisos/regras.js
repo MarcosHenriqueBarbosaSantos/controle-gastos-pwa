@@ -22,7 +22,7 @@ export function ocorrencias(fixos, m, tipo = "Despesa") {
   const n = dim(m), out = [];
   fixosDoMes(fixos, m, tipo).forEach((f) => {
     if (f.repete === "diario") {
-      for (let d = 1; d <= n; d++) { const data = `${m}-${pad(d)}`; if (data >= f.desde) out.push({ ...f, data, chave: data }); }
+      for (let d = 1; d <= n; d++) { const data = `${m}-${pad(d)}`; if (data >= f.desde && (!f.fim || data <= f.fim)) out.push({ ...f, data, chave: data }); }
     } else if (f.repete === "semanal") {
       for (let d = 1; d <= n; d++) {
         const data = `${m}-${pad(d)}`;

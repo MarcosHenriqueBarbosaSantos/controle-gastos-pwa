@@ -511,3 +511,35 @@ test("rotina diária: avisa quando o dinheiro não chega para uma conta dos pró
   amb.avanca(86400000); await roda();
   assert.equal(de("u1").filter((e) => e.text.includes("não chega para")).length, 1);
 });
+
+import { avisoDaReserva } from "../supabase/functions/avisos/mensagem.js";
+
+test("texto do lembrete da Reserva do carro: todo dia e uma vez por mês", () => {
+  const d = avisoDaReserva({ modo: "diario", valor: 52.5 });
+  assert.equal(limpa(d.titulo), "Guarde R$ 52,50 hoje para a Reserva do carro");
+  assert.ok(d.frase.includes("Guardei"));
+  const m = avisoDaReserva({ modo: "mensal", valor: 1365.01 });
+  assert.equal(limpa(m.titulo), "Guarde a Reserva do carro");
+  assert.ok(limpa(m.frase).includes("R$ 1.365,01"));
+  const sozinho = montaAviso({ itens: [], atrasadas: 0, hoje: 0, total: 0 }, "https://app.exemplo/", null, null, null, null, d);
+  assert.equal(sozinho.titulo, d.titulo);
+  assert.ok(sozinho.texto.includes("Não me lembrar") && sozinho.html.includes("Abrir o app e guardar"));
+});
+
+test("rotina diária: lembra de guardar a Reserva do carro enquanto o dia não foi marcado, e respeita quem não quer", async () => {
+  const prefs = (aviso, extra = {}) => ({ reservasMot: { carro: { nome: "Reserva do carro", porMes: 1365 } }, reservaCarro: { aviso, porDia: 52.5, porMes: 1365 }, ...extra });
+  const amb = ambiente({
+    preferencias: [{ user_id: "u1", dados: prefs("diario") }, { user_id: "u2", dados: prefs("diario", { reservaDias: { "2026-10-03": { e: "nao" } } }) },
+      { user_id: "u3", dados: prefs("nenhum") }, { user_id: "u4", dados: prefs("diario") }, { user_id: "u5", dados: prefs("mensal") }],
+    lancamentos: [{ id: "g4", user_id: "u4", data: "2026-10-03", descricao: "Reserva do carro", tipo: "Reserva", categoria: "Reserva do carro", forma: "", valor: 52.5 }],
+  }, ["u1", "u2", "u3", "u4", "u5"].map((id) => ({ id, email: id + "@exemplo.com" })));
+  const roda = async () => (await amb.handler(pedido("POST", { "x-avisos-segredo": "segredo-certo" }))).json();
+  const quem = () => amb.enviados.filter((e) => e.url.includes("resend")).map((e) => JSON.parse(e.init.body).to[0].slice(0, 2));
+  await roda();   // 3 de outubro (não é dia 5): só u1. u2 já marcou o dia, u3 não quer, u4 já guardou hoje, u5 é mensal e hoje não é dia 5.
+  assert.deepEqual(quem(), ["u1"]);
+  const texto = JSON.parse(amb.enviados.find((e) => e.url.includes("resend")).init.body).text;
+  assert.ok(texto.includes("Guarde R$ 52,50 hoje para a Reserva do carro"));
+  assert.match(amb.t.avisos_enviados.find((x) => x.user_id === "u1").canais, /reserva: diario/);
+  amb.avanca(86400000 * 2); await roda();   // 5 de outubro: u5 (mensal) recebe, e u1, u2 (a marca era de outro dia) e u4 (guardou em outro dia) de novo
+  assert.deepEqual(quem().sort(), ["u1", "u1", "u2", "u4", "u5"].sort());
+});

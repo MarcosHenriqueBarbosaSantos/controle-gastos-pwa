@@ -65,7 +65,8 @@ export const diaDaSemana = (iso) => new Date(Number(iso.slice(0, 4)), Number(iso
 /**
  * Ocorrências dos fixos no mês m: cada vez que um fixo acontece.
  * - Mensal: uma vez, no dia do vencimento. A chave de "pago" é o dia 1 do mês.
- * - Todo dia (repete = "diario"): uma vez em cada dia do mês, a partir da data de início. A chave de "pago" é a própria data.
+ * - Todo dia (repete = "diario"): uma vez em cada dia do mês, a partir da data de início e, se houver `fim`, até esse dia (o último, inclusive).
+ *   A chave de "pago" é a própria data.
  * - Semanal (repete = "semanal"): uma vez em cada dia da semana escolhido, a partir da data de início.
  *   A chave de "pago" é a própria data.
  * Cada ocorrência traz os campos do fixo mais `data` e `chave`.
@@ -74,7 +75,7 @@ export function ocorrencias(fixos, m, tipo = "Despesa") {
   const n = dim(m), out = [];
   fixosDoMes(fixos, m, tipo).forEach((f) => {
     if (f.repete === "diario") {
-      for (let d = 1; d <= n; d++) { const data = `${m}-${pad(d)}`; if (data >= f.desde) out.push({ ...f, data, chave: data }); }
+      for (let d = 1; d <= n; d++) { const data = `${m}-${pad(d)}`; if (data >= f.desde && (!f.fim || data <= f.fim)) out.push({ ...f, data, chave: data }); }
     } else if (f.repete === "semanal") {
       for (let d = 1; d <= n; d++) {
         const data = `${m}-${pad(d)}`;
@@ -859,6 +860,18 @@ export function diariosDeHoje(st, hoje) {
   }));
   return out.sort((a, b) => a.titulo.localeCompare(b.titulo) || b.data.localeCompare(a.data));
 }
+
+/**
+ * O último dia de um gasto de todo dia que acaba quando soma `total`: começa em `desde` e dura quantos dias de `valor` forem precisos.
+ * @returns {string} "AAAA-MM-DD"
+ */
+export function fimPorTotal(desde, valor, total) {
+  const n = Math.max(1, Math.ceil(round2(Number(total)) / Math.max(0.01, Number(valor))));
+  const d = new Date(`${desde}T12:00:00`); d.setDate(d.getDate() + n - 1);
+  return toISO(d);
+}
+/** O total que um gasto de todo dia soma de `desde` até `fim`, os dois incluídos (para mostrar o "até somar" de uma conta já criada). */
+export const totalAteFim = (desde, valor, fim) => round2(Number(valor) * (diasEntre(desde, fim) + 1));
 
 /**
  * Contas a vencer: faturas em aberto e gastos fixos ainda não pagos, do mês atual e do próximo,

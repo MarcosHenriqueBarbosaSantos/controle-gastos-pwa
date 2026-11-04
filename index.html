@@ -222,6 +222,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
         <select class="in" id="fRepete" aria-label="Com que frequência repete" hidden><option value="mensal">Todo mês</option><option value="semanal">Toda semana</option><option value="duas">Duas vezes no mês</option><option value="diario">Todo dia</option></select>
         <label class="vezes-lbl" id="fDia2Wrap" hidden>No dia<input class="in" id="fDia2" inputmode="numeric" maxlength="2" placeholder="ex.: 20"></label>
         <select class="in" id="fAte" aria-label="Até quando repete" hidden></select>
+        <label class="vezes-lbl" id="fSomarWrap" hidden>Até somar (R$)<input class="in money" id="fSomar" inputmode="decimal" placeholder="ex.: 7.500,00"></label>
         <label class="vezes-lbl" id="fVezesWrap" hidden>Quantas vezes?<input class="in" id="fVezes" inputmode="numeric" maxlength="3" placeholder="ex.: 36"></label>
         <p class="hint prazo-dica" id="fPrazoDica" hidden></p>
       </div>
