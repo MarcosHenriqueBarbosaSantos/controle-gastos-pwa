@@ -177,3 +177,96 @@ export function entendeVarios(fala, hoje) {
   }));
   return { itens, texto: original };
 }
+
+/* ---------- a fatura do cartão em vários meses: "1.000 esse mês e 600 nos outros meses até abril" ---------- */
+const MESES_FALA = { janeiro: 0, jan: 0, fevereiro: 1, fev: 1, marco: 2, mar: 2, abril: 3, abr: 3, maio: 4, mai: 4, junho: 5, jun: 5, julho: 6, jul: 6, agosto: 7, ago: 7, setembro: 8, set: 8, outubro: 9, out: 9, novembro: 10, nov: 10, dezembro: 11, dez: 11 };
+/** Soma n meses a um mês "AAAA-MM". */
+const somaMes = (m, n) => { let a = Number(m.slice(0, 4)), x = Number(m.slice(5, 7)) + n; a += Math.floor((x - 1) / 12); x = (((x - 1) % 12) + 12) % 12 + 1; return `${a}-${pad(x)}`; };
+/** O mês dito pelo nome, no ano certo: do mês de hoje em diante (janeiro dito em novembro é o do ano que vem). */
+const mesDoNome = (idx, hoje) => { const a = Number(hoje.slice(0, 4)), m = Number(hoje.slice(5, 7)); return `${idx + 1 >= m ? a : a + 1}-${pad(idx + 1)}`; };
+/** Meses de "de" até "ate", os dois incluídos (no máximo 36). */
+const mesesDe = (de, ate) => { const out = []; for (let m = de, g = 0; m <= ate && g < 36; m = somaMes(m, 1), g++) out.push(m); return out; };
+/** Quantos meses, no máximo, uma fala vira de uma vez, e quantos quando a pessoa não disse até quando. */
+export const MAX_MESES_FALA = 24, MESES_SEM_FIM = 6;
+
+/**
+ * Entende a fatura do cartão em vários meses numa fala só. Exemplos que funcionam:
+ *   "cartão roxo esse mês mil e duzentos e nos outros meses seiscentos até abril"
+ *   "cartão 1000 em novembro e 600 de dezembro a abril"
+ *   "fatura novembro 1200 dezembro 800 janeiro 650"
+ *   "cartão esse mês 1000 e nos próximos 5 meses 600"
+ * Só vale quando a frase fala de cartão ou fatura, tem valor e diz de qual mês (ou meses) ele é. O nome do cartão fica para o app achar.
+ * @returns {{meses:{mes:string, valor:number}[], fimAssumido:boolean, texto:string}|null}  mes = "AAAA-MM"; fimAssumido = a pessoa não disse até quando
+ */
+export function entendeMeses(fala, hoje) {
+  const original = String(fala || "").trim();
+  if (!original) return null;
+  const t = semAcento(extensoParaNumero(original.replace(/(\d)\.(\d)/g, "$1¤$2").replace(/(\d),(\d)/g, "$1§$2").replace(/([;,])/g, " $1 "))).replace(/r\$\s*/g, " ").replace(/\s+/g, " ").trim();
+  // "fatura" basta. "cartão" só vale como a fatura quando não é a forma de pagar de uma compra: "gastei 50 no mercado no cartão em janeiro" é um gasto, não a fatura.
+  const fatura = /\bfatura\b/.test(t), cartaoSolto = /(?:^|\s)(?<!\b(?:no|na|pelo|pela|com|em|num|numa)\s)cartao\b/.test(t) && !/\b(gastei|comprei|paguei|passei|abasteci|coloquei|botei|comi|tomei|parcelei)\b/.test(t);
+  if (!fatura && !cartaoSolto) return null;
+  const tk = t.split(" ").filter(Boolean), it = [];
+  for (let i = 0; i < tk.length; i++) {
+    const w = tk[i], prox = tk[i + 1], ult = it[it.length - 1];
+    if (/^\d/.test(w)) {
+      if (tk[i - 1] === "dia") continue;
+      const v = Number(w.replace(/¤/g, "").replace(/§/g, "."));
+      if (prox === "mes" || prox === "meses") { it.push({ k: "count", n: v }); i++; continue; }
+      it.push({ k: "num", v }); if (prox === "reais" || prox === "real") i++;
+      continue;
+    }
+    if (MESES_FALA[w] !== undefined && !(w === "mar" && ult?.k === "num")) { it.push({ k: "mes", idx: MESES_FALA[w] }); continue; }
+    if ((w === "esse" || w === "este" || w === "neste" || w === "nesse") && prox === "mes") { it.push({ k: "esse" }); i++; continue; }
+    if (w === "mes" && prox === "atual") { it.push({ k: "esse" }); i++; continue; }
+    if (w === "agora") { it.push({ k: "esse" }); continue; }
+    if (["outros", "demais", "proximos", "seguintes", "restante"].includes(w)) { if (prox === "meses") i++; it.push({ k: "outros" }); continue; }
+    if (w === "meses" && prox === "seguintes") { it.push({ k: "outros" }); i++; continue; }
+    if (w === "proximo" && prox === "mes") { it.push({ k: "proximo" }); i++; continue; }
+    if ((w === "todo" || w === "todos" || w === "cada") && (prox === "mes" || prox === "meses" || ((prox === "o" || prox === "os") && /^mes/.test(tk[i + 2] || "")))) { it.push({ k: "todos" }); i += prox === "mes" || prox === "meses" ? 1 : 2; continue; }
+    if (w === "ate") { it.push({ k: "ate" }); continue; }
+    if (w === "a" && ult?.k === "mes" && (MESES_FALA[prox] !== undefined || (["o", "mes", "de"].includes(prox) && MESES_FALA[tk[i + 2]] !== undefined))) { it.push({ k: "ate" }); continue; }
+  }
+  const nums = it.filter((x) => x.k === "num");
+  if (!nums.length || !it.some((x) => !["num", "ate"].includes(x.k))) return null;
+  // Cada valor com o seu "de quando": o mês pode vir antes do valor ("novembro 1200") ou depois ("1000 em novembro").
+  const primeiroNum = it.findIndex((x) => x.k === "num"), escopoAntes = it.slice(0, primeiroNum).some((x) => x.k !== "ate");
+  const clausulas = [];
+  if (escopoAntes) {
+    let atual = [];
+    for (const x of it) {
+      if (x.k === "num") { atual.push(x); clausulas.push(atual); atual = []; continue; }
+      const ult = clausulas[clausulas.length - 1], anterior = atual.length ? atual[atual.length - 1] : null;
+      // "600 até abril" e "600 por 5 meses": o que vem logo depois do valor ainda é dele
+      if (!atual.length && ult && (x.k === "ate" || x.k === "count")) ult.push(x);
+      else if (!atual.length && ult && x.k === "mes" && ult[ult.length - 1].k === "ate") ult.push(x);
+      else atual.push(x), void anterior;
+    }
+  } else {
+    for (const x of it) { if (x.k === "num") clausulas.push([x]); else if (clausulas.length) clausulas[clausulas.length - 1].push(x); }
+  }
+  const atual = hoje.slice(0, 7), mapa = new Map(); let fimAssumido = false;
+  const livre = () => (mapa.size ? somaMes([...mapa.keys()].sort().at(-1), 1) : atual);
+  for (const c of clausulas) {
+    const valor = c.find((x) => x.k === "num").v, esc = c.filter((x) => x.k !== "num");
+    if (!(valor > 0) || !esc.length) continue;
+    const tem = (k) => esc.find((x) => x.k === k), meses = esc.filter((x) => x.k === "mes"), ate = tem("ate"), conta = tem("count");
+    const plural = tem("outros") || tem("todos");
+    let lista = [];
+    if (plural || (conta && !meses.length)) {
+      const ini = tem("todos") ? atual : livre();
+      if (ate && meses.length) { let fim = mesDoNome(meses[meses.length - 1].idx, hoje); if (fim < ini) fim = somaMes(fim, 12); lista = mesesDe(ini, fim); }
+      else if (conta) lista = mesesDe(ini, somaMes(ini, Math.max(1, Math.round(conta.n)) - 1));
+      else { lista = mesesDe(ini, somaMes(ini, MESES_SEM_FIM - 1)); fimAssumido = true; }
+    } else if (tem("esse")) {
+      lista = ate && meses.length ? mesesDe(atual, mesDoNome(meses[0].idx, hoje)) : [atual];
+    } else if (meses.length) {
+      const ini = mesDoNome(meses[0].idx, hoje); let fim = ini;
+      if (ate && meses.length >= 2) { fim = mesDoNome(meses[1].idx, hoje); if (fim < ini) fim = somaMes(fim, 12); }
+      lista = mesesDe(ini, fim);
+    } else if (tem("proximo")) lista = [somaMes(atual, 1)];
+    for (const m of lista) mapa.set(m, valor);
+  }
+  if (!mapa.size) return null;
+  const meses = [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(0, MAX_MESES_FALA).map(([mes, valor]) => ({ mes, valor }));
+  return { meses, fimAssumido, texto: original };
+}

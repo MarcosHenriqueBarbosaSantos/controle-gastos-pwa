@@ -13,7 +13,7 @@ import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtrato
 import { saldosDoCasal } from "./casalvisao.js";
 import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefoi.js";
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas, contasQueSeRepetem, proximasRepetidas } from "./arrumar.js";
-import { entendeFala, entendeVarios } from "./voz.js";
+import { entendeFala, entendeVarios, entendeMeses } from "./voz.js";
 import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
@@ -7047,15 +7047,69 @@ addEventListener("pagehide", () => escuta.cancelar());
 function ouvirGasto() {
   if (!Reconhecedor) return toast("Este navegador não entende fala. No Android, use o Chrome; no iPhone, o Safari.");
   if (escuta.ativa) return;
-  $("vozPainel").hidden = false; $("vozTitulo").textContent = "Ouvindo…"; $("vozTexto").textContent = "Fale o gasto, por exemplo: “gastei 32 no mercado no débito”. Pode falar vários de uma vez: “mercado 50, farmácia 30 e uber 20”.";
+  $("vozPainel").hidden = false; $("vozTitulo").textContent = "Ouvindo…"; $("vozTexto").textContent = "Fale o gasto, por exemplo: “gastei 32 no mercado no débito”. Pode falar vários de uma vez: “mercado 50, farmácia 30 e uber 20”. Ou a fatura do cartão em vários meses: “cartão esse mês 1000 e nos outros meses 600 até abril”.";
   $("btnVoz").classList.add("ativo"); $("btnVoz").querySelector("span").textContent = "Parar";
   escuta.iniciar();   // se não abrir, o aoFinalizar já limpa a tela e dá a mensagem
 }
 /** Preenche o formulário com o que foi entendido da fala e diz o que entendeu. */
 function aplicaFala(txt) {
+  const meses = entendeMeses(txt, hoje());
+  if (meses) return previaMeses(meses);
   const varios = entendeVarios(txt, hoje());
   if (varios) return previaVarios(varios);
   return aplicaEntendido(entendeFala(txt, hoje()), txt, "fala");
+}
+/**
+ * Falou a fatura do cartão em vários meses ("esse mês 1.000 e nos outros meses 600 até abril"): mostra mês a mês para conferir.
+ * Cada mês vira o valor da fatura daquele mês (o mesmo que "corrigir o valor da fatura"). Fatura já paga não é mexida. Nada é gravado antes do toque.
+ */
+function previaMeses({ meses, fimAssumido, texto }, cartaoId = "") {
+  const cartoes = cartoesAtivos();
+  if (!cartoes.length) { toast("Cadastre o cartão primeiro em Cartões. Depois é só falar de novo."); return; }
+  const falado = norm(texto), k = cartoes.find((c) => c.id === cartaoId) || cartoes.find((c) => falado.includes(norm(c.nome))) || cartoes[0];
+  const info = (m) => faturasDoMes(S.data, m).find((f) => f.cartao_id === k.id) || null;
+  const linha = (x, i) => {
+    const f = info(x.mes), paga = f?.status === "Paga", venc = diaNoMes(x.mes, k.vencimento);
+    const nota = paga ? "Já paga: não será alterada." : f ? (f.valor_fixo ? `Hoje: ${brl(f.valor)} (valor corrigido).` : f.calculado > 0 ? `Hoje a soma das compras é ${brl(f.calculado)}.` : "Hoje: sem compras.") : "Hoje: sem compras.";
+    return `<li class="pv-item${paga ? " paga" : ""}" data-i="${i}"><div class="pv-topo"><div class="pv-mes"><b>${esc(nomeMes(x.mes))} de ${x.mes.slice(0, 4)}</b><small>vence ${ddmm(venc)}</small></div>
+      <input class="in money" data-pv="valor" inputmode="decimal" value="${esc(x.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}" aria-label="Valor da fatura de ${esc(nomeMes(x.mes))}"${paga ? " disabled" : ""}></div>
+      <div class="pv-baixo"><span class="pv-nota ocultavel">${nota}</span><button type="button" class="btn sm" data-pv="tira" aria-label="Tirar ${esc(nomeMes(x.mes))}">Tirar</button></div></li>`;
+  };
+  openDlg(`<h3>Fatura do ${esc(k.nome)} em ${meses.length} ${meses.length === 1 ? "mês" : "meses"}</h3>
+    <p class="hint" style="margin:0 0 8px">Você disse: “${esc(texto)}”. Cada mês passa a valer esse valor para a fatura. Nada foi gravado ainda.${fimAssumido ? " <b>Não ouvi até quando: coloquei " + meses.length + " meses.</b> Toque em Tirar nos que não quiser." : ""}</p>
+    ${cartoes.length > 1 ? `<label class="f">Cartão<select class="in" id="pmCartao">${cartoes.map((c) => `<option value="${esc(c.id)}"${c.id === k.id ? " selected" : ""}>${esc(c.nome)}</option>`).join("")}</select></label>` : ""}
+    <ul class="pv-lista">${meses.map(linha).join("")}</ul>
+    <p class="pv-total ocultavel" id="pvTotal" aria-live="polite"></p>
+    <div class="actions"><button class="btn primary" type="button" id="pvOk">Gravar as faturas</button><button class="btn" type="button" data-close>Cancelar</button></div>`);
+  const lis = () => [...document.querySelectorAll("#dlgBody .pv-item")];
+  const leitura = () => lis().map((li) => { const i = Number(li.dataset.i); return { li, i, mes: meses[i].mes, valor: round2(parseMoney(li.querySelector("[data-pv=valor]").value)), paga: li.classList.contains("paga") }; });
+  const atualiza = () => {
+    const ls = leitura().filter((x) => !x.paga), total = round2(ls.reduce((s, x) => s + (x.valor > 0 ? x.valor : 0), 0));
+    $("pvTotal").textContent = ls.length ? `${ls.length} ${ls.length === 1 ? "fatura" : "faturas"} · somam ${brl(total)}` : "Nenhuma fatura para gravar.";
+    $("pvOk").disabled = !ls.length; $("pvOk").textContent = ls.length ? `Gravar ${ls.length === 1 ? "a fatura" : `as ${ls.length} faturas`}` : "Gravar as faturas";
+  };
+  atualiza();
+  $("dlgBody").oninput = atualiza;
+  $("dlgBody").onclick = (e) => { const b = e.target.closest("[data-pv=tira]"); if (b) { b.closest(".pv-item").remove(); atualiza(); } };
+  if ($("pmCartao")) $("pmCartao").onchange = () => previaMeses({ meses: leitura().map((x) => ({ mes: x.mes, valor: x.valor > 0 ? x.valor : meses[x.i].valor })), fimAssumido: false, texto }, $("pmCartao").value);
+  $("pvOk").onclick = async () => {
+    const ls = leitura().filter((x) => !x.paga), ruim = ls.find((x) => !(x.valor > 0) || x.valor > VALOR_MAX);
+    if (ruim) { toast(ruim.valor > VALOR_MAX ? ALTO_DEMAIS : "Confira o valor de cada mês."); ruim.li.querySelector("[data-pv=valor]").focus(); return; }
+    $("pvOk").disabled = true;
+    const antes = ls.map((x) => { const r = S.data.faturas.find((z) => z.cartao_id === k.id && mKey(z.vencimento) === x.mes); return { mes: x.mes, reg: r ? { id: r.id, valor: r.valor, valor_fixo: r.valor_fixo } : null }; });
+    let feitos = 0;
+    for (const x of ls) { if (await gravaFaturaAuto({ id: null, cartao_id: k.id, cartao: k.nome, vencimento: diaNoMes(x.mes, k.vencimento), valor: x.valor }, { valor: x.valor, valor_fixo: true })) feitos++; }
+    $("dlg").close(); render();
+    if (!feitos) return;
+    toastDesfazer(`${feitos} ${feitos === 1 ? "fatura gravada" : "faturas gravadas"} no ${k.nome}.`, async () => {
+      for (const a of antes) {
+        const atual = S.data.faturas.find((z) => z.cartao_id === k.id && mKey(z.vencimento) === a.mes); if (!atual) continue;
+        if (a.reg) { const p = { valor: a.reg.valor, valor_fixo: Boolean(a.reg.valor_fixo) }; if (await grava(() => S.store.updateFatura(atual.id, p))) Object.assign(atual, p); }
+        else if (await grava(() => S.store.deleteFatura(atual.id))) S.data.faturas = S.data.faturas.filter((z) => z !== atual);
+      }
+      render();
+    });
+  };
 }
 /**
  * Falou várias coisas de uma vez ("mercado 50, farmácia 30 e uber 20"): mostra a lista do que entendeu para conferir.
