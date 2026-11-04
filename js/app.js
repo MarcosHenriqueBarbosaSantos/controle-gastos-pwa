@@ -1152,9 +1152,9 @@ function renderKpis(c) {
     ${fraseDoMes ? `<h2 class="hero-frase ocultavel">${fraseDoMes}</h2>` : ""}
     <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
     ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
-    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span></div>` : ""}
+    <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : atualM ? `ainda livres de ${brl(sb.livre)} depois das contas` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span></div>` : ""}
     ${ficou}
-    ${est.nivel !== "neutro" ? `<span class="estado"><b>${est.rotulo || ROTULO[est.nivel]}</b>${est.motivo && est.nivel !== "estourado" ? `<span class="ocultavel">${est.motivo}</span>` : ""}</span>` : ""}
+    ${est.nivel !== "neutro" ? `<span class="estado">${fraseDoMes && !aperto && est.nivel !== "atencao" ? "" : `<b>${est.rotulo || ROTULO[est.nivel]}</b>`}${est.motivo && est.nivel !== "estourado" ? `<span class="ocultavel">${est.motivo}</span>` : ""}</span>` : ""}
     <button type="button" class="hero-ver" id="heroVer">Ver meu mês</button>
   </div>`}
   ${atualM && (dMot || !semEnt) ? htmlAgora(c, dMot) : ""}
