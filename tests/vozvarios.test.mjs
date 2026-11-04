@@ -1,7 +1,7 @@
 // Várias coisas numa fala só: "mercado 50, farmácia 30 e uber 20".
 import test from "node:test";
 import assert from "node:assert/strict";
-import { entendeVarios, MAX_ITENS_FALA } from "../js/voz.js";
+import { entendeVarios, entendeFala, MAX_ITENS_FALA } from "../js/voz.js";
 
 const HOJE = "2026-11-04";
 const resumo = (f) => entendeVarios(f, HOJE)?.itens.map((x) => [x.descricao, x.valor]);
@@ -59,4 +59,21 @@ test("vários itens: números por extenso junto da vírgula e frases com data n�
   assert.deepEqual(resumo("mercado cento e vinte, farmácia trinta e cinco"), [["Mercado", 120], ["Farmácia", 35]]);
   assert.deepEqual(resumo("paguei 1200 de aluguel e 300 de condomínio no dia 5").map((x) => x[1]), [1200, 300]);
   assert.equal(entendeVarios("gastei 32 reais e 50 centavos no mercado", HOJE), null);
+});
+
+test("contas em meses diferentes: cada uma vai para o mês que foi dito", () => {
+  const datas = (f) => entendeVarios(f, HOJE).itens.map((x) => [x.descricao, x.valor, x.data]);
+  assert.deepEqual(datas("luz 180 em dezembro, internet 99 em janeiro"), [["Luz", 180, "2026-12-04"], ["Internet", 99, "2027-01-04"]]);
+  assert.deepEqual(datas("luz 180 dia 10 de dezembro e internet 99 dia 15 de janeiro"), [["Luz", 180, "2026-12-10"], ["Internet", 99, "2027-01-15"]]);
+  assert.deepEqual(datas("luz 180 dezembro internet 99 janeiro"), [["Luz", 180, "2026-12-04"], ["Internet", 99, "2027-01-04"]]);   // sem separador: o mês fica com o item que vem antes
+  assert.deepEqual(datas("condomínio 360 para março e água 70 para abril"), [["Condomínio", 360, "2027-03-04"], ["Água", 70, "2027-04-04"]]);
+});
+
+test("mês dito num item só: futuro sem verbo no passado, o mais recente com 'paguei'; Marco não é março", () => {
+  const um = (f) => { const r = entendeFala(f, HOJE); return [r.descricao, r.valor, r.data]; };
+  assert.deepEqual(um("luz 180 em dezembro"), ["Luz", 180, "2026-12-04"]);
+  assert.deepEqual(um("paguei 100 de luz em outubro"), ["Luz", 100, "2026-10-04"]);
+  assert.deepEqual(um("luz 180 no mês que vem"), ["Luz", 180, "2026-12-04"]);
+  assert.deepEqual(um("aluguel 1200 dia 5 de dezembro"), ["Aluguel", 1200, "2026-12-05"]);
+  assert.deepEqual(um("paguei 50 pro marco"), ["Marco", 50, undefined]);
 });

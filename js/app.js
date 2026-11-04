@@ -7047,7 +7047,7 @@ addEventListener("pagehide", () => escuta.cancelar());
 function ouvirGasto() {
   if (!Reconhecedor) return toast("Este navegador não entende fala. No Android, use o Chrome; no iPhone, o Safari.");
   if (escuta.ativa) return;
-  $("vozPainel").hidden = false; $("vozTitulo").textContent = "Ouvindo…"; $("vozTexto").textContent = "Fale o gasto, por exemplo: “gastei 32 no mercado no débito”. Pode falar vários de uma vez: “mercado 50, farmácia 30 e uber 20”. Ou a fatura do cartão em vários meses: “cartão esse mês 1000 e nos outros meses 600 até abril”.";
+  $("vozPainel").hidden = false; $("vozTitulo").textContent = "Ouvindo…"; $("vozTexto").textContent = "Fale o gasto, por exemplo: “gastei 32 no mercado no débito”. Pode falar vários de uma vez: “mercado 50, farmácia 30 e uber 20”. Ou a fatura do cartão em vários meses: “cartão esse mês 1000 e nos outros meses 600 até abril”. Ou contas de meses diferentes: “luz 180 em dezembro, internet 99 em janeiro”.";
   $("btnVoz").classList.add("ativo"); $("btnVoz").querySelector("span").textContent = "Parar";
   escuta.iniciar();   // se não abrir, o aoFinalizar já limpa a tela e dá a mensagem
 }
@@ -7118,6 +7118,8 @@ function previaMeses({ meses, fimAssumido, texto }, cartaoId = "") {
 function previaVarios({ itens, texto }) {
   const hj = hoje(), temCartao = cartoesAtivos().length > 0, formas = FORMAS.filter((f) => f !== CARTAO || temCartao);
   const dataComum = itens.find((x) => x.data)?.data || hj;
+  // Cada conta para um mês ("luz em dezembro, internet em janeiro"): a data aparece em cada linha. Se todas são do mesmo dia, uma data só para todos.
+  const datasDiferentes = new Set(itens.map((x) => x.data || dataComum)).size > 1;
   const linhas = itens.map((x) => {
     const u = S.loaded ? ultimoParecido(S.data.lancamentos, x.descricao, x.tipo) : null, lista = cats(x.tipo);
     const c = u?.categoria && lista.includes(u.categoria) ? u.categoria : palpiteCat(x.descricao, x.tipo), cat = lista.includes(c) ? c : lista[0];
@@ -7126,15 +7128,15 @@ function previaVarios({ itens, texto }) {
   });
   const linhaHtml = (x, i) => `<li class="pv-item" data-i="${i}">
       <div class="pv-topo"><input class="in" data-pv="desc" value="${esc(x.descricao)}" maxlength="60" aria-label="Descrição do item ${i + 1}"><input class="in money" data-pv="valor" inputmode="decimal" value="${esc(x.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}" aria-label="Valor do item ${i + 1}"></div>
-      <div class="pv-baixo"><select class="in" data-pv="cat" aria-label="Categoria do item ${i + 1}">${opts(x.lista, x.cat)}</select>${x.tipo === "Despesa" ? `<select class="in" data-pv="forma" aria-label="Forma de pagamento do item ${i + 1}">${opts(formas, x.forma)}</select>` : `<span class="pv-tag">Entrada</span>`}<button type="button" class="btn sm" data-pv="tira" aria-label="Tirar o item ${i + 1}">Tirar</button></div></li>`;
+      <div class="pv-baixo"><select class="in" data-pv="cat" aria-label="Categoria do item ${i + 1}">${opts(x.lista, x.cat)}</select>${x.tipo === "Despesa" ? `<select class="in" data-pv="forma" aria-label="Forma de pagamento do item ${i + 1}">${opts(formas, x.forma)}</select>` : `<span class="pv-tag">Entrada</span>`}<button type="button" class="btn sm" data-pv="tira" aria-label="Tirar o item ${i + 1}">Tirar</button></div>${datasDiferentes ? `<label class="pv-data">Data<input class="in" type="date" data-pv="data" value="${x.data || dataComum}" aria-label="Data do item ${i + 1}"></label>` : ""}</li>`;
   openDlg(`<h3>Entendi ${itens.length} itens</h3>
     <p class="hint" style="margin:0 0 8px">Você disse: “${esc(texto)}”. Confira e corrija o que precisar. Nada foi lançado ainda.</p>
     <ul class="pv-lista">${linhas.map(linhaHtml).join("")}</ul>
-    <label class="f">Data de todos<input class="in" type="date" id="pvData" value="${dataComum}" max="${hj}"></label>
+    ${datasDiferentes ? "" : `<label class="f">Data de todos<input class="in" type="date" id="pvData" value="${dataComum}"></label>`}
     <p class="pv-total ocultavel" id="pvTotal" aria-live="polite"></p>
     <div class="actions"><button class="btn primary" type="button" id="pvOk">Lançar tudo</button><button class="btn" type="button" data-close>Cancelar</button></div>`);
   const lista = () => [...document.querySelectorAll("#dlgBody .pv-item")];
-  const leitura = () => lista().map((li) => ({ li, i: Number(li.dataset.i), descricao: li.querySelector("[data-pv=desc]").value.trim(), valor: round2(parseMoney(li.querySelector("[data-pv=valor]").value)), cat: li.querySelector("[data-pv=cat]").value, forma: li.querySelector("[data-pv=forma]")?.value || "" }));
+  const leitura = () => lista().map((li) => ({ li, i: Number(li.dataset.i), descricao: li.querySelector("[data-pv=desc]").value.trim(), valor: round2(parseMoney(li.querySelector("[data-pv=valor]").value)), cat: li.querySelector("[data-pv=cat]").value, forma: li.querySelector("[data-pv=forma]")?.value || "", data: li.querySelector("[data-pv=data]")?.value || "" }));
   const atualiza = () => {
     const ls = leitura(), total = round2(ls.filter((x) => linhas[x.i].tipo === "Despesa").reduce((s, x) => s + (x.valor > 0 ? x.valor : 0), 0));
     $("pvTotal").textContent = ls.length ? `${ls.length} ${ls.length === 1 ? "item" : "itens"}${total > 0 ? ` · gastos somam ${brl(total)}` : ""}` : "Nenhum item.";
@@ -7144,15 +7146,15 @@ function previaVarios({ itens, texto }) {
   $("dlgBody").oninput = atualiza;
   $("dlgBody").onclick = (e) => { const b = e.target.closest("[data-pv=tira]"); if (b) { b.closest(".pv-item").remove(); atualiza(); } };
   $("pvOk").onclick = async () => {
-    const ls = leitura(), data = $("pvData").value || hj;
+    const ls = leitura(), data = $("pvData")?.value || hj;
     const ruim = ls.find((x) => !(x.valor > 0) || x.valor > VALOR_MAX);
     if (ruim) { toast(ruim.valor > VALOR_MAX ? ALTO_DEMAIS : "Confira o valor de cada item."); ruim.li.querySelector("[data-pv=valor]").focus(); return; }
     const cartao = cartoesAtivos()[0];
-    const rows = ls.map((x) => { const it = linhas[x.i]; return { data, descricao: x.descricao || it.descricao, tipo: it.tipo, categoria: x.cat, forma: formaDe(it.tipo, x.forma), valor: x.valor, import_key: null, ...(it.tipo === "Despesa" && x.forma === CARTAO && cartao ? { cartao_id: cartao.id, parcelas: 1 } : {}) }; });
+    const rows = ls.map((x) => { const it = linhas[x.i]; return { data: x.data || data, descricao: x.descricao || it.descricao, tipo: it.tipo, categoria: x.cat, forma: formaDe(it.tipo, x.forma), valor: x.valor, import_key: null, ...(it.tipo === "Despesa" && x.forma === CARTAO && cartao ? { cartao_id: cartao.id, parcelas: 1 } : {}) }; });
     $("pvOk").disabled = true;
     let novos; if (!(await grava(async () => { novos = await S.store.addLancamentos(rows); }))) { $("pvOk").disabled = false; return; }
     $("dlg").close();
-    S.data.lancamentos.push(...novos); if (mKey(data) !== S.mes) S.mes = mKey(data);
+    S.data.lancamentos.push(...novos); if (!datasDiferentes && mKey(data) !== S.mes) S.mes = mKey(data);
     render();
     toastDesfazer(`${novos.length} ${novos.length === 1 ? "item lançado" : "itens lançados"}.`, async () => { for (const x of novos) await apagaLancamento(x.id); });
   };

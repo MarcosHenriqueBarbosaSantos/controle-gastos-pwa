@@ -2529,3 +2529,4 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .pv-total{margin:6px 0 0;font-size:14px;color:var(--ink-2)}
 .pv-mes{display:grid;gap:1px} .pv-mes small{font-size:12.5px;color:var(--muted)}
 .pv-nota{flex:1;font-size:13px;color:var(--muted)} .pv-item.paga{opacity:.6}
+.pv-data{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted)} .pv-data .in{flex:1;min-height:44px}

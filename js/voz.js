@@ -92,6 +92,21 @@ export function entendeFala(fala, hoje) {
   if (/\banteontem\b/.test(t)) { out.data = diasAntes(hoje, 2); tira(/\banteontem\b/); }
   else if (/\bontem\b/.test(t)) { out.data = diasAntes(hoje, 1); tira(/\bontem\b/); }
   else if (/\bhoje\b/.test(t)) { out.data = hoje; tira(/\bhoje\b/); }
+  // Mês dito: "luz 180 em dezembro", "internet 99 dia 15 de janeiro", "no mês que vem". Sem verbo no passado vale o próximo mês assim chamado;
+  // com "gastei/paguei/comprei" vale o mais recente que já passou. "março" só vale com "em/de/para" na frente (para não confundir com o nome Marco).
+  const nomeMes = t.match(/\b(?:(em|de|para|pra|no|ate|mes de)\s+)?(janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/);
+  const mesQueVem = t.match(/\b(?:no |para o |pro )?(?:proximo mes|mes que vem)\b/);
+  if (!out.data && ((nomeMes && !(nomeMes[2] === "marco" && !nomeMes[1])) || mesQueVem)) {
+    const [a, m, hd] = hoje.split("-").map(Number), passado = /\b(gastei|paguei|comprei|abasteci|troquei|consertei|arrumei|passei|comi|tomei|pagamos|compramos)\b/.test(t);
+    const nomes = ["janeiro", "fevereiro", "marco", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+    let alvoM, alvoA;
+    if (nomeMes && !(nomeMes[2] === "marco" && !nomeMes[1])) { alvoM = nomes.indexOf(nomeMes[2]) + 1; alvoA = passado ? (alvoM <= m ? a : a - 1) : (alvoM >= m ? a : a + 1); }
+    else { alvoM = m === 12 ? 1 : m + 1; alvoA = m === 12 ? a + 1 : a; }
+    const diaDito = t.match(/\b(?:no )?dia (\d{1,2})\b/), fimDoMes = new Date(alvoA, alvoM, 0).getDate();
+    const d = diaDito && Number(diaDito[1]) >= 1 && Number(diaDito[1]) <= 31 ? Math.min(Number(diaDito[1]), fimDoMes) : (alvoA === a && alvoM === m ? hd : Math.min(hd, fimDoMes));
+    out.data = `${alvoA}-${pad(alvoM)}-${pad(d)}`;
+    tira(nomeMes && !(nomeMes[2] === "marco" && !nomeMes[1]) ? nomeMes[0] : mesQueVem[0]); if (diaDito) tira(diaDito[0]);
+  }
   const dia = t.match(/\b(?:no )?dia (\d{1,2})\b/);
   if (dia && Number(dia[1]) >= 1 && Number(dia[1]) <= 31) {
     const [a, m] = hoje.split("-").map(Number), d = Number(dia[1]);
@@ -146,7 +161,9 @@ function divideNoNumero(p) {
   const achados = [...p.matchAll(/(?<![\p{L}\d])\d+(?:[.¤§,]\d+)*(?:\s*mil\b)?(?:\s*(?:reais|real|contos?|pilas?)\b)?/giu)];
   if (achados.length < 2) return [p];
   const antes = semAcento(p.slice(0, achados[0].index)).replace(VERBOS, "").split(/\s+/).filter((w) => w && !PONTAS.test(w));
-  const cortes = antes.length ? achados.slice(0, -1).map((m) => m.index + m[0].length) : achados.slice(1).map((m) => m.index);
+  // Se o nome vem antes do valor ("luz 180 dezembro internet 99 janeiro"), o mês dito logo depois do valor ainda é do mesmo item.
+  const mesLogoDepois = (fim) => { const r = semAcento(p.slice(fim)).match(/^\s*(?:(?:em|de|para|pra|no|ate)\s+)?(?:janeiro|fevereiro|marco|abril|maio|junho|julho|agosto|setembro|outubro|novembro|dezembro)\b/); return r ? r[0].length : 0; };
+  const cortes = antes.length ? achados.slice(0, -1).map((m) => { const fim = m.index + m[0].length; return fim + mesLogoDepois(fim); }) : achados.slice(1).map((m) => m.index);
   const out = []; let ini = 0;
   for (const c of cortes) { out.push(p.slice(ini, c).trim()); ini = c; }
   out.push(p.slice(ini).trim());
