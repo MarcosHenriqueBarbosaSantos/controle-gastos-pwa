@@ -41,11 +41,11 @@ alter table public.fixos drop constraint if exists fixos_tipo_check;
 alter table public.fixos add constraint fixos_tipo_check check (tipo in ('Despesa', 'Receita'));
 
 -- Fixos que se repetem toda semana (ex.: Uber toda sexta, terapia toda quinta).
--- repete = 'semanal' usa dia_semana (0 = domingo ... 6 = sábado) e "desde" é a data de início.
+-- repete = 'diario': todo dia, a partir de "desde" (marca de pago por data). repete = 'semanal' usa dia_semana (0 = domingo ... 6 = sábado) e "desde" é a data de início.
 alter table public.fixos add column if not exists repete text not null default 'mensal';
 alter table public.fixos add column if not exists dia_semana smallint;
 alter table public.fixos drop constraint if exists fixos_repete_check;
-alter table public.fixos add constraint fixos_repete_check check (repete in ('mensal', 'semanal'));
+alter table public.fixos add constraint fixos_repete_check check (repete in ('mensal', 'semanal', 'diario'));
 alter table public.fixos drop constraint if exists fixos_dia_semana_check;
 alter table public.fixos add constraint fixos_dia_semana_check check (dia_semana is null or dia_semana between 0 and 6);
 

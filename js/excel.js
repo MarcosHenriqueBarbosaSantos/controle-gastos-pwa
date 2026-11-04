@@ -252,7 +252,7 @@ export function buildWorkbook(XLSX, st, ano, calcMes, hoje) {
   const pagos = new Set(st.pagos.map((p) => p.fixo_id + "|" + mKey(p.mes)));
   const F = [["Descrição", "Categoria", "Dia do vencimento", "Valor (R$)", "Ativo?", "Forma de pagamento", ...MES3, "Repete", "Dia da semana", "Cartão"]];
   const ativo = (f) => (f.ate && mKey(f.ate) < mKey(hoje) ? "Não" : "Sim");
-  const rep = (f) => (f.repete === "semanal" ? ["Semanal", DIAS_SEMANA[Number(f.dia_semana)]] : ["Mensal", ""]);
+  const rep = (f) => (f.repete === "diario" ? ["Todo dia", ""] : f.repete === "semanal" ? ["Semanal", DIAS_SEMANA[Number(f.dia_semana)]] : ["Mensal", ""]);
   const E = [["Descrição", "Categoria", "Dia do recebimento", "Valor (R$)", "Ativa?", "Repete", "Dia da semana"]];
   st.fixos.filter((f) => f.tipo === "Receita").forEach((f) => E.push([f.descricao, f.categoria, f.repete === "semanal" ? "" : f.dia, f.valor, ativo(f), ...rep(f)]));
   // A grade de meses "Pago" vale para os mensais; os semanais são pagos por semana, dentro do app.

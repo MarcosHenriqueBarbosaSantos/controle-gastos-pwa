@@ -21,7 +21,9 @@ export const diaDaSemana = (iso) => new Date(Number(iso.slice(0, 4)), Number(iso
 export function ocorrencias(fixos, m, tipo = "Despesa") {
   const n = dim(m), out = [];
   fixosDoMes(fixos, m, tipo).forEach((f) => {
-    if (f.repete === "semanal") {
+    if (f.repete === "diario") {
+      for (let d = 1; d <= n; d++) { const data = `${m}-${pad(d)}`; if (data >= f.desde) out.push({ ...f, data, chave: data }); }
+    } else if (f.repete === "semanal") {
       for (let d = 1; d <= n; d++) {
         const data = `${m}-${pad(d)}`;
         if (diaDaSemana(data) === Number(f.dia_semana) && data >= f.desde) out.push({ ...f, data, chave: data });
@@ -272,7 +274,8 @@ export function proximosVencimentos(st, hoje, janela = 30) {
     contasDoMes(st, m).forEach((o) => {
       if (noCartao(o) || pagos.has(o.id + "|" + o.chave)) return;
       const dias = diasEntre(hoje, o.data);
-      if (dias <= janela) out.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias, mes: m, chave: o.chave, semanal: o.repete === "semanal" });
+      if (o.repete === "diario" && (dias > 0 || dias < -3)) return;
+      if (dias <= janela) out.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias, mes: m, chave: o.chave, semanal: o.repete === "semanal", diario: o.repete === "diario" });
     });
   });
   return out.sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
@@ -307,7 +310,7 @@ export function rotaDoMes(st, hoje, { comMedia = true } = {}) {
   return { saldoHoje, mediaDia, pontos, prazo: pontos.find((p) => p.precisa > 0) || null, proximo: pontos.find((p) => p.saidas.length) || null, pior: pontos.reduce((a, p) => (!a || p.precisa > a.precisa ? p : a), null) };
 }
 export function pendenciasParaAviso(st, hoje, { antes = 3, atrasoMax = 30 } = {}) {
-  const itens = proximosVencimentos(st, hoje, antes).filter((x) => x.dias >= -atrasoMax);
+  const itens = proximosVencimentos(st, hoje, antes).filter((x) => x.dias >= -atrasoMax && !x.diario);
   return { itens, atrasadas: itens.filter((x) => x.dias < 0).length, hoje: itens.filter((x) => x.dias === 0).length,
     total: round2(itens.reduce((t, x) => t + x.valor, 0)) };
 }

@@ -1,7 +1,7 @@
 // Tela do app: entrada, lançamento rápido, indicadores, gráficos e abas.
 import { SUPABASE_URL, SUPABASE_ANON_KEY, SUPORTE_CONTATO, LINK_COMPRA, PRECO_PLANO, PLAY_PACOTE, APP_VERSAO, IMPORTA_EXTRATO } from "./config.js";
 import { CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad, toISO, mKey, addM, parseMoney, round2, VALOR_MAX, calcMes, catMap, custoAcumulado,
-  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, rotaDoMes, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, usoDoLimite, proximaFatura, parcelasPorMes, dim, diaNoMes, diasEntre, semanaNoCombinado, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
+  categoriasIniciais, primeiroMes, saldoAnterior, contasQueNaoFecham, quandoOsDinheiroAcaba, apertoAteAEntrada, rotaDoMes, diariosDeHoje, podeGastarHoje, oQueFazerAgora, gastoAVistaDoDia, semEntradaNoMes, itensDoCusto, reservaAcumulada, guardadoPorDestino, comprasCartaoPorCategoria, proximosVencimentos, avisosDeHoje, usoDoLimite, proximaFatura, parcelasPorMes, dim, diaNoMes, diasEntre, semanaNoCombinado, CARTAO, DIAS_SEMANA, DIAS3, diaDaSemana,
   faturasAte, faturasDoMes, raioX, livrePorDia, sequenciaDeDias, gastoDoDia, comparaComMesAnterior, usoDosLimites, usoDoTeto, primeirosPassos, semCartaoNoMes, novaVersaoDeFixo, saldoAcumulado, contasEmAtraso, planoDoMes, faturasSemValor, mesDaFatura, valorDasParcelas, mesesEntre, periodoDaFatura,
   andamentoDaMeta, metasEmAndamento, sugestaoDaMeta, situacaoDaMeta, metasAGuardarNoMes, combinadosDoMes , buscaLancamentos, maisUsados, categoriaAprendida, ultimoParecido, descricoesParecidas, ultimosMeses, comparaCategorias , calendarioDoMes, agendaDoMes, estadoDoMes, sobraDoMes, sobraDiaADia, mesDaVez, lancamentoRepetido, fixoRepetido, repetidosDoMes, chaveDoPar,
   comumDoCasal, juntaPrefsDoCasal, apelidoDoEmail, divisaoDoMes, ocorrencias, vezesNoPrazo, restanteDoPrazo, prazosEmAndamento, valorForaDoComum, formaMaisUsada, formaDaCategoria, ultimoDaCategoria, gastoAteODia, assinaturasDetectadas, paraRevisar, estadoDoLimite, iconeDaCategoria, ICONES_CATEGORIA, dependentesDoCartao } from "./calc.js";
@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { semanaDoMotorista, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -889,10 +889,11 @@ function renderForm() {
   $("fDia2Wrap").hidden = !(fixo && fr.value === "duas");
   fr.options[1].textContent = `Toda semana, ${DIAS_SEMANA[diaDaSemana(dt)] === "sábado" || DIAS_SEMANA[diaDaSemana(dt)] === "domingo" ? "no" : "na"} ${DIAS_SEMANA[diaDaSemana(dt)]}`;
   // Até quando repete: sem data para acabar (conta fixa) ou até um mês (acerto, acordo, parcelamento).
-  const fa = $("fAte"), dica = $("fPrazoDica"), semF = fr.value === "semanal";
+  fr.options[3].textContent = "Todo dia (marcar se mandou ou não)";
+  const fa = $("fAte"), dica = $("fPrazoDica"), semF = fr.value === "semanal", diaF = fr.value === "diario";
   fa.hidden = !fixo; $("fVezesWrap").hidden = !fixo;
   if (fixo) {
-    const base = { tipo: S.tipo, desde: semF ? dt : mKey(dt) + "-01", dia: semF ? 1 : Number(dt.slice(8, 10)), ...(semF ? { repete: "semanal", dia_semana: diaDaSemana(dt) } : {}) }, kb = JSON.stringify(base);
+    const base = { tipo: S.tipo, desde: semF || diaF ? dt : mKey(dt) + "-01", dia: semF || diaF ? 1 : Number(dt.slice(8, 10)), ...(semF ? { repete: "semanal", dia_semana: diaDaSemana(dt) } : diaF ? { repete: "diario" } : {}) }, kb = JSON.stringify(base);
     if (fa.dataset.k !== kb) { fa.innerHTML = opcoesDePrazo(base, fa.value); fa.dataset.k = kb; }
     const n = fa.value ? vezesNoPrazo(base, fa.value) * (fr.value === "duas" ? 2 : 1) : 0, vF = valorDoCampo();
     const quanto = n === 1 ? `Uma vez só${vF > 0 ? `, de ${brl(vF)}` : ""}` : `${vezesTxt(n)}${vF > 0 ? ` de ${brl(vF)}: ${brl(round2(n * vF))} no total` : ""}`;
@@ -1178,6 +1179,8 @@ function renderKpis(c) {
     <button type="button" class="hero-ver" id="heroVer">Ver meu mês</button>
   </div>`}
   ${atualM && (dMot || !semEnt) ? htmlAgora(c, dMot) : ""}
+  ${atualM ? htmlDiarios() : ""}
+  ${atualM && dMot ? htmlCombustivel() : ""}
   ${!semEnt && !dMot && (rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
   ${atualM ? htmlHoje(c) : ""}
   ${c.fase === "futuro" ? htmlPrevisaoFuturo(c, rx) : ""}
@@ -1286,6 +1289,19 @@ function ligaMotoristaIni() {
   const hc = document.querySelector(".hero.cheia"); if (hc && noCelular()) hc.style.minHeight = `calc(100dvh - ${Math.round(hc.getBoundingClientRect().top + scrollY + (document.querySelector(".agora")?.offsetHeight || 0) - 30)}px - var(--bnav-h,69px))`;
   if ($("heroFora")) $("heroFora").onclick = () => ($("heroFora").textContent.includes("dia a dia") ? rotaTela() : contaDoMesTela());
   if ($("heroRota")) $("heroRota").onclick = () => rotaTela();
+  if ($("combLanca")) $("combLanca").onclick = () => lancaCombustivelEstimado(Number($("combLanca").dataset.v));
+  if ($("combDepois")) $("combDepois").onclick = async () => {
+    const r = combustivelAviso(); if (!r) return;
+    S.prefs.combOculto = { ...(S.prefs.combOculto || {}), [mKey(hoje())]: Math.round(r.falta) }; await salvaPrefs(); render();
+    toast("Ok. Aviso de novo quando a diferença crescer uns R$ 50.");
+  };
+  document.querySelectorAll("[data-dia]").forEach((b) => (b.onclick = () => {
+    const { id, chave, nome } = b.dataset, k = `${id}|${chave}`, a = b.dataset.dia, dia = chave.slice(8, 10) + "/" + chave.slice(5, 7);
+    if (a === "mandei") { mudaPago({ tipo: "fixo", id, chave }, true); toastDesfazer(`${nome}: mandou em ${dia}.`, () => mudaPago({ tipo: "fixo", id, chave }, false)); }
+    else if (a === "desfaz") mudaPago({ tipo: "fixo", id, chave }, false);
+    else if (a === "nao") { mudaFora([k], true); toastDesfazer(`${nome}: não mandou em ${dia}. O dia saiu do mês.`, () => mudaFora([k], false)); }
+    else mudaFora([k], false);
+  }));
   if ($("heroAtras")) $("heroAtras").onclick = () => atrasadasTela();
   if ($("heroFecha")) $("heroFecha").onclick = () => revisaoTela($("heroFecha").dataset.m);
   if ($("heroVermelho")) $("heroVermelho").onclick = () => { S.mes = $("heroVermelho").dataset.m; render(); scrollTo(0, 0); };
@@ -1890,7 +1906,7 @@ function detalheVencimento(x) {
   const hj = hoje(), r = contasQueNaoFecham(S.data, hj), it = r.itens.find((y) => y.titulo === x.titulo && y.data === x.data && y.tipo === x.tipo);
   // contasQueNaoFecham soma as entradas do mês inteiro: uma conta que vence antes do salário precisa olhar o dinheiro dia a dia.
   const ac = S.loaded && !semEntradaNoMes(calcMes(S.data, mKey(hj), hj)) ? quandoOsDinheiroAcaba(S.data, hj) : null, aperto = apertoAteAEntrada(ac);
-  const tipo = x.semValor ? "Fatura de cartão sem valor informado" : x.tipo === "repetida" ? "Parece se repetir todo mês (ainda não é conta fixa)" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa";
+  const tipo = x.semValor ? "Fatura de cartão sem valor informado" : x.tipo === "repetida" ? "Parece se repetir todo mês (ainda não é conta fixa)" : x.tipo === "fatura" ? "Fatura de cartão" : x.diario ? "Conta fixa · todo dia" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa";
   const dt = `${x.data.slice(8, 10)}/${x.data.slice(5, 7)}/${x.data.slice(0, 4)}`;
   let cobre = "";
   if (x.semValor || x.tipo === "repetida") cobre = `<p class="hint">${x.semValor ? "Informe o valor da fatura para o app saber se o dinheiro cobre." : "Vire conta fixa para o app contar essa despesa todo mês e avisar antes do vencimento."}</p>`;
@@ -2418,6 +2434,49 @@ function contaDoMesTela() {
   if ($("ctMeta")) $("ctMeta").onclick = () => { $("dlg").close(); motoristaTela(); motEntra("ajustes"); };
   if ($("ctAtrasadas")) $("ctAtrasadas").onclick = () => atrasadasTela();
 }
+/**
+ * Os gastos de todo dia (como um envio diário): hoje, com "Mandei" e "Não mandei", e os dias recentes que ficaram sem marca.
+ * "Mandei" marca o dia como pago. "Não mandei" deixa o dia fora do mês (não conta como gasto); dá para voltar atrás.
+ */
+function htmlDiarios() {
+  const l = S.loaded ? diariosDeHoje(S.data, hoje()) : [];
+  if (!l.length) return "";
+  const quando = (x) => (x.dias === 0 ? "Hoje" : x.dias === 1 ? "Ontem" : `${DIAS3[diaDaSemana(x.data)]} ${ddmm(x.data)}`);
+  const linha = (x) => {
+    const dado = `data-id="${esc(x.id)}" data-chave="${esc(x.chave)}" data-nome="${esc(x.titulo)}"`;
+    const acao = x.estado === "mandei" ? `<span class="dia-ok">Mandei ✓</span><button type="button" class="link" data-dia="desfaz" ${dado}>Desfazer</button>`
+      : x.estado === "nao" ? `<span class="dia-nao">Não mandei</span><button type="button" class="link" data-dia="volta" ${dado}>Desfazer</button>`
+      : `<button type="button" class="btn sm primary" data-dia="mandei" ${dado}>Mandei</button><button type="button" class="btn sm" data-dia="nao" ${dado}>Não mandei</button>`;
+    return `<li><span class="dia-q"><b>${esc(x.titulo)}</b><small>${quando(x)} · <span class="ocultavel">${brl(x.valor)}</span></small></span><span class="dia-acao">${acao}</span></li>`;
+  };
+  return `<section class="diarios" aria-label="Gastos de todo dia"><h3>Todo dia</h3><ul>${l.map(linha).join("")}</ul></section>`;
+}
+/**
+ * Aviso de combustível (modo motorista): pelos km rodados no mês, o app estima quanto de combustível já saiu do bolso.
+ * Se isso passa do que a pessoa lançou, mostra a diferença e deixa lançar com um toque. "Agora não" esconde até a diferença crescer outros R$ 50.
+ */
+function combustivelAviso() {
+  if (!S.loaded || !S.prefs.motorista?.usa) return null;
+  const r = combustivelDoMes(motDados().turnos, S.prefs.veiculo, S.data.lancamentos, hoje());
+  if (!r) return null;
+  const visto = Number(S.prefs.combOculto?.[mKey(hoje())]) || 0;
+  return r.falta >= COMB_MIN_AVISO && r.falta >= visto + COMB_MIN_AVISO ? r : null;
+}
+function htmlCombustivel() {
+  const r = combustivelAviso();
+  if (!r) return "";
+  const valor = Math.round(r.falta);
+  return `<section class="comb-aviso" aria-label="Combustível"><h3>Falta lançar combustível?</h3>
+    <p class="ocultavel">Pelos ${Math.round(r.km).toLocaleString("pt-BR")} km rodados em ${nomeMes(mKey(hoje()))}, o combustível deve ter custado uns <b>${brl(r.estimado)}</b>. Você lançou <b>${brl(r.lancado)}</b>.${r.passouDoKm ? ` Você já passou dos ${Math.round(r.kmMes).toLocaleString("pt-BR")} km por mês que está no seu carro.` : ""}</p>
+    <div class="comb-acoes"><button type="button" class="btn primary" id="combLanca" data-v="${valor}">Lançar ${brl(valor)} de combustível</button><button type="button" class="btn" id="combDepois">Agora não</button></div>
+    <small>É uma estimativa pelos km. Se foi outro valor, é só editar o lançamento depois, no Extrato.</small></section>`;
+}
+async function lancaCombustivelEstimado(valor) {
+  const row = { data: hoje(), descricao: "Combustível (pelos km rodados)", tipo: "Despesa", categoria: catDoGastoMot("Combustível"), forma: "Pix", valor: round2(valor), import_key: null };
+  let novos; if (!(await grava(async () => { novos = await S.store.addLancamentos([row]); }))) return render();
+  S.data.lancamentos.push(...novos); render();
+  toastDesfazer(`Combustível lançado: ${brl(valor)}.`, async () => { for (const x of novos) await apagaLancamento(x.id); });
+}
 /** Os três cartões da primeira tela: o que importa agora, sem precisar rolar. */
 function htmlAgora(c, dMot) {
   const hj = hoje(), pg = dMot || semEntradaNoMes(c) ? null : podeGastarHoje(c, gastoAVistaDoDia(S.data, hj)), prox = proximosVencimentos(S.data, hj, 30)[0], a = metaPrincipal(metasEmAndamento(S.data, S.prefs.metas, hj));
@@ -2710,7 +2769,7 @@ function paneF(c, tipo) {
   const ent = tipo === "Receita", host = $(ent ? "pane-r" : "pane-f");
   const fx = ent ? c.fr : c.fx;   // uma linha por ocorrência: os semanais aparecem uma vez por semana
   const rows = fx.map((f) => {
-    const p = c.pagosSet.has(f.id + "|" + f.chave), d = Number(f.data.slice(8, 10)), sem = f.repete === "semanal";
+    const p = c.pagosSet.has(f.id + "|" + f.chave), d = Number(f.data.slice(8, 10)), sem = f.repete === "semanal" || f.repete === "diario";
     const quando = sem ? `${DIAS3[diaDaSemana(f.data)]} ${ddmm(f.data)}` : `dia ${pad(f.dia || 1)}`;
     const chegou = c.fase === "passado" || (c.fase === "atual" && d <= c.dias);
     const status = ent ? `<span class="chk ${chegou ? "on" : ""}">${chegou ? "✓ Recebida" : "Dia " + pad(d)}</span>`
@@ -2734,7 +2793,7 @@ function paneF(c, tipo) {
    <form class="addrow ${ent ? "fr" : "fx"}" id="formFx" autocomplete="off">
      <label class="f">Descrição<input class="in" id="xDesc" required maxlength="60" placeholder="${ent ? "Ex.: Salário" : "Ex.: Condomínio"}"></label>
      <label class="f">Categoria<select class="in" id="xCat">${opts(cats(tipo), ent ? "Salário" : "Moradia")}</select></label>
-     <label class="f">Repete<select class="in" id="xRep"><option value="mensal">Todo mês</option><option value="semanal">Toda semana</option></select></label>
+     <label class="f">Repete<select class="in" id="xRep"><option value="mensal">Todo mês</option><option value="semanal">Toda semana</option><option value="diario">Todo dia</option></select></label>
      <label class="f" id="xDiaWrap">${ent ? "Dia que recebe" : "Dia venc."}<input class="in" id="xDia" type="number" min="1" max="31" value="${ent ? 5 : 10}" required></label>
      <label class="f" id="xSemWrap" hidden>Dia da semana<select class="in" id="xSem">${DIAS_SEMANA.map((d, i) => `<option value="${i}"${i === 5 ? " selected" : ""}>${d}</option>`).join("")}</select></label>
      <label class="f">Valor${ent ? "" : " por vez"} (R$)<input class="in money" id="xVal" inputmode="decimal" placeholder="0,00" required></label>
@@ -2744,10 +2803,10 @@ function paneF(c, tipo) {
      <button class="btn primary" type="submit">${ent ? "Adicionar entrada fixa" : "Adicionar fixo"}</button>
    </form>`;
   // O começo é o mês que está na tela (semanal no mês atual começa hoje); o seletor diz quantas vezes dá até cada mês.
-  const comecoX = () => { const sem = $("xRep").value === "semanal"; return { tipo, desde: sem && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", dia: sem ? 1 : Math.min(31, Math.max(1, Number($("xDia").value) || 1)), ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : {}) }; };
+  const comecoX = () => { const sem = $("xRep").value === "semanal", dd = $("xRep").value === "diario"; return { tipo, desde: (sem || dd) && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", dia: sem || dd ? 1 : Math.min(31, Math.max(1, Number($("xDia").value) || 1)), ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : dd ? { repete: "diario" } : {}) }; };
   const prazoX = () => { $("xAte").innerHTML = opcoesDePrazo(comecoX(), $("xAte").value); };
   prazoX(); $("xSem").onchange = prazoX;
-  $("xRep").onchange = () => { const sem = $("xRep").value === "semanal"; $("xDiaWrap").hidden = sem; $("xSemWrap").hidden = !sem; prazoX(); };
+  $("xRep").onchange = () => { const sem = $("xRep").value === "semanal", dd = $("xRep").value === "diario"; $("xDiaWrap").hidden = sem || dd; $("xSemWrap").hidden = !sem; prazoX(); };
   if (!ent) $("xForma").onchange = () => { $("xCartaoWrap").hidden = $("xForma").value !== CARTAO || !cartoesAtivos().length; };
   host.querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
   host.querySelectorAll("tr[data-frow]").forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest("button,a")) editarFixo(tr.dataset.frow); }));
@@ -2780,11 +2839,11 @@ function paneF(c, tipo) {
   $("formFx").addEventListener("submit", async (e) => {
     e.preventDefault();
     const v = parseMoney($("xVal").value); if (!(v > 0) || v > VALOR_MAX) { if (v > VALOR_MAX) toast(ALTO_DEMAIS); $("xVal").focus(); return; }
-    const sem = $("xRep").value === "semanal";
-    // Semanal começa a contar de hoje (ou do dia 1, se a pessoa está olhando outro mês).
-    const row = { tipo, descricao: $("xDesc").value.trim(), categoria: $("xCat").value, dia: sem ? 1 : Math.min(31, Math.max(1, Number($("xDia").value) || 1)),
-      valor: round2(v), forma: ent ? "" : $("xForma").value, desde: sem && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", ate: $("xAte").value ? $("xAte").value + "-01" : null,
-      ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : {}),
+    const sem = $("xRep").value === "semanal", dd = $("xRep").value === "diario";
+    // Semanal e diário começam a contar de hoje (ou do dia 1, se a pessoa está olhando outro mês).
+    const row = { tipo, descricao: $("xDesc").value.trim(), categoria: $("xCat").value, dia: sem || dd ? 1 : Math.min(31, Math.max(1, Number($("xDia").value) || 1)),
+      valor: round2(v), forma: ent ? "" : $("xForma").value, desde: (sem || dd) && S.mes === mKey(hoje()) ? hoje() : S.mes + "-01", ate: $("xAte").value ? $("xAte").value + "-01" : null,
+      ...(sem ? { repete: "semanal", dia_semana: Number($("xSem").value) } : dd ? { repete: "diario" } : {}),
       ...(!ent && $("xForma").value === CARTAO && cartoesAtivos().length ? { cartao_id: $("xCartao").value } : {}) };
     let novo; if (await grava(async () => { novo = await S.store.addFixo(row); })) {
       S.data.fixos.push(novo); render();
@@ -3202,8 +3261,8 @@ function confirmaSemCobrir(r) {
 $("fRepete").addEventListener("change", renderForm);
 $("fAte").addEventListener("change", renderForm);
 // "Quantas vezes?" no formulário de lançar: a base é a mesma que monta as opções do "Vai até".
-ligaVezes($("fVezes"), $("fAte"), () => { const dt = $("fData").value || hoje(), sem = $("fRepete").value === "semanal";
-  return { tipo: S.tipo, desde: sem ? dt : mKey(dt) + "-01", dia: sem ? 1 : Number(dt.slice(8, 10)), ...(sem ? { repete: "semanal", dia_semana: diaDaSemana(dt) } : {}) }; });
+ligaVezes($("fVezes"), $("fAte"), () => { const dt = $("fData").value || hoje(), sem = $("fRepete").value === "semanal", dd = $("fRepete").value === "diario";
+  return { tipo: S.tipo, desde: sem || dd ? dt : mKey(dt) + "-01", dia: sem || dd ? 1 : Number(dt.slice(8, 10)), ...(sem ? { repete: "semanal", dia_semana: diaDaSemana(dt) } : dd ? { repete: "diario" } : {}) }; });
 $("fIrCartoes").onclick = () => { fecharLancar(); S.view = "listas"; S.tab = "c"; render(); $("kNome")?.focus(); };
 
 /* ================= celular: navegação, lançamento em tela cheia e menu ================= */
@@ -6963,7 +7022,7 @@ function aplicaEntendido(f, txt, fonte = "fala") {
 const quemLancou = (x) => (casalAtivo() && x.user_id && x.user_id === S.casal.outro_id ? nomeDoOutro() : "Você");
 /** Para comparar repetidos: cada linha vira "eu" ou "outro" (a pessoa da conta de casal). A linha nova é sempre "eu". */
 const comAutor = (x) => ({ ...x, user_id: casalAtivo() && x.user_id && x.user_id === S.casal.outro_id ? "outro" : "eu" });
-const quandoFixo = (f) => (f.repete === "semanal" ? `toda ${DIAS_SEMANA[Number(f.dia_semana)]}` : `todo dia ${pad(Number(f.dia) || 1)}`);
+const quandoFixo = (f) => (f.repete === "diario" ? "todo dia" : f.repete === "semanal" ? `toda ${DIAS_SEMANA[Number(f.dia_semana)]}` : `todo dia ${pad(Number(f.dia) || 1)}`);
 /**
  * Antes de gravar: se já existe um lançamento (ou fixo) que parece o mesmo, pergunta.
  * Na conta de casal é o que evita a mesma conta entrar duas vezes, uma por pessoa.
@@ -7066,9 +7125,9 @@ $("formLanc").addEventListener("submit", async (e) => {
   const data = $("fData").value || hoje();
   if (S.tipo !== "Reserva" && $("fFixo").checked) {
     // Vira um fixo: conta em todo mês a partir do mês da data, no mesmo dia.
-    const dia = Number(data.slice(8, 10)), ent = S.tipo === "Receita", sem = $("fRepete").value === "semanal", wd = diaDaSemana(data);
-    const fx = { tipo: S.tipo, descricao: $("fDesc").value.trim() || $("fCat").value, categoria: $("fCat").value, dia: sem ? 1 : dia, valor: round2(v),
-      forma: ent ? "" : $("fForma").value, desde: sem ? data : mKey(data) + "-01", ate: $("fAte").value ? $("fAte").value + "-01" : null, ...(sem ? { repete: "semanal", dia_semana: wd } : {}),
+    const dia = Number(data.slice(8, 10)), ent = S.tipo === "Receita", sem = $("fRepete").value === "semanal", dd = $("fRepete").value === "diario", wd = diaDaSemana(data);
+    const fx = { tipo: S.tipo, descricao: $("fDesc").value.trim() || $("fCat").value, categoria: $("fCat").value, dia: sem || dd ? 1 : dia, valor: round2(v),
+      forma: ent ? "" : $("fForma").value, desde: sem || dd ? data : mKey(data) + "-01", ate: $("fAte").value ? $("fAte").value + "-01" : null, ...(sem ? { repete: "semanal", dia_semana: wd } : dd ? { repete: "diario" } : {}),
       ...(cartaoDoForm().cartao_id ? { cartao_id: cartaoDoForm().cartao_id } : {}) };
     const igual = fixoRepetido(S.data.fixos, fx);
     if (igual) { const r = await confirmaRepetido(igual, true); if (r === "nao") return naoLancouRepetido(); if (r === "voltar") return $("fValor").focus(); }
@@ -7081,7 +7140,7 @@ $("formLanc").addEventListener("submit", async (e) => {
     if (!ok) return render();
     flash.style.color = "var(--good)";
     const nVezes = fx.ate ? vezesNoPrazo(fx, mKey(fx.ate)) * (duas ? 2 : 1) : 0;
-    flash.textContent = `${fx.ate ? (ent ? "Entrada com prazo cadastrada" : "Conta com prazo cadastrada") : ent ? "Entrada fixa cadastrada" : "Conta fixa cadastrada"}: ${fx.descricao} · ${brl(fx.valor)}, ${sem ? "toda semana, " + DIAS_SEMANA[wd] : duas ? `todo mês, nos dias ${pad(dia)} e ${pad(dia2)}` : "todo dia " + pad(dia)}${fx.ate ? `, até ${mesAno(mKey(fx.ate))} (${vezesTxt(nVezes)}, ${brl(round2(nVezes * fx.valor))} no total)` : ""}. Para alterar, abra ${ent ? "Entradas fixas" : "Contas fixas"}.`;
+    flash.textContent = `${fx.ate ? (ent ? "Entrada com prazo cadastrada" : "Conta com prazo cadastrada") : ent ? "Entrada fixa cadastrada" : "Conta fixa cadastrada"}: ${fx.descricao} · ${brl(fx.valor)}, ${sem ? "toda semana, " + DIAS_SEMANA[wd] : dd ? "todo dia, a partir de " + ddmm(data) : duas ? `todo mês, nos dias ${pad(dia)} e ${pad(dia2)}` : "todo dia " + pad(dia)}${fx.ate ? `, até ${mesAno(mKey(fx.ate))} (${vezesTxt(nVezes)}, ${brl(round2(nVezes * fx.valor))} no total)` : ""}. Para alterar, abra ${ent ? "Entradas fixas" : "Contas fixas"}.`;
     $("fValor").value = ""; $("fDesc").value = ""; S.catManual = false; S.formaManual = false; limpaSugestoes(); $("fFixo").checked = false; $("fRepete").value = "mensal"; $("fDia2").value = ""; $("fAte").value = ""; $("fVezes").value = "";
     aposLancar(flash.textContent);
     return render();
@@ -7520,13 +7579,14 @@ function editarCartao(id, focaLimite = false) {
 }
 function editarFixo(id) {
   const f = S.data.fixos.find((z) => z.id === id); if (!f) return;
-  const ent = f.tipo === "Receita", l = cats(ent ? "Receita" : "Despesa"), sem = f.repete === "semanal";
+  const ent = f.tipo === "Receita", l = cats(ent ? "Receita" : "Despesa"), sem = f.repete === "semanal", dd = f.repete === "diario";
   // Se o fixo já contava em meses anteriores ao que está na tela, a pessoa escolhe desde quando a mudança vale.
   const temPassado = mKey(f.desde) < S.mes, mesTxt = `${nomeMes(S.mes)} de ${S.mes.slice(0, 4)}`;
   openDlg(`<h3>${ent ? "Editar entrada fixa" : "Editar conta fixa"}</h3><form id="edForm" class="dlg-form" autocomplete="off">
     <label class="f wide">Descrição<input class="in" id="eDesc" required maxlength="60" value="${esc(f.descricao)}"></label>
     <label class="f">Valor (R$)<input class="in money" id="eValor" inputmode="decimal" required value="${esc(f.valor.toLocaleString("pt-BR", { minimumFractionDigits: 2 }))}"></label>
     ${sem ? `<label class="f">Dia da semana<select class="in" id="eSem">${DIAS_SEMANA.map((d, i) => `<option value="${i}"${i === Number(f.dia_semana) ? " selected" : ""}>${d}</option>`).join("")}</select></label>`
+      : dd ? `<p class="hint wide" style="margin:0">Todo dia, a partir de ${ddmm(f.desde)}. Marque no Início se mandou ou não.</p>`
       : `<label class="f">${ent ? "Dia que recebe" : "Dia do vencimento"}<input class="in" id="eDia" type="number" min="1" max="31" required value="${esc(f.dia)}"></label>`}
     <label class="f">Categoria<select class="in" id="eCat">${opts(l.includes(f.categoria) ? l : [f.categoria, ...l], f.categoria)}</select></label>
     ${ent ? "" : `<label class="f">Pagamento<select class="in" id="eForma">${opts(FORMAS, f.forma)}</select></label>
@@ -7551,7 +7611,7 @@ function editarFixo(id) {
     const v = parseMoney($("eValor").value);
     if (avisoValor(v, "350,00")) { $("edMsg").textContent = avisoValor(v, "350,00"); return; }
     const patch = { descricao: $("eDesc").value.trim(), categoria: $("eCat").value, valor: round2(v), forma: ent ? "" : $("eForma").value,
-      ...(sem ? { dia_semana: Number($("eSem").value) } : { dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)) }),
+      ...(sem ? { dia_semana: Number($("eSem").value) } : dd ? {} : { dia: Math.min(31, Math.max(1, Number($("eDia").value) || 1)) }),
       ...(ent || !S.data.cartoes.length ? {} : { cartao_id: noCartao() ? $("eCartao").value || null : null }) };
     // O fim do prazo é do fixo inteiro: se só ele mudou, não precisa criar uma versão nova.
     const ate = $("eAte").value ? $("eAte").value + "-01" : null, antes = f.ate || null, soOPrazo = Object.keys(patch).every((k) => String(patch[k] ?? "") === String(f[k] ?? ""));

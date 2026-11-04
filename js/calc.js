@@ -65,6 +65,7 @@ export const diaDaSemana = (iso) => new Date(Number(iso.slice(0, 4)), Number(iso
 /**
  * Ocorrências dos fixos no mês m: cada vez que um fixo acontece.
  * - Mensal: uma vez, no dia do vencimento. A chave de "pago" é o dia 1 do mês.
+ * - Todo dia (repete = "diario"): uma vez em cada dia do mês, a partir da data de início. A chave de "pago" é a própria data.
  * - Semanal (repete = "semanal"): uma vez em cada dia da semana escolhido, a partir da data de início.
  *   A chave de "pago" é a própria data.
  * Cada ocorrência traz os campos do fixo mais `data` e `chave`.
@@ -72,7 +73,9 @@ export const diaDaSemana = (iso) => new Date(Number(iso.slice(0, 4)), Number(iso
 export function ocorrencias(fixos, m, tipo = "Despesa") {
   const n = dim(m), out = [];
   fixosDoMes(fixos, m, tipo).forEach((f) => {
-    if (f.repete === "semanal") {
+    if (f.repete === "diario") {
+      for (let d = 1; d <= n; d++) { const data = `${m}-${pad(d)}`; if (data >= f.desde) out.push({ ...f, data, chave: data }); }
+    } else if (f.repete === "semanal") {
       for (let d = 1; d <= n; d++) {
         const data = `${m}-${pad(d)}`;
         if (diaDaSemana(data) === Number(f.dia_semana) && data >= f.desde) out.push({ ...f, data, chave: data });
@@ -590,6 +593,7 @@ export function contasEmAtraso(st, hoje, desde = null) {
   for (let m = ini, g = 0; m <= cur && g < 600; m = addM(m, 1), g++) {
     contasDoMes(st, m).forEach((o) => {
       if (noCartao(o) || pagos.has(o.id + "|" + o.chave) || o.data >= hoje) return;
+      if (o.repete === "diario" && diasEntre(hoje, o.data) < -3) return;   // dia antigo sem marcar de um gasto de todo dia não vira atraso
       itens.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias: diasEntre(hoje, o.data), mes: m, chave: o.chave });
     });
   }
@@ -841,6 +845,22 @@ export function diasEntre(a, b) {
 }
 
 /**
+ * Os gastos de todo dia (repete = "diario") que pedem uma marca hoje: o de hoje (qualquer situação) e os dos 3 dias anteriores ainda sem marca.
+ * Situação: "mandei" (marcado como pago), "nao" (deixado fora do mês) ou "falta" (sem marca).
+ * @returns {{id:string, chave:string, titulo:string, valor:number, data:string, dias:number, estado:"mandei"|"nao"|"falta"}[]}  dias = quantos dias atrás (0 = hoje)
+ */
+export function diariosDeHoje(st, hoje) {
+  const m = mKey(hoje), pagos = new Set(st.pagos.map((p) => p.fixo_id + "|" + p.mes)), fora = new Set(st.foraDoMes || []), out = [];
+  [addM(m, -1), m].forEach((mm) => ocorrencias(st.fixos, mm).filter((o) => o.repete === "diario" && !noCartao(o)).forEach((o) => {
+    const dias = diasEntre(o.data, hoje), k = o.id + "|" + o.chave;
+    if (dias < 0 || dias > 3) return;
+    const estado = pagos.has(k) ? "mandei" : fora.has(k) ? "nao" : "falta";
+    if (dias === 0 || estado === "falta") out.push({ id: o.id, chave: o.chave, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias, estado });
+  }));
+  return out.sort((a, b) => a.titulo.localeCompare(b.titulo) || b.data.localeCompare(a.data));
+}
+
+/**
  * Contas a vencer: faturas em aberto e gastos fixos ainda não pagos, do mês atual e do próximo,
  * que vencem em até `janela` dias (as atrasadas também entram). Ordenadas pela data.
  * @returns {{tipo:"fatura"|"fixo", id:string, titulo:string, valor:number, data:string, dias:number, mes:string, chave?:string}[]}
@@ -857,7 +877,8 @@ export function proximosVencimentos(st, hoje, janela = 30) {
     contasDoMes(st, m).forEach((o) => {
       if (noCartao(o) || pagos.has(o.id + "|" + o.chave)) return;   // fixo no cartão é pago junto com a fatura
       const dias = diasEntre(hoje, o.data);
-      if (dias <= janela) out.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias, mes: m, chave: o.chave, semanal: o.repete === "semanal" });
+      if (o.repete === "diario" && (dias > 0 || dias < -3)) return;   // o gasto de todo dia só pede atenção hoje e nos 3 dias anteriores
+      if (dias <= janela) out.push({ tipo: "fixo", id: o.id, titulo: o.descricao, valor: Number(o.valor), data: o.data, dias, mes: m, chave: o.chave, semanal: o.repete === "semanal", diario: o.repete === "diario" });
     });
   });
   return out.sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
@@ -991,7 +1012,7 @@ export function faturasSemValor(st, hoje, janela = 30) {
  * Contas atrasadas há mais de `atrasoMax` dias deixam de ser lembradas, para o aviso não virar ruído.
  */
 export function pendenciasParaAviso(st, hoje, { antes = 3, atrasoMax = 30 } = {}) {
-  const itens = proximosVencimentos(st, hoje, antes).filter((x) => x.dias >= -atrasoMax);
+  const itens = proximosVencimentos(st, hoje, antes).filter((x) => x.dias >= -atrasoMax && !x.diario);   // o gasto de todo dia não entra no aviso por e-mail
   return { itens, atrasadas: itens.filter((x) => x.dias < 0).length, hoje: itens.filter((x) => x.dias === 0).length,
     total: round2(itens.reduce((t, x) => t + x.valor, 0)) };
 }
@@ -1361,6 +1382,7 @@ export function mesmoFixo(a, b) {
   if ((a.tipo || "Despesa") !== (b.tipo || "Despesa") || round2(Number(a.valor)) !== round2(Number(b.valor))) return false;
   const ini = (f) => mKey(f.desde), fim = (f) => (f.ate ? mKey(f.ate) : "9999-12");
   if (ini(a) > fim(b) || ini(b) > fim(a)) return false;   // um acabou antes de o outro começar
+  if (a.repete === "diario" || b.repete === "diario") return a.repete === b.repete || descricaoParecida(a.descricao, b.descricao);
   const semA = a.repete === "semanal", semB = b.repete === "semanal";
   const mesmoDia = semA && semB ? Number(a.dia_semana) === Number(b.dia_semana) : !semA && !semB && Math.abs((Number(a.dia) || 1) - (Number(b.dia) || 1)) <= 2;
   return mesmoDia || descricaoParecida(a.descricao, b.descricao);

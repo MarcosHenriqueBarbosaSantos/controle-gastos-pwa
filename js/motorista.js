@@ -67,6 +67,27 @@ export function custoTotalPorKm(veic) {
   return r && km > 0 ? r.total / km : null;
 }
 
+/** Quanto de diferença (R$) entre o combustível estimado e o lançado já vale um aviso. */
+export const COMB_MIN_AVISO = 50;
+/** Gasto de combustível nos lançamentos: o que a pessoa digitou ou o que as jornadas criaram (categoria ou descrição de combustível). */
+export const ehCombustivel = (x) => x.tipo === "Despesa" && /combust|gasolin|[aá]lcool|etanol|abastec/i.test(`${x.categoria || ""} ${x.descricao || ""}`);
+/**
+ * Combustível do mês pelos km rodados: o que deve ter custado (km das jornadas x custo de combustível por km do "Meu carro")
+ * contra o que já foi lançado como combustível no mês. Se faltar lançar, `falta` diz quanto.
+ * Sem o carro preenchido (km por mês e consumo) ou sem km nas jornadas, devolve null.
+ * @returns {{km:number, porKm:number, estimado:number, lancado:number, falta:number, kmMes:number, passouDoKm:boolean}|null}
+ */
+export function combustivelDoMes(turnos, veic, lancamentos, hoje) {
+  const kmMes = Number(veic?.kmMes), r = custoDoVeiculo(veic), comb = r?.partes.find((p) => p.k === "comb");
+  if (!(kmMes > 0) || !comb) return null;
+  const mes = hoje.slice(0, 7), porKm = comb.valor / kmMes;
+  const km = resumoTurnos(turnos, `${mes}-01`, hoje, veic).km;
+  if (!(km > 0)) return null;
+  const estimado = r2(km * porKm);
+  const lancado = r2((lancamentos || []).filter((x) => String(x.data).slice(0, 7) === mes && ehCombustivel(x)).reduce((t, x) => t + (Number(x.valor) || 0), 0));
+  return { km, porKm: Math.round(porKm * 10000) / 10000, estimado, lancado, falta: Math.max(0, r2(estimado - lancado)), kmMes, passouDoKm: km > kmMes };
+}
+
 /**
  * Soma dos turnos terminados entre duas datas (inclusive, pelo dia em que o turno começou).
  * O lucro desconta o custo do carro por km (tudo: combustível, manutenção, desvalorização...).
