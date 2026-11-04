@@ -129,3 +129,51 @@ export function entendeFala(fala, hoje) {
   }
   return out;
 }
+
+/**
+ * "mercado 50 farmácia 30" (o reconhecimento de fala quase nunca põe vírgula): corta o texto junto de cada valor.
+ * Se a frase começa pelo nome ("mercado 50"), o valor fecha o item; se começa pelo valor ("gastei 50 no mercado 30 na farmácia"), abre.
+ * Frases com data ("dia 5"), parcelas ou centavos não são cortadas: ficam como estão.
+ */
+function divideNoNumero(p) {
+  const semAc = semAcento(p);
+  if (/\bdia \d|\d\s*(?:x|vezes|parcelas)\b|centavos?\b/.test(semAc)) return [p];
+  const achados = [...p.matchAll(/(?<![\p{L}\d])\d+(?:[.¤§,]\d+)*(?:\s*mil\b)?(?:\s*(?:reais|real|contos?|pilas?)\b)?/giu)];
+  if (achados.length < 2) return [p];
+  const antes = semAcento(p.slice(0, achados[0].index)).replace(VERBOS, "").split(/\s+/).filter((w) => w && !PONTAS.test(w));
+  const cortes = antes.length ? achados.slice(0, -1).map((m) => m.index + m[0].length) : achados.slice(1).map((m) => m.index);
+  const out = []; let ini = 0;
+  for (const c of cortes) { out.push(p.slice(ini, c).trim()); ini = c; }
+  out.push(p.slice(ini).trim());
+  return out.filter(Boolean);
+}
+
+/** Quantos itens, no máximo, uma fala vira de uma vez (acima disso a prévia fica comprida e o reconhecimento costuma ter errado). */
+export const MAX_ITENS_FALA = 10;
+/**
+ * Várias coisas numa fala só: "mercado 50, farmácia 30 e uber 20" → três itens.
+ * Separa em vírgula, ponto e vírgula, "e", "depois" e "mais" (sem quebrar "1.250,50" nem "32 reais e 50 centavos") e entende cada pedaço como a fala de um gasto.
+ * Data e forma de pagamento ditas no começo ou no fim ("... ontem no débito") valem para os itens que não disseram a sua.
+ * Devolve null quando não são pelo menos dois itens com valor, quando algum pedaço fica sem valor (a frase está solta demais), quando há
+ * parcelas ou "guardei": aí vale o caminho de um lançamento só.
+ * @returns {{itens:{valor:number, descricao:string, forma?:string, data?:string, tipo:"Despesa"|"Receita"}[], texto:string}|null}
+ */
+export function entendeVarios(fala, hoje) {
+  const original = String(fala || "").trim();
+  if (!original) return null;
+  const antes = original.replace(/(\d)\.(\d)/g, "$1¤$2").replace(/(\d),(\d)/g, "$1§$2").replace(/([;,])/g, " $1 ");
+  const protegido = extensoParaNumero(antes);
+  const pedacos = protegido.split(/\s*(?:;|,|\bdepois\b|\bmais\b|\be\b(?!\s*\d+\s*centavos))\s*/i).map((p) => p.replace(/§/g, ",").replace(/¤/g, ".").trim()).filter(Boolean);
+  const partes = pedacos.flatMap(divideNoNumero);
+  if (partes.length < 2) return null;
+  const lidos = partes.map((p) => entendeFala(p, hoje));
+  if (lidos.some((f) => !(f.valor > 0) || f.parcelas || f.tipo === "Reserva")) return null;
+  const primeiro = lidos[0], ultimo = lidos[lidos.length - 1];
+  const comum = (campo) => ultimo[campo] ?? primeiro[campo];
+  const itens = lidos.slice(0, MAX_ITENS_FALA).map((f) => ({
+    valor: f.valor, tipo: f.tipo, descricao: f.descricao || (f.tipo === "Receita" ? "Entrada" : "Gasto"),
+    ...((f.forma || (f.tipo === "Despesa" && comum("forma"))) ? { forma: f.forma || comum("forma") } : {}),
+    ...((f.data || comum("data")) ? { data: f.data || comum("data") } : {}),
+  }));
+  return { itens, texto: original };
+}

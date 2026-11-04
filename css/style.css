@@ -2519,3 +2519,11 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .res-carro{margin:14px 16px 0;padding:14px;border-radius:16px;background:var(--surface);border:1px solid var(--border);display:grid;gap:8px}
 .res-carro h3{margin:0;font-size:16px} .res-carro p{margin:0;font-size:15px;line-height:1.4;color:var(--ink)} .res-carro small{color:var(--muted);font-size:12.5px}
 .res-carro.km{background:var(--warn-soft)}
+
+/* v226: várias coisas numa fala (prévia para conferir) */
+.pv-lista{list-style:none;margin:0 0 10px;padding:0;display:grid;gap:10px}
+.pv-item{display:grid;gap:6px;padding:10px;border-radius:12px;background:var(--surface-2);border:1px solid var(--border)}
+.pv-topo{display:grid;grid-template-columns:1fr 112px;gap:8px} .pv-baixo{display:flex;gap:8px;align-items:center}
+.pv-baixo select{flex:1;min-width:0} .pv-tag{flex:1;color:var(--good);font-weight:700;font-size:14px}
+.pv-item .in{min-height:44px} .pv-baixo .btn.sm{min-height:44px}
+.pv-total{margin:6px 0 0;font-size:14px;color:var(--ink-2)}
