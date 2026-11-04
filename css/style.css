@@ -2455,3 +2455,7 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .ml-voz{display:flex;align-items:center;gap:10px;margin:6px 0;padding:10px 12px;border-radius:14px;background:var(--series-soft);border:1px solid color-mix(in srgb,var(--series) 40%,transparent);font-size:14px} .ml-voz .ic{width:20px;height:20px;flex:none;color:var(--series)} .ml-voz[hidden]{display:none}
 #mlVoz.ativo{background:var(--series);color:var(--on-series)}
 .ml-add .ml-voz-btn{background:var(--sunk);color:var(--ink);box-shadow:none;border:1px solid var(--border)}
+/* v214: mês passado no vermelho, no topo do Início */
+.hero-atras.hero-vermelho{cursor:default;padding-right:8px}
+.hero-vermelho .t{border:0;background:none;color:inherit;font:inherit;text-align:left;cursor:pointer;padding:0}
+.hero-vermelho .hero-vm-x{flex:none;border:0;border-radius:12px;background:rgba(255,255,255,.16);color:inherit;font:inherit;font-size:12px;font-weight:600;line-height:1.25;padding:8px 10px;min-height:44px;cursor:pointer}

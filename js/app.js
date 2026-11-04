@@ -1053,7 +1053,9 @@ const revisaoAberta = (m) => Boolean(revisoesFeitas()[m]) || (Array.isArray(S.pr
 function htmlFecharMes(c) {
   const hj = hoje(), ant = addM(mKey(hj), -1);
   if (c.fase !== "atual" || Number(hj.slice(8, 10)) > 7 || revisaoAberta(ant) || !(calcMes(S.data, ant, hj).custo > 0)) return "";
-  return `<button type="button" class="hero-atras hero-fecha" id="heroFecha" data-m="${ant}"><span class="t"><small>Fechar ${nomeMes(ant)}</small><b>O que deu certo e onde ajustar</b><span>3 passos rápidos para começar ${nomeMes(mKey(hj))} já organizado.</span></span>${ico("chev")}</button>`;
+  // Se o mês passado fechou no vermelho, o próprio convite diz quanto foi (assim o topo não ganha uma linha a mais).
+  const sd = calcMes(S.data, ant, hj).saldo, verm = sd <= -1 && !S.prefs.motorista?.usa ? `${nomeMes(ant)[0].toUpperCase() + nomeMes(ant).slice(1)} fechou <b class="ocultavel">${brl(-sd)}</b> no vermelho. ` : "";
+  return `<button type="button" class="hero-atras hero-fecha" id="heroFecha" data-m="${ant}"><span class="t"><small>Fechar ${nomeMes(ant)}</small><b>O que deu certo e onde ajustar</b><span>${verm}3 passos rápidos para começar ${nomeMes(mKey(hj))} já organizado.</span></span>${ico("chev")}</button>`;
 }
 /** Conta de casal, nos primeiros 5 dias do mês: o acerto do mês passado (quem passa quanto para quem). Toque abre a conta de casal. */
 function htmlAcertoCasalIni(c) {
@@ -1062,6 +1064,17 @@ function htmlAcertoCasalIni(c) {
   if (!r.total || !r.quem) return "";
   const outro = esc(nomeDoOutro());
   return `<button type="button" class="hero-atras" id="heroAcerto" data-m="${ant}"><span class="t"><small>Acerto de ${nomeMes(ant)}</small><b class="ocultavel">${r.quem === "outro" ? `${outro} passa ${brl(r.valor)} para você` : `Você passa ${brl(r.valor)} para ${outro}`}</b><span>Pelos gastos que cada um lançou. Toque para ver ou mandar por mensagem.</span></span>${ico("chev")}</button>`;
+}
+/**
+ * Mês atual: se o mês passado fechou no vermelho (gastou mais do que entrou), uma linha avisa quanto foi.
+ * Só informa, não muda nenhuma conta. "Não mostrar neste mês" esconde a linha até o mês virar; o mês passado segue no Extrato.
+ * S.prefs.vermelhoOculto: { "2026-10": true } guarda de qual mês a linha foi escondida.
+ */
+function htmlMesPassadoVermelho(c, dMot) {
+  if (c.fase !== "atual" || dMot || S.prefs.motorista?.usa || htmlFecharMes(c)) return "";
+  const hj = hoje(), ant = addM(mKey(hj), -1), r = calcMes(S.data, ant, hj);
+  if (!(r.rec > 0 || r.custo > 0) || !(r.saldo <= -1) || (S.prefs.vermelhoOculto || {})[mKey(hj)]) return "";
+  return `<div class="hero-atras hero-vermelho"><button type="button" class="t" id="heroVermelho" data-m="${ant}"><small>Mês passado</small><b class="ocultavel">${nomeMes(ant)[0].toUpperCase() + nomeMes(ant).slice(1)} fechou ${brl(-r.saldo)} no vermelho</b><span>Os gastos passaram do que entrou. Toque para ver ${nomeMes(ant)}.</span></button><button type="button" class="hero-vm-x" id="heroVermelhoX">Não mostrar<br>neste mês</button></div>`;
 }
 function htmlFicouParaTras(c, rx, dMot) {
   if (c.fase === "futuro" || (S.prefs.atrasAdiado && S.prefs.atrasAdiado > hoje())) return "";
@@ -1116,7 +1129,7 @@ function renderKpis(c) {
   // Conta nova, ainda sem nada: no lugar dos "R$ 0", um convite para começar (as três perguntas ou o primeiro gasto).
   const semEnt = semEntradaNoMes(c), motUsa = Boolean(S.prefs.motorista?.usa), dMot = motUsa && atualM ? painelDoMotorista() : null;   // o ganho do motorista entra aos poucos: o mês dele se mede pelas contas, não pelo salário
   const mesNaTela = `<div class="hero-mes"><button type="button" data-hero-nav="prev" aria-label="Mês anterior">${ico("chev")}</button><b>${mesTitulo}</b><button type="button" data-hero-nav="next" aria-label="Próximo mês">${ico("chev")}</button>${atualM ? "" : `<button type="button" class="hero-hoje" data-hero-nav="hoje">Mês atual</button>`}<button type="button" class="hero-busca" data-hero-nav="btnBuscarM" aria-label="Buscar">${ico("busca")}</button></div>`;
-  const ficou = htmlParabensSemana(c) + htmlFecharMes(c) + htmlAcertoCasalIni(c) + htmlFicouParaTras(c, rx, dMot);
+  const ficou = htmlParabensSemana(c) + htmlFecharMes(c) + htmlAcertoCasalIni(c) + htmlMesPassadoVermelho(c, dMot) + htmlFicouParaTras(c, rx, dMot);
   const vazio = atualM && !S.data.lancamentos.length && !S.data.fixos.length && !(S.data.faturas || []).length;
   if (vazio) {
     $("resumo").innerHTML = `${guiaVisivel() ? "" : `<div class="hero banco est-neutro hero-vazio">
@@ -1261,6 +1274,11 @@ function ligaMotoristaIni() {
   if ($("heroFora")) $("heroFora").onclick = () => contaDoMesTela();
   if ($("heroAtras")) $("heroAtras").onclick = () => atrasadasTela();
   if ($("heroFecha")) $("heroFecha").onclick = () => revisaoTela($("heroFecha").dataset.m);
+  if ($("heroVermelho")) $("heroVermelho").onclick = () => { S.mes = $("heroVermelho").dataset.m; render(); scrollTo(0, 0); };
+  if ($("heroVermelhoX")) $("heroVermelhoX").onclick = async () => {
+    const k = mKey(hoje()); S.prefs.vermelhoOculto = { ...(S.prefs.vermelhoOculto || {}), [k]: true }; await salvaPrefs(); render();
+    toastDesfazer("Ok, não mostro mais neste mês. O mês passado continua no Extrato.", async () => { const o = { ...(S.prefs.vermelhoOculto || {}) }; delete o[k]; S.prefs.vermelhoOculto = o; await salvaPrefs(); render(); });
+  };
   if ($("heroAcerto")) $("heroAcerto").onclick = () => { const era = S.mes; S.mes = $("heroAcerto").dataset.m; abrirCasal(); $("dlg").addEventListener("close", () => { S.mes = era; render(); }, { once: true }); };
   document.querySelectorAll("[data-hero-nav]").forEach((b) => (b.onclick = () => $(b.dataset.heroNav).click()));
   document.querySelectorAll("[data-agora]").forEach((b) => (b.onclick = () => { const k = b.dataset.agora; if (k === "hoje") return S.prefs.motorista?.usa ? motoristaTela() : cabeHojeTela(); if (k === "conta") return $("venc").scrollIntoView({ block: "start", behavior: "smooth" }); if (k === "meta") return todasAsMetas(); planosTela(); }));
