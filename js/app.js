@@ -7179,11 +7179,18 @@ function aplicaEntendido(f, txt, fonte = "fala") {
   }
   if (f.forma && f.tipo === "Despesa") { $("fForma").value = f.forma; S.formaManual = true; }
   renderForm();
+  // "no cartão da minha mãe": escolhe o cartão cujo nome combina com o que foi dito
+  let cartaoNaoAchado = "";
+  if (f.cartaoCitado && f.tipo === "Despesa" && $("fForma").value === CARTAO) {
+    const k = cartoesAtivos().find((c) => norm(c.nome).split(/\s+/).some((w) => w.length >= 3 && (w === f.cartaoCitado || w.startsWith(f.cartaoCitado) || f.cartaoCitado.startsWith(w))));
+    if (k && $("fCartao")) { $("fCartao").value = k.id; renderForm(); } else cartaoNaoAchado = f.cartaoCitado;
+  }
   if (f.parcelas && f.tipo === "Despesa" && !$("fParcWrap").hidden) { $("fParc").innerHTML = optsParcelas(f.valor || 0, f.parcelas); renderForm(); }
   const partes = [f.descricao || (f.tipo === "Receita" ? "Entrada" : f.tipo === "Reserva" ? (f.retirada ? "Retirada" : "Guardar") : ""), f.valor ? brl(f.valor) : "",
-    f.tipo === "Despesa" ? $("fForma").value + (f.parcelas ? ` em ${f.parcelas}x` : "") : "", ($("fData").value === hoje() ? "hoje" : ddmm($("fData").value))].filter(Boolean);
+    f.tipo === "Despesa" ? $("fForma").value + (f.parcelas ? ` em ${f.parcelas}x` : "") + ($("fForma").value === CARTAO && $("fCartao")?.value && cartaoPorId($("fCartao").value) && cartoesAtivos().length > 1 ? ` (${cartaoPorId($("fCartao").value).nome})` : "") : "", ($("fData").value === hoje() ? "hoje" : ddmm($("fData").value))].filter(Boolean);
   const flash = $("flash");
   if (!f.valor) { flash.style.color = "var(--warn)"; flash.textContent = fonte === "mensagem" ? "Li a mensagem, mas não achei o valor. Digite o valor e confira o resto." : `Ouvi “${txt}”, mas não entendi o valor. Digite o valor e confira o resto.`; $("fValor").focus(); return; }
+  if (cartaoNaoAchado) { flash.style.color = "var(--warn)"; flash.textContent = `Entendi: ${partes.join(" · ")}. Não achei um cartão com o nome “${cartaoNaoAchado}”: escolha o cartão e toque em ${$("fOk").textContent}.`; $("fOk").focus(); return; }
   flash.style.color = "var(--good)"; flash.textContent = `Entendi: ${partes.join(" · ")}. Confira e toque em ${$("fOk").textContent}.`;
   $("fOk").focus();
 }

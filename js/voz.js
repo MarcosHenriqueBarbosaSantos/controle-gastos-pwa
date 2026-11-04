@@ -60,7 +60,9 @@ const FORMAS_FALA = [
 const ENTRADA = /\b(recebi|ganhei|entrou|entraram|caiu|cairam|me pagaram|pagaram|salario caiu)\b/;
 const GUARDAR = /\b(guardei|poupei|investi|reservei|separei)\b/;
 const RETIRAR = /\b(retirei|tirei|resgatei|saquei)\b/;
-const VERBOS = /^(gastei|paguei|comprei|comi|tomei|abasteci|coloquei|botei|dei|fiz|foi|foram|recebi|ganhei|entrou|caiu|guardei|poupei|investi|reservei|separei|retirei|tirei|resgatei|lancar|lanca|anota|anotar)\b\s*/;
+const VERBOS = /^(gastei|paguei|comprei|troquei|consertei|arrumei|contratei|assinei|renovei|comi|tomei|abasteci|coloquei|botei|dei|fiz|foi|foram|recebi|ganhei|entrou|caiu|guardei|poupei|investi|reservei|separei|retirei|tirei|resgatei|lancar|lanca|anota|anotar)\b\s*/;
+const RUIDO = /^(eu|tenho|tinha|tive|meu|minha|meus|minhas|nosso|nossa|vou|vamos|quero|parcelar|parcelei|parcelo|dividir|passei|passar)$/;
+const NAO_NOME_CARTAO = /^(credito|debito|de|do|da|dos|das|em|no|na|ontem|hoje|anteontem|para|pra|por|pelo|pela|com|que|e|ou|mas|vou|vamos|parcelado|vezes|reais|real|todo|todos|esse|este)$/;
 const PONTAS = /^(e|de|do|da|dos|das|no|na|nos|nas|em|com|pro|pra|para|por|pelo|pela|o|a|os|as|um|uma|uns|umas|foi|deu|custou|reais|real|hoje|agora)$/;
 
 /**
@@ -84,7 +86,7 @@ export function entendeFala(fala, hoje) {
   const parc = t.match(/\b(?:em |de )?(\d{1,2})\s*(?:x|vezes|parcelas)\b/);
   if (parc && Number(parc[1]) >= 2) { out.parcelas = Number(parc[1]); out.forma = "Cartão de crédito"; }
   if (parc) tira(parc[0]);
-  tira(/\b(a vista|a prazo|sem juros|parcelado)\b/);
+  tira(/\b(a vista|a prazo|sem juros|parcelad[oa]s?)\b/);
 
   // Data: hoje, ontem, anteontem, "dia 5"
   if (/\banteontem\b/.test(t)) { out.data = diasAntes(hoje, 2); tira(/\banteontem\b/); }
@@ -100,6 +102,9 @@ export function entendeFala(fala, hoje) {
     out.data = data; tira(dia[0]);
   }
 
+  // Cartão citado pelo nome: "no cartão da minha mãe", "no cartão roxo". O app acha o cartão pelo nome.
+  const dono = t.match(/\b(?:no |na |pelo |pela |com |em )?cartao\s+(?:d[aeo]s?\s+)?(?:(?:minha|meu|nossa|nosso)\s+)?([a-z][a-z0-9]{2,})\b/);
+  if (dono && !NAO_NOME_CARTAO.test(dono[1])) { out.cartaoCitado = dono[1]; out.forma = "Cartão de crédito"; tira(dono[0]); }
   // Forma de pagamento
   for (const [re, forma] of FORMAS_FALA) { const m = t.match(re); if (m) { if (!out.forma) out.forma = forma; tira(m[0]); } }
 
@@ -118,7 +123,7 @@ export function entendeFala(fala, hoje) {
 
   // Descrição: o que sobrou, sem o verbo do começo e sem preposições nas pontas ("no mercado" → "Mercado").
   t = t.replace(VERBOS, "");
-  const palavras = t.split(" ").filter(Boolean);
+  const palavras = t.split(" ").filter((p) => p && !RUIDO.test(p));
   while (palavras.length && PONTAS.test(palavras[0])) palavras.shift();
   while (palavras.length && PONTAS.test(palavras[palavras.length - 1])) palavras.pop();
   if (palavras.length) {
