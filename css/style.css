@@ -2558,3 +2558,10 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .cv-linha:has(> :nth-child(2):last-child){grid-template-columns:1fr 1fr}
 .cv-acoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 8px} .cv-acoes .btn{min-height:56px;font-size:18px}
 .cv-hist{margin:8px 0;padding:12px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border)} .cv-hist h4{margin:0 0 6px;font-size:15px} .cv-hist p{margin:0 0 4px;font-size:14px;line-height:1.35}
+
+/* v232: como usar em três passos para quem acabou de chegar */
+.como-passos{list-style:none;counter-reset:p;margin:0;padding:0;display:grid;gap:8px}
+.como-passos li{counter-increment:p;display:grid;grid-template-columns:32px 1fr;gap:2px 10px;align-items:start}
+.como-passos li::before{content:counter(p);grid-row:span 2;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--series,#2f6bff);color:#fff;font-weight:700}
+.como-passos b{font-size:16px} .como-passos span{font-size:14px;color:var(--ink-2)}
+.mot-dia-como{margin:6px 0 0;font-size:15px;line-height:1.35}

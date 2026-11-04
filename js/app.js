@@ -1293,6 +1293,8 @@ function ligaMotoristaIni() {
   const hc = document.querySelector(".hero.cheia"); if (hc && noCelular()) hc.style.minHeight = `calc(100dvh - ${Math.round(hc.getBoundingClientRect().top + scrollY + (document.querySelector(".agora")?.offsetHeight || 0) - 30)}px - var(--bnav-h,69px))`;
   if ($("heroFora")) $("heroFora").onclick = () => ($("heroFora").textContent.includes("dia a dia") ? rotaTela() : contaDoMesTela());
   if ($("heroRota")) $("heroRota").onclick = () => rotaTela();
+  if ($("comoOk")) $("comoOk").onclick = async () => { S.prefs.comoMotOk = true; await salvaPrefs(); render(); };
+  if ($("comoIr")) $("comoIr").onclick = async () => { S.prefs.comoMotOk = true; await salvaPrefs(); motoristaTela(); };
   if ($("combLanca")) $("combLanca").onclick = () => lancaCombustivelEstimado(Number($("combLanca").dataset.v));
   if ($("resLiga")) $("resLiga").onclick = () => { if (ligaReservaUnica(undefined, "diario")) toast("Reserva do carro ligada. Todo dia rodado você marca Guardei aqui no Início."); };
   document.querySelectorAll("[data-res]").forEach((b) => (b.onclick = () => marcaReservaDia(b.dataset.res, b.dataset.d)));
@@ -2364,7 +2366,7 @@ function fraseDaRota(rota, motorista) {
     const porDia = round2(p.precisa / (p.dias + 1));
     return { falta: true, frase: ult ? `Seu dinheiro paga as contas até ${rotaQuando(ult)}.` : p.dias <= 0 ? `Hoje faltam ${brl(p.precisa)}${contas ? ` para ${contas}` : ""}.` : `Ainda não há dinheiro para as contas de ${rotaQuando(p)}.`,
       sub: [ult ? `${contasCob}.` : "", ult ? depois : contas && p.dias > 0 ? `Para ${contas}: faltam ${brl(p.precisa)}.` : "",
-        `Para pagar ${contas || "as contas"} em dia, o Uber precisa trazer ${brl(p.precisa)} ${p.dias <= 0 ? "hoje" : p.dias === 1 ? "até amanhã" : `até ${rotaQuando(p)}`}${p.dias >= 1 ? ` (cerca de ${brl(porDia)} por dia)` : ""}.`].filter(Boolean).join("\n") };
+        `Para pagar ${contas || "as contas"} em dia, o Uber precisa trazer ${brl(p.precisa)} ${p.dias <= 0 ? "hoje" : p.dias === 1 ? "até amanhã" : `até ${rotaQuando(p)}`}${p.dias >= 1 ? ` (cerca de ${brl(porDia)} por dia, só até lá)` : ""}.`].filter(Boolean).join("\n") };
   }
   if (contas) return { falta: true, frase: ult ? `Seu dinheiro paga as contas até ${rotaQuando(ult)}.` : `${rotaQuando(p)[0].toUpperCase()}${rotaQuando(p).slice(1)} faltam ${brl(p.precisa)} para ${contas}.`,
     sub: [ult ? `${contasCob}.` : "", ult ? `${depois} Arrume um jeito de pagar essa parte.` : "Arrume um jeito de pagar.", entra ? `Depois entra ${juntaNomes(entra.entradas)}, ${rotaQuando(entra)}.` : ""].filter(Boolean).join("\n") };
@@ -2515,8 +2517,15 @@ function reservaDoCarroAgora(partes = S.prefs.reservaCarro?.partes) {
 }
 /** Como a pessoa quer ser lembrada de guardar: "diario" (marca Guardei todo dia rodado), "mensal", "nenhum" ou "" (nunca escolheu). */
 const avisoDaReserva = () => S.prefs.reservaCarro?.aviso || "";
+/** Para quem acabou de chegar: o objetivo do app em três passos, no lugar dos avisos. Some com "Entendi" ou depois da primeira jornada. */
+function htmlComoUsarMot() {
+  return `<section class="res-carro como-mot" aria-label="Como usar"><h3>Como o Meus Gastos ajuda quem roda</h3>
+    <ol class="como-passos"><li><b>Inicie a jornada</b><span>antes de sair para rodar.</span></li><li><b>Lance o que gastou</b><span>combustível, pedágio e comida, em 5 segundos.</span></li><li><b>Veja quanto sobrou</b><span>por hora, por km e no mês, depois das contas.</span></li></ol>
+    <div class="comb-acoes"><button type="button" class="btn primary" id="comoIr">Começar pela Jornada</button><button type="button" class="btn" id="comoOk">Entendi</button></div></section>`;
+}
 /** Os avisos do motorista no Início: no máximo dois de uma vez (reserva do carro, combustível, km), para a tela não virar uma fila de recados. */
 function cartoesMot(dMot) {
+  if (!S.prefs.comoMotOk && !motDados().turnos.length) return htmlComoUsarMot();
   const { reserva, km } = htmlReservaCarro(dMot);
   return [reserva, htmlCombustivel(), km].filter(Boolean).slice(0, 2).join("");
 }
@@ -2655,7 +2664,7 @@ function htmlAgora(c, dMot) {
   const hj = hoje(), pg = dMot || semEntradaNoMes(c) ? null : podeGastarHoje(c, gastoAVistaDoDia(S.data, hj)), prox = proximosVencimentos(S.data, hj, 30)[0], a = metaPrincipal(metasEmAndamento(S.data, S.prefs.metas, hj));
   const quando = (d) => (d <= 0 ? "hoje" : d === 1 ? "amanhã" : `em ${d} dias`);
   const cartao = (k, rot, val, sub) => `<button type="button" class="agora-c" data-agora="${k}"><small>${rot}</small><b class="ocultavel">${val}</b><span>${sub}</span></button>`;
-  return `<section class="agora" aria-label="Agora"><div class="agora-lista">${dMot ? cartao("hoje", "Meta de hoje", dMot.meta.coberto ? "Coberta" : brl(dMot.meta.brutoDia), "Para fechar o mês inteiro")
+  return `<section class="agora" aria-label="Agora"><div class="agora-lista">${dMot ? cartao("hoje", "Meta de hoje", dMot.meta.coberto ? "Coberta" : brl(dMot.meta.brutoDia), "Média por dia para fechar o mês")
     : pg ? cartao("hoje", pg.resta >= 0 ? "Cabem hoje" : "Passou hoje", brl(Math.abs(pg.resta)), "Entenda esse valor") : cartao("hoje", "Hoje", "Anotar", "Lançar um gasto")}${prox ? cartao("conta", "Próxima conta", brl(prox.valor), `${esc(prox.titulo)} · ${quando(prox.dias)}`) : cartao("conta", "Próxima conta", "Nenhuma", "Nada para os próximos dias")}${a ? cartao("meta", "Minha meta", `${a.pct}%`, esc(a.destino)) : cartao("planos", "Meus planos", "Criar", "Férias, casa, carro")}</div>
     <button type="button" class="agora-mes" id="agoraMes">Ver o mês completo</button></section>`;
 }
@@ -5408,6 +5417,7 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas }) {
   if (comemora) { S.metaBatida = hj; vibra(40); }
   return `<section class="mot-dia cheia${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${dataPorExtenso(hj)}</small><button type="button" class="mot-dia-pill" data-mot-sub="desafios">Desafios</button></div><h2 class="ocultavel">${f.titulo}</h2>
     ${!acima && !doDia.ganho ? "" : `<p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>`}
+    ${!m.turnos.length ? `<p class="mot-dia-como"><b>Como funciona:</b> inicie a jornada, lance o que gastou e veja quanto sobrou.</p>` : ""}
     ${regra ? `<p class="mot-dia-regra">Busque corridas de <b>${brl(regra.boa)} por km</b> ou mais.</p><p class="mot-dia-minimo">Seu mínimo: ${brl(regra.minimo)} por km${regra.custoKm > 0 ? ` (custo ${brl(regra.custoKm)} + ${brl(1)} de lucro)` : ""}.</p>` : ""}
     <button class="mot-dia-prog" type="button" id="motProg"><span class="t ocultavel"><b>Hoje: ${brl(doDia.ganho)}</b>${meta.coberto ? "" : `<span>de ${brl(meta.brutoDia)}</span>`}</span>${meta.coberto ? "" : `<span class="tbar"><i style="width:${pct}%"></i></span>`}</button>
     ${htmlSemanaMot(m, hj, meta)}
