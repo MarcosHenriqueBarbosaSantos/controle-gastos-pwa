@@ -4479,6 +4479,33 @@ function concluiLista() {
   toast("Compra lançada. Os itens do carrinho saíram da lista; o que ficou de fora continua nela." + resumoDaCompra(f.total, f.media));
 }
 
+/** Itens comuns para quem começa a lista do zero e ainda não tem histórico de compras. */
+const ITENS_BASICOS = ["Arroz", "Feijão", "Leite", "Ovos", "Pão", "Café", "Açúcar", "Óleo", "Macarrão", "Carne", "Frango", "Banana"];
+/**
+ * Vários itens de uma vez: "arroz, feijão; leite" (ou um por linha). Falado, o "e" também separa ("arroz e feijão").
+ * Tira palavras de comando do começo ("preciso de", "comprar"), repetidos e vazios.
+ */
+function nomesDoTexto(texto, falado = false) {
+  const sep = falado ? /[,;\n]|\s+e\s+/i : /[,;\n]/;
+  const vistos = new Set(), saida = [];
+  for (let nome of String(texto || "").split(sep)) {
+    nome = nome.trim().replace(/^(preciso de|precisamos de|comprar|compra|põe|poe|põem|coloca|adiciona|adicionar|anota|anotar|quero)\s+/i, "").replace(/^(o|a|os|as|um|uma)\s+/i, "").replace(/[.!?]+$/, "").trim();
+    const k = norm(nome); if (nome && !vistos.has(k)) { vistos.add(k); saida.push(nome.slice(0, 40)); }
+  }
+  return saida;
+}
+/** "2 leites", "dois leites", "3x ovos" → { nome: "leites", qtd: 2 }. Com medida ("2 litros de leite") fica tudo no nome. */
+function qtdDoNome(texto) {
+  const PAL = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, "três": 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9, dez: 10 };
+  const m = String(texto || "").trim().match(/^(\d{1,2}|[a-zê]+)\s*x?\s+(.+)$/i);
+  if (!m) return { nome: String(texto || "").trim(), qtd: 1 };
+  const q = /^\d+$/.test(m[1]) ? Number(m[1]) : PAL[m[1].toLowerCase()];
+  const resto = m[2].trim();
+  if (!q || q < 1 || q > 99 || /^(litros?|l|kg|quilos?|g|gramas?|pacotes?|caixas?|latas?|garrafas?|duzias?|dúzias?|unidades?)\b/i.test(resto)) return { nome: String(texto).trim(), qtd: 1 };
+  // Com número, o nome vem no plural ("2 leites"); o item fica no singular ("leite" × 2) para achar o corredor e repetidos.
+  const unico = resto.split(" ").length === 1 && resto.length > 3 && /[aeo]s$/i.test(resto) ? resto.slice(0, -1) : resto;
+  return { nome: unico, qtd: q };
+}
 function mercado() {
   trazListaAntiga(); S.listaFinalizando = null;
   const catsD = cats("Despesa"), padrao = catsD.includes("Mercado") ? "Mercado" : catsD[0];
@@ -4510,7 +4537,9 @@ function mercado() {
       </li>`;
     };
     const raiz = $("dlg"), rolou = raiz.scrollTop;
-    const sug = modo === "montar" ? sugestoesDeItens(S.prefs.ultimaCompraMercado, hist, l.itens, 10) : [];
+    let sug = modo === "montar" ? sugestoesDeItens(S.prefs.ultimaCompraMercado, hist, l.itens, 10) : [];
+    const sugBasica = modo === "montar" && !sug.length && l.itens.length < 4;   // sem histórico: os itens comuns, até a lista ter 4
+    if (sugBasica) sug = ITENS_BASICOS.filter((n) => !itemNaLista(l.itens, n));
     openDlg(`<div id="mlRoot" class="modo-${modo}"><h3>Lista de mercado</h3>
       <div class="ml-modos" role="tablist" aria-label="Jeito de usar a lista"><button type="button" role="tab" data-modo="montar" aria-selected="${modo === "montar"}">${ico("editar")}Montar a lista</button><button type="button" role="tab" data-modo="mercado" aria-selected="${modo === "mercado"}">${ico("carrinho")}No mercado</button></div>
       ${outro ? `<p class="ml-par">${ico("casal")}<span>Dividida com <b>${esc(outro)}</b>. O que um adiciona ou marca aparece para o outro em instantes.</span></p>` : ""}
@@ -4523,12 +4552,14 @@ function mercado() {
       <form id="mlForm" class="ml-add" autocomplete="off">
         <input class="in" id="mlNome" maxlength="40" list="mlSug" placeholder="${modo === "montar" ? "O que precisa comprar?" : "Adicionar item"}" aria-label="Procurar na lista ou adicionar um item" enterkeyhint="done" value="${esc(busca)}">
         <input class="in money ml-add-preco" id="mlPreco" inputmode="decimal" placeholder="Preço" aria-label="Preço do item, opcional. Com preço, o item já entra no carrinho" enterkeyhint="done">
+        ${Reconhecedor ? `<button class="ml-mais ml-voz-btn" type="button" id="mlVoz" aria-label="Falar os itens da lista">${ico("mic")}</button>` : ""}
         <button class="ml-mais ml-foto-add" type="button" id="mlFotoAdd" aria-label="Ler o nome e o preço da etiqueta pela câmera">${ico("camera")}</button>
         <button class="ml-mais" type="submit" aria-label="Adicionar à lista">${ico("mais")}</button>
         <datalist id="mlSug">${Object.keys(precos).slice(-60).map((k) => `<option value="${esc(k)}">`).join("")}</datalist>
       </form>
+      <p class="ml-voz" id="mlVozPainel" role="status" aria-live="polite" hidden>${ico("mic")}<span id="mlVozTxt">Ouvindo… diga os itens, por exemplo: arroz, feijão e leite.</span></p>
       <p class="hint ml-busca-info" id="mlBuscaInfo" role="status" aria-live="polite" hidden></p>
-      ${sug.length ? `<div class="ml-sug" aria-label="Você sempre compra"><small>Toque para pôr na lista</small><div>${sug.map((n) => `<button type="button" class="chip" data-sug="${esc(n)}">+ ${esc(n)}</button>`).join("")}</div></div>` : ""}
+      ${sug.length ? `<div class="ml-sug" aria-label="${sugBasica ? "Itens comuns" : "Você sempre compra"}"><small>${sugBasica ? "Itens comuns: toque para pôr na lista" : "Toque para pôr na lista"}</small><div>${sug.map((n) => `<button type="button" class="chip" data-sug="${esc(n)}">+ ${esc(n)}</button>`).join("")}</div></div>` : ""}
       ${repetir.length ? `<button class="btn sm ml-repete" type="button" id="mlRepete">Repetir a última compra · ${repetir.length} ${repetir.length === 1 ? "item" : "itens"}</button>` : ""}
       ${falta.length ? `<h4 class="ml-h">Falta pegar <span>${falta.length}</span></h4>${falta.length >= 6 ? agrupaPorCorredor(falta).map((g) => `<h5 class="ml-corr">${esc(g.corredor)}</h5><ul class="ml-lista">${g.itens.map(linha).join("")}</ul>`).join("") : `<ul class="ml-lista">${falta.map(linha).join("")}</ul>`}` : l.itens.length ? `<p class="ml-vazio">Tudo no carrinho. Toque em Finalizar compra.</p>` : `<p class="ml-vazio">A lista está vazia.<br>Digite o que precisa comprar e toque em +.</p>`}
       ${nocar.length ? `<h4 class="ml-h">No carrinho <span>${nocar.length}</span></h4>${modo === "mercado" ? `<p class="hint ml-dica-car">Para mudar o preço, toque na bolinha e o item volta para a lista.</p>` : ""}<ul class="ml-lista">${nocar.map(linha).join("")}</ul>` : ""}
@@ -4560,15 +4591,30 @@ function mercado() {
     }));
     aplicaBusca();
     const edita = (id, fn) => muda((m) => { const x = m.itens.find((z) => z.id === id); if (x) { fn(x); x.t = agora(); } });
+    // Vários itens de uma vez: digitados com vírgula ou falados.
+    const adicionaNomes = (nomes) => {
+      let novos = 0;
+      muda((m) => { for (const bruto of nomes) { const { nome, qtd } = qtdDoNome(bruto); if (m.itens.length >= 300 || itemNaLista(m.itens, nome)) continue; m.itens.push({ id: crypto.randomUUID(), nome: nome.slice(0, 40), qtd, preco: 0, pego: false, t: agora() }); novos++; } });
+      busca = ""; desenha(); vibra?.();
+      toast(novos ? `${novos} ${novos === 1 ? "item adicionado" : "itens adicionados"}.` : "Esses itens já estavam na lista.");
+    };
+    if ($("mlVoz")) $("mlVoz").onclick = () => {
+      if (escutaLista.ativa) return escutaLista.parar();
+      aoFalaLista = (txt) => { const nomes = nomesDoTexto(txt, true); if (nomes.length) adicionaNomes(nomes); else toast("Não entendi os itens. Tente de novo, falando devagar."); };
+      $("mlVozPainel").hidden = false; $("mlVoz").classList.add("ativo");
+      if (!escutaLista.iniciar()) { $("mlVozPainel").hidden = true; $("mlVoz").classList.remove("ativo"); toast("Não foi possível ouvir agora. Digite os itens."); }
+    };
     $("mlForm").addEventListener("submit", (ev) => {
       ev.preventDefault();
-      const nome = $("mlNome").value.trim();
+      let nome = $("mlNome").value.trim(), qtdNova = 1;
+      { const varios = nomesDoTexto(nome, false); if (varios.length > 1) { adicionaNomes(varios); return; } }
+      { const q = qtdDoNome(nome); nome = q.nome; qtdNova = q.qtd; }
       if (!nome) { toast("Digite o nome do item, por exemplo arroz."); return $("mlNome").focus(); }
       if (listaDe().itens.length >= 300) return void toast("A lista chegou a 300 itens. Finalize ou limpe antes de adicionar mais.");
       if (itemNaLista(listaDe().itens, nome)) { toast(`${nome.slice(0, 40)} já está na lista.`); $("mlNome").select(); return; }
       const pv = $("mlPreco").value.trim() ? (avaliaConta($("mlPreco").value) ?? parseMoney($("mlPreco").value)) : 0, comPreco = pv > 0 && pv <= VALOR_MAX;
       if ($("mlPreco").value.trim() && !comPreco) { toast("Confira o preço. Deixe em branco se ainda não sabe."); return $("mlPreco").focus(); }
-      muda((m) => { m.itens.push({ id: crypto.randomUUID(), nome: nome.slice(0, 40), qtd: 1, preco: comPreco ? round2(pv) : 0, pego: comPreco, t: agora() }); });
+      muda((m) => { m.itens.push({ id: crypto.randomUUID(), nome: nome.slice(0, 40), qtd: qtdNova, preco: comPreco ? round2(pv) : 0, pego: comPreco, t: agora() }); });
       busca = ""; desenha(); $("mlNome").focus();
       if (comPreco) toast(`${nome.slice(0, 40)} já está no carrinho: ${brl(pv)}.`);
     });
@@ -6699,6 +6745,18 @@ const escuta = criaEscuta({
   },
 });
 $("btnVoz").hidden = !Reconhecedor;
+/** Falar a lista de mercado: "arroz, feijão e leite" vira três itens. Quem trata o texto é o mercado(). */
+let aoFalaLista = null;
+const escutaLista = criaEscuta({
+  Reconhecedor,
+  aoMudar: (m) => { const el = $("mlVozTxt"); if (el && m.texto) el.textContent = `“${m.texto}”`; },
+  aoFinalizar: (r) => {
+    const p = $("mlVozPainel"); if (p) p.hidden = true; $("mlVoz")?.classList.remove("ativo");
+    if (r.motivo === "cancelado") return;
+    if (r.texto) return aoFalaLista?.(r.texto);
+    toast(mensagemDeErro(r));
+  },
+});
 /** Uma vez só: um balão sobre o + conta que dá para segurar e falar. Aparece depois do segundo lançamento, quando a pessoa já pegou o jeito. */
 function dicaSegurar() {
   if (!Reconhecedor || S.prefs.motorista?.usa) return;

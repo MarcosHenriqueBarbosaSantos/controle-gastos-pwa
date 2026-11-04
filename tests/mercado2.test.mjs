@@ -5,6 +5,7 @@ import { corredorDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, ite
 
 test("corredor: reconhece itens comuns, com acento, plural e caixa diferentes", () => {
   assert.equal(corredorDoItem("Tomates"), "Hortifruti");
+  assert.equal(corredorDoItem("Ovos"), "Frios e laticínios");
   assert.equal(corredorDoItem("  Pão francês "), "Padaria");
   assert.equal(corredorDoItem("Frango"), "Açougue e peixaria");
   assert.equal(corredorDoItem("Leite integral"), "Frios e laticínios");

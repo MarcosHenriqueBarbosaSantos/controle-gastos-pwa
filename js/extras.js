@@ -706,10 +706,10 @@ export function juntaLista(a, b, agora = Date.now()) {
 /* ---- corredores, repetir a última compra e variação de preço ---- */
 /** Corredores na ordem em que quase todo mercado é percorrido; cada um com as palavras que o reconhecem no nome do item. */
 export const CORREDORES = [
-  ["Hortifruti", ["banana", "maca", "laranja", "limao", "tomate", "cebola", "alho", "batata", "cenoura", "alface", "abacate", "mamao", "melancia", "abobrinha", "pepino", "pimentao", "couve", "brocolis", "fruta", "verdura", "legume", "manga", "uva", "mandioca", "ovo", "ovos"]],
+  ["Hortifruti", ["banana", "maca", "laranja", "limao", "tomate", "cebola", "alho", "batata", "cenoura", "alface", "abacate", "mamao", "melancia", "abobrinha", "pepino", "pimentao", "couve", "brocolis", "fruta", "verdura", "legume", "manga", "uva", "mandioca"]],
   ["Padaria", ["pao", "paes", "bolo", "biscoito", "bolacha", "torrada", "broa"]],
   ["Açougue e peixaria", ["carne", "frango", "peixe", "linguica", "bife", "costela", "file", "coxa", "peito", "moida", "acem", "patinho", "tilapia", "salmao", "camarao", "salsicha"]],
-  ["Frios e laticínios", ["leite", "queijo", "presunto", "mussarela", "iogurte", "manteiga", "margarina", "requeijao", "creme de leite", "mortadela", "nata"]],
+  ["Frios e laticínios", ["leite", "queijo", "presunto", "mussarela", "iogurte", "manteiga", "margarina", "requeijao", "creme de leite", "mortadela", "nata", "ovo", "ovos"]],
   ["Mercearia", ["arroz", "feijao", "macarrao", "farinha", "acucar", "sal", "oleo", "azeite", "cafe", "molho", "extrato", "milho", "aveia", "cereal", "fuba", "tempero", "vinagre", "lentilha", "sardinha", "atum", "achocolatado", "gelatina", "maionese", "ketchup"]],
   ["Bebidas", ["agua", "suco", "refrigerante", "cerveja", "vinho", "refri", "cha", "energetico"]],
   ["Limpeza", ["detergente", "sabao", "amaciante", "desinfetante", "agua sanitaria", "esponja", "multiuso", "limpa", "saco de lixo", "lixo", "vassoura", "alvejante", "papel aluminio", "guardanapo"]],

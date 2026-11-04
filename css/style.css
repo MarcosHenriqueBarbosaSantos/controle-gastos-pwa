@@ -2452,3 +2452,6 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .ds-passos b{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--series);color:var(--on-series);font-size:14px} .ds-passos strong{color:var(--ink)}
 .ds-membros{list-style:none;margin:0;padding:0;display:grid;gap:2px} .ds-membros li{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:48px;padding:4px 2px;border-bottom:1px solid var(--border)}
 .ds-membros .n{display:grid;gap:1px;min-width:0} .ds-membros .n small{font-size:12.5px;color:var(--muted)}
+.ml-voz{display:flex;align-items:center;gap:10px;margin:6px 0;padding:10px 12px;border-radius:14px;background:var(--series-soft);border:1px solid color-mix(in srgb,var(--series) 40%,transparent);font-size:14px} .ml-voz .ic{width:20px;height:20px;flex:none;color:var(--series)} .ml-voz[hidden]{display:none}
+#mlVoz.ativo{background:var(--series);color:var(--on-series)}
+.ml-add .ml-voz-btn{background:var(--sunk);color:var(--ink);box-shadow:none;border:1px solid var(--border)}
