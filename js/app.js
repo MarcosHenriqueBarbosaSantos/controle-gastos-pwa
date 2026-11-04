@@ -2257,7 +2257,7 @@ function renderEvo() {
     return `<button type="button" class="evo-m${x.m === S.mes ? " aqui" : ""}" data-m="${x.m}" data-i="${i}" aria-label="${nome}: entraram ${brl0(x.rec)}, custo de ${brl0(x.custo)}, ${sobra}${x.fase === "atual" ? " até agora" : x.fase === "futuro" ? " (previsto)" : ""}. Abrir o mês">
       <span class="evo-b"><i class="ent" style="height:${alt(x.rec)}%"></i><i class="cus" style="height:${alt(x.custo)}%"></i></span>
       <span class="evo-n">${MES3[Number(x.m.slice(5)) - 1]}${x.fase === "atual" ? "*" : ""}</span>
-      <span class="evo-s${x.sobra < 0 ? " neg" : ""}">${x.sobra < 0 ? "− " : "+ "}${curto(Math.abs(x.sobra))}</span></button>`; }).join("")}</div>
+      <span class="evo-s${x.sobra < 0 ? " neg" : ""}">${x.sobra < 0 ? "− " : "+ "}R$ ${curto(Math.abs(x.sobra))}</span></button>`; }).join("")}</div>
     <div class="tip" hidden></div>${meses.some((x) => x.fase === "atual") ? `<p class="hint evo-nota">* Mês em andamento: os números ainda vão mudar.</p>` : ""}`;
   const tip = host.querySelector(".tip");
   const mostra = (b) => {
