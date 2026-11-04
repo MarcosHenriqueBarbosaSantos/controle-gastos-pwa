@@ -2486,9 +2486,9 @@ button.ct-linha:not(:disabled){cursor:pointer}
 @media (max-width:980px){#graficos>section:last-child{order:-1}}
 
 /* v222: o mês dia a dia — o que entra e sai em cada data e até onde o dinheiro vai */
-.hero .rota-sub{display:block;margin-top:6px;font-size:16px;line-height:1.35;color:#fff;font-weight:600}
+.hero .rota-sub{display:block;white-space:pre-line;margin-top:6px;font-size:16px;line-height:1.35;color:#fff;font-weight:600}
 .rota-resumo{display:grid;gap:4px;margin:0 0 10px;padding:12px 14px;border-radius:14px;background:var(--good-soft);color:var(--ink);font-size:15px;line-height:1.35}
-.rota-resumo b{font-size:17px} .rota-resumo.bad{background:var(--warn-soft)} .rota-resumo span{color:var(--ink-2)}
+.rota-resumo b{font-size:17px} .rota-resumo.bad{background:var(--warn-soft)} .rota-resumo span{color:var(--ink-2);white-space:pre-line}
 .rota-lista{list-style:none;margin:0 0 12px;padding:0;display:grid}
 .rota-dia{display:grid;grid-template-columns:72px 1fr;gap:12px;padding:12px 0;border-top:1px solid var(--border)} .rota-dia:first-child{border-top:0}
 .rota-data{display:grid;align-content:start;gap:1px} .rota-data b{font-size:16px} .rota-data small{font-size:12.5px;color:var(--muted)}

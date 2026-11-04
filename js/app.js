@@ -1168,6 +1168,7 @@ function renderKpis(c) {
     <div class="hero-top"><span class="l">${rotulo}</span>
       <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
     ${frN || fraseDoMes ? `<h2 class="hero-frase ocultavel">${frN ? frN.frase : fraseDoMes}</h2>` : ""}
+    ${frN?.sub ? `<span class="n rota-sub ocultavel">${frN.sub}</span>` : ""}
     <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
     ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
     <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : atualM ? `ainda livres de ${brl(sb.livre)} depois das contas` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span></div>` : ""}
@@ -2313,16 +2314,24 @@ const juntaNomes = (l) => { const n = [...new Set(l.map((x) => x.titulo))]; retu
  */
 function fraseDaRota(rota, motorista) {
   if (!rota) return null;
-  const p = rota.prazo;
-  if (!p) return { falta: false, frase: `As contas de ${nomeMes(mKey(hoje()))} estão cobertas.`, sub: rota.proximo ? `Próxima conta: ${juntaNomes(rota.proximo.saidas)}, ${rotaQuando(rota.proximo)}.` : "" };
-  const contas = p.saidas.length ? juntaNomes(p.saidas) : "";
+  const p = rota.prazo, minimo = Math.min(rota.saldoHoje, ...rota.pontos.map((x) => x.saldo));
+  if (!p) {
+    const prox = rota.proximo ? `Próxima conta: ${juntaNomes(rota.proximo.saidas)}, ${rotaQuando(rota.proximo)}.` : "";
+    return minimo > 0 ? { falta: false, frase: `Você tem ${brl(minimo)} livres para gastar.`, sub: `Já descontando todas as contas do mês. ${prox}`.trim() }
+      : { falta: false, frase: `As contas de ${nomeMes(mKey(hoje()))} estão cobertas.`, sub: prox };
+  }
+  // O que o dinheiro paga antes de faltar, e o que fica sem pagar depois.
+  const cobertas = rota.pontos.filter((x) => x.dias < p.dias && x.saidas.length), ult = cobertas[cobertas.length - 1];
+  const contasCob = ult ? juntaNomes(cobertas.flatMap((x) => x.saidas)) : "", contas = p.saidas.length ? juntaNomes(p.saidas) : "";
+  const depois = `Depois disso faltam ${brl(p.precisa)}${contas ? ` para ${contas}, ${rotaQuando(p)}` : ""}.`;
+  const entra = rota.pontos.find((x) => x.dias > p.dias && x.entradas.length);
   if (motorista) {
     const porDia = round2(p.precisa / (p.dias + 1));
-    return { falta: true, frase: p.dias <= 0 ? `Hoje faltam ${brl(p.precisa)}.` : `Até ${rotaQuando(p)}, faltam ${brl(p.precisa)}.`,
-      sub: `${contas ? `Para ${contas}. ` : ""}O Uber precisa trazer cerca de ${brl(porDia)} por dia ${p.dias <= 0 ? "hoje" : p.dias === 1 ? "até amanhã" : `até ${rotaQuando(p)}`}.` };
+    return { falta: true, frase: ult ? `Seu dinheiro paga as contas até ${rotaQuando(ult)}.` : p.dias <= 0 ? `Hoje faltam ${brl(p.precisa)}.` : `Ainda não há dinheiro para as contas de ${rotaQuando(p)}.`,
+      sub: [ult ? `${contasCob}.` : "", ult ? depois : contas ? `Para ${contas}: faltam ${brl(p.precisa)}.` : "", `O Uber precisa trazer cerca de ${brl(porDia)} por dia ${p.dias <= 0 ? "hoje" : p.dias === 1 ? "até amanhã" : `até ${rotaQuando(p)}`}.`].filter(Boolean).join("\n") };
   }
-  const entra = rota.pontos.find((x) => x.dias > p.dias && x.entradas.length);
-  if (contas) return { falta: true, frase: `${rotaQuando(p)[0].toUpperCase()}${rotaQuando(p).slice(1)} faltam ${brl(p.precisa)} para ${contas}.`, sub: entra ? `Depois entra ${juntaNomes(entra.entradas)}, ${rotaQuando(entra)}.` : "" };
+  if (contas) return { falta: true, frase: ult ? `Seu dinheiro paga as contas até ${rotaQuando(ult)}.` : `${rotaQuando(p)[0].toUpperCase()}${rotaQuando(p).slice(1)} faltam ${brl(p.precisa)} para ${contas}.`,
+    sub: [ult ? `${contasCob}.` : "", ult ? `${depois} Arrume um jeito de pagar essa parte.` : "Arrume um jeito de pagar.", entra ? `Depois entra ${juntaNomes(entra.entradas)}, ${rotaQuando(entra)}.` : ""].filter(Boolean).join("\n") };
   return { falta: true, frase: entra ? `Faltam ${brl(p.precisa)} até entrar ${juntaNomes(entra.entradas)}, ${rotaQuando(entra)}.` : `O dinheiro acaba ${rotaQuando(p)}.`, sub: "" };
 }
 /** O mês dia a dia: o que entra e o que sai em cada data, e até onde o dinheiro vai. */
@@ -5811,7 +5820,7 @@ function paneMotSub(host) {
       <label class="f">Horas por dia<select class="in" id="motHoras">${[4, 5, 6, 7, 8, 9, 10, 11, 12, 14].map((n) => `<option${n === m.horasDia ? " selected" : ""}>${n}</option>`).join("")}</select></label>
       <label class="f wide">Quero sobrar a mais no mês (R$)<input class="in money" id="motExtra" inputmode="decimal" placeholder="0,00" value="${m.extra ? esc(virg(m.extra)) : ""}"></label>
       <div class="actions wide"><button class="btn primary" type="submit">Salvar</button></div></form></div>`;
-    $("motAjForm").addEventListener("submit", (e) => { e.preventDefault(); gravaMot({ ...motDados(), diasSemana: Number($("motDias").value) || 6, horasDia: Number($("motHoras").value) || 8, extra: Math.max(0, nm($("motExtra").value)) }); toast("Meta salva."); volta(); });
+    $("motAjForm").addEventListener("submit", (e) => { e.preventDefault(); gravaMot({ ...motDados(), diasSemana: Number($("motDias").value) || 6, horasDia: Number($("motHoras").value) || 8, extra: Math.max(0, nm($("motExtra").value)) }); toast("Meta salva."); render(); volta(); });
   } else if (motSub === "ganho") {
     host.innerHTML = topo("Ganho do dia", "Some o que os apps (Uber, 99, iFood...) e as corridas particulares renderam até agora e digite aqui. Assim o app diz quanto você está rendendo por hora. No fim, você informa o total de cada app.") +
       `<form id="motGanho" class="dlg-form" autocomplete="off"><label class="f wide">Ganho do dia até agora (R$)<input class="in money" id="mgnVal" inputmode="decimal" placeholder="0,00" value="${m.ativo.parcial ? esc(virg(m.ativo.parcial)) : ""}"></label>
