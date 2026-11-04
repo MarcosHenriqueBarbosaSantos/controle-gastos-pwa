@@ -305,6 +305,7 @@ async function boot() {
   else if (location.hash === "#sou-motorista") { try { localStorage.setItem("cg-sou-mot", "1"); } catch { /* nada */ } S.querCriar = true; S.atalho = "motorista"; history.replaceState(null, "", location.pathname); }
   else if (location.hash.startsWith("#desafio=")) { try { localStorage.setItem("cg-desafio-cod", location.hash.slice(9).toUpperCase()); } catch { /* nada */ } S.atalho = "desafios"; S.querCriar = true; history.replaceState(null, "", location.pathname); }
   else if (location.hash === "#criar") { S.querCriar = true; history.replaceState(null, "", location.pathname); }
+  else if (location.hash === "#entrar") { S.querEntrar = true; history.replaceState(null, "", location.pathname); }   // o "Entrar" do site: quem já tem conta cai direto na aba Entrar
   try { localStorage.removeItem("cg-modo"); } catch { /* nada */ }   // versões antigas guardavam a demonstração para sempre
   // Chegou por um atalho do ícone (segurar o ícone do app) ou por "Compartilhar" de outro aplicativo: o app abre e já vai direto ao ponto.
   const chegada = new URLSearchParams(location.search);
@@ -351,7 +352,7 @@ function showAuth(modo = "") {
   if (lembrado && !$("aEmail").value) $("aEmail").value = lembrado;
   // Quem já entrou neste aparelho vê "Entrar"; quem nunca entrou vê "Criar conta".
   const aviso = S.avisoDeEntrada || "", tipo = S.avisoTipo || "err"; S.avisoDeEntrada = ""; S.avisoTipo = "";
-  authModo(modo || (S.querCriar ? "criar" : lembrado || aviso ? "entrar" : "criar"), aviso, aviso ? tipo : ""); S.querCriar = false;
+  authModo(modo || (S.querEntrar ? "entrar" : S.querCriar ? "criar" : lembrado || aviso ? "entrar" : "criar"), aviso, aviso ? tipo : ""); S.querCriar = false; S.querEntrar = false;
 }
 function authMsg(t, kind = "") { const m = $("authMsg"); m.textContent = t; m.className = "auth-msg " + kind; }
 function authModo(m, msg = "", kind = "") {

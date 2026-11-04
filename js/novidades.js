@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "220", itens: ["Quem já tem conta e toca em Entrar no site agora cai direto na aba Entrar do app, e não mais em Criar conta."] },
   { versao: "219", itens: ["Gráficos, Últimos meses: o quanto sobrou (ou faltou) em cada mês agora mostra o R$, por exemplo + R$ 682.", "Gráficos no celular: Por categoria (para onde foi o dinheiro) agora vem logo depois da sobra, antes do custo acumulado."] },
   { versao: "218", itens: ["Contas fixas: no alto da lista, três quadros mostram quanto falta pagar (e quanto disso está atrasado), quanto já foi pago e quanto vai na fatura do cartão. Antes só havia o total no fim da lista."] },
   { versao: "217", itens: ["Início no celular: os atalhos Contas fixas, Cartões, Mercado, Gráficos e Calendário, e os cartões com a fatura aberta, agora ficam sempre à vista, logo abaixo dos Próximos vencimentos. Antes estavam escondidos em Mais do seu mês.", "Mais do seu mês continua com o casal, a previsão e as dicas."] },
