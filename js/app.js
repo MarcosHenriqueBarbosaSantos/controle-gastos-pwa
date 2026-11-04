@@ -13,12 +13,12 @@ import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtrato
 import { saldosDoCasal } from "./casalvisao.js";
 import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefoi.js";
 import { entreMinhasContas, pixComoCartao, gruposEmOutros, nomeDoLancamento, movimentosJaLancados, repetidosDeImportacao, movimentosDeContasFixas, contasQueSeRepetem, proximasRepetidas } from "./arrumar.js";
-import { entendeFala, entendeVarios, entendeMeses } from "./voz.js";
+import { entendeFala, entendeVarios, entendeMeses, entendeCorrida } from "./voz.js";
 import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, NOME_RESERVA_CARRO, PARTES_DO_CARRO, PARTES_PADRAO, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, corridaVale, resumoDasOfertas, MAX_OFERTAS, NOME_RESERVA_CARRO, PARTES_DO_CARRO, PARTES_PADRAO, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -789,7 +789,7 @@ function render() {
 /* ---------- chegar por atalho do ícone ou por "Compartilhar" de outro aplicativo ---------- */
 async function aoChegar() {
   const atalho = S.atalho, compartilhado = S.compartilhado; S.atalho = ""; S.compartilhado = false;
-  if (!compartilhado) { if (atalho === "lancar" || atalho === "qr" || atalho === "voz") abrirLancar(); if (atalho === "qr") abrirQr(); if (atalho === "voz") ouvirGasto(); if (atalho === "mercado") mercado(); if (atalho === "desafios") { motoristaTela(); motEntra("desafios"); } if (atalho === "motorista") motoristaTela(); return; }
+  if (!compartilhado) { if (atalho === "lancar" || atalho === "qr" || atalho === "voz") abrirLancar(); if (atalho === "qr") abrirQr(); if (atalho === "voz") ouvirGasto(); if (atalho === "mercado") mercado(); if (atalho === "vale") { motoristaTela(); setTimeout(corridaValeTela, 150); } if (atalho === "jornada") motoristaTela(); if (atalho === "desafios") { motoristaTela(); motEntra("desafios"); } if (atalho === "motorista") motoristaTela(); return; }
   // O arquivo ou o texto compartilhado foi guardado pelo app neste aparelho (sw.js) e é apagado assim que é lido.
   let arquivo = null, texto = "";
   try {
@@ -1733,7 +1733,7 @@ function htmlSobra(c) {
   const metasMes = c.fase === "atual" && S.loaded ? metasAGuardarNoMes(S.data, S.prefs.metas, hoje()) : 0;
   // Entram na conta as metas marcadas "Contar nas contas do mês" (em cada meta) ou todas, se a opção geral estiver ligada.
   const metasNaConta = c.fase === "atual" && S.loaded ? round2(metasEmAndamento(S.data, S.prefs.metas, hoje()).filter((x) => !x.concluida && !x.pulou && x.esteMes > 0 && (S.prefs.metasNoCusto === true || S.prefs.metas?.[x.destino]?.noMes)).reduce((t, x) => t + x.esteMes, 0)) : 0;
-  const contaMetas = metasNaConta > 0;
+  const contaMetas = metasNaConta > 0, mot = Boolean(S.prefs.motorista?.usa);
   const s = sobraDoMes(c, contaMetas ? metasNaConta : 0), mes = nomeMes(S.mes), atual = c.fase === "atual";
   if (!S.loaded) return "";
   if (!(s.entra > 0)) return `<section class="sobra-pl"><h2>O que sobra para viver ${mes}</h2>
@@ -1748,9 +1748,12 @@ function htmlSobra(c) {
     ${s.guardado ? linha("− Guardado", "reserva, investimentos e metas", "− " + brl(s.guardado)) : ""}
     ${metasMes > 0 ? `<li class="opc${contaMetas ? "" : " desligada"}"><span><b>${contaMetas ? "− " : ""}Metas das caixinhas</b><small>falta guardar neste mês · opcional</small>
       <label class="check sm"><input type="checkbox" id="sobraMetas" ${contaMetas ? "checked" : ""}> Contar na conta do mês</label></span><b class="v">${contaMetas ? "− " : ""}${brl(contaMetas ? metasNaConta : metasMes)}</b></li>` : ""}
-    ${linha(`= Sobra para viver ${mes}`, "mercado, transporte, lazer: o dia a dia", brl(s.livre), "tot" + (s.livre <= 0 ? " neg" : ""))}</ul>`;
-  if (s.livre <= 0) return `<section class="sobra-pl"><h2>O que sobra para viver ${mes}</h2>${cascata}
-    <p class="sobra-aviso bad">As contas fixas e o que já tem dono passam das entradas: este mês não sobra nada para o dia a dia. Cada gasto novo aumenta o que falta.</p></section>`;
+    ${s.livre < 0 ? linha(`= Falta cobrir em ${mes}`, "o que as entradas de agora ainda não pagam", brl(-s.livre), "tot warn") : linha(`= Sobra para viver ${mes}`, "mercado, transporte, lazer: o dia a dia", brl(s.livre), "tot" + (s.livre <= 0 ? " neg" : ""))}</ul>`;
+  if (s.livre <= 0) {
+    const rf = mot && atual ? fraseDaRota(rotaDoMes(S.data, hoje(), { comMedia: false }), true) : null;
+    return `<section class="sobra-pl"><h2>${mot ? `Como está ${mes}` : `O que sobra para viver ${mes}`}</h2>${rf ? `<div class="sobra-rota ocultavel"><b>${rf.frase}</b><span>${rf.sub.replace(/\n/g, "<br>")}</span></div>` : ""}${cascata}
+      <p class="sobra-aviso ${mot ? "warn" : "bad"}">${mot ? "As entradas de agora ainda não cobrem as contas do mês. O que você ainda vai ganhar rodando entra aos poucos: veja na Jornada quanto fazer por dia." : "As contas fixas e o que já tem dono passam das entradas: este mês não sobra nada para o dia a dia. Cada gasto novo aumenta o que falta."}</p></section>`;
+  }
   const pct = Math.min(100, s.pct), idealPct = Math.min(100, (s.ideal / s.livre) * 100), passou = s.resta < 0;
   const ritmo = !atual ? "" : s.ritmo === "dentro"
     ? `<p class="sobra-aviso ok">No ritmo certo. Hoje é dia ${c.dias} de ${c.n}: para a sobra durar o mês todo, dava para ter usado até <b>${brl(s.ideal)}</b>, e você usou <b>${brl(s.usado)}</b>.</p>`
@@ -2081,7 +2084,7 @@ function calendario(m, escolhido = "") {
   const linha = (x, i) => `<li class="s-${x.situacao.replace(" ", "-")}"><span class="q"><i aria-hidden="true">${SIT[x.situacao][0]}</i>${SIT[x.situacao][1]}</span><button type="button" class="t" data-ced="${i}" aria-label="${esc(x.titulo)}: editar"><b>${esc(x.titulo)}</b><span>${esc(tipoCal(x))} · toque para editar</span></button><span class="v">${brl(x.valor)}</span>${x.situacao === "paga" ? `<button class="btn sm leve" type="button" data-cdes="${i}">Não paguei</button>` : `<button class="btn sm" type="button" data-cpg="${i}">Já paguei</button>`}</li>`;
   openDlg(`<h3>Calendário de vencimentos</h3>
     <div class="cal-nav"><button class="iconbtn" type="button" id="calAnt" aria-label="Mês anterior">${ico("esq")}</button><b>${nomeMes(m)} de ${ano}</b><button class="iconbtn" type="button" id="calProx" aria-label="Próximo mês">${ico("dir")}</button></div>
-    ${cal.aPagar || cal.pago || cal.entra ? `<div class="cal-res3"><span><small>Entra</small><b class="ok">${brl(cal.entra)}</b></span><span><small>Contas</small><b>${brl(cal.aPagar + cal.pago)}</b>${cal.pago ? `<small>${brl(cal.pago)} já pago</small>` : ""}</span><span><small>Sobra</small><b class="${sobra < 0 ? "neg" : ""}">${brl(sobra)}</b></span></div>` : `<p class="hint cal-res">Nenhuma conta neste mês. Cadastre as contas fixas e o cartão para ver os vencimentos aqui.</p>`}
+    ${cal.aPagar || cal.pago || cal.entra ? `<div class="cal-res3"><span><small>Entra</small><b class="ok">${brl(cal.entra)}</b></span><span><small>Contas</small><b>${brl(cal.aPagar + cal.pago)}</b>${cal.pago ? `<small>${brl(cal.pago)} já pago</small>` : ""}</span><span><small>${sobra < 0 ? "Falta cobrir" : "Sobra"}</small><b class="${sobra < 0 ? "warn" : ""}">${brl(Math.abs(sobra))}</b></span></div>${S.prefs.motorista?.usa && !cal.entra ? `<p class="hint cal-res">Aqui só entra o que já está marcado. O que você ainda vai ganhar rodando não está contado.</p>` : ""}` : `<p class="hint cal-res">Nenhuma conta neste mês. Cadastre as contas fixas e o cartão para ver os vencimentos aqui.</p>`}
     <div class="cal" role="group" aria-label="Dias de ${nomeMes(m)}">${["D", "S", "T", "Q", "Q", "S", "S"].map((x, i) => `<span class="cal-s" aria-hidden="true" title="${DIAS_SEMANA[i]}">${x}</span>`).join("")}${"<span></span>".repeat(cal.vazios)}${cal.dias.map(casa).join("")}</div>
     <p class="cal-leg" aria-hidden="true"><span class="s-atrasada"><i>!</i>atrasada</span><span class="s-a-vencer"><i>●</i>a vencer</span><span class="s-paga"><i>✓</i>paga</span><span class="s-entra"><i>+</i>entrada</span>${diaZero ? `<span class="s-acaba"><i>◆</i>dinheiro acaba</span>` : ""}</p>
     ${diaZero ? `<p class="cal-acaba" role="status">No ritmo de agora, o dinheiro do mês acaba <b>dia ${diaZero.slice(8, 10)}</b>.</p>` : ""}
@@ -2338,7 +2341,7 @@ const tipoDoLanc = (x) => x.tipo === "Receita" ? "Entrada" : x.tipo === "Reserva
   : Number(x.parcelas) > 1 ? `${x.parcelas}x no cartão` : x.forma === CARTAO ? "No cartão" : "Dia a dia";
 /** "hoje", "amanhã" ou "dia 10": a data de um ponto da rota do mês. */
 const rotaQuando = (p) => (p.dias <= 0 ? "hoje" : p.dias === 1 ? "amanhã" : `dia ${p.data.slice(8, 10)}`);
-const juntaNomes = (l) => { const n = [...new Set(l.map((x) => x.titulo))]; return n.length <= 1 ? n.join("") : n.length === 2 ? n.join(" e ") : `${n.slice(0, -1).join(", ")} e ${n[n.length - 1]}`; };
+const juntaNomes = (l) => { const n = [...new Set(l.map((x) => esc(x.titulo)))]; return n.length <= 1 ? n.join("") : n.length === 2 ? n.join(" e ") : `${n.slice(0, -1).join(", ")} e ${n[n.length - 1]}`; };
 /**
  * O que dizer no alto do Início sobre as datas do mês: o primeiro prazo em que falta dinheiro (ou que está tudo coberto).
  * Motorista: o ganho de amanhã não conta; vira "quanto o Uber precisa trazer por dia". Os outros: o dinheiro anda no ritmo de agora.
@@ -3641,7 +3644,7 @@ const GRUPOS_FERR = [
 const HUBS = {
   conferir: { ico: "lupa", t: "Conferir meus lançamentos", s: "Tirar o que está repetido e dar categoria ao que ficou em \"Outros\"", k: "arrumar limpar corrigir revisar conferir repetido duplicado outros categoria transferencia",
     intro: "Deixe os lançamentos certos para os números do app baterem com a sua vida.", itens: ["arrumar", "revisar"] },
-  analise: { ico: "rumo", t: "Resumo do mês", s: "Como foi, para onde foi, o que ajustar, o ano e as assinaturas", k: "analise relatorio resumo revisao fechar balanco atraso ordem comparar evolucao ano assinaturas conquistas onde gastei",
+  analise: { ico: "rumo", t: "Como foi o seu mês", s: "Revisão, para onde foi o dinheiro, o ano e as assinaturas", k: "analise relatorio resumo revisao fechar balanco atraso ordem comparar evolucao ano assinaturas conquistas onde gastei",
     intro: "Escolha o que você quer entender sobre o seu dinheiro.", itens: ["revisao", "graficos", "pof", "ordem", "ganhogasto", "desemp", "ano", "assin", "conq"] },
   baixar: { ico: "baixar", t: "Exportar e backup", s: "Relatório em Excel, PDF ou CSV e cópia de segurança", k: "excel pdf csv planilha exportar baixar backup restaurar seguranca",
     intro: "Leve os seus dados com você ou guarde uma cópia.", itens: ["btnExport", "copia"] },
@@ -5412,7 +5415,7 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas }) {
     <div class="mot-dia-base">${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
     <label class="mot-dia-odo">Km no painel do carro<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="${ultimoPainel ? `último: ${odoTxt(ultimoPainel)}` : "ex.: 84.120"}"></label>
     <button class="mot-dia-bt" type="button" id="motIniciar">Iniciar jornada</button>
-    <div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button></div></div></section>`;
+    <div class="mot-dia-links"><button class="mot-dia-2" type="button" id="motVale">Essa corrida vale?</button><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button></div></div></section>`;
 }
 const htmlTresMot = (tit, hora, km, viagem, pe = "") => `<section class="mot-tres" aria-label="${tit}"><h3>${tit}</h3><div>${[["Por hora", hora], ["Por km", km], ["Por viagem", viagem]].map(([r, v]) => `<p><small>${r}</small><b class="ocultavel">${v === null ? "—" : brl(v)}</b></p>`).join("")}</div>${pe ? `<small class="ocultavel">${pe}</small>` : ""}</section>`;
 /** Quanto está rendendo: hoje, ou os últimos 7 dias enquanto hoje não tem jornada. */
@@ -5795,7 +5798,7 @@ function planosTela() {
   const media = (k, reserva) => (passados.length ? round2(passados.reduce((t, x) => t + x[k], 0) / passados.length) : reserva);
   const sobraMes = Math.max(0, media("sobra", round2(c.rec - c.proj))), metas = metasDe();
   const lista = planosSugeridos({ custoMes: media("custo", c.proj), rendaMes: media("rec", c.rec), sobraMes });
-  const fala = (porMes) => (porMes <= sobraMes ? `Cabe no que costuma sobrar (${brl(sobraMes)} por mês).` : sobraMes > 0 ? `Passa ${brl(porMes - sobraMes)} do que costuma sobrar. Tente mais meses.` : "Hoje não costuma sobrar dinheiro. Tente mais meses ou um valor menor.");
+  const fala = (porMes) => (porMes <= sobraMes ? `Cabe no que costuma sobrar (${brl(sobraMes)} por mês).` : sobraMes > 0 ? `Passa ${brl(porMes - sobraMes)} do que costuma sobrar. Tente mais meses.` : (S.prefs.motorista?.usa ? "Com o que entrou até agora o mês fica apertado, e o que você ainda vai ganhar rodando não está contado. Comece com um valor menor ou com mais meses, e vá guardando aos poucos." : "Hoje não sobra dinheiro depois das contas. Comece com um valor menor ou com mais meses, e vá guardando aos poucos."));
   openDlg(`<h3>Meus planos</h3><p class="hint">Diga o que você quer. O app faz a conta e mostra se cabe no seu mês.</p>
     ${lista.length ? `<ul class="rs-lista">${lista.map((x, i) => `<li><span class="rs-tx"><b>${esc(x.nome)}</b><small>${esc(x.sub)}</small><small class="ocultavel">${brl(x.alvo)} em ${x.meses} meses: ${brl(x.porMes)} por mês</small><small class="ocultavel">${fala(x.porMes)}</small></span>${metas[x.nome] ? `<span class="tag">já tem</span>` : `<button class="btn sm primary" type="button" data-plano="${i}">Guardar</button>`}</li>`).join("")}</ul>` : ""}
     <h4 class="ferr-h">Quero juntar para</h4>
@@ -5881,6 +5884,87 @@ function paneReservas(host) {
   $("rsLiberdade").onclick = () => calculadoras();
   $("motVolta").onclick = motSai;
 }
+/**
+ * "Essa corrida vale?" em poucos toques: teclado grande, só valor e km (os minutos são opcionais), resposta enorme em cor,
+ * e os botões Aceitei e Recusei, que guardam a oferta num histórico. Com o tempo o app mostra o que costuma valer a pena aceitar.
+ */
+function corridaValeTela() {
+  const { regra } = painelDoMotorista(), minimoHora = 0;
+  const campos = { valor: "", km: "", min: "" }; let ativo = "valor";
+  const nome = { boa: ["cv-boa", "Corrida boa"], vale: ["cv-vale", "Vale"], limite: ["cv-limite", "No limite"], nao: ["cv-nao", "Não vale"] };
+  const teclas = ["1", "2", "3", "4", "5", "6", "7", "8", "9", ",", "0", "apaga"];
+  openDlg(`<h3>Essa corrida vale?</h3>
+    <div class="cv-res" id="cvRes" aria-live="polite"></div>
+    <div class="cv-campos" role="group" aria-label="Dados da oferta">
+      <button type="button" class="cv-campo" data-cv-campo="valor"><small>Valor (R$)</small><b id="cvValor"></b></button>
+      <button type="button" class="cv-campo" data-cv-campo="km"><small>Km (com a busca)</small><b id="cvKm"></b></button>
+      <button type="button" class="cv-campo peq" data-cv-campo="min"><small>Min (opcional)</small><b id="cvMin"></b></button></div>
+    <div class="cv-teclado">${teclas.map((k) => `<button type="button" class="cv-tecla" data-cv-tecla="${k}" ${k === "apaga" ? 'aria-label="Apagar"' : ""}>${k === "apaga" ? "⌫" : k}</button>`).join("")}</div>
+    <div class="cv-linha"><button type="button" class="btn" data-cv-tecla="limpa">Limpar</button>${Reconhecedor ? `<button class="btn" type="button" id="cvFalar">${ico("mic")}Falar</button>` : ""}<button type="button" class="btn" data-cv-tecla="prox">Próximo ▸</button></div>
+    <div class="cv-acoes" id="cvAcoes" hidden><button class="btn primary" type="button" data-cv-acao="aceitei">Aceitei</button><button class="btn" type="button" data-cv-acao="recusei">Recusei</button></div>
+    <p class="hint cv-dica" id="cvVozTxt">Seu mínimo: <b>${brl(regra.minimo)} por km</b> (custo do carro mais R$ 1,00). A conta é feita aqui no celular; o app não lê nem mexe no app da Uber ou da 99.</p>
+    <div id="cvHist"></div>
+    <div class="actions"><button class="btn primary" type="button" data-close>Fechar</button></div>`);
+  const leitura = () => corridaVale({ valor: parseMoney(campos.valor), km: Number(campos.km.replace(",", ".")), min: Number(campos.min) }, regra, minimoHora);
+  const hist = () => {
+    const r = resumoDasOfertas(S.prefs.ofertas, regra.minimo);
+    if (!r) { $("cvHist").innerHTML = ""; return; }
+    const linhas = [`Você registrou <b>${r.total}</b> ${r.total === 1 ? "oferta" : "ofertas"}: aceitou ${r.aceitas} e recusou ${r.recusadas}.`,
+      r.abaixoAceitas ? `Aceitou <b>${r.abaixoAceitas}</b> abaixo do seu mínimo: deixou de ganhar uns <b>${brl(r.perdaAbaixo)}</b>.` : (r.aceitas ? "Tudo o que você aceitou passava do seu mínimo." : ""),
+      r.boasRecusadas ? `Recusou ${r.boasRecusadas} que passavam do mínimo.` : "",
+      r.melhorFaixa ? `As ofertas que mais pagaram por km vieram de <b>${r.melhorFaixa.faixa.toLowerCase()}</b> (${brl(r.melhorFaixa.media)} por km).` : ""].filter(Boolean);
+    $("cvHist").innerHTML = `<section class="cv-hist ocultavel"><h4>O que as suas ofertas mostram</h4>${linhas.map((x) => `<p>${x}</p>`).join("")}<button type="button" class="link" id="cvLimpaHist">Apagar o histórico</button></section>`;
+    $("cvLimpaHist").onclick = () => { const antes = S.prefs.ofertas; S.prefs.ofertas = []; salvaPrefs(); hist(); toastDesfazer("Histórico de ofertas apagado.", () => { S.prefs.ofertas = antes; salvaPrefs(); if ($("cvHist")) hist(); }); };
+  };
+  const pinta = () => {
+    ["valor", "km", "min"].forEach((k) => { $("cv" + k[0].toUpperCase() + k.slice(1)).textContent = campos[k] || "–"; document.querySelector(`[data-cv-campo=${k}]`).classList.toggle("ativo", k === ativo); });
+    const r = leitura();
+    if (!r) { $("cvRes").innerHTML = `<div class="cv cv-vazio"><b>Toque nos números</b><span>Valor e km da oferta. O resultado aparece aqui.</span></div>`; $("cvAcoes").hidden = true; return; }
+    const [cls, titulo] = nome[r.veredito];
+    $("cvRes").innerHTML = `<div class="cv ${cls}"><b>${titulo}</b><span>${brl(r.porKm)} por km${r.porHora !== null ? ` · ${brl(r.porHora)} por hora` : ""}</span><small>Seu mínimo: ${brl(r.minKm)} por km${r.veredito === "nao" || r.veredito === "limite" ? ` · para passar, teria que pagar uns ${brl(r.valorMinimo)}` : ""}</small></div>`;
+    $("cvAcoes").hidden = false;
+  };
+  const tecla = (k) => {
+    if (k === "limpa") { campos.valor = campos.km = campos.min = ""; ativo = "valor"; return pinta(); }
+    if (k === "prox") { ativo = ativo === "valor" ? "km" : ativo === "km" ? "min" : "valor"; return pinta(); }
+    let v = campos[ativo];
+    if (k === "apaga") v = v.slice(0, -1);
+    else if (k === ",") { if (ativo === "min" || v.includes(",")) return; v = (v || "0") + ","; }
+    else if (v.replace(",", "").length < 6 && !(v.includes(",") && v.split(",")[1].length >= 2)) v += k;
+    campos[ativo] = v; pinta();
+  };
+  document.querySelectorAll("[data-cv-tecla]").forEach((b) => (b.onclick = () => tecla(b.dataset.cvTecla)));
+  document.querySelectorAll("[data-cv-campo]").forEach((b) => (b.onclick = () => { ativo = b.dataset.cvCampo; pinta(); }));
+  document.querySelectorAll("[data-cv-acao]").forEach((b) => (b.onclick = () => {
+    const r = leitura(); if (!r) return;
+    S.prefs.ofertas = [...(S.prefs.ofertas || []), { t: Date.now(), valor: parseMoney(campos.valor), km: Number(campos.km.replace(",", ".")), min: Number(campos.min) || 0, acao: b.dataset.cvAcao, v: r.veredito }].slice(-MAX_OFERTAS);
+    salvaPrefs(); vibra(15); campos.valor = campos.km = campos.min = ""; ativo = "valor"; pinta(); hist();
+    toast(b.dataset.cvAcao === "aceitei" ? "Aceita, registrada." : "Recusada, registrada.");
+  }));
+  if ($("cvFalar")) $("cvFalar").onclick = () => {
+    aoFalaCorrida = (texto) => {
+      const r = entendeCorrida(texto), br = (n) => String(n).replace(".", ",");
+      $("cvVozTxt").textContent = `Ouvi: “${texto}”`;
+      if (r.valor) campos.valor = br(r.valor); if (r.km) campos.km = br(r.km); if (r.min) campos.min = String(r.min);
+      pinta();
+      if (!r.valor || !r.km) toast("Não entendi o valor e os km. Fale, por exemplo: 18 reais, 7 quilômetros.");
+    };
+    $("cvFalar").classList.add("ativo"); $("cvVozTxt").textContent = "Ouvindo… fale o valor, os km e os minutos."; escutaCorrida.iniciar();
+  };
+  pinta(); hist();
+}
+/** Falar a oferta da corrida: quem trata o texto é a tela "Essa corrida vale?". */
+let aoFalaCorrida = null;
+const escutaCorrida = criaEscuta({
+  Reconhecedor: window.SpeechRecognition || window.webkitSpeechRecognition,
+  aoMudar: (m) => { const el = $("cvVozTxt"); if (el && m.texto) el.textContent = `“${m.texto}”`; },
+  aoFinalizar: (r) => {
+    $("cvFalar")?.classList.remove("ativo");
+    if (r.motivo === "cancelado") return;
+    if (r.texto) return aoFalaCorrida?.(r.texto);
+    toast(mensagemDeErro(r));
+  },
+});
 /** Rodou sem iniciar a jornada: lança o dia pronto, de Lançar ou do Extrato. */
 function lancarDiaMot() { fecharLancar(true); motoristaTela(); motEntra("dia"); }
 function iniciarJornada(odoIni = null) {
@@ -5994,6 +6078,7 @@ function paneMot() {
   host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
   $("motIniciar").onclick = () => { const odo = odoNum($("motOdoIni").value) || null; motEntrou = true; iniciarJornada(odo); render(); scrollTo(0, 0); };
   $("motVerMais").onclick = $("motProg").onclick = () => abrirGanhos("dia", hj);
+  if ($("motVale")) $("motVale").onclick = corridaValeTela;
   if ($("motSemana")) $("motSemana").onclick = () => abrirGanhos("semana", $("motSemana").dataset.ref);
   $("motGanhos").onclick = () => abrirGanhos("semana", hj);
   $("motContas").onclick = () => (semContas ? guiaPasso("contas") : contasMotTela());

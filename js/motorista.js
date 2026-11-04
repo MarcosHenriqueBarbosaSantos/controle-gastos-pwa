@@ -420,6 +420,46 @@ export function metaVsKm({ meta, turnos = [], hoje, veic, diasSemana = 6 } = {})
   return { brutoDia: meta.brutoDia, kmAtual, ganhoPorKm: r30.ganhoPorKm, fazPorDia, kmPreciso: r2(meta.brutoDia / r30.ganhoPorKm), faltaKm: r2(meta.brutoDia / r30.ganhoPorKm - kmAtual), ganhoKmPreciso: r2(meta.brutoDia / kmAtual) };
 }
 
+/**
+ * "Essa corrida vale?": o valor, os km e os minutos da oferta contra o mínimo por km da pessoa (custo do carro + R$ 1,00) e o mínimo por hora.
+ * É uma conta que a pessoa faz em 10 segundos antes de aceitar; o app não lê nem mexe no app da Uber ou da 99.
+ * Veredito: "boa" (passa da faixa boa por km e do mínimo por hora), "vale" (passa dos dois mínimos), "limite" (até 10% abaixo de um deles) ou "nao".
+ * @returns {{veredito:"boa"|"vale"|"limite"|"nao", porKm:number, porHora:number|null, minKm:number, minHora:number, faltaKm:number, valorMinimo:number}|null}
+ */
+export function corridaVale({ valor, km, min = 0 }, { minimo = 0, boa = 0 } = {}, minimoHora = 0) {
+  valor = Number(valor); km = Number(km); min = Number(min) || 0; minimoHora = Number(minimoHora) || 0;
+  if (!(valor > 0) || !(km > 0)) return null;
+  const porKm = r2(valor / km), porHora = min > 0 ? r2(valor / (min / 60)) : null;
+  const passaKm = porKm >= minimo, passaHora = minimoHora <= 0 || porHora === null || porHora >= minimoHora;
+  const quase = (porKm >= minimo * 0.9) && (minimoHora <= 0 || porHora === null || porHora >= minimoHora * 0.9);
+  const veredito = passaKm && passaHora ? (porKm >= boa && boa > 0 ? "boa" : "vale") : quase ? "limite" : "nao";
+  return { veredito, porKm, porHora, minKm: r2(minimo), minHora: r2(minimoHora), valorMinimo: r2(Math.max(minimo * km, minimoHora > 0 && min > 0 ? minimoHora * (min / 60) : 0)), faltaKm: r2(Math.max(0, minimo - porKm)) };
+}
+
+/** Quantas ofertas o app guarda no histórico (as mais recentes). */
+export const MAX_OFERTAS = 300;
+/** A faixa do dia de um instante: madrugada (0h às 6h), manhã, tarde (12h às 18h) ou noite. */
+export const faixaDoDia = (ms) => { const h = new Date(ms).getHours(); return h < 6 ? "Madrugada" : h < 12 ? "Manhã" : h < 18 ? "Tarde" : "Noite"; };
+/**
+ * O que o histórico de ofertas (as que a pessoa conferiu em "Essa corrida vale?" e marcou como aceita ou recusada) mostra:
+ * quantas aceitou e recusou, quantas aceitas ficaram abaixo do mínimo por km (e quanto deixou de ganhar), quantas recusadas passavam do mínimo,
+ * e em que faixa do dia as ofertas pagaram mais por km (só com 3 ofertas ou mais na faixa e pelo menos duas faixas).
+ * @returns {{total:number, aceitas:number, recusadas:number, abaixoAceitas:number, perdaAbaixo:number, boasRecusadas:number, mediaAceitas:number|null, mediaRecusadas:number|null, faixas:{faixa:string,n:number,media:number}[], melhorFaixa:{faixa:string,media:number}|null}|null}
+ */
+export function resumoDasOfertas(ofertas = [], minimoKm = 0) {
+  const l = (ofertas || []).filter((o) => Number(o.valor) > 0 && Number(o.km) > 0 && (o.acao === "aceitei" || o.acao === "recusei"));
+  if (!l.length) return null;
+  const porKm = (o) => Number(o.valor) / Number(o.km), media = (a) => (a.length ? r2(a.reduce((s, o) => s + porKm(o), 0) / a.length) : null);
+  const aceitas = l.filter((o) => o.acao === "aceitei"), recusadas = l.filter((o) => o.acao === "recusei");
+  const abaixo = aceitas.filter((o) => porKm(o) < minimoKm);
+  const grupos = new Map();
+  l.forEach((o) => { const f = faixaDoDia(o.t), g = grupos.get(f) || []; g.push(o); grupos.set(f, g); });
+  const faixas = ["Madrugada", "Manhã", "Tarde", "Noite"].filter((f) => grupos.has(f)).map((f) => ({ faixa: f, n: grupos.get(f).length, media: media(grupos.get(f)) }));
+  const com = faixas.filter((x) => x.n >= 3), melhor = com.length >= 2 ? com.reduce((a, b) => (b.media > a.media ? b : a)) : null;
+  return { total: l.length, aceitas: aceitas.length, recusadas: recusadas.length, abaixoAceitas: abaixo.length, perdaAbaixo: r2(abaixo.reduce((s, o) => s + (minimoKm * Number(o.km) - Number(o.valor)), 0)),
+    boasRecusadas: recusadas.filter((o) => porKm(o) >= minimoKm).length, mediaAceitas: media(aceitas), mediaRecusadas: media(recusadas), faixas, melhorFaixa: melhor ? { faixa: melhor.faixa, media: melhor.media } : null };
+}
+
 /** A frase do dia do motorista: uma resposta só, no alto da tela. `brl` formata o dinheiro. */
 export function fraseDoDia({ meta, ganhoHoje = 0, brl, semContas = false }) {
   if (semContas) return { titulo: "Falta cadastrar suas contas.", sub: "Com elas, o app calcula quanto fazer por dia." };

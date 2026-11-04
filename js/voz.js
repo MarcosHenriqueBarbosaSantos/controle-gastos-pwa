@@ -292,3 +292,21 @@ export function entendeMeses(fala, hoje) {
   const meses = [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0])).slice(0, MAX_MESES_FALA).map(([mes, valor]) => ({ mes, valor }));
   return { meses, fimAssumido, texto: original };
 }
+
+/**
+ * A oferta de uma corrida, falada: "dezoito reais, sete quilômetros, quinze minutos" ou "18,50 com 7,2 km e 15 min".
+ * Km e minutos vêm pela palavra ao lado; o valor é o número com "reais" ou, sem isso, o primeiro número que sobrar.
+ * @returns {{valor?:number, km?:number, min?:number}}
+ */
+export function entendeCorrida(fala) {
+  let t = semAcento(extensoParaNumero(String(fala || ""))).replace(/r\$\s*/g, " ").replace(/\s+/g, " ").trim();
+  const num = (s) => Number(String(s).replace(",", "."));
+  const out = {};
+  const km = t.match(/(\d+(?:[.,]\d+)?)\s*(?:km|quilometros?|kilometros?|kms?)\b/);
+  if (km) { out.km = num(km[1]); t = t.replace(km[0], " "); }
+  const min = t.match(/(\d+)\s*(?:min|mins|minutos?)\b/);
+  if (min) { out.min = Number(min[1]); t = t.replace(min[0], " "); }
+  const real = t.match(/(\d+(?:[.,]\d{1,2})?)\s*(?:reais|real|contos?|pilas?)\b(?:\s*e\s*(\d{1,2})\s*centavos?)?/) || t.match(/(\d+(?:[.,]\d{1,2})?)/);
+  if (real) { let n = num(real[1]); if (real[2]) n += Number(real[2]) / 100; if (n > 0) out.valor = Math.round(n * 100) / 100; }
+  return out;
+}

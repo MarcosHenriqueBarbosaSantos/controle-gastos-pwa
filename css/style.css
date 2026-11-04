@@ -2534,3 +2534,27 @@ button.ct-linha:not(:disabled){cursor:pointer}
 /* v230: reserva do carro numa caixinha só, com partes e lembrete diário */
 .rs-parte{display:flex;gap:12px;align-items:flex-start;padding:10px 0;cursor:pointer} .rs-parte input{width:24px;height:24px;margin-top:2px;flex-shrink:0}
 .res-dia h3{margin:0 0 6px}
+
+/* v231: sem número negativo em vermelho no Calendário e no Planejar; "Essa corrida vale?" */
+.cal-res3 b.warn{color:var(--warn)} .cascata li.tot.warn .v{color:var(--warn)}
+.sobra-rota{display:grid;gap:4px;margin:0 0 10px;padding:12px 14px;border-radius:14px;background:var(--warn-soft);color:var(--ink);line-height:1.35}
+.sobra-rota b{font-size:17px} .sobra-rota span{font-size:14px;color:var(--ink-2)}
+.sobra-aviso.warn{background:var(--warn-soft);color:var(--ink)}
+.cv{display:grid;gap:4px;padding:14px;border-radius:14px;border:1px solid var(--border)} .cv b{font-size:20px} .cv span{font-size:15px} .cv small{font-size:13px;color:var(--ink-2)}
+.cv-boa{background:var(--good-soft)} .cv-boa b{color:var(--good)} .cv-vale{background:var(--good-soft)} .cv-vale b{color:var(--good)}
+.cv-limite{background:var(--warn-soft)} .cv-limite b{color:var(--warn)} .cv-nao{background:var(--bad-soft)} .cv-nao b{color:var(--bad)}
+.cv-falar{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;margin:4px 0 0} .cv-falar.ativo{background:var(--warn-soft)} .cv-dica{margin:4px 0 10px;text-align:center}
+
+/* v231: Essa corrida vale? com teclado grande e resposta enorme */
+.cv-res{margin:0 0 10px} .cv{display:grid;gap:2px;padding:14px;border-radius:16px;border:1px solid var(--border)}
+.cv b{font-size:44px;line-height:1.05;letter-spacing:-.02em;font-family:var(--display)} .cv span{font-size:20px;font-weight:700} .cv small{font-size:14px;color:var(--ink-2)}
+.cv-vazio{background:var(--sunk)} .cv-vazio b{font-size:24px;color:var(--ink-2)} .cv-vazio span{font-size:15px;font-weight:400;color:var(--muted)}
+.cv-campos{display:grid;grid-template-columns:1.2fr 1.2fr .8fr;gap:8px;margin:0 0 10px}
+.cv-campo{display:grid;gap:2px;text-align:left;padding:10px 12px;min-height:64px;border-radius:14px;border:2px solid var(--border);background:var(--sunk);color:var(--ink);font:inherit}
+.cv-campo small{font-size:12px;color:var(--muted)} .cv-campo b{font-size:26px;font-variant-numeric:tabular-nums;font-family:var(--display)} .cv-campo.peq b{font-size:22px} .cv-campo.ativo{border-color:var(--series,#2f6bff)}
+.cv-teclado{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:0 0 8px}
+.cv-tecla{min-height:58px;border-radius:14px;border:1px solid var(--border);background:var(--surface-2);color:var(--ink);font:inherit;font-size:26px;font-weight:700} .cv-tecla:active{background:var(--sunk)}
+.cv-linha{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin:0 0 8px} .cv-linha .btn{min-height:48px;justify-content:center}
+.cv-linha:has(> :nth-child(2):last-child){grid-template-columns:1fr 1fr}
+.cv-acoes{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:0 0 8px} .cv-acoes .btn{min-height:56px;font-size:18px}
+.cv-hist{margin:8px 0;padding:12px;border-radius:14px;background:var(--surface-2);border:1px solid var(--border)} .cv-hist h4{margin:0 0 6px;font-size:15px} .cv-hist p{margin:0 0 4px;font-size:14px;line-height:1.35}

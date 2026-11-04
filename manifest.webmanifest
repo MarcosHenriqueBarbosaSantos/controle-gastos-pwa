@@ -101,6 +101,19 @@
       ]
     },
     {
+      "name": "Essa corrida vale?",
+      "short_name": "Corrida vale?",
+      "description": "Digite ou fale o valor e os km da oferta e veja se passa do seu mínimo",
+      "url": "./?atalho=vale",
+      "icons": [
+        {
+          "src": "icons/icon-192.png",
+          "sizes": "192x192",
+          "type": "image/png"
+        }
+      ]
+    },
+    {
       "name": "Ler QR code",
       "short_name": "QR code",
       "description": "Abre a câmera para ler o Pix ou o cupom",
