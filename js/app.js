@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { ganhoPorKmAgora, limpaGanhosPorApp, semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, corridaVale, resumoDasOfertas, MAX_OFERTAS, NOME_RESERVA_CARRO, PARTES_DO_CARRO, PARTES_PADRAO, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { ajusteDoVeiculo, ganhoPorKmAgora, limpaGanhosPorApp, semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, corridaVale, resumoDasOfertas, MAX_OFERTAS, NOME_RESERVA_CARRO, PARTES_DO_CARRO, PARTES_PADRAO, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -1109,6 +1109,34 @@ function htmlFicouParaTras(c, rx, dMot) {
     : "Neste mês não sobra para pagar. Toque para ver um jeito leve de dividir.";
   return `<button type="button" class="hero-atras" id="heroAtras"><span class="t"><small>${de}</small><b class="ocultavel">${brl(total)} em ${l.length} ${l.length === 1 ? "conta" : "contas"}</b>${plano ? `<span class="ocultavel">${plano}</span>` : ""}</span>${ico("chev")}</button>`;
 }
+/** O topo do Início em passos que se explicam: o que você tem, o que vence e quanto falta até cada dia, quanto fazer (ou gastar) por dia e o que sobra. */
+function htmlPassosDoMes({ c, dMot, rota, sb, est, mesNome }) {
+  if (!rota) return "";
+  const dd = (iso) => iso.slice(8, 10), quando = (p) => (p.dias < 0 ? "Já venceu" : p.dias === 0 ? "Hoje" : p.dias === 1 ? "Amanhã" : `Dia ${dd(p.data)}`);
+  const pg = (t, ...x) => `<div class="ip"><b class="ip-t">${t}</b>${x.join("")}</div>`, lin = (a, b, cls = "") => `<div class="ip-l${cls ? " " + cls : ""}"><span>${a}</span><span class="ocultavel">${b}</span></div>`;
+  const pagoMes = round2(c.custo - contasDoExtrato(c).filter((x) => x.aPagar).reduce((t, x) => t + x.valor, 0));
+  const hojeIso = hoje(), recebidas = round2([...c.fr.map((o) => ({ data: o.data, valor: Number(o.valor) })), ...c.it.filter((x) => x.tipo === "Receita").map((x) => ({ data: String(x.data).slice(0, 10), valor: Number(x.valor) }))].filter((e) => e.data <= hojeIso).reduce((t, e) => t + e.valor, 0));
+  const vaiEntrar = rota.pontos.filter((p) => p.dias > 0).flatMap((p) => p.entradas.map((e) => ({ ...e, data: p.data })));
+  const entrarTxt = vaiEntrar.length ? `Ainda vai entrar: ${vaiEntrar.slice(0, 2).map((e) => `${esc(e.titulo)} ${brl(e.valor)} no dia ${dd(e.data)}`).join(", ")}${vaiEntrar.length > 2 ? ` e mais ${vaiEntrar.length - 2}` : ""}.` : dMot ? "Ainda vai entrar: nada marcado. O resto vem do que você roda." : "Ainda vai entrar: nada marcado neste mês.";
+  const p1 = pg("1. O que você já tem", lin("Já entrou no mês", brl(recebidas)), lin("Já pagou", `− ${brl(pagoMes)}`), lin("Em caixa agora", brl(rota.saldoHoje), "tot"), `<small class="ocultavel">${entrarTxt}</small>`);
+  const datas = rota.pontos.filter((p) => p.saidas.length || p.entradas.length), ver = datas.slice(0, 4);
+  const estado = (p) => (dMot ? (p.precisa > 0 ? `<small class="falta ocultavel">Até aqui faltam ${brl(p.precisa)}</small>` : `<small class="ok ocultavel">O que você tem cobre</small>`) : (p.saldo < 0 ? `<small class="falta ocultavel">Neste dia faltam ${brl(-p.saldo)}</small>` : `<small class="ok ocultavel">Neste dia sobram ${brl(p.saldo)}</small>`));
+  const linhasDatas = ver.map((p) => `<div class="ip-d"><span class="d">${quando(p)}</span><span class="c">${p.entradas.map((e) => `<span class="in">▲ ${esc(e.titulo)} <b class="ocultavel">+ ${brl(e.valor)}</b></span>`).join("")}${p.saidas.map((x) => `<span>${esc(x.titulo)} <b class="ocultavel">${brl(x.valor)}</b></span>`).join("")}${p.saidas.length || p.zera ? estado(p) : ""}</span></div>`).join("");
+  const p2 = pg("2. O que vence e quanto falta até cada dia", linhasDatas || "<small>Nenhuma conta marcada para os próximos dias.</small>", datas.length > ver.length ? `<small>e mais ${datas.length - ver.length} datas até o fim do mês</small>` : "");
+  let p3;
+  if (dMot) {
+    const m = dMot.meta, ag = agendaDaRota(rota, dMot.m.diasSemana), custoDia = m.custoDia || 0, bind = ag.itens.find((x) => x.porDia === ag.ritmo && x.porDia > 0);
+    p3 = m.coberto ? pg("3. Por isso, quanto fazer por dia", "<span>Nada a fazer por dia para as contas: elas estão cobertas.</span>")
+      : bind ? pg("3. Por isso, quanto fazer por dia", `<span>Para pagar tudo em dia, você precisa render cerca de <b class="ocultavel">${brl(round2(ag.ritmo + custoDia))} por dia rodado</b> até o dia ${dd(bind.dataFim)}${custoDia > 0 ? ", já contando o custo do carro" : ""}, rodando ${dMot.m.diasSemana} dias por semana.</span>`, `<small class="ocultavel">A média do mês inteiro (a meta de hoje) é ${brl(m.brutoDia)} por dia.${ag.atraso.precisa > 0 ? ` Ficou para trás ${brl(ag.atraso.precisa)}, que não é meta de um dia só.` : ""}</small>`)
+      : pg("3. Por isso, quanto fazer por dia", `<span>O que você tem cobre as contas das próximas datas. Para o mês fechar, a meta de hoje é <b class="ocultavel">${brl(m.brutoDia)}</b>.</span>`);
+  } else {
+    const restam = Math.max(1, c.n - c.dias + 1), livre = Math.max(0, round2(sb.livre - sb.usado));
+    p3 = pg("3. Por isso, quanto cabe por dia", sb.livre > 0 ? `<span>Depois das contas ainda ficam livres <b class="ocultavel">${brl(livre)}</b>. Pelos ${restam} dias que faltam, cabem cerca de <b class="ocultavel">${brl(round2(livre / restam))} por dia</b>.</span>` : "<span>As contas já passam do que entra neste mês. Cada gasto novo aumenta o que falta.</span>");
+  }
+  const p4 = dMot ? pg("4. O que sobra para você", `<span>${dMot.meta.coberto ? "As contas estão cobertas: o que você ganhar a mais é sobra." : "Quando as contas estiverem cobertas, o que você ganhar a mais é sobra."}</span>`)
+    : pg("4. Onde o mês deve fechar", `<span>${est.projSobra < 0 ? `No ritmo de agora, o mês fecha ${brl0(-est.projSobra)} no vermelho.` : `No ritmo de agora, devem sobrar ${brl0(est.projSobra)} no fim de ${mesNome}.`}</span>`);
+  return `<div class="ip-lista">${p1}${p2}${p3}${p4}</div>`;
+}
 function renderKpis(c) {
   const noCartao = round2(c.comprasCartao + c.fxCartao);
   // Saldo acumulado: o que a pessoa já tinha (saldo inicial), mais os meses anteriores, mais este mês.
@@ -1148,8 +1176,9 @@ function renderKpis(c) {
   const semEnt = semEntradaNoMes(c), motUsa = Boolean(S.prefs.motorista?.usa), dMot = motUsa && atualM ? painelDoMotorista() : null;   // o ganho do motorista entra aos poucos: o mês dele se mede pelas contas, não pelo salário
   const mesNaTela = `<div class="hero-mes"><button type="button" data-hero-nav="prev" aria-label="Mês anterior">${ico("chev")}</button><b>${mesTitulo}</b><button type="button" data-hero-nav="next" aria-label="Próximo mês">${ico("chev")}</button>${atualM ? "" : `<button type="button" class="hero-hoje" data-hero-nav="hoje">Mês atual</button>`}<button type="button" class="hero-busca" data-hero-nav="btnBuscarM" aria-label="Buscar">${ico("busca")}</button></div>`;
   // As datas do mês: o primeiro prazo em que falta dinheiro. O motorista vê quanto o Uber precisa trazer por dia; os outros, qual conta não fecha.
-  const frM = dMot && S.loaded ? fraseDaRota(rotaDoMes(S.data, hoje(), { comMedia: false }), true, motDados().diasSemana) : null;
+  const rotaM = dMot && S.loaded ? rotaDoMes(S.data, hoje(), { comMedia: false }) : null, frM = rotaM ? fraseDaRota(rotaM, true, dMot.m.diasSemana) : null;
   const rotaN = !dMot && atualM && S.loaded && !semEnt ? rotaDoMes(S.data, hoje()) : null, frN = rotaN?.prazo ? fraseDaRota(rotaN, false) : null;
+  const passos = atualM && S.loaded && (rotaM || rotaN) ? htmlPassosDoMes({ c, dMot, rota: rotaM || rotaN, sb, est, mesNome }) : "";
   const ficou = htmlParabensSemana(c) +htmlFecharMes(c) + htmlAcertoCasalIni(c) + htmlMesPassadoVermelho(c, dMot) + htmlFicouParaTras(c, rx, dMot);
   const vazio = atualM && !S.data.lancamentos.length && !S.data.fixos.length && !(S.data.faturas || []).length;
   if (vazio) {
@@ -1169,9 +1198,9 @@ function renderKpis(c) {
   $("resumo").innerHTML = `${S.prefs.motorista?.ativo?.ini ? `<button type="button" class="mot-faixa" data-atalho="motorista"><span class="mot-pulso" aria-hidden="true"></span><span>Jornada em andamento desde ${hhmm(Number(S.prefs.motorista.ativo.ini))}</span><b>Parar</b></button>` : ""}${dMot ? `<div class="hero banco cheia est-neutro">${mesNaTela}
       <div class="hero-top"><span class="l">Seu dinheiro em ${mesNome}</span>
         <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
-      <h2 class="hero-frase ocultavel">${frM ? frM.frase : dMot.meta.coberto ? `As contas de ${mesNome} estão cobertas.` : `Faltam ${brl(dMot.meta.falta)} para ${Number(dMot.m.extra) > 0 ? "as contas e as metas" : "as contas"} de ${mesNome}.`}</h2>
-      ${frM?.sub ? `<span class="n rota-sub ocultavel">${frM.sub}</span>` : ""}
-      <span class="n ocultavel">${fraseContasMot(c)}${frM && !dMot.meta.coberto && Number(dMot.m.extra) > 0 ? ` Com as metas, o mês pede ${brl(dMot.meta.falta)}.` : ""}</span>
+      <h2 class="hero-frase ocultavel">${dMot.meta.coberto ? `As contas de ${mesNome} estão cobertas.` : `Faltam ${brl(dMot.meta.falta)} para pagar as contas de ${mesNome}.`}</h2>
+      ${passos || `<span class="n ocultavel">${fraseContasMot(c)}</span>`}
+      ${passos && Number(dMot.m.extra) > 0 && !dMot.meta.coberto ? `<span class="n ocultavel">Esse valor já conta as suas metas de sobra no mês.</span>` : ""}
       ${ficou}
       <button type="button" class="hero-liga" id="heroFora">${frM ? "Ver o mês dia a dia" : "Entenda esse valor"}</button>
       <button type="button" class="hero-ver" id="heroVer">Ver meu mês</button>
@@ -1185,10 +1214,10 @@ function renderKpis(c) {
     <div class="hero-top"><span class="l">${rotulo}</span>
       <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
     ${frN || fraseDoMes ? `<h2 class="hero-frase ocultavel">${frN ? frN.frase : fraseDoMes}</h2>` : ""}
-    ${frN?.sub ? `<span class="n rota-sub ocultavel">${frN.sub}</span>` : ""}
     <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
     ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
     <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : atualM ? `ainda livres de ${brl(sb.livre)} depois das contas` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span></div>` : ""}
+    ${passos}
     ${ficou}
     ${est.nivel !== "neutro" && !(frN && aperto) ? `<span class="estado">${fraseDoMes && !aperto && est.nivel !== "atencao" ? "" : `<b>${est.rotulo || ROTULO[est.nivel]}</b>`}${est.motivo && est.nivel !== "estourado" ? `<span class="ocultavel">${est.motivo}</span>` : ""}</span>` : ""}
     ${rotaN?.pontos.length ? `<button type="button" class="hero-liga" id="heroRota">Ver o mês dia a dia</button>` : ""}
@@ -5197,7 +5226,7 @@ const virg = (n) => String(n).replace(".", ",");
 /** Soma por chave do que foi lançado durante o turno: { uber: 120, ... } ou { comb: 60, ... }. */
 const somaPor = (lista, chave) => lista.reduce((o, x) => { o[x[chave]] = round2((o[x[chave]] || 0) + Number(x.valor)); return o; }, {});
 let motEntrou = false;   // a jornada acabou de começar: a tela entra com movimento uma vez só
-let motPer = "dia", ganData = null, motRelogio = 0, motFechando = false, motSub = null, motEditaDaJornada = false;   // motEditaDaJornada: a edição de um turno antigo veio da tela da jornada, então volta para ela   // motSub: a subtela aberta ("ganho", "gasto" ou "ajustes")
+let motPer = "dia", ganData = null, motRelogio = 0, motFechando = false, motSub = null, motEditaDaJornada = false, motAba = "agora";   // motEditaDaJornada: a edição de um turno antigo veio da tela da jornada, então volta para ela   // motSub: a subtela aberta ("ganho", "gasto" ou "ajustes")
 /** A tela do Modo motorista (uma aba de Extrato/Planejar, no mesmo jeito): abre pelo Mais, pelo Início ou pela busca. */
 function motoristaTela() { motSub = null; abrirSub("mot"); if (!noCelular()) $("listas").scrollIntoView({ block: "start" }); }
 /** Imagem do resultado do motorista (1080 × 1350), feita no aparelho. Com "esconder valores" mostra só horas, km, viagens e a parte do faturamento que vira lucro. */
@@ -5366,15 +5395,17 @@ function painelDoMotorista() {
   const m = motDados(), hj = hoje(), mes = mKey(hj);
   const veicD = S.prefs.veiculo || {}, cvk = custoVariavelPorKm(veicD) || 0, c = calcMes(S.data, mes, hj);
   const doDia = resumoTurnos(m.turnos, hj, hj, veicD);
-  const caixaHoje = round2(m.turnos.filter((t) => t.fim && isoLocal(t.ini) === hj).reduce((s, t) => s + ganhoDoTurno(t) - (Number(t.comb) || 0), 0));
-  const meta = metaDoDia({ saldoSemHoje: round2(c.saldo - caixaHoje), extra: m.extra, restam: c.n - c.dias + 1, diasSemana: m.diasSemana, kmDia: kmPorDia(m.turnos, veicD, m.diasSemana), custoKm: cvk });
+  const kmDiaEst = kmPorDia(m.turnos, veicD, m.diasSemana), ajuste = ajusteDoVeiculo({ lancamentos: S.data.lancamentos, turnos: m.turnos, veic: veicD, hoje: hj, kmDiaEstimado: kmDiaEst });
+  // Com o carro preenchido, abastecer não mexe na meta (o combustível já está no custo por km): o que conta é o que foi rodado, não o que saiu do caixa.
+  const caixaHoje = round2(m.turnos.filter((t) => t.fim && isoLocal(t.ini) === hj).reduce((s, t) => s + ganhoDoTurno(t) - (ajuste.custoKm ? 0 : Number(t.comb) || 0), 0));
+  const meta = metaDoDia({ saldoSemHoje: round2(c.saldo - caixaHoje + ajuste.ajuste), extra: m.extra, restam: c.n - c.dias + 1, diasSemana: m.diasSemana, kmDia: kmPorDia(m.turnos, veicD, m.diasSemana), custoKm: cvk });
   const ritmo = ritmoHistorico(m.turnos, hj), alc = alcanceDaMeta({ meta, hist: ritmo, custoDia: meta.custoDia });
   // Se a meta está acima do melhor dia da pessoa, o "está valendo a pena?" compara com o ritmo normal dela: cobrar um número que ela não alcança só desanima.
   const liqRef = alc.nivel === "fora" && alc.liquidoMedioDia > 0 ? alc.liquidoMedioDia : meta.liquidoDia, refNormal = alc.nivel === "fora" && alc.liquidoMedioDia > 0;
   // Regra para decorar: com o outro app na tela não dá para abrir este e calcular no tempo da corrida.
   const r30 = resumoTurnos(m.turnos, toISO(new Date(Date.now() - 30 * 864e5)), hj, veicD), kmh = r30.ms >= 3600000 && r30.km > 0 ? r30.km / (r30.ms / 3600000) : 0;
   const regra = regraDeAceite({ custoKm: custoTotalPorKm(veicD) || cvk, minimoHora: liqRef > 0 && m.horasDia > 0 ? round2(liqRef / m.horasDia) : 0, kmPorHora: kmh });
-  return { m, hj, mes, veicD, doDia, meta, ritmo, alc, liqRef, refNormal, regra, semContas: semContasCadastradas() };
+  return { m, hj, mes, veicD, doDia, meta, ritmo, alc, liqRef, refNormal, regra, ajuste, semContas: semContasCadastradas() };
 }
 /** Conta sem nenhuma despesa fixa, fatura ou cartão: a meta sairia zero, mas isso não quer dizer que está tudo pago. */
 const semContasCadastradas = () => !S.data.fixos.some((f) => (f.tipo || "Despesa") === "Despesa") && !S.data.faturas.length && !S.data.cartoes.length;
@@ -5428,7 +5459,7 @@ function htmlSemanaMot(m, hj, meta) {
     <span class="pe ocultavel">${r.lucroPorHora !== null ? `<b>${brl(r.lucroPorHora)} por hora</b> depois dos custos. ` : ""}${comp}</span>${cobre(s, meta)}${proxima ? `<span class="melhor ocultavel">${ico("alvo")}Meta da próxima semana: <b>${brl(proxima)}</b>, ${brl(meta.brutoDia)} por dia em ${dias} dias.</span>` : ""}${melhor ? `<span class="melhor ocultavel">${ico("raio")}Seu melhor dia para rodar: <b>${DIAS_SEMANA[melhor.dia]}</b>, ${brl(melhor.ganhoPorHora)} por hora.</span>` : ""}</button>`;
 }
 /** A tela Jornada parada: uma frase, a regra por km e o botão de começar. */
-function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas }) {
+function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa = false }) {
   const pct = Math.min(100, Math.round((doDia.ganho / (meta.brutoDia || 1)) * 100)), ultimoPainel = [...m.turnos].reverse().find((t) => t.odoFim)?.odoFim;
   const f = fraseDoDia({ meta, ganhoHoje: doDia.ganho, brl, semContas }), acima = alc.nivel === "fora" && ritmo;
   const comemora = !meta.coberto && doDia.ganho >= meta.brutoDia && S.metaBatida !== hj, cats_ = categoriasDoPerfil(motDados().perfil), catAtual = categoriaAtual();
@@ -5441,10 +5472,10 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas }) {
     <button class="mot-dia-prog" type="button" id="motProg"><span class="t ocultavel"><b>Hoje: ${brl(doDia.ganho)}</b>${meta.coberto ? "" : `<span>de ${brl(meta.brutoDia)}</span>`}</span>${meta.coberto ? "" : `<span class="tbar"><i style="width:${pct}%"></i></span>`}</button>
     ${htmlSemanaMot(m, hj, meta)}
     ${htmlContasMot(semContas)}
-    <div class="mot-dia-base">${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
+    <div class="mot-dia-base">${ativa ? `<button class="mot-dia-bt" type="button" id="motVoltaJornada">Voltar à jornada em andamento</button>` : `${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
     <label class="mot-dia-odo">Km no painel do carro<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="${ultimoPainel ? `último: ${odoTxt(ultimoPainel)}` : "ex.: 84.120"}"></label>
     <button class="mot-dia-bt" type="button" id="motIniciar">Iniciar jornada</button>
-    <div class="mot-dia-links"><button class="mot-dia-2" type="button" id="motVale">Essa corrida vale?</button><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button></div></div></section>`;
+    `}<div class="mot-dia-links"><button class="mot-dia-2" type="button" id="motVale">Essa corrida vale?</button><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button></div></div></section>`;
 }
 const htmlTresMot = (tit, hora, km, viagem, pe = "") => `<section class="mot-tres" aria-label="${tit}"><h3>${tit}</h3><div>${[["Por hora", hora], ["Por km", km], ["Por viagem", viagem]].map(([r, v]) => `<p><small>${r}</small><b class="ocultavel">${v === null ? "—" : brl(v)}</b></p>`).join("")}</div>${pe ? `<small class="ocultavel">${pe}</small>` : ""}</section>`;
 /** Quanto está rendendo: hoje, ou os últimos 7 dias enquanto hoje não tem jornada. */
@@ -6036,10 +6067,33 @@ function guardaGanhoAgora(host, { exigeGanho }) {
   gravaMot(mm); vibra(15); return true;
 }
 function iniciarJornada(odoIni = null) {
-  uso("jornada_iniciada");
+  uso("jornada_iniciada"); motAba = "agora";
   const ini = Date.now();
   gravaMot({ ...motDados(), ativo: { ini, odoIni, categoria: categoriaAtual(), parcial: 0, antes: S.data.lancamentos.filter((x) => x.data >= isoLocal(ini)).map((x) => x.id), pausado: 0, pausaIni: null } });
   vibra(30);
+}
+/** Com a jornada rodando, duas telas na mesma aba: a de andamento (para dirigir) e o resumo (para entender a meta, o carro e as contas). */
+function htmlAbasMot(ativa) {
+  return `<div class="mot-abas" role="group" aria-label="Telas da jornada"><button type="button" data-mot-aba="agora" aria-pressed="${ativa === "agora"}">Em andamento</button><button type="button" data-mot-aba="resumo" aria-pressed="${ativa === "resumo"}">Resumo e meta</button></div>`;
+}
+function ligaAbasMot(host) {
+  host.querySelectorAll("[data-mot-aba]").forEach((b) => (b.onclick = () => { if (motAba === b.dataset.motAba) return; motAba = b.dataset.motAba; render(); scrollTo(0, 0); }));
+}
+/** Como a meta do dia é montada, em palavras: o que entra, o que não aumenta (abastecer) e o que o app confere com os km do carro. */
+function htmlMetaExplicada(d) {
+  const { m, meta, veicD, ajuste: aj, semContas } = d;
+  if (semContas) return "";
+  const cvk = custoVariavelPorKm(veicD) || 0, kmDia = kmPorDia(m.turnos, veicD, m.diasSemana), kmMes = Number(veicD.kmMes) || 0;
+  const l = (a, b, cls = "") => `<li class="${cls}"><span>${a}</span><b class="ocultavel">${b}</b></li>`;
+  const conta = meta.coberto ? "<p>As contas do mês estão cobertas, então hoje não há meta de contas: o que entrar é sobra.</p>"
+    : `<ul>${l("Falta pagar no mês", brl(meta.falta))}${l(`Dividido por ${meta.dias} dias rodados`, `${brl(meta.liquidoDia)} por dia`)}${meta.custoDia > 0 ? l(`Mais o carro: ${brl(cvk)} por km × ${virg(kmDia)} km`, `+ ${brl(meta.custoDia)}`) : ""}${l("Meta de hoje", brl(meta.brutoDia), "tot")}</ul>`;
+  const carro = aj.custoKm > 0
+    ? `Neste mês você lançou ${brl(aj.lancado)} em combustível, pedágio e estacionamento e rodou ${virg(aj.km)} km, que custam ${brl(aj.rodado)} pelo custo por km. ${aj.ajuste >= 0 ? `Os ${brl(aj.ajuste)} que já pagou a mais adiantam os próximos km.` : `Você rodou mais do que abasteceu: faltam ${brl(-aj.ajuste)} de combustível, que já entram na meta.`}`
+    : "Preencha o Meu carro ou moto (km por mês e consumo) para o app fazer essa conta.";
+  return `<section class="mot-meta-ex" aria-label="Como a sua meta é montada"><h3>Como a sua meta é montada</h3>${conta}
+    <h4>O que entra na meta</h4><p>As contas fixas e faturas que ainda não foram pagas, o que você já guardou (reserva do carro e caixinhas), o quanto quer sobrar a mais no mês e o custo do carro por km: combustível, manutenção e pneus, estacionamento e pedágio.</p>
+    <h4>O que não aumenta a meta</h4><p>Abastecer, pagar pedágio ou estacionar. Esses gastos já estão no custo por km${kmMes > 0 ? `, calculado com os ${virg(kmMes)} km por mês que você informou` : ""}. ${carro} Se você rodar mais km do que informou, a meta sobe sozinha.</p>
+    <button class="btn sm" type="button" id="motExMeta">Ver a conta completa</button></section>`;
 }
 function paneMot() {
   clearInterval(motRelogio); const host = $("pane-mot");
@@ -6087,10 +6141,11 @@ function paneMot() {
       ${!semContas && meta.brutoDia > 0 ? `<div class="mot-meta-bar ocultavel" role="img" aria-label="${Math.min(100, Math.round((totalHoje / meta.brutoDia) * 100))}% da meta de hoje"><i style="width:${Math.min(100, Math.round((totalHoje / meta.brutoDia) * 100))}%"></i></div><small class="mot-meta-leg ocultavel">${totalHoje >= meta.brutoDia ? "Meta de hoje batida." : `Faltam ${brl(round2(meta.brutoDia - totalHoje))} para a meta de hoje (${Math.round((totalHoje / meta.brutoDia) * 100)}%).`}</small>` : ""}
       ${lembraGanho(m.ativo)}`;
   };
-  if (m.ativo) {   // jornada em andamento: uma tela só com o cronômetro, no estilo "dirigindo"
+  if (m.ativo && motAba !== "resumo") {   // jornada em andamento: uma tela só com o cronômetro, no estilo "dirigindo"
     const a = m.ativo, pausada = Boolean(a.pausaIni), gastosTot = gastosDaJornada(a);
     host.innerHTML = `<div id="motRoot" class="mot-jornada${pausada ? " em-pausa" : ""}${motEntrou ? " entra" : ""}">
       <div class="mot-topo"><span class="mot-estado">${pausada ? "" : `<i class="mot-pulso" aria-hidden="true"></i>`}${pausada ? "Jornada pausada" : "Jornada ativa"}</span><b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b></div>
+      ${htmlAbasMot("agora")}
       ${pausada ? `<p class="mot-pausa-aviso" role="status"><span>Jornada pausada. O relógio está parado.</span><button type="button" id="motContinuar">Continuar</button></p>` : ""}
       <div id="motVivo" class="mot-vivo-box">${vivo()}</div>
       ${a.parcial ? "" : `<form id="motGanhoRap" class="mot-ganho-rap" autocomplete="off"><b class="ag-tit">Quanto já ganhou${appsDaJornada(a).length > 1 ? " em cada app" : ""}?</b>${camposGanhoAgora(a)}<button class="btn primary" type="submit">Ver se vale</button><small>Copie o que cada app mostra agora: o app soma e compara com o seu mínimo por km. Dá para atualizar quando quiser.</small></form>`}
@@ -6113,7 +6168,7 @@ function paneMot() {
         </div>
         <button class="mot-para" type="button" id="motParar">Parar jornada</button>
       </div></div>`;
-    motEntrou = false;
+    motEntrou = false; ligaAbasMot(host);
     host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
     $("motMais").onclick = () => {
       openDlg(`<h3>Mais opções</h3><p class="hint">Começou às ${hhmm(a.ini)}${a.categoria ? ` · ${esc(a.categoria)}` : ""}${gastosTot ? ` · ${brl(gastosTot)} em gastos` : ""}</p>
@@ -6149,7 +6204,7 @@ function paneMot() {
     return;
   }
   atualizaResumoDosDesafios();
-  const turno = `${htmlFraseMot(painelDoMotorista())}<!--ganhos-->${htmlRitmoMot(painelDoMotorista())}
+  const turno = `${htmlFraseMot({ ...painelDoMotorista(), ativa: Boolean(m.ativo) })}<!--ganhos-->${htmlRitmoMot(painelDoMotorista())}
     <button class="mot-desafios" type="button" data-mot-sub="desafios"><b>Desafios</b><span id="motDsResumo">${esc(resumoGuardadoDosDesafios() || "Compare com os seus amigos")}</span></button>
     <button class="mot-desafios" type="button" data-mot-sub="reservas"><b>Salário de autônomo</b><span>Carro, férias e 13º: quanto guardar por dia</span></button>
     <div class="mot-atalhos"><button class="btn sm" type="button" data-mot-acao="ler">Escanear nota ou QR</button><button class="btn sm" type="button" data-mot-acao="lancar">Lançar um gasto</button></div>`;
@@ -6157,14 +6212,18 @@ function paneMot() {
   const cartaoGanhos = `<button class="gan-card" type="button" id="motGanhos"><span class="t"><small>Nesta semana</small><b class="ocultavel">${brl(totalSem)}</b><small>Ver o detalhe</small></span><span class="gan-mini" aria-hidden="true">${semana.map((b) => `<i class="${b.iso === hj ? "hoje" : ""}" style="height:${b.ganho > 0 ? Math.max(8, Math.round((b.ganho / maxSem) * 100)) : 4}%"></i>`).join("")}</span>${ico("chev")}</button>`;
   const fech = fechamentoDaVez(), cartaoFech = fech ? `<button class="mot-rap larga mot-fech" type="button" id="motFech"><small>${nomeMes(fech.m)} fechou</small><b class="ocultavel">${fech.sobra < 0 ? "Faltaram" : "Sobraram"} ${brl0(Math.abs(fech.sobra))}. Ver o fechamento</b></button>` : "";
   host.innerHTML = `<div id="motRoot">
+    ${m.ativo ? htmlAbasMot("resumo") : ""}
     ${turno.replace("<!--ganhos-->", cartaoFech + cartaoGanhos)}
     <div class="mot-entenda">${meta.coberto ? "" : `<button class="mot-rap" type="button" id="motEntMeta"><small>Entenda</small><b>Sua meta de hoje</b></button>`}<button class="mot-rap" type="button" id="motEntKm"><small>Entenda</small><b>Seu valor por km</b></button></div>
+    ${htmlMetaExplicada(painelDoMotorista())}
     <button class="mot-rap larga" type="button" data-mot-sub="ajustes"><small>Minha meta</small><b>Ajustar dias, horas e quanto quero sobrar</b></button>
     <button class="mot-rap larga" type="button" data-mot-sub="perfil"><small>Meu trabalho</small><b>${m.perfil?.veiculo === "moto" ? "Moto" : "Carro"}: ${appsDoPerfil(m.perfil).filter(([k]) => k !== "outros").map(([, n]) => n).join(", ")}</b></button>
   </div>`;
   host.querySelectorAll("[data-mot-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.motAcao)));
   host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
-  $("motIniciar").onclick = () => { const odo = odoNum($("motOdoIni").value) || null; motEntrou = true; iniciarJornada(odo); render(); scrollTo(0, 0); };
+  ligaAbasMot(host); if ($("motVoltaJornada")) $("motVoltaJornada").onclick = () => { motAba = "agora"; render(); scrollTo(0, 0); };
+  if ($("motExMeta")) $("motExMeta").onclick = () => metaTela();
+  if ($("motIniciar")) $("motIniciar").onclick = () => { const odo = odoNum($("motOdoIni").value) || null; motEntrou = true; iniciarJornada(odo); render(); scrollTo(0, 0); };
   $("motVerMais").onclick = $("motProg").onclick = () => abrirGanhos("dia", hj);
   if ($("motVale")) $("motVale").onclick = corridaValeTela;
   if ($("motSemana")) $("motSemana").onclick = () => abrirGanhos("semana", $("motSemana").dataset.ref);

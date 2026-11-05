@@ -640,3 +640,29 @@ export function limpaGanhosPorApp(o) {
   for (const [k, v] of Object.entries(o || {})) if (ok.has(k) && Number(v) > 0 && Number(v) < 1e7) r[k] = r2(v);
   return r;
 }
+
+/** O que sai do bolso a cada km e vira lançamento: combustível, estacionamento e pedágio (a manutenção e os pneus não entram: o app não os vê como gasto lançado). */
+export function custoLancavelPorKm(veic) {
+  const km = Number(veic?.kmMes), r = custoDoVeiculo(veic);
+  if (!r || !(km > 0)) return null;
+  const v = r.partes.filter((p) => ["comb", "outros"].includes(p.k)).reduce((t, p) => t + p.valor, 0);
+  return v > 0 ? Math.round((v / km) * 10000) / 10000 : null;
+}
+/** Gasto lançado que já está no custo por km do carro: combustível, pedágio e estacionamento. */
+export const ehGastoDoVeiculo = (x) => x.tipo === "Despesa" && /combust|gasolin|[aá]lcool|etanol|abastec|ped[aá]gio|estacion/i.test(`${x.categoria || ""} ${x.descricao || ""}`);
+/**
+ * Abastecer não pode aumentar a meta: o combustível já está no custo por km (que a meta soma por dia rodado).
+ * Em vez do que saiu do caixa, o carro conta pelo que foi rodado: ajuste = o que foi lançado no mês (até hoje) menos os km rodados antes de hoje vezes o custo por km.
+ * Positivo: o que já foi pago adianta os próximos km (a meta diminui). Negativo: rodou mais do que abasteceu (a meta sobe).
+ * Dia de jornada sem km informado usa `kmDiaEstimado`. Sem o "Meu carro ou moto" preenchido, não ajusta (custoKm 0).
+ */
+export function ajusteDoVeiculo({ lancamentos, turnos, veic, hoje, kmDiaEstimado = 0 }) {
+  const custoKm = custoLancavelPorKm(veic);
+  if (!custoKm) return { ajuste: 0, lancado: 0, km: 0, rodado: 0, custoKm: 0 };
+  const mes = String(hoje).slice(0, 7);
+  const lancado = r2((lancamentos || []).filter((x) => ehGastoDoVeiculo(x) && String(x.data).slice(0, 7) === mes && String(x.data).slice(0, 10) <= hoje).reduce((t, x) => t + (Number(x.valor) || 0), 0));
+  const por = new Map();
+  (turnos || []).filter((t) => t.fim && isoLocal(t.ini).slice(0, 7) === mes && isoLocal(t.ini) < hoje).forEach((t) => { const d = isoLocal(t.ini); por.set(d, (por.get(d) || 0) + (Number(t.km) > 0 ? Number(t.km) : 0)); });
+  const km = r2([...por.values()].reduce((s, v) => s + (v > 0 ? v : kmDiaEstimado), 0)), rodado = r2(km * custoKm);
+  return { ajuste: r2(lancado - rodado), lancado, km, rodado, custoKm };
+}

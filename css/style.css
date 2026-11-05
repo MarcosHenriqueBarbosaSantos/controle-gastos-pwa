@@ -2578,3 +2578,33 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .como-passos li::before{content:counter(p);grid-row:span 2;display:grid;place-items:center;width:32px;height:32px;border-radius:50%;background:var(--series,#2f6bff);color:#fff;font-weight:700}
 .como-passos b{font-size:16px} .como-passos span{font-size:14px;color:var(--ink-2)}
 .mot-dia-como{margin:6px 0 0;font-size:15px;line-height:1.35}
+
+/* Início em passos: cada bloco explica o seu número */
+.hero .ip-lista{display:grid;gap:10px;margin:14px 0 4px}
+.hero .ip{display:grid;gap:5px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.12);color:#fff;font-size:14.5px;line-height:1.4}
+.hero .ip-t{font-size:14px;font-weight:700;letter-spacing:.01em}
+.hero .ip-l{display:flex;justify-content:space-between;gap:10px}
+.hero .ip-l.tot{margin-top:2px;padding-top:5px;border-top:1px solid rgba(255,255,255,.28);font-weight:700}
+.hero .ip small{display:block;font-size:12.5px;color:rgba(255,255,255,.82)}
+.hero .ip small.ok{color:#9ff0c5} .hero .ip small.falta{color:#ffd9a0;font-weight:600}
+.hero .ip-d{display:grid;grid-template-columns:56px 1fr;gap:8px;padding:6px 0;border-top:1px solid rgba(255,255,255,.16)}
+.hero .ip-d .d{font-weight:700;font-size:13.5px}
+.hero .ip-d .c{display:grid;gap:1px}
+.hero .ip-d .c>span{display:flex;justify-content:space-between;gap:8px}
+.hero .ip-d .in{color:#9ff0c5}
+
+/* Jornada: duas telas na mesma aba */
+.mot-abas{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:10px 0 6px;padding:4px;border-radius:12px;background:var(--surface-2,rgba(255,255,255,.08))}
+.mot-abas button{min-height:40px;border:0;border-radius:9px;background:none;color:var(--ink-2,#b8c4dc);font-size:14px;font-weight:600;cursor:pointer}
+.mot-abas button[aria-pressed="true"]{background:var(--series,#5ED3FF);color:#06101f}
+.mot-meta-ex{display:grid;gap:8px;margin:14px 0;padding:14px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
+.mot-meta-ex h3{margin:0;font-size:16px} .mot-meta-ex h4{margin:6px 0 0;font-size:14px}
+.mot-meta-ex p{margin:0;font-size:14px;line-height:1.45;color:var(--ink-2)}
+.mot-meta-ex ul{margin:0;padding:0;list-style:none;display:grid;gap:4px;font-size:14px}
+.mot-meta-ex li{display:flex;justify-content:space-between;gap:10px}
+.mot-meta-ex li.tot{padding-top:5px;border-top:1px solid var(--border);font-weight:700}
+
+/* Toque fácil no celular: áreas de pelo menos 44 px */
+.btn.sm,.ultima-vez,.paguei-rapido{min-height:44px}
+.venc-tit{position:relative}
+.venc-tit::after{content:"";position:absolute;inset:-12px -4px}

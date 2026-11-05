@@ -1,0 +1,4 @@
+- [Hotmart: venda pendente](hotmart-venda-pendente.md) — produto 8865238 no ar; falta provar compra real e comissão de afiliado
+- [Cores do app e do site](visual-site-amarelo-app-azul.md) — os dois no azul neon; mudar sempre juntos
+- [Ideias focadas na tela](ideias-focadas-na-tela.md) — ideias novas sempre da tela/função da rodada
+- [Supabase: SQL e função avisos](supabase-publicar-sql-e-funcao.md) — como aplicar SQL e republicar a função pelo painel do navegador
