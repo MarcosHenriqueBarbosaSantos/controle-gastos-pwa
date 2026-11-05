@@ -2360,7 +2360,14 @@ button.ct-linha:not(:disabled){cursor:pointer}
 /* Jornada rodando: o ganho direto na tela, no espaço que ficava vazio. */
 .mot-ganho-rap{display:grid;gap:8px;margin:18px 0 0;padding:14px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
 .mot-ganho-rap label{font-weight:700;font-size:15px}
-.mot-ganho-rap>div{display:flex;gap:8px} .mot-ganho-rap .in{flex:1;min-width:0;min-height:52px;font-size:20px;font-weight:700;text-align:right} .mot-ganho-rap .btn{flex:none;min-height:52px;padding:0 16px}
+.mot-ganho-rap .ag-tit{font-size:15px}
+.ag-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px} .ag-grid.um{grid-template-columns:1fr}
+.mot-ganho-rap label.ag,label.ag{display:grid;gap:4px;font-weight:600;font-size:13.5px;color:var(--muted)}
+.ag .in{min-width:0;min-height:52px;font-size:20px;font-weight:700;text-align:right}
+.ag-tot{margin:0;min-height:20px;font-size:14px;color:var(--muted)} .ag-tot b{color:var(--text)}
+.mot-ganho-rap .btn{min-height:52px}
+.mot-ganho-rap.sub{border:0;padding:0;background:none}
+.mot-odo-falta{color:var(--accent,#5ED3FF)}
 .mot-ganho-rap small{font-size:12.5px;color:var(--muted)}
 /* Jornada: barra até a meta de hoje, lembrete de atualizar o ganho e o botão de ler o print. */
 .mot-meta-bar{height:8px;margin:12px 0 4px;border-radius:999px;background:var(--sunk);overflow:hidden} .mot-meta-bar i{display:block;height:100%;border-radius:inherit;background:var(--good)}

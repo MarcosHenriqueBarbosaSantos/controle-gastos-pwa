@@ -622,3 +622,21 @@ export function kmRealPorMes(turnos, ate) {
   const ini = isoLocal(dia(ate) - 29 * 864e5), total = t.filter((x) => isoLocal(x.ini) >= ini).reduce((s2, x) => s2 + Number(x.km), 0);
   return Math.round(((total / dias) * 30) / 10) * 10;
 }
+
+/** O ganho por km da jornada em andamento contra o mínimo por km da pessoa.
+ *  folga: quanto o ganho está acima do que o mínimo pediria para esses km. Com folga F, uma corrida pode pagar até F a menos
+ *  que o mínimo dela e a média da jornada continua no mínimo. falta: o que falta para a média chegar no mínimo. */
+export function ganhoPorKmAgora({ ganho, km, minimoKm }) {
+  const g = Number(ganho), k = Number(km), min = Number(minimoKm);
+  if (!(g > 0) || !(k > 0)) return null;
+  const porKm = r2(g / k);
+  if (!(min > 0)) return { porKm, minimo: 0, veredito: null, folga: 0, falta: 0 };
+  const dif = r2(g - min * k);
+  return { porKm, minimo: r2(min), veredito: dif >= 0 ? "acima" : "abaixo", folga: dif >= 0 ? dif : 0, falta: dif < 0 ? -dif : 0 };
+}
+/** O ganho de cada app informado na jornada, limpo: só apps conhecidos e valores positivos. */
+export function limpaGanhosPorApp(o) {
+  const ok = new Set(APPS.map(([k]) => k)), r = {};
+  for (const [k, v] of Object.entries(o || {})) if (ok.has(k) && Number(v) > 0 && Number(v) < 1e7) r[k] = r2(v);
+  return r;
+}

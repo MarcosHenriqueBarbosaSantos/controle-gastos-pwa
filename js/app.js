@@ -18,7 +18,7 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, corridaVale, resumoDasOfertas, MAX_OFERTAS, NOME_RESERVA_CARRO, PARTES_DO_CARRO, PARTES_PADRAO, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { ganhoPorKmAgora, limpaGanhosPorApp, semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, corridaVale, resumoDasOfertas, MAX_OFERTAS, NOME_RESERVA_CARRO, PARTES_DO_CARRO, PARTES_PADRAO, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
   avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
@@ -5182,7 +5182,7 @@ function meuVeiculo() {
    gastos do turno (combustível, pedágio...) viram gastos no extrato, então o saldo do mês já conta tudo. Os turnos ficam nas preferências da conta. */
 const motDados = () => {
   const m = S.prefs.motorista || {}, a = m.ativo;
-  return { ativo: a?.ini ? { ini: Number(a.ini), parcial: Math.max(0, Number(a.parcial) || 0), antes: Array.isArray(a.antes) ? a.antes : [], pausado: Math.max(0, Number(a.pausado) || 0), pausaIni: Number(a.pausaIni) > 0 ? Number(a.pausaIni) : null, categoria: String(a.categoria || ""), odoIni: Number(a.odoIni) > 0 ? Number(a.odoIni) : null, parcialEm: Number(a.parcialEm) > 0 ? Number(a.parcialEm) : null } : null,
+  return { ativo: a?.ini ? { ini: Number(a.ini), parcial: Math.max(0, Number(a.parcial) || 0), antes: Array.isArray(a.antes) ? a.antes : [], pausado: Math.max(0, Number(a.pausado) || 0), pausaIni: Number(a.pausaIni) > 0 ? Number(a.pausaIni) : null, categoria: String(a.categoria || ""), odoIni: Number(a.odoIni) > 0 ? Number(a.odoIni) : null, parcialEm: Number(a.parcialEm) > 0 ? Number(a.parcialEm) : null, parcialApps: limpaGanhosPorApp(a.parcialApps), kmAgora: Number(a.kmAgora) > 0 && Number(a.kmAgora) <= 3000 ? Number(a.kmAgora) : null, kmAgoraEm: Number(a.kmAgoraEm) > 0 ? Number(a.kmAgoraEm) : null } : null,
     turnos: Array.isArray(m.turnos) ? m.turnos : [], diasSemana: Math.min(7, Math.max(1, Math.round(Number(m.diasSemana)) || 6)),
     horasDia: Math.min(16, Math.max(1, Math.round(Number(m.horasDia)) || 8)), extra: Math.max(0, Number(m.extra) || 0), perfil: m.perfil?.veiculo ? m.perfil : null };
 };
@@ -5194,7 +5194,7 @@ const virg = (n) => String(n).replace(".", ",");
 /** Soma por chave do que foi lançado durante o turno: { uber: 120, ... } ou { comb: 60, ... }. */
 const somaPor = (lista, chave) => lista.reduce((o, x) => { o[x[chave]] = round2((o[x[chave]] || 0) + Number(x.valor)); return o; }, {});
 let motEntrou = false;   // a jornada acabou de começar: a tela entra com movimento uma vez só
-let motPer = "dia", ganData = null, motRelogio = 0, motFechando = false, motSub = null;   // motSub: a subtela aberta ("ganho", "gasto" ou "ajustes")
+let motPer = "dia", ganData = null, motRelogio = 0, motFechando = false, motSub = null, motEditaDaJornada = false;   // motEditaDaJornada: a edição de um turno antigo veio da tela da jornada, então volta para ela   // motSub: a subtela aberta ("ganho", "gasto" ou "ajustes")
 /** A tela do Modo motorista (uma aba de Extrato/Planejar, no mesmo jeito): abre pelo Mais, pelo Início ou pela busca. */
 function motoristaTela() { motSub = null; abrirSub("mot"); if (!noCelular()) $("listas").scrollIntoView({ block: "start" }); }
 /** Imagem do resultado do motorista (1080 × 1350), feita no aparelho. Com "esconder valores" mostra só horas, km, viagens e a parte do faturamento que vira lucro. */
@@ -5320,6 +5320,7 @@ function paneGanhos(host) {
     return `<li><span class="d">${ddmm(isoLocal(t.ini))}</span><button type="button" class="hist-abrir" data-medit="${esc(t.id)}" aria-label="Editar o turno de ${ddmm(isoLocal(t.ini))}"><span>${horasCurtas(duracaoMs(t))}${Number(t.km) > 0 ? ` · ${virg(t.km)} km` : ""}<small>lucro ${brl(rr.lucro)}${rr.lucroPorHora !== null ? ` · ${brl(rr.lucroPorHora)} por hora` : ""}</small></span></button><b>${brl(ganhoDoTurno(t))}</b>
       <button class="del x" type="button" data-mdel="${esc(t.id)}" aria-label="Apagar o turno de ${ddmm(isoLocal(t.ini))}" title="Apaga o turno e os lançamentos que ele criou">×</button></li>`; }).join("");
   host.innerHTML = `<div id="motRoot" class="gan">
+    ${m.ativo ? `<button class="mot-voltar" type="button" id="ganVolta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Voltar à jornada</button>` : ""}
     <div class="gan-per" role="group" aria-label="Período">${[["dia", "Dia"], ["semana", "Semana"], ["mes", "Mês"], ["ano", "Ano"]].map(([k, n]) => `<button type="button" data-per="${k}" aria-pressed="${per === k}">${n}</button>`).join("")}</div>
     <p class="gan-data">${esc(tituloDoPeriodo(per, iso))}</p>
     <div class="gan-valor"><button type="button" class="gan-seta" id="ganAnt" aria-label="Período anterior"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b class="ocultavel">${brl(r.ganho)}</b><button type="button" class="gan-seta" id="ganProx" aria-label="Próximo período"${temProxima ? "" : " disabled"}><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>
@@ -5335,6 +5336,7 @@ function paneGanhos(host) {
     ${lista ? `<h4 class="mot-h">Jornadas</h4><ul class="itens apagaveis mot-hist">${lista}</ul>` : ""}
     ${r.n ? `<button class="btn mot-compartilha" type="button" id="motImagem">Compartilhar meu resultado</button>` : ""}
   </div>`;
+  if ($("ganVolta")) $("ganVolta").onclick = motSai;
   host.querySelectorAll("[data-per]").forEach((b) => (b.onclick = () => abrirGanhos(b.dataset.per, iso > hj ? hj : iso)));
   $("ganAnt").onclick = () => abrirGanhos(per, andaPeriodo(per, iso, -1));
   $("ganProx").onclick = () => abrirGanhos(per, proxima);
@@ -5344,7 +5346,7 @@ function paneGanhos(host) {
   if ($("ganCusto")) $("ganCusto").onclick = () => custoKmTela();
   if ($("motVeic")) $("motVeic").onclick = () => meuVeiculo();
   if ($("motImagem")) $("motImagem").onclick = () => compartilharResultadoMot(tituloDoPeriodo(per, iso), r);
-  host.querySelectorAll("[data-medit]").forEach((b) => (b.onclick = () => motEntra("edit-" + b.dataset.medit)));
+  host.querySelectorAll("[data-medit]").forEach((b) => (b.onclick = () => { motEditaDaJornada = false; motEntra("edit-" + b.dataset.medit); }));
   host.querySelectorAll("[data-mdel]").forEach((b) => armDelete(b, async () => {
     const mm = motDados(), t = mm.turnos.find((x) => x.id === b.dataset.mdel); if (!t) return;
     for (const id of [t.rid, ...(t.cids || [t.cid])].filter(Boolean)) if (lancPorId(id)) await apagaLancamento(id);
@@ -5992,6 +5994,43 @@ const escutaCorrida = criaEscuta({
 });
 /** Rodou sem iniciar a jornada: lança o dia pronto, de Lançar ou do Extrato. */
 function lancarDiaMot() { fecharLancar(true); motoristaTela(); motEntra("dia"); }
+/** Os apps que aparecem na tela da jornada: os do perfil (sem perfil, os três principais), mais os que já têm valor. */
+function appsDaJornada(a) {
+  const perfil = motDados().perfil, usados = Object.keys(a.parcialApps || {});
+  if (perfil?.veiculo) return appsDoPerfil(perfil, usados);
+  return APPS.filter(([k]) => ["uber", "99", "indrive"].includes(k) || usados.includes(k));
+}
+/** Um campo por app, o km rodado até agora e o total somado na hora: a pessoa copia o que cada app mostra e não faz conta. */
+function camposGanhoAgora(a) {
+  const lista = appsDaJornada(a), pa = a.parcialApps || {}, semApp = !Object.keys(pa).length && a.parcial > 0;   // ganho de antes dos campos por app vai para o primeiro
+  const val = (k, i) => (pa[k] > 0 ? pa[k] : semApp && i === 0 ? a.parcial : 0);
+  return `<div class="ag-grid${lista.length === 1 ? " um" : ""}">${lista.map(([k, n], i) => `<label class="ag">${lista.length === 1 ? "Quanto já ganhou (R$)" : `${esc(n)} (R$)`}<input class="in money" data-ag="${k}" inputmode="decimal" placeholder="0,00" enterkeyhint="next" value="${val(k, i) > 0 ? esc(virg(val(k, i))) : ""}"></label>`).join("")}</div>
+    <p class="ag-tot" id="agTot" aria-live="polite"></p>
+    <label class="ag">Km rodados até agora (opcional)<input class="in" id="agKm" inputmode="decimal" maxlength="7" placeholder="ex.: 62" value="${a.kmAgora > 0 ? esc(virg(a.kmAgora)) : ""}"></label>
+    ${a.odoIni ? `<label class="ag">Ou o km do painel agora (começou em ${esc(odoTxt(a.odoIni))})<input class="in" id="agPainel" inputmode="numeric" maxlength="9" placeholder="ex.: ${esc(odoTxt(a.odoIni + 60))}"></label>` : ""}`;
+}
+function ligaGanhoAgora(host) {
+  const soma = () => { const t = lerGanhoAgora(host).total; $("agTot").innerHTML = t > 0 ? `Total até agora: <b>${brl(t)}</b>` : ""; };
+  host.querySelectorAll("[data-ag]").forEach((i) => i.addEventListener("input", soma)); soma();
+  // O painel do carro faz a conta do km: painel de agora menos o painel de quando começou.
+  const ini = motDados().ativo?.odoIni;
+  $("agPainel")?.addEventListener("input", () => { const agora = odoNum($("agPainel").value); if (ini && agora > ini) $("agKm").value = virg(agora - ini); });
+}
+function lerGanhoAgora(host) {
+  const apps = {}; host.querySelectorAll("[data-ag]").forEach((i) => { const v = round2(nm(i.value)); if (v > 0) apps[i.dataset.ag] = v; });
+  return { apps: limpaGanhosPorApp(apps), total: somaValores(apps), km: round2(Math.max(0, nm($("agKm").value))) };
+}
+/** Confere e guarda o ganho por app e o km da jornada. Devolve false (e avisa) se algo estiver errado. */
+function guardaGanhoAgora(host, { exigeGanho }) {
+  const r = lerGanhoAgora(host);
+  if (exigeGanho && !(r.total > 0)) { toast("Digite quanto já ganhou, por exemplo 85,00."); host.querySelector("[data-ag]")?.focus(); return false; }
+  if (r.total > VALOR_MAX) { toast(ALTO_DEMAIS); return false; }
+  if (r.km > 3000) { toast("Esse km está alto demais. Confira o número."); $("agKm").focus(); return false; }
+  const mm = motDados(), t = Date.now();
+  mm.ativo.parcialApps = r.apps; mm.ativo.parcial = r.total; mm.ativo.parcialEm = t;
+  mm.ativo.kmAgora = r.km > 0 ? r.km : null; mm.ativo.kmAgoraEm = r.km > 0 ? t : null;
+  gravaMot(mm); vibra(15); return true;
+}
 function iniciarJornada(odoIni = null) {
   uso("jornada_iniciada");
   const ini = Date.now();
@@ -6031,6 +6070,15 @@ function paneMot() {
       <div class="mot-barra ocultavel" role="img" aria-label="De ${brl(ganho)} ganhos, ${brl(gastos)} foram gastos e ${sobra < 0 ? `faltam ${brl(-sobra)}` : `sobram ${brl(sobra)}`}">${pctGastos ? `<i style="width:${pctGastos}%">${sobra < 0 ? txtSobra : pctGastos >= 18 ? "Gastos" : ""}</i>` : ""}${sobra < 0 ? "" : `<span>${apertado ? "" : txtSobra}</span>`}</div>
       <small class="mot-barra-leg ocultavel">${apertado && sobra >= 0 ? `${txtSobra} de` : "De"} ${brl(ganho)} ganhos ${doDia.n ? "nesta jornada" : "hoje"}</small>` : ""}
       ${aviso || (v.veredito ? `<p class="mot-ver ${v.veredito}">${frase}</p>` : "")}
+      ${(() => {   // ganho por km contra o mínimo: com folga, vale uma corrida boa que pague abaixo do mínimo por km
+        const km = m.ativo.kmAgora; if (ganho > 0 && !(km > 0) && !v.desatualizado) return `<button type="button" class="link link-toque" data-mot-lembra>Somar os km rodados para ver quanto você faz por km</button>`;
+        if (!(km > 0) || !(ganho > 0)) return "";
+        if (Date.now() - (Number(m.ativo.kmAgoraEm) || 0) >= 2 * 3600000) return `<button type="button" class="mot-lembra" data-mot-lembra>${ico("agenda")}<span>O km de antes está velho. <b>Atualizar o km</b></span></button>`;
+        const g = ganhoPorKmAgora({ ganho, km, minimoKm: regra.minimo }); if (!g) return "";
+        if (g.veredito === "acima") return `<p class="mot-ver bom">Você faz <b class="ocultavel">${brl(g.porKm)}</b> por km, ${g.folga > 0 ? "acima" : "no"} do seu mínimo de ${brl(g.minimo)}.${g.folga > 0 ? ` Folga de <b class="ocultavel">${brl(g.folga)}</b>: uma corrida boa pode pagar até esse valor abaixo do mínimo por km sem a sua média cair do mínimo.` : ""}</p>`;
+        if (g.veredito === "abaixo") return `<p class="mot-ver abaixo">Você faz <b class="ocultavel">${brl(g.porKm)}</b> por km, abaixo do seu mínimo de ${brl(g.minimo)}. Faltam <b class="ocultavel">${brl(g.falta)}</b> para a média chegar no mínimo: prefira corridas que paguem mais por km.</p>`;
+        return `<p class="mot-ver">Você faz <b class="ocultavel">${brl(g.porKm)}</b> por km nesta jornada.</p>`;
+      })()}
       <div class="gan-stats mot-vivo-st"><p><b class="ocultavel">${semContas ? "Sem meta" : meta.coberto ? "Coberta" : brl(meta.brutoDia)}</b><small>Meta de hoje</small></p><p><b class="ocultavel">${semContas ? "—" : meta.coberto || totalHoje >= meta.brutoDia ? "Nada" : brl(round2(meta.brutoDia - totalHoje))}</b><small>Faltam</small></p><p><b class="ocultavel">${brl(regra.minimo)}</b><small>Mínimo por km</small></p></div>
       ${!semContas && meta.brutoDia > 0 ? `<div class="mot-meta-bar ocultavel" role="img" aria-label="${Math.min(100, Math.round((totalHoje / meta.brutoDia) * 100))}% da meta de hoje"><i style="width:${Math.min(100, Math.round((totalHoje / meta.brutoDia) * 100))}%"></i></div><small class="mot-meta-leg ocultavel">${totalHoje >= meta.brutoDia ? "Meta de hoje batida." : `Faltam ${brl(round2(meta.brutoDia - totalHoje))} para a meta de hoje (${Math.round((totalHoje / meta.brutoDia) * 100)}%).`}</small>` : ""}
       ${lembraGanho(m.ativo)}`;
@@ -6040,8 +6088,13 @@ function paneMot() {
     host.innerHTML = `<div id="motRoot" class="mot-jornada${pausada ? " em-pausa" : ""}${motEntrou ? " entra" : ""}">
       <div class="mot-topo"><span class="mot-estado">${pausada ? "" : `<i class="mot-pulso" aria-hidden="true"></i>`}${pausada ? "Jornada pausada" : "Jornada ativa"}</span><b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b></div>
       <div id="motVivo" class="mot-vivo-box">${vivo()}</div>
-      ${a.parcial ? "" : `<form id="motGanhoRap" class="mot-ganho-rap" autocomplete="off"><label for="mgrVal">Quanto já ganhou nos apps?</label><div><input class="in money" id="mgrVal" inputmode="decimal" placeholder="0,00" enterkeyhint="done"><button class="btn primary" type="submit">Ver se vale</button></div><small>Some o que os apps mostram agora. Dá para atualizar quando quiser.</small></form>`}
+      ${a.parcial ? "" : `<form id="motGanhoRap" class="mot-ganho-rap" autocomplete="off"><b class="ag-tit">Quanto já ganhou${appsDaJornada(a).length > 1 ? " em cada app" : ""}?</b>${camposGanhoAgora(a)}<button class="btn primary" type="submit">Ver se vale</button><small>Copie o que cada app mostra agora: o app soma e compara com o seu mínimo por km. Dá para atualizar quando quiser.</small></form>`}
       <button type="button" class="mot-odo" id="motOdo">${a.odoIni ? `Painel ao começar: ${odoTxt(a.odoIni)} km` : "Anotar o km do painel do carro"}</button>
+      ${(() => {   // jornada antiga sem km: um toque para completar, sem sair da jornada de agora
+        const limite = isoLocal(Date.now() - 7 * 864e5), t = [...m.turnos].reverse().find((x) => x.fim && !(Number(x.km) > 0) && isoLocal(x.ini) >= limite); if (!t) return "";
+        const d = isoLocal(t.ini), rot = d === hoje() ? "hoje, de antes" : d === isoLocal(Date.now() - 864e5) ? "ontem" : ddmm(d);
+        return `<button type="button" class="mot-odo mot-odo-falta" data-mot-edit="${esc(t.id)}">Faltou o km de ${rot}. Anotar agora</button>`;
+      })()}
       <div class="mot-comandos" role="group" aria-label="Controle da jornada">
         <div class="mot-leves">
           ${a.parcial ? `<button type="button" data-mot-sub="ganho">Atualizar ganho</button>` : ""}
@@ -6058,9 +6111,11 @@ function paneMot() {
     host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
     $("motMais").onclick = () => {
       openDlg(`<h3>Mais opções</h3><p class="hint">Começou às ${hhmm(a.ini)}${a.categoria ? ` · ${esc(a.categoria)}` : ""}${gastosTot ? ` · ${brl(gastosTot)} em gastos` : ""}</p>
-        <div class="mot-opcoes"><button class="btn" type="button" id="motComida">Alimentação</button><button class="btn" type="button" data-mot-op="lancar">Outro gasto</button><button class="btn" type="button" data-mot-op="ler">Escanear nota ou QR code</button><button class="btn" type="button" id="motIrInicio">Ir para o Início</button><button class="btn" type="button" id="motDescartar">Descartar esta jornada</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+        <div class="mot-opcoes"><button class="btn" type="button" id="motComida">Alimentação</button><button class="btn" type="button" data-mot-op="lancar">Outro gasto</button><button class="btn" type="button" data-mot-op="ler">Escanear nota ou QR code</button><button class="btn" type="button" id="motDiasAnt">Corrigir um dia anterior</button><button class="btn" type="button" id="motDiaEsq">Lançar um dia que esqueci</button><button class="btn" type="button" id="motIrInicio">Ir para o Início</button><button class="btn" type="button" id="motDescartar">Descartar esta jornada</button><button class="btn" type="button" data-close>Fechar</button></div>`);
       $("dlgBody").querySelectorAll("[data-mot-op]").forEach((b) => (b.onclick = () => { $("dlg").close(); acaoRapida(b.dataset.motOp); }));
       $("motComida").onclick = () => { $("dlg").close(); lancaGastoMot("Alimentação"); };
+      $("motDiasAnt").onclick = () => { $("dlg").close(); abrirGanhos("dia", isoLocal(Date.now() - 864e5)); };
+      $("motDiaEsq").onclick = () => { $("dlg").close(); motEntra("dia"); };
       $("motIrInicio").onclick = () => { $("dlg").close(); $("bnav").querySelector('[data-nav="inicio"]').click(); };
       armDelete($("motDescartar"), () => {
         const guardada = motDados().ativo; $("dlg").close(); gravaMot({ ...motDados(), ativo: null }); render();
@@ -6076,13 +6131,12 @@ function paneMot() {
     $("motParar").onclick = () => fecharTurno();
     $("motVivo").onclick = (e) => { if (e.target.closest("[data-mot-lembra]")) motEntra("ganho"); };   // o quadro se refaz a cada segundo: o toque é pego aqui
     // Ganho direto na tela, sem abrir outra: com ele o app já diz se está valendo a pena.
-    if ($("motGanhoRap")) $("motGanhoRap").addEventListener("submit", (e) => {
-      e.preventDefault(); const v = round2(nm($("mgrVal").value));
-      if (!(v > 0)) { toast("Digite quanto já ganhou, por exemplo 85,00."); return $("mgrVal").focus(); }
-      if (v > VALOR_MAX) return void toast(ALTO_DEMAIS);
-      const mm = motDados(); mm.ativo.parcial = v; mm.ativo.parcialEm = Date.now(); gravaMot(mm); vibra(15); render();
-    });
+    if ($("motGanhoRap")) {
+      ligaGanhoAgora($("motGanhoRap"));
+      $("motGanhoRap").addEventListener("submit", (e) => { e.preventDefault(); if (guardaGanhoAgora($("motGanhoRap"), { exigeGanho: true })) render(); });
+    }
     $("motOdo").onclick = () => anotaPainelMot();
+    host.querySelectorAll("[data-mot-edit]").forEach((b) => (b.onclick = () => { motEditaDaJornada = true; motEntra("edit-" + b.dataset.motEdit); }));
     motRelogio = setInterval(() => { const el = $("motCron"); if (!el || S.view !== "listas" || S.tab !== "mot") return clearInterval(motRelogio); const ag = motDados().ativo; if (!ag) return clearInterval(motRelogio); el.textContent = relogio(msAndamento(ag)); $("motVivo").innerHTML = vivo(); }, 1000);
     return;
   }
@@ -6124,7 +6178,7 @@ function motEntra(sub) {
 }
 /** Sai da subtela, pelo botão da tela ou ao salvar. */
 function motSai() {
-  motSub = String(motSub).startsWith("edit-") ? "ganhos" : null; motFechando = false;   // quem edita um turno veio dos ganhos
+  motSub = String(motSub).startsWith("edit-") && !motEditaDaJornada ? "ganhos" : null; motFechando = false; motEditaDaJornada = false;   // quem edita um turno veio dos ganhos
   if (history.state?.motsub) { S.ignoraPop = true; try { history.back(); } catch { S.ignoraPop = false; } }
   render(); scrollTo(0, 0); $("listas").scrollTop = 0;
 }
@@ -6185,14 +6239,11 @@ function paneMotSub(host) {
       <div class="actions wide"><button class="btn primary" type="submit">Salvar</button></div></form></div>`;
     $("motAjForm").addEventListener("submit", (e) => { e.preventDefault(); gravaMot({ ...motDados(), diasSemana: Number($("motDias").value) || 6, horasDia: Number($("motHoras").value) || 8, extra: Math.max(0, nm($("motExtra").value)) }); toast("Meta salva."); render(); volta(); });
   } else if (motSub === "ganho") {
-    host.innerHTML = topo("Ganho do dia", "Some o que os apps (Uber, 99, iFood...) e as corridas particulares renderam até agora e digite aqui. Assim o app diz quanto você está rendendo por hora. No fim, você informa o total de cada app.") +
-      `<form id="motGanho" class="dlg-form" autocomplete="off"><label class="f wide">Ganho do dia até agora (R$)<input class="in money" id="mgnVal" inputmode="decimal" placeholder="0,00" value="${m.ativo.parcial ? esc(virg(m.ativo.parcial)) : ""}"></label>
+    host.innerHTML = topo("Ganho e km até agora", "Copie o que cada app mostra agora e o km que você já rodou. O app soma, diz quanto você está rendendo por hora e por km e compara com o seu mínimo. No fim, os valores já vêm preenchidos.") +
+      `<form id="motGanho" class="dlg-form mot-ganho-rap sub" autocomplete="off">${camposGanhoAgora(m.ativo)}
       <div class="actions wide"><button class="btn primary" type="submit">Salvar</button></div></form></div>`;
-    $("motGanho").addEventListener("submit", (e) => {
-      e.preventDefault(); const v = round2(nm($("mgnVal").value));
-      if (v < 0 || v > VALOR_MAX) { toast(ALTO_DEMAIS); return; }
-      const mm = motDados(); mm.ativo.parcial = v; mm.ativo.parcialEm = Date.now(); gravaMot(mm); vibra(15); volta();
-    });
+    ligaGanhoAgora($("motGanho"));
+    $("motGanho").addEventListener("submit", (e) => { e.preventDefault(); if (guardaGanhoAgora($("motGanho"), { exigeGanho: false })) volta(); });
   }
   $("motVolta").onclick = volta;
 }
@@ -6257,11 +6308,17 @@ function paneFechar(host) {
     $("mtTot").innerHTML = `Total do dia: <b>${brl(t)}</b>${t > 0 ? `${gastosJ ? ` · gastos da jornada ${brl(gastosJ)}` : ""} · sobra <b>${brl(r.sobra)}</b>${r.sobraPorHora !== null ? `, <b>${brl(r.sobraPorHora)} por hora</b>` : ""}` : ""}`;
   };
   // O ganho informado durante a jornada já vem no campo quando a pessoa roda em um app só (com mais de um, o texto do alto já lembra o total).
-  const camposG = host.querySelectorAll("[data-app]"), parcial = Number(m.ativo.parcial) || 0;
-  if (parcial > 0 && camposG.length === 1 && !camposG[0].value) camposG[0].value = parcial.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+  const camposG = host.querySelectorAll("[data-app]"), parcial = Number(m.ativo.parcial) || 0, porApp = m.ativo.parcialApps || {}, fmt = (v) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+  const jaPorApp = Object.keys(porApp).length > 0;   // o ganho foi anotado app por app: cada valor volta ao seu campo
+  if (jaPorApp) camposG.forEach((c) => { if (porApp[c.dataset.app] > 0 && !c.value) c.value = fmt(porApp[c.dataset.app]); });
+  else if (parcial > 0 && camposG.length === 1 && !camposG[0].value) camposG[0].value = fmt(parcial);
   somaApps();
+  if (m.ativo.kmAgora > 0 && !$("kmTot").value) {
+    $("kmTot").closest("div").insertAdjacentHTML("afterend", `<button type="button" class="link link-toque wide" id="mtUsaKm">Pôr os ${virg(m.ativo.kmAgora)} km que anotou na jornada</button>`);
+    $("mtUsaKm").onclick = () => { $("kmTot").value = virg(m.ativo.kmAgora); $("kmTot").dispatchEvent(new Event("input", { bubbles: true })); $("mtUsaKm").remove(); };
+  }
   // Com mais de um app, o app não sabe de qual veio o valor anotado: um toque põe no primeiro campo e a pessoa ajusta.
-  if (parcial > 0 && camposG.length > 1 && !camposG[0].value) {
+  if (parcial > 0 && !jaPorApp && camposG.length > 1 && !camposG[0].value) {
     const nomeApp = (camposG[0].closest("label")?.firstChild?.textContent || "primeiro app").replace(/\s*\(R\$\)\s*/, "").trim() || "primeiro app";
     $("mtTot").insertAdjacentHTML("afterend", `<button type="button" class="link link-toque wide" id="mtUsaParcial">Pôr os ${brl(parcial)} que anotei em ${esc(nomeApp)}</button>`);
     $("mtUsaParcial").onclick = () => { camposG[0].value = parcial.toLocaleString("pt-BR", { minimumFractionDigits: 2 }); somaApps(); $("mtUsaParcial").remove(); camposG[0].focus(); };
