@@ -2014,7 +2014,7 @@ function htmlAlertaMot() {
   const { meta, alc, mes } = painelDoMotorista();
   if (meta.coberto) return "";
   const pe = alc.nivel === "fora" ? "É mais do que o seu ritmo normal, então vale ver um jeito leve de fechar." : `Fazendo ${brl(meta.brutoDia)} por dia rodado, dá para fechar ${nomeMes(mes)}.`;
-  return `<li class="alerta warn"><span class="quando">meta do mês</span><span class="oque ocultavel"><b>Faltam ${brl(meta.falta)} para as contas de ${nomeMes(mes)}</b><span>${pe}</span><button class="link link-toque" type="button" data-ordem>Ver as contas do mês</button></span></li>`;
+  return `<li class="alerta warn meta-mes"><span class="quando">meta do mês</span><span class="oque ocultavel"><b>Faltam ${brl(meta.falta)} para as contas de ${nomeMes(mes)}</b><span>${pe}</span><button class="link link-toque" type="button" data-ordem>Ver as contas do mês</button></span></li>`;
 }
 /** As contas atrasadas em um lugar só, de qualquer mês: uma por uma ou todas de uma vez, sempre com Desfazer. */
 function atrasadasTela() {
@@ -2133,7 +2133,7 @@ function calendario(m, escolhido = "") {
     ${cal.aPagar || cal.pago || cal.entra ? `<div class="cal-res3"><span><small>Entra</small><b class="ok">${brl(cal.entra)}</b></span><span><small>Contas</small><b>${brl(cal.aPagar + cal.pago)}</b>${cal.pago ? `<small>${brl(cal.pago)} já pago</small>` : ""}</span><span><small>${sobra < 0 ? "Falta cobrir" : "Sobra"}</small><b class="${sobra < 0 ? "warn" : ""}">${brl(Math.abs(sobra))}</b></span></div>${S.prefs.motorista?.usa && !cal.entra ? `<p class="hint cal-res">Aqui só entra o que já está marcado. O que você ainda vai ganhar rodando não está contado.</p>` : ""}` : `<p class="hint cal-res">Nenhuma conta neste mês. Cadastre as contas fixas e o cartão para ver os vencimentos aqui.</p>`}
     <div class="cal" role="group" aria-label="Dias de ${nomeMes(m)}">${["D", "S", "T", "Q", "Q", "S", "S"].map((x, i) => `<span class="cal-s" aria-hidden="true" title="${DIAS_SEMANA[i]}">${x}</span>`).join("")}${"<span></span>".repeat(cal.vazios)}${cal.dias.map(casa).join("")}</div>
     <p class="cal-leg" aria-hidden="true"><span class="s-atrasada"><i>!</i>atrasada</span><span class="s-a-vencer"><i>●</i>a vencer</span><span class="s-paga"><i>✓</i>paga</span><span class="s-entra"><i>+</i>entrada</span>${diaZero ? `<span class="s-acaba"><i>◆</i>dinheiro acaba</span>` : ""}</p>
-    ${diaZero ? `<p class="cal-acaba" role="status">No ritmo de agora, o dinheiro do mês acaba <b>dia ${diaZero.slice(8, 10)}</b>.</p>` : ""}
+    ${diaZero ? (() => { const ap = apertoAteAEntrada(ac); return ap ? `<p class="cal-acaba" role="status">Falta dinheiro até a entrada do <b>dia ${ap.dia}</b>: faltam <b>${brl(ap.falta)}</b>. Depois, o mês fecha com sobra.</p>` : `<p class="cal-acaba" role="status">No ritmo de agora, o dinheiro do mês acaba <b>dia ${diaZero.slice(8, 10)}</b>.</p>`; })() : ""}
     <div class="cal-dia" id="calDia"><h4>${dSel.dia} de ${nomeMes(m)}${dSel.iso === hj ? " (hoje)" : ""}</h4>
       ${dSel.contas.length || dSel.entradas.length ? `<ul class="cal-lista">${dSel.contas.map(linha).join("")}${dSel.entradas.map((x, i) => `<li class="s-entra"><span class="q"><i aria-hidden="true">+</i>entrada</span><button type="button" class="t" data-ced-e="${i}" aria-label="${esc(x.titulo)}: editar"><b>${esc(x.titulo)}</b><span>Entrada fixa · toque para editar</span></button><span class="v">${brl(x.valor)}</span></li>`).join("")}</ul>` : `<p class="hint" style="margin:0">Nada vence e nada entra neste dia.</p>`}
       ${dSel.contas.filter((x) => x.situacao !== "paga").length >= 2 ? `<button class="btn cal-todas" type="button" id="calPagaTodas">Marcar as ${dSel.contas.filter((x) => x.situacao !== "paga").length} contas como pagas</button>` : ""}
@@ -2896,13 +2896,15 @@ function listaL(c) {
   const guardaRap = () => { try { localStorage.setItem("cg-filtro-extrato", S.fRap || ""); } catch { /* nada */ } };
   const rap = (x) => !S.fRap || !RAP[S.fRap] || (!x.auto && !x.aPagar && !x.previsto && RAP[S.fRap][1](x));
   const catsDoExtrato = [...new Set(S.data.lancamentos.map((x) => x.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
-  $("lFiltros").innerHTML = `${S.prefs.motorista?.usa ? `<button class="btn sm l-dia" type="button" id="lDia">Lançar uma jornada</button>` : ""}${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
+  const nFiltros = [S.fRap, filtro.categoria, S.fDia].filter(Boolean).length;   // filtros além do tipo, que fica sempre à vista
+  $("lFiltros").innerHTML = `${S.prefs.motorista?.usa ? `<button class="link l-dia" type="button" id="lDia">Lançar uma jornada</button>` : ""}${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
+    <details class="lf-tudo"${nFiltros || S.sel || !noCelular() ? " open" : ""}><summary>Filtros e opções${nFiltros ? ` (${nFiltros})` : ""}</summary>
     <div class="chips-rap" role="group" aria-label="Filtros rápidos">${Object.entries(RAP).filter(([k]) => S.mes === mKey(hjL) || !["hoje", "semana"].includes(k)).map(([k, [r]]) => `<button type="button" class="chip" data-frap="${k}" aria-pressed="${S.fRap === k}">${r}</button>`).join("")}</div>
     ${q.length >= 2 ? "" : (() => { const top = catMap(c).slice(0, 6); return top.length >= 2 ? `<div class="chips-rap chips-cat" role="group" aria-label="Categorias do mês">${top.map(([k, v]) => `<button type="button" class="chip" data-fcat="${esc(k)}" aria-pressed="${filtro.categoria === k}">${esc(k)} <small>${brl0(v)}</small></button>`).join("")}</div>` : ""; })()}
     <details class="manual lf-mais"${filtro.categoria ? " open" : ""}><summary>Mais filtros${filtro.categoria ? ": " + esc(filtro.categoria) : ""}</summary>
     <label class="so-leitor" for="fCatSel">Categoria</label><select class="in" id="fCatSel"><option value="">Todas as categorias</option>${catsDoExtrato.map((c) => `<option${c === filtro.categoria ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></details>
     ${filtrando ? `<button class="link" type="button" id="fLimpa">Limpar filtros</button>` : ""}
-    ${S.sel ? "" : `<button class="link" type="button" id="fSelecionar">Escolher vários lançamentos</button>`}`;
+    ${S.sel ? "" : `<button class="link" type="button" id="fSelecionar">Escolher vários lançamentos</button>`}</details>`;
   if ($("fSelecionar")) $("fSelecionar").onclick = () => { S.sel = new Set(); listaL(calcMes(S.data, S.mes, hoje())); };
   $("lFiltros").querySelectorAll("[data-ftipo]").forEach((b) => (b.onclick = () => { S.fTipo = b.dataset.ftipo; listaL(calcMes(S.data, S.mes, hoje())); }));
   if ($("lDia")) $("lDia").onclick = () => lancarDiaMot();
@@ -2998,8 +3000,12 @@ function resumoDasFixas(fx, c, ent) {
 function paneF(c, tipo) {
   const ent = tipo === "Receita", host = $(ent ? "pane-r" : "pane-f");
   const fx = ent ? c.fr : c.fx;   // uma linha por ocorrência: os semanais aparecem uma vez por semana
+  // Conta semanal ou diária aparece uma vez por data: mostra só a próxima a pagar e deixa as outras atrás de um toque (o total continua contando todas).
+  const cont = new Map(), mostra = new Map();
+  fx.forEach((f) => { cont.set(f.id, (cont.get(f.id) || 0) + 1); const pg = c.pagosSet.has(f.id + "|" + f.chave), m = mostra.get(f.id); if (!m || (m.pago && !pg)) mostra.set(f.id, { chave: f.chave, pago: pg }); });
   const rows = fx.map((f) => {
     const p = c.pagosSet.has(f.id + "|" + f.chave), d = Number(f.data.slice(8, 10)), sem = f.repete === "semanal" || f.repete === "diario";
+    const junta = sem && cont.get(f.id) > 2, oculta = junta && mostra.get(f.id).chave !== f.chave, maisN = junta && !oculta ? cont.get(f.id) - 1 : 0;
     const quando = sem ? `${DIAS3[diaDaSemana(f.data)]} ${ddmm(f.data)}` : `dia ${pad(f.dia || 1)}`;
     const chegou = c.fase === "passado" || (c.fase === "atual" && d <= c.dias);
     const status = ent ? `<span class="chk ${chegou ? "on" : ""}">${chegou ? "✓ Recebida" : "Dia " + pad(d)}</span>`
@@ -3008,7 +3014,7 @@ function paneF(c, tipo) {
     // Conta com prazo: mostra até quando vai; na última vez, avisa.
     const ultima = f.ate && mKey(f.ate) === S.mes && !fx.some((o) => o.id === f.id && o.data > f.data);
     const prazo = f.ate ? ` <span class="tag ${ultima ? "fim" : "prazo"}">${ultima ? "última vez" : ateCurto(f.ate)}</span>` : "";
-    return `<tr class="toca-linha" data-frow="${esc(f.id)}"><td class="d">${quando}</td><td class="desc">${avaFoto("fixo", f.descricao) || ava(f.categoria, ent ? "Receita" : "Despesa")}<span class="tx">${esc(f.descricao)}${sem ? ` <span class="tag">semanal</span>` : ""}${prazo}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span></span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
+    return `<tr class="toca-linha${oculta ? " rep-extra" : ""}" data-frow="${esc(f.id)}"${oculta ? " hidden" : ""}><td class="d">${quando}</td><td class="desc">${avaFoto("fixo", f.descricao) || ava(f.categoria, ent ? "Receita" : "Despesa")}<span class="tx">${esc(f.descricao)}${sem ? ` <span class="tag">semanal</span>` : ""}${prazo}<span class="sub">${quando} · ${esc(f.categoria)}${!ent && f.forma ? " · " + esc(pagoCom({ ...f, parcelas: 1 })) : ""}</span>${maisN ? `<button type="button" class="link rep-mais" data-rep="${esc(f.id)}">+ ${maisN} ${maisN === 1 ? "data" : "datas"} neste mês</button>` : ""}</span></td><td class="hide-sm"><span class="tag">${esc(f.categoria)}</span></td><td class="num ${ent ? "pos" : ""}">${ent ? "+ " : ""}${brl(f.valor)}</td>
       <td class="st">${status}</td>
       <td class="acts"><button class="act" type="button" data-fed="${esc(f.id)}" aria-label="Editar"><span class="hide-sm">Editar</span><span class="show-sm">${ico("editar")}</span></button><button class="del" type="button" data-end="${esc(f.id)}" title="Para de contar a partir deste mês">Encerrar</button></td></tr>`;
   }).join("");
@@ -3039,6 +3045,7 @@ function paneF(c, tipo) {
   prazoX(); $("xSem").onchange = prazoX;
   $("xRep").onchange = () => { const sem = $("xRep").value === "semanal", dd = $("xRep").value === "diario"; $("xDiaWrap").hidden = sem || dd; $("xSemWrap").hidden = !sem; $("xSomarWrap").hidden = !dd; prazoX(); };
   if (!ent) $("xForma").onchange = () => { $("xCartaoWrap").hidden = $("xForma").value !== CARTAO || !cartoesAtivos().length; };
+  host.querySelectorAll("[data-rep]").forEach((b) => (b.onclick = (e) => { e.stopPropagation(); if (!b.dataset.rotulo) b.dataset.rotulo = b.textContent; const abrir = b.dataset.aberto !== "1"; b.dataset.aberto = abrir ? "1" : ""; host.querySelectorAll("tr.rep-extra").forEach((tr) => { if (tr.dataset.frow === b.dataset.rep) tr.hidden = !abrir; }); b.textContent = abrir ? "mostrar só a próxima" : b.dataset.rotulo; }));
   host.querySelectorAll("[data-fed]").forEach((b) => (b.onclick = () => editarFixo(b.dataset.fed)));
   host.querySelectorAll("tr[data-frow]").forEach((tr) => (tr.onclick = (e) => { if (!e.target.closest("button,a")) editarFixo(tr.dataset.frow); }));
   host.querySelectorAll("[data-pago]").forEach((b) => b.addEventListener("click", async () => {
@@ -3131,7 +3138,7 @@ function paneC(c) {
     return `<li class="${off ? "off" : ""}" data-kid="${esc(k.id)}">${ava("", "Cartao")}<span class="oque"><b>${esc(k.nome)}${off ? ` <span class="tag">desativado</span>` : ""}</b>
       ${off ? `<span>Fecha dia ${pad(k.fechamento)} · vence dia ${pad(k.vencimento)}</span>` : (() => {
         const pf = proximaFatura(S.data, k, hoje()), aberta = pf.valor > 0 ? pf.valor : prox?.valor || 0, quando = pf.dias <= 0 ? "fecha hoje" : pf.dias === 1 ? "fecha amanhã" : `fecha em ${pf.dias} dias`;
-        return `<span class="cart-chips"><span class="chip-c">${quando}</span><span class="chip-c">vence ${ddmm(pf.vencimento)}</span><b class="melhor-dia chip-c" title="Comprando a partir desse dia, a compra cai na fatura seguinte e você tem mais tempo para pagar">melhor dia para comprar: ${Number(k.fechamento) >= 31 ? 1 : Number(k.fechamento) + 1}</b></span>${aberta > 0 ? `<span class="cart-aberta ocultavel">Fatura aberta: <b>${brl(aberta)}</b></span>` : ""}`;
+        return `<span class="cart-chips"><span class="chip-c">${quando}</span><span class="chip-c">vence ${ddmm(pf.vencimento)}</span><b class="melhor-dia chip-c" title="Comprando a partir desse dia, a compra cai na fatura seguinte e você tem mais tempo para pagar">melhor dia para comprar: dia ${Number(k.fechamento) >= 31 ? 1 : Number(k.fechamento) + 1}</b></span>${aberta > 0 ? `<span class="cart-aberta ocultavel">Fatura atual (ainda recebendo compras): <b>${brl(aberta)}</b></span>` : ""}`;
       })()}
       ${u ? `<span class="cart-lim${u.pct >= 80 ? " alto" : ""}" aria-hidden="true"><i style="width:${Math.max(0, Math.min(100, u.pct))}%"></i></span><span class="ocultavel">${textoDoLimite(u)}</span>` : off ? "" : `<button class="link" type="button" data-klim="${esc(k.id)}">Informar o limite</button>`}</span>
       <span class="acts"><button class="act" type="button" data-ked="${esc(k.id)}">Editar</button>${off ? `<button class="act" type="button" data-kon="${esc(k.id)}">Reativar</button>`
@@ -3143,7 +3150,7 @@ function paneC(c) {
         <span class="sub">vence em ${venc}${x.auto ? ` · ${x.itens.length} ${x.itens.length === 1 ? "compra" : "compras"}` : " · lançada à mão"}</span></span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${x.auto ? `${x.itens.length} ${x.itens.length === 1 ? "compra" : "compras"}` : "Lançada à mão"}</td>
       <td class="num">${brl(x.valor)}</td>
-      <td class="st"><button type="button" class="chk ${paga ? "on" : x.vencimento < hj ? "late" : "off"}" data-st="${i}">${paga ? "✓ Paga" : x.vencimento < hj ? "○ Atrasada" : "○ Em aberto"}</button></td>
+      <td class="st"><button type="button" class="chk ${paga ? "on" : x.vencimento < hj ? "late" : "off"}" data-st="${i}">${paga ? "✓ Paga" : x.vencimento < hj ? "○ Atrasada" : "○ A pagar"}</button></td>
       <td class="acts">${paga ? "" : `<button class="act" type="button" data-fcopia="${i}">Copiar valor</button>`}<button class="act" type="button" data-fat="${i}">${x.auto ? "Ver compras" : "Editar"}</button>${x.auto ? "" : `<button class="del" type="button" data-cdel="${esc(x.id)}" aria-label="Excluir"><span class="hide-sm">Excluir</span><span class="show-sm">${ico("lixo")}</span></button>`}</td></tr>`;
   };
   const fatMes = calcMes(S.data, S.mes, hoje()).fatT;
@@ -3872,7 +3879,7 @@ function renderMais(c) {
       appInstalado() ? "" : linha("btnInstall", "instalar", "Instalar o app no celular", "Ícone na tela inicial, abre em tela cheia e funciona sem internet"),
       linha("btnAjustes", "ajustes", "Ajustes e categorias", naDemo ? "Categorias, tema e saldo" : "Categorias, avisos, tema e a sua conta"),
       linha("ajuda", "ajuda", "Ajuda", `Como usar, novidades da versão ${APP_VERSAO} e sugestões`),
-      linha("btnSair", "sair", esc($("btnSair").textContent))])}`;
+      linha("btnSair", "sair", esc($("btnSair").textContent))], true)}`;
   host.querySelectorAll("[data-mais]").forEach((b) => (b.onclick = () => {
     contaUsoDoMais(b.dataset.mais);
     vaiPara(b.dataset.mais);
@@ -5529,6 +5536,22 @@ async function enviaPlacar(dias) {
   const m = motDados();
   try { await S.store.placarEnviar?.(dias, placarDosDias(m.turnos, dias, S.prefs.veiculo || {}, m.perfil)); } catch { /* sem internet: vai de novo ao abrir os desafios */ }
 }
+/** O apelido do desafio e do ranking é digitado uma vez só: fica salvo e vem preenchido nas próximas. */
+function guardaApelido(a) {
+  const n = String(a || "").trim().slice(0, 24);
+  if (n && n !== S.prefs.apelidoDesafio) { S.prefs.apelidoDesafio = n; salvaPrefs(); }
+}
+/** Quem marcou "Aparecer também no ranking geral" entra nele ao criar ou entrar num desafio; depois o placar vai junto de cada jornada lançada. */
+async function entraNoRankingSeQuiser(d) {
+  if (!d?.ranking || !d.apelido) return;
+  try {
+    const atual = await S.store.rankingGeral("hora", "", "semana");
+    if (atual?.participo) return;
+    await S.store.rankingEntrar({ apelido: d.apelido, carro: d.carro, categoria: d.categoria });
+    await enviaPlacar(Array.from({ length: 30 }, (_, i) => toISO(new Date(Date.now() - i * 864e5))));
+    rkDados = null;
+  } catch { /* o ranking é opcional: se falhar, o desafio segue normal */ }
+}
 const ERROS_DESAFIO = { categoria_fora: "Sua categoria não pode entrar nesse desafio.", codigo_invalido: "Esse código não existe. Confira com quem convidou.", encerrado: "Esse desafio já terminou.", cheio: "Esse desafio já está cheio.", removido: "Você foi removido desse desafio.", so_dono: "Só quem criou o desafio pode remover alguém.", sem_membro: "Essa pessoa já saiu do desafio.", proprio: "Você não pode remover a si mesmo. Use Sair deste desafio.", falta_nome: "Preencha o nome e o apelido.", limite: "Você já tem 5 desafios em andamento." };
 const erroDoDesafio = (e) => Object.entries(ERROS_DESAFIO).find(([k]) => String(e?.message).includes(k))?.[1] || "Não deu para falar com o servidor. Tente de novo.";
 const NO_CRITERIO = { hora: "por hora", km: "por km", sobra: "no que sobrou", total: "em faturamento", dia: "no melhor dia", geral: "na pontuação geral" };
@@ -5555,7 +5578,7 @@ function paneRanking(host) {
     ${rkDados.lista.length ? `<ol class="ds-rank">${rkDados.lista.map((x) => `<li class="${x.eu ? "eu" : ""}"><span class="p">${x.pos}</span><span class="n"><b>${esc(x.eu ? `${x.apelido} (você)` : x.apelido)}</b><small>${esc([x.carro, x.categoria].filter(Boolean).join(" · "))}</small></span><span class="v">${fmt(x.valor)}</span></li>`).join("")}</ol>` : `<p class="mot-ver">Ainda não há ninguém nessa lista.</p>`}
     <p class="mot-ver">Valores informados por quem participa. Entra na lista quem rodou pelo menos ${{ dia: 2, semana: 10, mes: 30 }[rkPer]} horas no período.</p>
     ${rkDados.participo ? `<button class="link link-toque" type="button" id="rkSair">Sair do ranking</button>` : `<section class="ds-bloco"><h3 class="mot-h" style="margin-top:0">Participar do ranking</h3>
-      <label class="f">Seu apelido<input class="in" id="rkApelido" maxlength="24" placeholder="ex.: Falcão"></label>
+      <label class="f">Seu apelido<input class="in" id="rkApelido" maxlength="24" placeholder="ex.: Falcão" value="${esc(S.prefs.apelidoDesafio || "")}"></label>
       <label class="f">Veículo<input class="in" id="rkCarro" maxlength="30" value="${esc(cadastrosDe(S.prefs, "veiculo", veiculo === "moto" ? "Minha moto" : "Meu carro").ativo.nome)}"></label>
       <label class="f">Categoria<select class="in" id="rkMinhaCat">${cats_.map((k) => `<option>${k}</option>`).join("")}</select></label>
       <p class="mot-ver">Todos no ranking veem o seu apelido, veículo, categoria e resultado. Use um apelido que não identifique você.</p>
@@ -5567,7 +5590,7 @@ function paneRanking(host) {
   if ($("rkSair")) armDelete($("rkSair"), async () => { try { await S.store.rankingSair(); rkDados = null; paneRanking(host); } catch (e) { toast(erroDoDesafio(e)); } }, "Toque de novo para sair");
   if ($("rkEntrar")) $("rkEntrar").onclick = async () => {
     const apelido = $("rkApelido").value.trim(); if (!apelido) { $("rkMsg").textContent = ERROS_DESAFIO.falta_nome; return; }
-    try { await S.store.rankingEntrar({ apelido, carro: $("rkCarro").value.trim(), categoria: $("rkMinhaCat").value }); await enviaPlacar(Array.from({ length: 30 }, (_, i) => toISO(new Date(Date.now() - i * 864e5)))); rkDados = null; vibra(30); paneRanking(host); }
+    try { await S.store.rankingEntrar({ apelido, carro: $("rkCarro").value.trim(), categoria: $("rkMinhaCat").value }); guardaApelido(apelido); await enviaPlacar(Array.from({ length: 30 }, (_, i) => toISO(new Date(Date.now() - i * 864e5)))); rkDados = null; vibra(30); paneRanking(host); }
     catch (e) { $("rkMsg").textContent = erroDoDesafio(e); }
   };
 }
@@ -5620,7 +5643,7 @@ function paneDesafios(host) {
       <p class="auth-msg err" id="dsMsg" role="alert"></p></div>`;
     $("dsRecusa").onclick = () => { dsPrevia = null; paneDesafios(host); };
     $("dsAceito").onclick = async () => {
-      try { const r = await S.store.desafioEntrar({ ...p.dados, categoria: $("dsCatPrev")?.value || p.dados.categoria }); gravaMot(motDados()); dsAberto = r?.id || ""; dsPrevia = null; dsLista = null; try { localStorage.removeItem("cg-desafio-cod"); } catch { /* nada */ } vibra(30); paneDesafios(host); }
+      try { const r = await S.store.desafioEntrar({ ...p.dados, categoria: $("dsCatPrev")?.value || p.dados.categoria }); guardaApelido(p.dados.apelido); S.prefs.rankingAuto = p.dados.ranking; salvaPrefs(); await entraNoRankingSeQuiser(p.dados); gravaMot(motDados()); dsAberto = r?.id || ""; dsPrevia = null; dsLista = null; try { localStorage.removeItem("cg-desafio-cod"); } catch { /* nada */ } vibra(30); paneDesafios(host); }
       catch (e) { $("dsMsg").textContent = erroDoDesafio(e); }
     };
     return;
@@ -5629,9 +5652,10 @@ function paneDesafios(host) {
   const veiculo = motDados().perfil?.veiculo || "carro", nomeCarro = cadastrosDe(S.prefs, "veiculo", veiculo === "moto" ? "Minha moto" : "Meu carro").ativo.nome;
   let codigoGuardado = ""; try { codigoGuardado = localStorage.getItem("cg-desafio-cod") || ""; } catch { /* nada */ }
   const eu = atual?.membros.find((x) => x.eu), form = `
-    <label class="f">Seu apelido<input class="in" id="dsApelido" maxlength="24" placeholder="ex.: Falcão" value="${esc(eu?.apelido || S.prefs.motorista?.apelido || "")}"></label>
+    <label class="f">Seu apelido<input class="in" id="dsApelido" maxlength="24" placeholder="ex.: Falcão" value="${esc(eu?.apelido || S.prefs.apelidoDesafio || "")}"></label>
     <label class="f">Veículo<input class="in" id="dsCarro" maxlength="30" value="${esc(eu?.carro || nomeCarro)}"></label>
-    <label class="f">Categoria<select class="in" id="dsCat">${CATEGORIAS_DESAFIO[veiculo].map((k) => `<option${k === (eu?.categoria || motDados().perfil?.categoria) ? " selected" : ""}>${k}</option>`).join("")}</select></label>`;
+    <label class="f">Categoria<select class="in" id="dsCat">${CATEGORIAS_DESAFIO[veiculo].map((k) => `<option${k === (eu?.categoria || motDados().perfil?.categoria) ? " selected" : ""}>${k}</option>`).join("")}</select></label>
+    <label class="check sm"><input type="checkbox" id="dsRankAuto"${S.prefs.rankingAuto === false ? "" : " checked"}> Aparecer também no ranking geral<small class="hint"> O apelido fica salvo: você digita uma vez só. No ranking, todos veem apelido, veículo, categoria e resultado.</small></label>`;
   const novo = `<section class="ds-bloco"><h3 class="mot-h" style="margin-top:0">Você no desafio</h3>${form}
       <details class="ds-op"${codigoGuardado ? " open" : ""}><summary>Entrar com um código</summary><label class="f">Código do desafio<input class="in ds-cod" id="dsCodigo" maxlength="8" autocapitalize="characters" value="${esc(codigoGuardado)}" placeholder="ex.: A1B2C3D4"></label>
       <button class="btn primary" type="button" id="dsEntrar">Ver as regras do desafio</button></details>
@@ -5646,7 +5670,7 @@ function paneDesafios(host) {
       <button class="btn primary" type="button" id="dsCriar">Criar desafio</button></details><p class="auth-msg err" id="dsMsg" role="alert">${esc(dsErro)}</p></section>`;
   if (!atual) {
     host.innerHTML = `<div id="motRoot" class="ds">${abasDesafio()}<h2 class="mot-frase">Quem está ganhando mais de verdade?</h2><p class="mot-ver">Monte um grupo com os seus amigos e compare um dia, uma semana ou um mês. Só entra quem tiver o código, e ninguém vê as suas contas.</p>
-      <ol class="ds-passos"><li><b>1</b><span><strong>Crie ou entre.</strong> Escolha as regras e chame os amigos pelo WhatsApp, ou entre com um código.</span></li><li><b>2</b><span><strong>Rode e lance o seu dia.</strong> O app calcula por hora, por km, faturamento e o que sobrou, só com os totais do dia.</span></li><li><b>3</b><span><strong>Veja o ranking.</strong> Todos veem o mesmo placar, com as mesmas regras.</span></li></ol>${novo}</div>`;
+      <details class="ds-como"${S.prefs.apelidoDesafio ? "" : " open"}><summary>Como funciona</summary><ol class="ds-passos"><li><b>1</b><span><strong>Crie ou entre.</strong> Escolha as regras e chame os amigos pelo WhatsApp, ou entre com um código.</span></li><li><b>2</b><span><strong>Rode e lance o seu dia.</strong> O app calcula por hora, por km, faturamento e o que sobrou, só com os totais do dia.</span></li><li><b>3</b><span><strong>Veja o ranking.</strong> Todos veem o mesmo placar, com as mesmas regras.</span></li></ol></details>${novo}</div>`;
   } else {
     if (dsCritDe !== atual.id) { dsCrit = atual.regras?.vence || "km"; dsCritDe = atual.id; }   // abre no critério que decide este desafio
     const cats = [...new Set(atual.membros.map((m) => m.categoria).filter(Boolean))].sort(), catAtiva = cats.includes(dsCat) ? dsCat : "";
@@ -5736,10 +5760,11 @@ function paneDesafios(host) {
     armDelete($("dsSair"), async () => { try { await S.store.desafioSair(atual.id); dsLista = null; paneDesafios(host); } catch (e) { toast(erroDoDesafio(e)); } }, "Toque de novo para sair");
   }
   ligaAbasDesafio(host);
-  const dados = () => ({ apelido: $("dsApelido").value.trim(), carro: $("dsCarro").value.trim(), categoria: $("dsCat").value });
+  const dados = () => ({ apelido: $("dsApelido").value.trim(), carro: $("dsCarro").value.trim(), categoria: $("dsCat").value, ranking: Boolean($("dsRankAuto")?.checked) });
+  $("dsApelido").addEventListener("change", () => guardaApelido($("dsApelido").value));
   const age = async (f) => {
     if (!dados().apelido) { $("dsMsg").textContent = ERROS_DESAFIO.falta_nome; return; }
-    try { const r = await f(); gravaMot(motDados()); dsAberto = r?.id || ""; dsLista = null; dsErro = ""; try { localStorage.removeItem("cg-desafio-cod"); } catch { /* nada */ } vibra(30); paneDesafios(host); }
+    try { const r = await f(); const d0 = dados(); guardaApelido(d0.apelido); S.prefs.rankingAuto = d0.ranking; salvaPrefs(); await entraNoRankingSeQuiser(d0); gravaMot(motDados()); dsAberto = r?.id || ""; dsLista = null; dsErro = ""; try { localStorage.removeItem("cg-desafio-cod"); } catch { /* nada */ } vibra(30); paneDesafios(host); }
     catch (e) { $("dsMsg").textContent = erroDoDesafio(e); }
   };
   $("dsEntrar").onclick = async () => {

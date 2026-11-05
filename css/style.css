@@ -2612,3 +2612,24 @@ button.ct-linha:not(:disabled){cursor:pointer}
 button,a,input,select,textarea,summary,[role="button"],label{touch-action:manipulation}
 /* Contraste: o vermelho do "atrasada" na etiqueta passa de 4,5:1 no tema escuro */
 :root:not([data-tema="claro"]) .venc .quando.bad{color:#ff9b9b}
+
+/* Cartões do Início alinhados: mesma margem lateral, e a meta do mês na cor do app (não é um aviso amarelo) */
+@media (max-width:700px){#resumo>.hoje-card{margin-inline:16px} #resumo2 .resumo3{margin-inline:0}}
+.venc li.alerta.meta-mes{background:rgba(95,212,255,.12);border-color:rgba(95,212,255,.35)}
+
+/* Extrato: os filtros ficam recolhidos no celular, para a lista subir; o tipo (Tudo, Gastos, Entradas...) fica sempre à vista */
+.lf-tudo{margin:6px 0 4px}
+.lf-tudo>summary{display:flex;align-items:center;min-height:44px;padding:0 14px;border:1px solid var(--border);border-radius:12px;background:var(--surface);font-size:14px;font-weight:600;color:var(--ink-2);cursor:pointer;list-style:none}
+.lf-tudo>summary::-webkit-details-marker{display:none}
+.lf-tudo>summary::after{content:"";margin-left:auto;width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg);transition:transform .15s}
+.lf-tudo[open]>summary::after{transform:rotate(-135deg)}
+.lf-tudo[open]>summary{margin-bottom:8px}
+
+/* Contas fixas: o "Como funciona" é um botão de verdade, e as datas repetidas ficam atrás de um toque */
+#pane-f .manual>summary,#pane-r .manual>summary{display:flex;align-items:center;min-height:44px;font-size:14px;font-weight:600}
+.rep-mais{display:block;margin-top:4px;min-height:32px;font-size:13px}
+/* Desafios: a explicação fica recolhida depois da primeira vez */
+.ds-como{margin:8px 0}
+.ds-como>summary{display:flex;align-items:center;min-height:44px;font-size:14px;font-weight:600;cursor:pointer;color:var(--ink-2)}
+/* Jornada em andamento: em tela baixa, a dica do formulário some para os botões ficarem mais perto */
+@media (max-height:780px){.mot-ganho-rap small{display:none}}
