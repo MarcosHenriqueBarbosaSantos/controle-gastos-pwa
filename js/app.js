@@ -863,7 +863,7 @@ function dicaDoLancar() {
   host.hidden = Boolean(S.prefs.dicaLancar) || !S.loaded;
   if (host.hidden || host.childElementCount) return;
   const mot = S.prefs.motorista?.usa;
-  host.innerHTML = `<b>Por que anotar todo dia?</b><p>${mot ? "Anote combustível, pedágio e comida na hora. Leva 5 segundos, e o app mostra quanto sobrou de verdade no dia." : "Anote na hora. Leva 5 segundos, e o app mostra quanto ainda dá para gastar hoje e avisa antes de faltar dinheiro."}</p><button class="link" type="button" id="fDicaOk">Entendi</button>`;
+  host.innerHTML = `<b>Por que anotar todo dia?</b><p>${mot ? "Anote combustível, pedágio e comida na hora. Leva 5 segundos." : "Anote na hora. Leva 5 segundos e o app avisa antes de faltar dinheiro."}</p><button class="link" type="button" id="fDicaOk">Entendi</button>`;
   $("fDicaOk").onclick = () => { S.prefs.dicaLancar = true; salvaPrefs(); host.hidden = true; };
 }
 function renderForm() {
@@ -1117,23 +1117,24 @@ function htmlPassosDoMes({ c, dMot, rota, sb, est, mesNome }) {
   const pagoMes = round2(c.custo - contasDoExtrato(c).filter((x) => x.aPagar).reduce((t, x) => t + x.valor, 0));
   const hojeIso = hoje(), recebidas = round2([...c.fr.map((o) => ({ data: o.data, valor: Number(o.valor) })), ...c.it.filter((x) => x.tipo === "Receita").map((x) => ({ data: String(x.data).slice(0, 10), valor: Number(x.valor) }))].filter((e) => e.data <= hojeIso).reduce((t, e) => t + e.valor, 0));
   const vaiEntrar = rota.pontos.filter((p) => p.dias > 0).flatMap((p) => p.entradas.map((e) => ({ ...e, data: p.data })));
-  const entrarTxt = vaiEntrar.length ? `Ainda vai entrar: ${vaiEntrar.slice(0, 2).map((e) => `${esc(e.titulo)} ${brl(e.valor)} no dia ${dd(e.data)}`).join(", ")}${vaiEntrar.length > 2 ? ` e mais ${vaiEntrar.length - 2}` : ""}.` : dMot ? "Ainda vai entrar: nada marcado. O resto vem do que você roda." : "Ainda vai entrar: nada marcado neste mês.";
+  const entrarTxt = vaiEntrar.length ? `Ainda vai entrar: ${vaiEntrar.slice(0, 2).map((e) => `${esc(e.titulo)} ${brl(e.valor)} no dia ${dd(e.data)}`).join(", ")}${vaiEntrar.length > 2 ? ` e mais ${vaiEntrar.length - 2}` : ""}.` : dMot ? "Entradas marcadas: nenhuma." : "Entradas marcadas: nenhuma.";
   const p1 = pg("1. O que você já tem", lin("Já entrou no mês", brl(recebidas)), lin("Já pagou", `− ${brl(pagoMes)}`), lin("Em caixa agora", brl(rota.saldoHoje), "tot"), `<small class="ocultavel">${entrarTxt}</small>`);
-  const datas = rota.pontos.filter((p) => p.saidas.length || p.entradas.length), ver = datas.slice(0, 4);
+  const datas = rota.pontos.filter((p) => p.saidas.length || p.entradas.length), ver = datas.slice(0, 2), resto = datas.slice(2);
   const estado = (p) => (dMot ? (p.precisa > 0 ? `<small class="falta ocultavel">Até aqui faltam ${brl(p.precisa)}</small>` : `<small class="ok ocultavel">O que você tem cobre</small>`) : (p.saldo < 0 ? `<small class="falta ocultavel">Neste dia faltam ${brl(-p.saldo)}</small>` : `<small class="ok ocultavel">Neste dia sobram ${brl(p.saldo)}</small>`));
-  const linhasDatas = ver.map((p) => `<div class="ip-d"><span class="d">${quando(p)}</span><span class="c">${p.entradas.map((e) => `<span class="in">▲ ${esc(e.titulo)} <b class="ocultavel">+ ${brl(e.valor)}</b></span>`).join("")}${p.saidas.map((x) => `<span>${esc(x.titulo)} <b class="ocultavel">${brl(x.valor)}</b></span>`).join("")}${p.saidas.length || p.zera ? estado(p) : ""}</span></div>`).join("");
-  const p2 = pg("2. O que vence e quanto falta até cada dia", linhasDatas || "<small>Nenhuma conta marcada para os próximos dias.</small>", datas.length > ver.length ? `<small>e mais ${datas.length - ver.length} datas até o fim do mês</small>` : "");
+  const linhaData = (p) => `<div class="ip-d"><span class="d">${quando(p)}</span><span class="c">${p.entradas.map((e) => `<span class="in">▲ ${esc(e.titulo)} <b class="ocultavel">+ ${brl(e.valor)}</b></span>`).join("")}${p.saidas.map((x) => `<span>${esc(x.titulo)} <b class="ocultavel">${brl(x.valor)}</b></span>`).join("")}${p.saidas.length || p.zera ? estado(p) : ""}</span></div>`;
+  const linhasDatas = ver.map(linhaData).join(""), restoHtml = resto.length ? `<details class="ip-mais"><summary>Ver as outras ${resto.length} ${resto.length === 1 ? "data" : "datas"} do mês</summary>${resto.map(linhaData).join("")}</details>` : "";
+  const p2 = pg("2. O que vence e quanto falta até cada dia", (linhasDatas || "<small>Nenhuma conta marcada para os próximos dias.</small>") + restoHtml);
   let p3;
   if (dMot) {
     const m = dMot.meta, ag = agendaDaRota(rota, dMot.m.diasSemana), custoDia = m.custoDia || 0, bind = ag.itens.find((x) => x.porDia === ag.ritmo && x.porDia > 0);
     p3 = m.coberto ? pg("3. Por isso, quanto fazer por dia", "<span>Nada a fazer por dia para as contas: elas estão cobertas.</span>")
-      : bind ? pg("3. Por isso, quanto fazer por dia", `<span>Para pagar tudo em dia, você precisa render cerca de <b class="ocultavel">${brl(round2(ag.ritmo + custoDia))} por dia rodado</b> até o dia ${dd(bind.dataFim)}${custoDia > 0 ? ", já contando o custo do carro" : ""}, rodando ${dMot.m.diasSemana} dias por semana.</span>`, `<small class="ocultavel">A média do mês inteiro (a meta de hoje) é ${brl(m.brutoDia)} por dia.${ag.atraso.precisa > 0 ? ` Ficou para trás ${brl(ag.atraso.precisa)}, que não é meta de um dia só.` : ""}</small>`)
+      : bind ? pg("3. Por isso, quanto fazer por dia", `<span>Para pagar tudo em dia: <b class="ocultavel">${brl(round2(ag.ritmo + custoDia))} por dia rodado</b> até o dia ${dd(bind.dataFim)}${custoDia > 0 ? ", já com o custo do carro" : ""} (${dMot.m.diasSemana} dias por semana).</span>`, `<small class="ocultavel">Média do mês (meta de hoje): ${brl(m.brutoDia)} por dia.${ag.atraso.precisa > 0 ? ` Atrasado: ${brl(ag.atraso.precisa)}, que não é meta de um dia só.` : ""}</small>`)
       : pg("3. Por isso, quanto fazer por dia", `<span>O que você tem cobre as contas das próximas datas. Para o mês fechar, a meta de hoje é <b class="ocultavel">${brl(m.brutoDia)}</b>.</span>`);
   } else {
     const restam = Math.max(1, c.n - c.dias + 1), livre = Math.max(0, round2(sb.livre - sb.usado));
     p3 = pg("3. Por isso, quanto cabe por dia", sb.livre > 0 ? `<span>Depois das contas ainda ficam livres <b class="ocultavel">${brl(livre)}</b>. Pelos ${restam} dias que faltam, cabem cerca de <b class="ocultavel">${brl(round2(livre / restam))} por dia</b>.</span>` : "<span>As contas já passam do que entra neste mês. Cada gasto novo aumenta o que falta.</span>");
   }
-  const p4 = dMot ? pg("4. O que sobra para você", `<span>${dMot.meta.coberto ? "As contas estão cobertas: o que você ganhar a mais é sobra." : "Quando as contas estiverem cobertas, o que você ganhar a mais é sobra."}</span>`)
+  const p4 = dMot ? (dMot.meta.coberto ? pg("4. O que sobra para você", "<span>As contas estão cobertas: o que você ganhar a mais é sobra.</span>") : "")
     : pg("4. Onde o mês deve fechar", `<span>${est.projSobra < 0 ? `No ritmo de agora, o mês fecha ${brl0(-est.projSobra)} no vermelho.` : `No ritmo de agora, devem sobrar ${brl0(est.projSobra)} no fim de ${mesNome}.`}</span>`);
   return `<div class="ip-lista">${p1}${p2}${p3}${p4}</div>`;
 }
@@ -2053,7 +2054,7 @@ function renderVenc() {
   // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
   const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
   const ac = S.loaded && !semEntradaNoMes(calcMes(S.data, mKey(hoje()), hoje())) ? quandoOsDinheiroAcaba(S.data, hoje()) : null, faltaAte = ac?.minimo ? round2(-ac.minimo.saldo) : 0, aperto = apertoAteAEntrada(ac);
-  const alerta = !ac?.diaZero ? "" : S.prefs.motorista?.usa ? htmlAlertaMot() : `<li class="alerta ${ac.diasAteZero === 0 && !aperto ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
+  const alerta = !ac?.diaZero ? "" : S.prefs.motorista?.usa ? "" : `<li class="alerta ${ac.diasAteZero === 0 && !aperto ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
       <span class="oque"><b>${aperto ? `Falta dinheiro até a entrada do dia ${aperto.dia}` : ac.diasAteZero === 0 ? "O dinheiro deste mês já acabou" : `Até o fim do mês faltam ${brl(faltaAte)}`}</b>
       <span>${aperto ? `Faltam ${brl(aperto.falta)} até entrar ${brl(ac.proximaEntrada.valor)} no dia ${aperto.dia}.` : (ac.diasAteZero === 0 ? `Até o fim do mês faltam ${brl(faltaAte)}.` : `O dinheiro acaba por volta do dia ${ac.diaZero.slice(8, 10)}, mas dá tempo de ajustar.`)}${!aperto && ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""}</span><button class="link link-toque" type="button" data-ordem>Ver um jeito leve de fechar</button></span></li>`;
   // Combinados das metas: aparecem junto, mas não são contas. Não entram no total e nunca ficam atrasados.
@@ -2603,9 +2604,9 @@ function htmlReservaCarro(dMot) {
   let reserva = "";
   if (r?.estado === "sem" && (S.prefs.resSemAte || "") <= hoje()) {
     reserva = `<section class="res-carro" aria-label="Reserva do carro"><h3>Nunca passe perrengue</h3>
-      <p class="ocultavel">Seu carro custa uns <b>${brl(r.porDia)} por dia rodado</b> só com manutenção, IPVA, seguro e a troca. Se esse dinheiro não ficar separado, quando a manutenção chegar não vai ter de onde tirar.</p>
+      <p class="ocultavel">Seu carro custa uns <b>${brl(r.porDia)} por dia rodado</b> em manutenção, IPVA, seguro e troca. Separe esse valor para a manutenção não pegar você de surpresa.</p>
       <div class="comb-acoes"><button type="button" class="btn primary" id="resLiga">Separar ${brl(r.porDia)} por dia rodado</button><button type="button" class="btn" id="resVer">Ver detalhes</button><button type="button" class="btn" id="resSemDepois">Agora não</button></div>
-      <small>Tudo numa caixinha só, a Reserva do carro. Todo dia rodado você marca se guardou.</small></section>`;
+      <small>Vai para a Reserva do carro. Você marca Guardei a cada dia rodado.</small></section>`;
   } else if (r?.ligado && aviso === "diario") reserva = htmlReservaDiaria(r);
   else if (r?.ligado && aviso === "mensal" && r.guardou < r.porMes) {
     const falta = Math.round(r.porMes - r.guardou);
@@ -2955,7 +2956,7 @@ function listaL(c) {
   const semAnt = S.fRap === "semana" ? (() => { const d = (iso, n) => { const x = new Date(iso + "T12:00:00"); x.setDate(x.getDate() + n); return toISO(x); }; const de = d(iniSemana, -7), ate = d(hjL, -7);
     return round2(S.data.lancamentos.filter((x) => x.tipo === "Despesa" && x.data >= de && x.data <= ate).filter(doQuem).reduce((t, x) => t + Number(x.valor), 0)); })() : null;
   const compSem = semAnt === null || !(semAnt > 0 || somaRap > 0) ? "" : Math.abs(somaRap - semAnt) < 1 ? " Igual à semana passada até o mesmo dia." : somaRap < semAnt ? ` <span class="ok">${brl(semAnt - somaRap)} a menos</span> que na semana passada até o mesmo dia.` : ` <span class="aten">${brl(somaRap - semAnt)} a mais</span> que na semana passada até o mesmo dia.`;
-  host.innerHTML = `${S.fDia ? `<p class="rap-res" role="status"><b>Só ${esc(rotuloDia(S.fDia).toLowerCase())}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`} <button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>${navDia()}` : ""}${S.fRap ? `<p class="rap-res" role="status"><b>${esc(RAP[S.fRap][0])}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`}${somaRap ? `, <b>${brl(somaRap)}</b> em gastos` : ""}.${compSem}</p>` : ""}${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar · deslize para a direita para repetir e para a esquerda para apagar (dá para desfazer).</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
+  host.innerHTML = `${S.fDia ? `<p class="rap-res" role="status"><b>Só ${esc(rotuloDia(S.fDia).toLowerCase())}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`} <button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>${navDia()}` : ""}${S.fRap ? `<p class="rap-res" role="status"><b>${esc(RAP[S.fRap][0])}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`}${somaRap ? `, <b>${brl(somaRap)}</b> em gastos` : ""}.${compSem}</p>` : ""}${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar. Deslize para repetir ou apagar.</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
     feitos.map((x, i) => dia(x, i) + linha(x)).join("")}${falta.length ? `<tr class="dia falta"><td colspan="6"><span>${tituloFalta}</span>${totalFalta ? `<b>− ${brl(totalFalta)}</b>` : ""}</td></tr>${falta.map(linha).join("")}` : ""}${deFora.length ? `<tr class="dia falta"><td colspan="6"><span>Fora de ${nomeMes(S.mes)}</span></td></tr>${deFora.map(linha).join("")}` : ""}</tbody></table></div>`;
   }
   $("pane-l").querySelectorAll("[data-so-dia]").forEach((tr) => (tr.onclick = () => {
@@ -5655,7 +5656,7 @@ function paneDesafios(host) {
     <label class="f">Seu apelido<input class="in" id="dsApelido" maxlength="24" placeholder="ex.: Falcão" value="${esc(eu?.apelido || S.prefs.apelidoDesafio || "")}"></label>
     <label class="f">Veículo<input class="in" id="dsCarro" maxlength="30" value="${esc(eu?.carro || nomeCarro)}"></label>
     <label class="f">Categoria<select class="in" id="dsCat">${CATEGORIAS_DESAFIO[veiculo].map((k) => `<option${k === (eu?.categoria || motDados().perfil?.categoria) ? " selected" : ""}>${k}</option>`).join("")}</select></label>
-    <label class="check sm"><input type="checkbox" id="dsRankAuto"${S.prefs.rankingAuto === false ? "" : " checked"}> Aparecer também no ranking geral<small class="hint"> O apelido fica salvo: você digita uma vez só. No ranking, todos veem apelido, veículo, categoria e resultado.</small></label>`;
+    <label class="check sm"><input type="checkbox" id="dsRankAuto"${S.prefs.rankingAuto === false ? "" : " checked"}> Aparecer também no ranking geral<small class="hint"> Todos veem apelido, veículo, categoria e resultado.</small></label>`;
   const novo = `<section class="ds-bloco"><h3 class="mot-h" style="margin-top:0">Você no desafio</h3>${form}
       <details class="ds-op"${codigoGuardado ? " open" : ""}><summary>Entrar com um código</summary><label class="f">Código do desafio<input class="in ds-cod" id="dsCodigo" maxlength="8" autocapitalize="characters" value="${esc(codigoGuardado)}" placeholder="ex.: A1B2C3D4"></label>
       <button class="btn primary" type="button" id="dsEntrar">Ver as regras do desafio</button></details>
@@ -5669,8 +5670,8 @@ function paneDesafios(host) {
       <p class="mot-ver">Depois de criado, as regras não mudam. Quem entrar vê e aceita antes.</p>
       <button class="btn primary" type="button" id="dsCriar">Criar desafio</button></details><p class="auth-msg err" id="dsMsg" role="alert">${esc(dsErro)}</p></section>`;
   if (!atual) {
-    host.innerHTML = `<div id="motRoot" class="ds">${abasDesafio()}<h2 class="mot-frase">Quem está ganhando mais de verdade?</h2><p class="mot-ver">Monte um grupo com os seus amigos e compare um dia, uma semana ou um mês. Só entra quem tiver o código, e ninguém vê as suas contas.</p>
-      <details class="ds-como"${S.prefs.apelidoDesafio ? "" : " open"}><summary>Como funciona</summary><ol class="ds-passos"><li><b>1</b><span><strong>Crie ou entre.</strong> Escolha as regras e chame os amigos pelo WhatsApp, ou entre com um código.</span></li><li><b>2</b><span><strong>Rode e lance o seu dia.</strong> O app calcula por hora, por km, faturamento e o que sobrou, só com os totais do dia.</span></li><li><b>3</b><span><strong>Veja o ranking.</strong> Todos veem o mesmo placar, com as mesmas regras.</span></li></ol></details>${novo}</div>`;
+    host.innerHTML = `<div id="motRoot" class="ds">${abasDesafio()}<h2 class="mot-frase">Quem está ganhando mais de verdade?</h2><p class="mot-ver">Monte um grupo com amigos e compare um dia, uma semana ou um mês. Só entra quem tem o código, e ninguém vê as suas contas.</p>
+      <details class="ds-como"${S.prefs.apelidoDesafio ? "" : " open"}><summary>Como funciona</summary><ol class="ds-passos"><li><b>1</b><span><strong>Crie ou entre.</strong> Chame os amigos pelo WhatsApp ou use um código.</span></li><li><b>2</b><span><strong>Lance o seu dia.</strong> O app calcula por hora, por km e o que sobrou, só com os totais.</span></li><li><b>3</b><span><strong>Veja o ranking.</strong> Todos veem o mesmo placar.</span></li></ol></details>${novo}</div>`;
   } else {
     if (dsCritDe !== atual.id) { dsCrit = atual.regras?.vence || "km"; dsCritDe = atual.id; }   // abre no critério que decide este desafio
     const cats = [...new Set(atual.membros.map((m) => m.categoria).filter(Boolean))].sort(), catAtiva = cats.includes(dsCat) ? dsCat : "";
@@ -6120,7 +6121,7 @@ function htmlMetaExplicada(d) {
     ? `Neste mês você lançou ${brl(aj.lancado)} em combustível, pedágio e estacionamento e rodou ${virg(aj.km)} km, que custam ${brl(aj.rodado)} pelo custo por km. ${aj.ajuste >= 0 ? `Os ${brl(aj.ajuste)} que já pagou a mais adiantam os próximos km.` : `Você rodou mais do que abasteceu: faltam ${brl(-aj.ajuste)} de combustível, que já entram na meta.`}`
     : "Preencha o Meu carro ou moto (km por mês e consumo) para o app fazer essa conta.";
   return `<section class="mot-meta-ex" aria-label="Como a sua meta é montada"><h3>Como a sua meta é montada</h3>${conta}
-    <h4>O que entra na meta</h4><p>As contas fixas e faturas que ainda não foram pagas, o que você já guardou (reserva do carro e caixinhas), o quanto quer sobrar a mais no mês e o custo do carro por km: combustível, manutenção e pneus, estacionamento e pedágio.</p>
+    <h4>O que entra na meta</h4><p>Contas e faturas a pagar, o que você já guardou, o quanto quer sobrar e o custo do carro por km (combustível, manutenção, pneus, estacionamento e pedágio).</p>
     <h4>O que não aumenta a meta</h4><p>Abastecer, pagar pedágio ou estacionar. Esses gastos já estão no custo por km${kmMes > 0 ? `, calculado com os ${virg(kmMes)} km por mês que você informou` : ""}. ${carro} Se você rodar mais km do que informou, a meta sobe sozinha.</p>
     <button class="btn sm" type="button" id="motExMeta">Ver a conta completa</button></section>`;
 }
@@ -6243,7 +6244,7 @@ function paneMot() {
   host.innerHTML = `<div id="motRoot">
     ${m.ativo ? htmlAbasMot("resumo") : ""}
     ${turno.replace("<!--ganhos-->", cartaoFech + cartaoGanhos)}
-    <div class="mot-entenda">${meta.coberto ? "" : `<button class="mot-rap" type="button" id="motEntMeta"><small>Entenda</small><b>Sua meta de hoje</b></button>`}<button class="mot-rap" type="button" id="motEntKm"><small>Entenda</small><b>Seu valor por km</b></button></div>
+    <div class="mot-entenda"><button class="mot-rap" type="button" id="motEntKm"><small>Entenda</small><b>Seu valor por km</b></button></div>
     ${htmlMetaExplicada(painelDoMotorista())}
     <button class="mot-rap larga" type="button" data-mot-sub="ajustes"><small>Minha meta</small><b>Ajustar dias, horas e quanto quero sobrar</b></button>
     <button class="mot-rap larga" type="button" data-mot-sub="perfil"><small>Meu trabalho</small><b>${m.perfil?.veiculo === "moto" ? "Moto" : "Carro"}: ${appsDoPerfil(m.perfil).filter(([k]) => k !== "outros").map(([, n]) => n).join(", ")}</b></button>

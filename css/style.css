@@ -2633,3 +2633,6 @@ button,a,input,select,textarea,summary,[role="button"],label{touch-action:manipu
 .ds-como>summary{display:flex;align-items:center;min-height:44px;font-size:14px;font-weight:600;cursor:pointer;color:var(--ink-2)}
 /* Jornada em andamento: em tela baixa, a dica do formulário some para os botões ficarem mais perto */
 @media (max-height:780px){.mot-ganho-rap small{display:none}}
+
+/* Início: só as duas próximas datas à vista; as outras ficam atrás de um toque */
+.hero .ip-mais>summary{display:flex;align-items:center;min-height:44px;font-size:13.5px;font-weight:600;cursor:pointer;border-top:1px solid rgba(255,255,255,.16)}
