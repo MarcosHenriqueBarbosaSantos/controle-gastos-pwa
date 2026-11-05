@@ -2608,3 +2608,5 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .btn.sm,.ultima-vez,.paguei-rapido{min-height:44px}
 .venc-tit{position:relative}
 .venc-tit::after{content:"";position:absolute;inset:-12px -4px}
+/* Toque sem atraso nem zoom de duplo toque nos controles */
+button,a,input,select,textarea,summary,[role="button"],label{touch-action:manipulation}

@@ -2058,12 +2058,15 @@ function renderVenc() {
       <span>${aperto ? `Faltam ${brl(aperto.falta)} até entrar ${brl(ac.proximaEntrada.valor)} no dia ${aperto.dia}.` : (ac.diasAteZero === 0 ? `Até o fim do mês faltam ${brl(faltaAte)}.` : `O dinheiro acaba por volta do dia ${ac.diaZero.slice(8, 10)}, mas dá tempo de ajustar.`)}${!aperto && ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""}</span><button class="link link-toque" type="button" data-ordem>Ver um jeito leve de fechar</button></span></li>`;
   // Combinados das metas: aparecem junto, mas não são contas. Não entram no total e nunca ficam atrasados.
   const comb = S.loaded ? combinadosDoMes(S.data, S.prefs.metas, hoje()) : [];
-  const combHtml = comb.map((x, i) => `<li class="comb" data-u="ok">
+  const combItens = comb.map((x, i) => ({ data: x.data, html: `<li class="comb" data-u="ok">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
       <span class="oque"><b>${x.diario ? "Guardar hoje" : "Guardar"} para ${esc(x.destino)}</b><span>${x.diario ? "Combinado diário da meta" : "Combinado da meta"} · você escolhe</span></span>
       <span class="quando ok">${x.diario ? "hoje" : x.chegou ? "quando der" : "dia " + x.data.slice(8, 10)}</span>
       <span class="valor">${brl(x.valor)}</span>
-      <span class="dupla"><button class="btn sm" type="button" data-cg="${i}">Guardei</button><button class="btn sm leve" type="button" data-cp="${i}">Pular</button><button class="btn sm leve" type="button" data-ca="${i}">Ajustar</button></span></li>`).join("");
+      <span class="dupla"><button class="btn sm" type="button" data-cg="${i}">Guardei</button><button class="btn sm leve" type="button" data-cp="${i}">Pular</button><button class="btn sm leve" type="button" data-ca="${i}">Ajustar</button></span></li>` }));
+  const combHtml = combItens.map((c) => c.html).join("");
+  // Contas e combinados da meta juntos, na ordem das datas: o que é de hoje não pode ficar depois do que vence só no dia 10.
+  const mescla = (contas, combs) => [...contas, ...combs].sort((a, b) => a.data.localeCompare(b.data)).map((x) => x.html).join("");
   const ligaComb = () => {
     host.querySelectorAll("[data-cg]").forEach((b) => (b.onclick = () => { b.disabled = true; guardarCombinado(comb[Number(b.dataset.cg)]); }));
     host.querySelectorAll("[data-cp]").forEach((b) => (b.onclick = () => { b.disabled = true; pularCombinado(comb[Number(b.dataset.cp)]); }));
@@ -2086,12 +2089,12 @@ function renderVenc() {
     ? [atras.length ? `<b class="txt-bad">${atras.length} ${atras.length === 1 ? "atrasada" : "atrasadas"}: ${soma(atras)}</b>` : "", em7.length ? `${em7.length} ${em7.length === 1 ? "vence" : "vencem"} em 7 dias: <b>${soma(em7)}</b>` : ""].filter(Boolean).join(" · ")
     : `${l.length} ${l.length === 1 ? "conta" : "contas"} em 30 dias, somando <b>${brl(total)}</b>`;
   host.innerHTML = cab(resumo) +
-    `<ul class="venc">${linhaAtrasadas}${linhaFechando}${alerta}${vis.map((x, i) => `<li class="toca" data-vd="${i}" data-u="${cls(x.dias)}">
+    `<ul class="venc">${linhaAtrasadas}${linhaFechando}${alerta}${mescla(vis.map((x, i) => ({ data: x.data, html: `<li class="toca" data-vd="${i}" data-u="${cls(x.dias)}">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
       <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<button type="button" class="venc-tit" data-vda="${i}" aria-label="${esc(x.titulo)}: ver detalhes"><b>${esc(x.titulo)}</b></button><span>${x.semValor ? "Fatura de cartão · falta informar o valor" : x.tipo === "repetida" ? "Parece se repetir todo mês" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa"}</span></span>
       <span class="quando ${cls(x.dias)}">${quandoVence(x.dias)}</span>
       <span class="valor">${x.semValor ? "?" : x.tipo === "repetida" ? "~ " + brl(x.valor) : brl(x.valor)}</span>
-      ${x.semValor ? `<button class="btn sm" type="button" data-iv="${i}">Informar valor</button>` : x.tipo === "repetida" ? `<button class="btn sm" type="button" data-vf="${i}">Virar conta fixa</button>` : `<button class="btn sm" type="button" data-pg="${i}">Já paguei</button>`}</li>`).join("")}${combHtml}
+      ${x.semValor ? `<button class="btn sm" type="button" data-iv="${i}">Informar valor</button>` : x.tipo === "repetida" ? `<button class="btn sm" type="button" data-vf="${i}">Virar conta fixa</button>` : `<button class="btn sm" type="button" data-pg="${i}">Já paguei</button>`}</li>` })), combItens)}
       ${l.length > MAX ? `<li class="vazio"><button class="link" type="button" id="vencMais">${S.vencTodas ? "Mostrar só as próximas" : `Ver todas as ${l.length} contas`}</button></li>` : ""}</ul>`;
   host.querySelectorAll("[data-vd]").forEach((li) => {
     // A linha toda abre o detalhe no toque; para teclado e leitor de tela, o nome da conta é o botão.

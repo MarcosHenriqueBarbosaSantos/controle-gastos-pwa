@@ -35,7 +35,7 @@ App de controle de gastos (PWA, JavaScript puro, sem framework) com um **modo mo
 4. Confirme no ar: `curl -s https://meugastos.com.br/sw.js | grep VERSAO` mostra a versão nova (pode levar alguns minutos).
 5. Banco ou função `avisos`: ver [docs/memoria/supabase-publicar-sql-e-funcao.md](docs/memoria/supabase-publicar-sql-e-funcao.md). A pessoa clica em Run e Deploy; o sistema de segurança bloqueia isso para o assistente.
 
-## Estado ao passar o bastão (v236 no ar)
+## Estado ao passar o bastão (v237 no ar)
 - No ar até a v235: ganho por app com soma, km rodado contra o mínimo por km, barra de baixo visível com a jornada rodando, botão Pausar claro, topo do Início motorista por janelas de dias.
 - Publicado na v236: topo do Início em 4 passos (o que você tem, o que vence, quanto por dia, o que sobra) para o motorista e para quem tem salário; Jornada com duas abas durante a jornada (Em andamento e Resumo e meta); abastecer não aumenta mais a meta (`ajusteDoVeiculo` em `js/motorista.js`); bloco "Como a sua meta é montada".
 - Pendências: compra real na Hotmart e comissão de afiliado; refazer as imagens do kit de divulgação em azul; apresentação para influenciadores (Slides, 14 slides) e imagens das telas em `divulgacao-influenciadores/telas/`; revisão de coerência de textos em todas as abas; iPhone, tema claro, fonte grande e voz ainda sem teste; Cloudflare na frente do domínio; suíte de testes de tela (Playwright) ainda não existe; dividir `app.js`.
