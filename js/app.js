@@ -2756,7 +2756,8 @@ function contasDoExtrato(c) {
 function linhaPaga(x, toque) {
   const atrasada = x.aPagar && x.data < hoje();
   const opcoes = (x.aPagar || x.fora) && x.id;   // conta que ainda pode mudar: o toque abre as opções daquele mês
-  return `<tr class="${x.aPagar || x.fora ? "previsto" : ""}"${x.id ? ` data-fixa="${esc(x.id)}"${opcoes ? ` data-chave="${esc(x.chave)}" data-venc="${esc(x.data)}"` : ""}${toque}` : ""}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Despesa")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.fora ? "fora do mês" : atrasada ? "atrasada" : x.aPagar ? "a pagar" : "paga"}</span><span class="sub show-sm">${x.aPagar ? `Vence ${ddmm(x.data)} · ` : ""}${esc(x.categoria)}</span>${opcoes && x.aPagar ? `<button class="paguei-rapido" type="button" data-paguei>Já paguei</button>` : ""}</span></td>
+  const toqueLinha = opcoes ? toque.replace(' role="button"', "") : toque;   // a linha com o botão Já paguei dentro não pode ser um botão (controle dentro de controle)
+  return `<tr class="${x.aPagar || x.fora ? "previsto" : ""}"${x.id ? ` data-fixa="${esc(x.id)}"${opcoes ? ` data-chave="${esc(x.chave)}" data-venc="${esc(x.data)}"` : ""}${toqueLinha}` : ""}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Despesa")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.fora ? "fora do mês" : atrasada ? "atrasada" : x.aPagar ? "a pagar" : "paga"}</span><span class="sub show-sm">${x.aPagar ? `Vence ${ddmm(x.data)} · ` : ""}${esc(x.categoria)}</span>${opcoes && x.aPagar ? `<button class="paguei-rapido" type="button" data-paguei>Já paguei</button>` : ""}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${esc(x.categoria)}</td><td class="hide-sm" style="color:var(--ink-2);font-size:13px">Conta do mês</td><td class="num">− ${brl(x.valor)}</td><td class="acts">${opcoes ? `<button class="act" type="button" data-conta>Opções</button>` : ""}</td></tr>`;
 }
 /* ---------- Escolher vários lançamentos no Extrato: trocar a categoria ou apagar de uma vez ---------- */
@@ -6162,7 +6163,7 @@ function paneMot() {
       <div class="mot-comandos" role="group" aria-label="Controle da jornada">
         <div class="mot-leves">
           ${a.parcial ? `<button type="button" data-mot-sub="ganho">Atualizar ganho</button>` : ""}
-          <button type="button" id="motPausa" class="${pausada ? "ativo" : ""}" aria-label="${pausada ? "Continuar a jornada" : "Pausar a jornada: o relógio para"}">${pausada ? "Continuar" : "Pausar o relógio"}</button>
+          <button type="button" id="motPausa" class="${pausada ? "ativo" : ""}" aria-label="${pausada ? "Continuar a jornada" : "Pausar o relógio da jornada"}">${pausada ? "Continuar" : "Pausar o relógio"}</button>
           <button type="button" id="motMais">Mais opções</button>
         </div>
         <div class="mot-rapidos">

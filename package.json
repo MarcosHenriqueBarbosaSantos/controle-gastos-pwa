@@ -9,5 +9,8 @@
     "test": "node --test tests/*.test.mjs",
     "validar": "node scripts/validar.mjs"
   },
-  "license": "UNLICENSED"
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@axe-core/playwright": "^4.14.0"
+  }
 }
