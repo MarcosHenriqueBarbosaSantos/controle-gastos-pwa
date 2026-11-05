@@ -38,8 +38,8 @@ h1,h2,h3{letter-spacing:-.03em}
 :root:not([data-tema="claro"]) .btn.primary{box-shadow:0 0 0 1px rgba(95,212,255,.45),0 10px 28px rgba(95,212,255,.22);color:#04121f}
 .wrap[data-tab="mot"] #listas{background:#060e1d;border-color:#1f3254;--surface:#0e1b32;--surface-2:#13233f;--sunk:#0a1528;--ink:#e8f0fb;--ink-2:#b3c3d9;--muted:#8fa3bd;--border:#1f3254;--grid:#1f3254;--axis:rgba(255,255,255,.2)}
 .wrap[data-tab="mot"] #listas .in{background:#0a1528}
-/* fora da jornada, a aba Motorista mantém a barra de baixo: é uma aba como as outras */
-@media (max-width:900px){#app[data-view="listas"][data-tab="mot"][data-jornada="0"] #listas{bottom:var(--bnav-h,69px)}}
+/* a aba Motorista mantém a barra de baixo, com a jornada rodando ou não: dá para ver as outras telas sem encerrar */
+@media (max-width:900px){#app[data-view="listas"][data-tab="mot"] #listas{bottom:var(--bnav-h,69px)}}
 #app[data-view="listas"][data-tab="mot"] #listas,body:has(#app[data-view="listas"][data-tab="mot"]){background:#060e1d}
 :root:not([data-tema="claro"]) .fech-card,:root:not([data-tema="claro"]) .fech-card.neg{background:var(--surface-2);color:var(--ink)}
 :root[data-tema="claro"] .fech-card,:root[data-tema="claro"] .fech-card.neg{background:#0b2545;color:#fff}

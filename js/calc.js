@@ -1002,6 +1002,35 @@ export function rotaDoMes(st, hoje, { comMedia = true } = {}) {
 }
 
 /**
+ * A agenda de contas da rota, em janelas (até 3, 7 e 15 dias e o resto do mês), para quem ganha todo dia.
+ * `atraso`: o que já venceu ou vence hoje e não tem dinheiro (é atraso acumulado, não uma meta de um dia).
+ * Cada item da agenda: as contas que vencem na janela, o que falta a MAIS do que a janela anterior pedia (`precisa`),
+ * o que falta no total até a última data da janela, sem o atraso (`acumulado`) e quanto isso dá por dia rodado até ela (`porDia`),
+ * contando os dias da semana em que a pessoa roda. `ritmo` é o maior `porDia`: o que fecha todas as datas em dia.
+ * @returns {{atraso:{precisa:number, contas:{titulo:string,valor:number}[]}, itens:{ate:number|null, dataFim:string, contas:{titulo:string,valor:number}[], total:number, precisa:number, porDia:number, diasRod:number}[]}|null}
+ */
+export function agendaDaRota(rota, diasSemana = 6, janelas = [3, 7, 15]) {
+  if (!rota) return null;
+  const pts = rota.pontos, pelo = (w) => { const l = pts.filter((p) => p.dias <= w); return l.length ? l[l.length - 1].precisa : 0; };
+  const base = pelo(0), semana = Math.min(7, Math.max(1, Number(diasSemana) || 6));
+  const atraso = { precisa: base, contas: pts.filter((p) => p.dias <= 0).flatMap((p) => p.saidas) };
+  const itens = []; let ant = 0, antPrecisa = base;
+  for (const w of [...janelas, Infinity]) {
+    const novos = pts.filter((p) => p.dias > ant && p.dias <= w), contas = novos.flatMap((p) => p.saidas);
+    if (contas.length) {
+      const fim = novos[novos.length - 1], precisa = pelo(fim.dias), mais = round2(Math.max(0, precisa - antPrecisa)), acumulado = round2(Math.max(0, precisa - base));
+      // O dinheiro tem que estar lá até a última data da janela: os dias de trabalho contam desde hoje (inclusive) até ela.
+      const diasRod = Math.max(1, Math.round(((fim.dias + 1) * semana) / 7));
+      itens.push({ ate: w === Infinity ? null : w, dataFim: fim.data, contas, total: round2(contas.reduce((t, x) => t + x.valor, 0)), precisa: mais, acumulado, porDia: acumulado > 0 ? round2(acumulado / diasRod) : 0, diasRod });
+      antPrecisa = precisa;
+    }
+    if (w !== Infinity) ant = w;
+  }
+  // O ritmo que fecha todas as datas em dia é o da data mais apertada.
+  return { atraso, itens, ritmo: itens.reduce((m, x) => Math.max(m, x.porDia), 0) };
+}
+
+/**
  * Cartões cadastrados cuja fatura vai vencer em breve mas ainda não tem nenhuma compra nem valor informado.
  * Sem isso o cartão sumia dos vencimentos até a primeira compra ser lançada. A pessoa vê a data e informa o valor da fatura.
  * Só olha o dia de hoje em diante (fatura sem valor não "atrasa"). Não entra no servidor de avisos.

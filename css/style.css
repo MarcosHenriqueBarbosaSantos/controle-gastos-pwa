@@ -1717,7 +1717,6 @@ details.mais-grupo summary::-webkit-details-marker{display:none} details.mais-gr
   #app[data-view="listas"][data-tab="mot"] #listas:has(#banner:not(.fina):not([hidden])) .mot-dia-bt{min-height:58px}
   @media (max-height:700px){#app[data-view="listas"][data-tab="mot"] #listas:has(#banner:not(.fina):not([hidden])) .mot-dia-regra{display:none}}
   body:has(#app[data-view="listas"]:is([data-tab="c"],[data-tab="f"],[data-tab="r"],[data-tab="m"])) .bnav,
-  body:has(#app[data-view="listas"][data-tab="mot"][data-jornada="1"]) .bnav,
   body:has(#app[data-view="analise"]) .bnav{display:none!important}
   body:has(#app[data-view="listas"]:is([data-tab="c"],[data-tab="f"],[data-tab="r"],[data-tab="m"],[data-tab="mot"])),
   body:has(#app[data-view="analise"]){padding-bottom:env(safe-area-inset-bottom,0px)}
@@ -2049,6 +2048,10 @@ button.mg-bt:active{background:var(--sunk)}
 .mot-leves{display:grid;grid-template-columns:repeat(3,1fr)}
 .mot-leves button{min-height:44px;padding:0 4px;border:0;background:none;color:var(--ink-2);font-size:13.5px;font-weight:600;cursor:pointer}
 .mot-leves #motPausa{border-inline:1px solid var(--border);border-radius:0}
+.mot-leves #motPausa.ativo{background:var(--series,#5ED3FF);color:#06101f;border-radius:10px}
+.mot-pausa-aviso{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:10px 0 0;padding:10px 12px;border-radius:12px;background:var(--warn-soft,#3a2d0a);color:var(--ink);font-size:14.5px;font-weight:600}
+.mot-pausa-aviso button{flex:none;min-height:40px;padding:0 14px;border:0;border-radius:10px;background:var(--series,#5ED3FF);color:#06101f;font-weight:700;cursor:pointer}
+.em-pausa .mot-cron{opacity:.55}
 .mot-comandos .mot-rapidos{gap:10px;margin:0}
 .mot-comandos .mot-rap.gasto{min-height:62px;border:0;border-radius:16px;background:var(--surface-2)}
 .mot-comandos .mot-rap.gasto b{font-size:17px;font-weight:600}
@@ -2073,7 +2076,7 @@ button.mg-bt:active{background:var(--sunk)}
   .mot-dia.cheia .mot-dia-bt{min-height:72px;margin-top:0;font-size:21px;border-radius:20px}
   .mot-dia-links{justify-content:space-between}
   #app[data-view="listas"][data-tab="mot"] #listas:has(.mot-jornada){padding-bottom:calc(16px + env(safe-area-inset-bottom,0px))}
-  .mot-jornada{min-height:calc(100dvh - 16px - env(safe-area-inset-bottom,0px));padding:calc(14px + env(safe-area-inset-top,0px)) 0 0}
+  .mot-jornada{min-height:calc(100dvh - var(--bnav-h,69px) - 16px - env(safe-area-inset-bottom,0px));padding:calc(14px + env(safe-area-inset-top,0px)) 0 0}
 }
 @media (prefers-reduced-motion:no-preference){
   #listas:has(.mot-dia.cheia){scroll-behavior:smooth}
@@ -2368,6 +2371,9 @@ button.ct-linha:not(:disabled){cursor:pointer}
 .mot-ganho-rap .btn{min-height:52px}
 .mot-ganho-rap.sub{border:0;padding:0;background:none}
 .mot-odo-falta{color:var(--accent,#5ED3FF)}
+/* jornada rodando: um ponto no botão Jornada da barra de baixo, em qualquer tela */
+.bnav [data-nav="mot"][data-ativo="1"]{position:relative}
+.bnav [data-nav="mot"][data-ativo="1"]::after{content:"";position:absolute;top:8px;left:calc(50% + 8px);width:9px;height:9px;border-radius:50%;background:var(--series,#5ED3FF);box-shadow:0 0 0 2px var(--bg,#060e1d)}
 .mot-ganho-rap small{font-size:12.5px;color:var(--muted)}
 /* Jornada: barra até a meta de hoje, lembrete de atualizar o ganho e o botão de ler o print. */
 .mot-meta-bar{height:8px;margin:12px 0 4px;border-radius:999px;background:var(--sunk);overflow:hidden} .mot-meta-bar i{display:block;height:100%;border-radius:inherit;background:var(--good)}

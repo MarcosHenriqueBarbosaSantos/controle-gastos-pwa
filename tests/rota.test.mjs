@@ -66,3 +66,36 @@ test("rota do mês: com a média do dia a dia, o dinheiro pode acabar antes de u
   assert.equal(r.prazo.zera, true);
   assert.equal(rotaDoMes(st, "2026-11-10", { comMedia: false }).prazo, null);
 });
+
+import { agendaDaRota } from "../js/calc.js";
+test("agenda da rota: atraso separado e janelas de 3, 7 e 15 dias com o valor por dia rodado", () => {
+  const st = base();
+  st.fixos.push(entrada("e1", "Entrada fixa", 20, 500));
+  st.fixos.push(conta("a", "Parcela atrasada", 2, 1000), conta("b", "Luz", 6, 200), conta("c", "Internet", 10, 140), conta("d", "Seguro", 25, 300));
+  const rota = rotaDoMes(st, "2026-11-04", { comMedia: false });
+  const ag = agendaDaRota(rota, 6);
+  assert.equal(ag.atraso.precisa, 1000);
+  assert.deepEqual(ag.atraso.contas.map((x) => x.titulo), ["Parcela atrasada"]);
+  // até 3 dias (dia 7): luz de 200 a mais; 3 dias corridos x 6/7 = 3 dias rodados (arredondado)
+  assert.equal(ag.itens[0].ate, 3); assert.deepEqual(ag.itens[0].contas.map((x) => x.titulo), ["Luz"]);
+  assert.equal(ag.itens[0].precisa, 200); assert.equal(ag.itens[0].diasRod, 3); assert.equal(ag.itens[0].porDia, 66.67);
+  // até 7 dias (dia 11): internet de 140
+  assert.equal(ag.itens[1].ate, 7); assert.equal(ag.itens[1].precisa, 140);
+  // o resto do mês: o seguro, depois da entrada de 500 dia 20
+  const fim = ag.itens[ag.itens.length - 1]; assert.equal(fim.ate, null); assert.deepEqual(fim.contas.map((x) => x.titulo), ["Seguro"]);
+});
+test("agenda da rota: conta coberta pelo dinheiro não pede nada a mais", () => {
+  const st = base();
+  st.fixos.push(entrada("e1", "Salário", 5, 3000), conta("c1", "Aluguel", 10, 1000));
+  const ag = agendaDaRota(rotaDoMes(st, "2026-11-04", { comMedia: false }), 6);
+  assert.equal(ag.atraso.precisa, 0); assert.equal(ag.itens[0].precisa, 0); assert.equal(ag.itens[0].porDia, 0);
+});
+test("agenda da rota: sem rota, nada", () => assert.equal(agendaDaRota(null), null));
+test("agenda da rota: o ritmo por dia é o da data mais apertada, contado desde hoje", () => {
+  const st = base();
+  st.fixos.push(conta("b", "Luz", 6, 200), conta("c", "Internet", 10, 140), conta("d", "Seguro", 25, 300));
+  const ag = agendaDaRota(rotaDoMes(st, "2026-11-04", { comMedia: false }), 6);
+  assert.equal(ag.atraso.precisa, 0);
+  assert.deepEqual(ag.itens.map((i) => [i.acumulado, i.diasRod, i.porDia]), [[200, 3, 66.67], [340, 6, 56.67], [640, 19, 33.68]]);
+  assert.equal(ag.ritmo, 66.67);
+});
