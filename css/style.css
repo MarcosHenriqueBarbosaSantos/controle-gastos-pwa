@@ -2636,3 +2636,33 @@ button,a,input,select,textarea,summary,[role="button"],label{touch-action:manipu
 
 /* Início: só as duas próximas datas à vista; as outras ficam atrás de um toque */
 .hero .ip-mais>summary{display:flex;align-items:center;min-height:44px;font-size:13.5px;font-weight:600;cursor:pointer;border-top:1px solid rgba(255,255,255,.16)}
+
+/* Início: botões secundários leves (só o principal fica grande) */
+.comb-acoes:has(.btn.primary) .btn:not(.primary){background:none;border-color:transparent;box-shadow:none;text-decoration:underline;text-underline-offset:3px;color:var(--ink-2);padding-inline:8px}
+/* Próximos vencimentos mais baixos */
+.venc .oque>span:empty{display:none}
+@media (max-width:700px){.venc li{padding-block:8px} .venc .btn.sm{min-height:36px;position:relative} .venc .btn.sm::after{content:"";position:absolute;inset:-4px -2px}}
+/* Os cartões do motorista que desceram para depois dos vencimentos usam a mesma margem dos outros */
+#atalhosIni>.res-carro,#atalhosIni>.comb-aviso,#atalhosIni>.diarios{margin-inline:0}
+
+/* Extrato: as contas que ainda faltam abrem num toque */
+.falta-tog{font:inherit;color:inherit;text-decoration:underline;text-underline-offset:3px;min-height:36px}
+/* Jornada parada: a semana vira um cartão só (o resumo da semana e os números por hora, km e viagem) */
+#motRoot .gan-card:has(+ .mot-tres){margin-bottom:0;border-bottom-left-radius:0;border-bottom-right-radius:0;border-bottom-width:0}
+#motRoot .gan-card + .mot-tres{margin-top:0;border-top-left-radius:0;border-top-right-radius:0}
+.mot-ex-bts{display:flex;flex-wrap:wrap;gap:8px}
+/* Jornada parada: Minha meta e Meu trabalho num cartão só */
+.mot-ajustes{margin:12px 0;padding:6px 14px;border:1px solid var(--border);border-radius:16px;background:var(--surface)}
+.mot-ajustes h3{margin:8px 0 2px;font-size:15px}
+.mot-ajustes button{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:56px;padding:6px 0;border:0;border-top:1px solid var(--border);background:none;color:inherit;text-align:left;cursor:pointer}
+.mot-ajustes h3+button{border-top:0}
+.mot-ajustes span{display:grid;gap:2px} .mot-ajustes small{color:var(--ink-2);font-size:13px}
+.mot-ajustes .ic{width:18px;height:18px;flex:none;color:var(--ink-2)}
+/* Mais: o texto de apoio de cada item em uma linha */
+.mais-item .tx>span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+.mot-meta-ex li b{white-space:nowrap}
+
+/* Lançar: o que passa por baixo do botão fixo some num degradê, e o campo com foco sobe acima dele */
+#fOk{box-shadow:0 -16px 18px 4px var(--bg,#060e1d)}
+html:has(body.lancando){scroll-padding-bottom:110px}

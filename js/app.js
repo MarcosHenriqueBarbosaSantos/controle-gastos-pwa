@@ -860,7 +860,7 @@ function rotuloDoOk() {
 /** Na primeira vez em Lançar: em poucas palavras, por que anotar todo dia. Depois de entendido, some. */
 function dicaDoLancar() {
   const host = $("fDica"); if (!host) return;
-  host.hidden = Boolean(S.prefs.dicaLancar) || !S.loaded;
+  host.hidden = Boolean(S.prefs.dicaLancar) || !S.loaded || S.data.lancamentos.length > 0;   // depois do primeiro lançamento a dica não é mais necessária
   if (host.hidden || host.childElementCount) return;
   const mot = S.prefs.motorista?.usa;
   host.innerHTML = `<b>Por que anotar todo dia?</b><p>${mot ? "Anote combustível, pedágio e comida na hora. Leva 5 segundos." : "Anote na hora. Leva 5 segundos e o app avisa antes de faltar dinheiro."}</p><button class="link" type="button" id="fDicaOk">Entendi</button>`;
@@ -871,7 +871,7 @@ function renderForm() {
   $("fJornada").hidden = !S.prefs.motorista?.usa;
   document.querySelectorAll("#tipoSeg button").forEach((b) => b.setAttribute("aria-pressed", b.dataset.t === S.tipo));
   // Gastos que a pessoa mais repete: um toque preenche o formulário.
-  const rap = S.tipo === "Despesa" && S.loaded ? maisUsados(S.data.lancamentos, hoje()) : [], fr2 = $("fRapidos"), k2 = JSON.stringify(rap);
+  const rap = S.tipo === "Despesa" && S.loaded ? maisUsados(S.data.lancamentos, hoje()).slice(0, 3) : [], fr2 = $("fRapidos"), k2 = JSON.stringify(rap);
   if (fr2.dataset.k !== k2) { fr2.dataset.k = k2; S.rapidos = rap; fr2.innerHTML = rap.length ? `<span class="rap-t">Você costuma lançar</span>` + rap.map((r, i) => `<button type="button" data-rap="${i}">${esc(r.descricao)}<b>${brl(r.valor)}</b></button>`).join("") : ""; }
   fr2.hidden = !rap.length;
   const sel = $("fCat");
@@ -976,12 +976,12 @@ function chipsDoForm() {
   ["input", "change"].forEach((ev) => form.addEventListener(ev, sync));
   new MutationObserver(sync).observe(form, { childList: true, subtree: true, attributes: true, attributeFilter: ["hidden"] });
 })();
-/** A dica de como usar o Extrato aparece nas 4 primeiras vezes que a pessoa abre o app e some depois: quem já sabe não precisa dela. */
+/** A dica de como usar o Extrato aparece nas 3 primeiras vezes que a pessoa abre o app e some depois: quem já sabe não precisa dela. */
 function dicaDoExtrato() {
   try {
     const n = Number(localStorage.getItem("cg-dica-extrato") || 0);
-    if (!sessionStorage.getItem("cg-dica-extrato-sessao")) { sessionStorage.setItem("cg-dica-extrato-sessao", "1"); localStorage.setItem("cg-dica-extrato", String(n + 1)); return n + 1 <= 4; }
-    return n <= 4;
+    if (!sessionStorage.getItem("cg-dica-extrato-sessao")) { sessionStorage.setItem("cg-dica-extrato-sessao", "1"); localStorage.setItem("cg-dica-extrato", String(n + 1)); return n + 1 <= 3; }
+    return n <= 3;
   } catch { return true; }
 }
 /** Embaixo das parcelas: em qual fatura (mês e vencimento) a compra cai, antes de lançar. Com o cartão novo sem os dias, avisa que usou os padrões. */
@@ -1128,7 +1128,7 @@ function htmlPassosDoMes({ c, dMot, rota, sb, est, mesNome }) {
   if (dMot) {
     const m = dMot.meta, ag = agendaDaRota(rota, dMot.m.diasSemana), custoDia = m.custoDia || 0, bind = ag.itens.find((x) => x.porDia === ag.ritmo && x.porDia > 0);
     p3 = m.coberto ? pg("3. Por isso, quanto fazer por dia", "<span>Nada a fazer por dia para as contas: elas estão cobertas.</span>")
-      : bind ? pg("3. Por isso, quanto fazer por dia", `<span>Para pagar tudo em dia: <b class="ocultavel">${brl(round2(ag.ritmo + custoDia))} por dia rodado</b> até o dia ${dd(bind.dataFim)}${custoDia > 0 ? ", já com o custo do carro" : ""} (${dMot.m.diasSemana} dias por semana).</span>`, `<small class="ocultavel">Média do mês (meta de hoje): ${brl(m.brutoDia)} por dia.${ag.atraso.precisa > 0 ? ` Atrasado: ${brl(ag.atraso.precisa)}, que não é meta de um dia só.` : ""}</small>`)
+      : bind ? pg("3. Por isso, quanto fazer por dia", `<span>Para pagar tudo em dia: <b class="ocultavel">${brl(round2(ag.ritmo + custoDia))} por dia rodado</b> até o dia ${dd(bind.dataFim)}${custoDia > 0 ? ", já com o custo do carro" : ""} (${dMot.m.diasSemana} dias por semana).</span>`, (ag.atraso.precisa > 0 ? `<small class="ocultavel">Atrasado: ${brl(ag.atraso.precisa)}, que não é meta de um dia só.</small>` : ""))
       : pg("3. Por isso, quanto fazer por dia", `<span>O que você tem cobre as contas das próximas datas. Para o mês fechar, a meta de hoje é <b class="ocultavel">${brl(m.brutoDia)}</b>.</span>`);
   } else {
     const restam = Math.max(1, c.n - c.dias + 1), livre = Math.max(0, round2(sb.livre - sb.usado));
@@ -1226,7 +1226,7 @@ function renderKpis(c) {
   </div>`}
   ${atualM && (dMot || !semEnt) ? htmlAgora(c, dMot) : ""}
   ${atualM ? htmlDiarios() : ""}
-  ${atualM && dMot ? cartoesMot(dMot) : ""}
+  ${atualM && dMot && !noCelular() ? cartoesMot(dMot) : ""}
   ${!semEnt && !dMot && (rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
   ${atualM ? htmlHoje(c) : ""}
   ${c.fase === "futuro" ? htmlPrevisaoFuturo(c, rx) : ""}
@@ -1243,7 +1243,7 @@ function renderKpis(c) {
     ${celIni ? `<button type="button" data-atalho="graficos">${ico("grafico")}<span>Gráficos</span></button>` : ""}
     <button type="button" data-atalho="cal">${ico("agenda")}<span>Calendário</span></button>
   </nav>`;
-  if ($("atalhosIni")) $("atalhosIni").innerHTML = celIni ? `${navIr}${htmlCartoesIni()}` : "";
+  if ($("atalhosIni")) $("atalhosIni").innerHTML = celIni ? `${atualM && dMot ? cartoesMot(dMot) : ""}${navIr}${htmlCartoesIni()}` : "";
   { const sub = document.querySelector("#maisDoMes summary .tx span"); if (sub) sub.textContent = celIni ? "Casal, previsão e dicas" : "Atalhos, casal, cartões, previsão e dicas"; }
   $("resumo2").innerHTML = `${htmlMotoristaIni()}
   ${celIni ? "" : `${navIr}
@@ -1401,7 +1401,7 @@ function contaValor(el, para) {
 /** Cartão "Hoje" do Início: quanto ainda cabe hoje e o que pede ação agora (no máximo 3 itens). Substitui o quadro "Seu dia". */
 const inicioQ = (s) => [...$("resumo").querySelectorAll(s), ...$("resumo2").querySelectorAll(s), ...($("atalhosIni") ? $("atalhosIni").querySelectorAll(s) : [])];
 function htmlHoje(c) {
-  const hj = hoje(), g = gastoDoDia(S.data, hj), avista = gastoAVistaDoDia(S.data, hj), pg = semEntradaNoMes(c) ? null : podeGastarHoje(c, avista), itens = oQueFazerAgora(S.data, hj, S.prefs.semGasto || []);
+  const hj = hoje(), g = gastoDoDia(S.data, hj), avista = gastoAVistaDoDia(S.data, hj), pg = semEntradaNoMes(c) ? null : podeGastarHoje(c, avista), itens = oQueFazerAgora(S.data, hj, S.prefs.semGasto || []).filter((x) => x.tipo !== "hoje");   // a conta de hoje já está no topo e nos Próximos vencimentos
   // O número de atrasadas é o mesmo da lista de vencimentos, de qualquer mês.
   const atrasoTotal = contasEmAtraso(S.data, hj, S.prefs.saldoDesde);
   itens.forEach((x) => { if (x.tipo === "atrasada" && atrasoTotal.itens.length) { x.titulo = atrasoTotal.itens.length === 1 ? `${atrasoTotal.itens[0].titulo} está atrasada` : `${atrasoTotal.itens.length} contas atrasadas`; x.valor = atrasoTotal.total; } });
@@ -2092,7 +2092,7 @@ function renderVenc() {
   host.innerHTML = cab(resumo) +
     `<ul class="venc">${linhaAtrasadas}${linhaFechando}${alerta}${mescla(vis.map((x, i) => ({ data: x.data, html: `<li class="toca" data-vd="${i}" data-u="${cls(x.dias)}">
       <span class="dt"><b>${x.data.slice(8, 10)}</b><span>${MES3[Number(x.data.slice(5, 7)) - 1]}</span></span>
-      <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<button type="button" class="venc-tit" data-vda="${i}" aria-label="${esc(x.titulo)}: ver detalhes"><b>${esc(x.titulo)}</b></button><span>${x.semValor ? "Fatura de cartão · falta informar o valor" : x.tipo === "repetida" ? "Parece se repetir todo mês" : x.tipo === "fatura" ? "Fatura de cartão" : x.semanal ? "Conta fixa · toda " + DIAS_SEMANA[diaDaSemana(x.data)] : "Conta fixa"}</span></span>
+      <span class="oque">${x.tipo === "fixo" && fotoDe("fixo", x.titulo) ? `<span class="mini-foto" style="background-image:url('${fotoDe("fixo", x.titulo)}')" aria-hidden="true"></span>` : ""}<button type="button" class="venc-tit" data-vda="${i}" aria-label="${esc(x.titulo)}: ver detalhes"><b>${esc(x.titulo)}</b></button><span>${x.semValor ? "Fatura de cartão · falta informar o valor" : x.tipo === "repetida" ? "Parece se repetir todo mês" : x.tipo === "fatura" ? "" : x.semanal ? "toda " + DIAS_SEMANA[diaDaSemana(x.data)] : ""}</span></span>
       <span class="quando ${cls(x.dias)}">${quandoVence(x.dias)}</span>
       <span class="valor">${x.semValor ? "?" : x.tipo === "repetida" ? "~ " + brl(x.valor) : brl(x.valor)}</span>
       ${x.semValor ? `<button class="btn sm" type="button" data-iv="${i}">Informar valor</button>` : x.tipo === "repetida" ? `<button class="btn sm" type="button" data-vf="${i}">Virar conta fixa</button>` : `<button class="btn sm" type="button" data-pg="${i}">Já paguei</button>`}</li>` })), combItens)}
@@ -2713,7 +2713,7 @@ function htmlAgora(c, dMot) {
   const quando = (d) => (d <= 0 ? "hoje" : d === 1 ? "amanhã" : `em ${d} dias`);
   const cartao = (k, rot, val, sub) => `<button type="button" class="agora-c" data-agora="${k}"><small>${rot}</small><b class="ocultavel">${val}</b><span>${sub}</span></button>`;
   return `<section class="agora" aria-label="Agora"><div class="agora-lista">${dMot ? cartao("hoje", "Meta de hoje", dMot.meta.coberto ? "Coberta" : brl(dMot.meta.brutoDia), "Média por dia para fechar o mês")
-    : pg ? cartao("hoje", pg.resta >= 0 ? "Cabem hoje" : "Passou hoje", brl(Math.abs(pg.resta)), "Entenda esse valor") : cartao("hoje", "Hoje", "Anotar", "Lançar um gasto")}${prox ? cartao("conta", "Próxima conta", brl(prox.valor), `${esc(prox.titulo)} · ${quando(prox.dias)}`) : cartao("conta", "Próxima conta", "Nenhuma", "Nada para os próximos dias")}${a ? cartao("meta", "Minha meta", `${a.pct}%`, esc(a.destino)) : cartao("planos", "Meus planos", "Criar", "Férias, casa, carro")}</div>
+    : pg ? cartao("hoje", pg.resta >= 0 ? "Cabem hoje" : "Passou hoje", brl(Math.abs(pg.resta)), "Entenda esse valor") : cartao("hoje", "Hoje", "Anotar", "Lançar um gasto")}${a ? cartao("meta", "Minha meta", `${a.pct}%`, esc(a.destino)) : cartao("planos", "Meus planos", "Criar", "Férias, casa, carro")}</div>
     <button type="button" class="agora-mes" id="agoraMes">Ver o mês completo</button></section>`;
 }
 /** Deixa uma conta de fora só daquele mês, ou traz de volta. Nada é apagado e a conta segue nos próximos meses. */
@@ -2898,7 +2898,7 @@ function listaL(c) {
   const rap = (x) => !S.fRap || !RAP[S.fRap] || (!x.auto && !x.aPagar && !x.previsto && RAP[S.fRap][1](x));
   const catsDoExtrato = [...new Set(S.data.lancamentos.map((x) => x.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const nFiltros = [S.fRap, filtro.categoria, S.fDia].filter(Boolean).length;   // filtros além do tipo, que fica sempre à vista
-  $("lFiltros").innerHTML = `${S.prefs.motorista?.usa ? `<button class="link l-dia" type="button" id="lDia">Lançar uma jornada</button>` : ""}${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
+  $("lFiltros").innerHTML = `${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
     <details class="lf-tudo"${nFiltros || S.sel || !noCelular() ? " open" : ""}><summary>Filtros e opções${nFiltros ? ` (${nFiltros})` : ""}</summary>
     <div class="chips-rap" role="group" aria-label="Filtros rápidos">${Object.entries(RAP).filter(([k]) => S.mes === mKey(hjL) || !["hoje", "semana"].includes(k)).map(([k, [r]]) => `<button type="button" class="chip" data-frap="${k}" aria-pressed="${S.fRap === k}">${r}</button>`).join("")}</div>
     ${q.length >= 2 ? "" : (() => { const top = catMap(c).slice(0, 6); return top.length >= 2 ? `<div class="chips-rap chips-cat" role="group" aria-label="Categorias do mês">${top.map(([k, v]) => `<button type="button" class="chip" data-fcat="${esc(k)}" aria-pressed="${filtro.categoria === k}">${esc(k)} <small>${brl0(v)}</small></button>`).join("")}</div>` : ""; })()}
@@ -2956,8 +2956,9 @@ function listaL(c) {
   const semAnt = S.fRap === "semana" ? (() => { const d = (iso, n) => { const x = new Date(iso + "T12:00:00"); x.setDate(x.getDate() + n); return toISO(x); }; const de = d(iniSemana, -7), ate = d(hjL, -7);
     return round2(S.data.lancamentos.filter((x) => x.tipo === "Despesa" && x.data >= de && x.data <= ate).filter(doQuem).reduce((t, x) => t + Number(x.valor), 0)); })() : null;
   const compSem = semAnt === null || !(semAnt > 0 || somaRap > 0) ? "" : Math.abs(somaRap - semAnt) < 1 ? " Igual à semana passada até o mesmo dia." : somaRap < semAnt ? ` <span class="ok">${brl(semAnt - somaRap)} a menos</span> que na semana passada até o mesmo dia.` : ` <span class="aten">${brl(somaRap - semAnt)} a mais</span> que na semana passada até o mesmo dia.`;
+  setTimeout(() => { const tg = host.querySelector(".falta-tog"); if (tg) tg.onclick = (e) => { e.stopPropagation(); S.faltaAberta = !(tg.getAttribute("aria-expanded") === "true"); listaL(calcMes(S.data, S.mes, hoje())); }; }, 0);
   host.innerHTML = `${S.fDia ? `<p class="rap-res" role="status"><b>Só ${esc(rotuloDia(S.fDia).toLowerCase())}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`} <button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>${navDia()}` : ""}${S.fRap ? `<p class="rap-res" role="status"><b>${esc(RAP[S.fRap][0])}</b>: ${it.length === 1 ? "1 lançamento" : `${it.length} lançamentos`}${somaRap ? `, <b>${brl(somaRap)}</b> em gastos` : ""}.${compSem}</p>` : ""}${dicaDoExtrato() ? `<p class="hint so-mobile" style="margin:-6px 0 10px">Toque para editar. Deslize para repetir ou apagar.</p>` : ""}<div class="tbl"><table class="lanc">${cab}<tbody>${
-    feitos.map((x, i) => dia(x, i) + linha(x)).join("")}${falta.length ? `<tr class="dia falta"><td colspan="6"><span>${tituloFalta}</span>${totalFalta ? `<b>− ${brl(totalFalta)}</b>` : ""}</td></tr>${falta.map(linha).join("")}` : ""}${deFora.length ? `<tr class="dia falta"><td colspan="6"><span>Fora de ${nomeMes(S.mes)}</span></td></tr>${deFora.map(linha).join("")}` : ""}</tbody></table></div>`;
+    feitos.map((x, i) => dia(x, i) + linha(x)).join("")}${falta.length ? (() => { const aberto = S.faltaAberta || S.fTipo === "Fixas" || Boolean(S.fDia); return `<tr class="dia falta" data-falta-tog><td colspan="6"><span><button type="button" class="link falta-tog" aria-expanded="${aberto}">${tituloFalta} (${falta.length})</button></span>${totalFalta ? `<b>− ${brl(totalFalta)}</b>` : ""}</td></tr>${falta.map(linha).join("").replaceAll("<tr ", `<tr data-falta-row${aberto ? "" : " hidden"} `)}`; })() : ""}${deFora.length ? `<tr class="dia falta"><td colspan="6"><span>Fora de ${nomeMes(S.mes)}</span></td></tr>${deFora.map(linha).join("")}` : ""}</tbody></table></div>`;
   }
   $("pane-l").querySelectorAll("[data-so-dia]").forEach((tr) => (tr.onclick = () => {
     if (S.sel) {   // escolhendo vários: tocar no dia marca (ou solta) os lançamentos daquele dia
@@ -3674,7 +3675,7 @@ $("listaVoltar").onclick = () => { if (S.tab === "mot" && (motSub || motFechando
 /** As ferramentas, em grupos. A tela Mais (celular) e o botão Ferramentas (computador) leem a mesma lista. */
 const GRUPOS_FERR = [
   { titulo: "No dia a dia", itens: [
-    { id: "planos", k: "plano sonho ferias casa carro viagem reserva emergencia independencia liberdade guardar", ico: "alvo", t: "Meus planos", s: "Férias, casa, carro: quanto guardar por mês" },
+    { id: "planos", k: "plano sonho ferias casa carro viagem reserva emergencia independencia liberdade guardar", ico: "sol", t: "Meus planos", s: "Férias, casa, carro: quanto guardar por mês" },
     { id: "motorista", k: "uber 99 indrive motorista aplicativo corrida turno rodar renda extra", ico: "carro", t: "Modo motorista", s: "Inicie o turno, veja o lucro do dia e quanto rodar para fechar o mês" },
     { id: "mercado", k: "supermercado compras feira carrinho comprar", ico: "carrinho", t: "Lista de mercado", s: "Anote o que comprar, estime o gasto e lance ao finalizar" },
     { id: "veiculo", k: "gasolina combustivel ipva seguro oficina moto", ico: "carro", t: "Custo do carro ou moto", s: "Quanto custa por mês, por dia e por km" },
@@ -3855,7 +3856,7 @@ function contaUsoDoMais(id) {
 }
 function atalhosDoMais() {
   const todas = [...TODAS_FERR(), ...DESTINOS], icoDe = { f: "fixo", c: "cartao", cal: "agenda", casal: "casal", m: "alvo", l: "lista" };
-  const top = Object.entries(usoDoMais()).filter(([id, n]) => n >= 2 && !FORA_DOS_ATALHOS.has(id)).sort((a, b) => b[1] - a[1]).map(([id]) => todas.find((x) => x.id === id)).filter(Boolean).slice(0, 4);
+  const top = Object.entries(usoDoMais()).filter(([id, n]) => n >= 1 && !FORA_DOS_ATALHOS.has(id)).sort((a, b) => b[1] - a[1]).map(([id]) => todas.find((x) => x.id === id)).filter(Boolean).slice(0, 4);
   return top.length >= 2 ? `<div class="mais-grupo"><h2>Os que você mais abre</h2><div class="mais-atalhos">${top.map((x) => `<button class="mais-atalho" type="button" data-mais="${x.id}"><span class="ava">${ico(x.ico || icoDe[x.id] || "lupa")}</span><b>${esc(x.t)}</b></button>`).join("")}</div></div>` : "";
 }
 function renderMais(c) {
@@ -6118,12 +6119,12 @@ function htmlMetaExplicada(d) {
   const conta = meta.coberto ? "<p>As contas do mês estão cobertas, então hoje não há meta de contas: o que entrar é sobra.</p>"
     : `<ul>${l("Falta pagar no mês", brl(meta.falta))}${l(`Dividido por ${meta.dias} dias rodados`, `${brl(meta.liquidoDia)} por dia`)}${meta.custoDia > 0 ? l(`Mais o carro: ${brl(cvk)} por km × ${virg(kmDia)} km`, `+ ${brl(meta.custoDia)}`) : ""}${l("Meta de hoje", brl(meta.brutoDia), "tot")}</ul>`;
   const carro = aj.custoKm > 0
-    ? `Neste mês você lançou ${brl(aj.lancado)} em combustível, pedágio e estacionamento e rodou ${virg(aj.km)} km, que custam ${brl(aj.rodado)} pelo custo por km. ${aj.ajuste >= 0 ? `Os ${brl(aj.ajuste)} que já pagou a mais adiantam os próximos km.` : `Você rodou mais do que abasteceu: faltam ${brl(-aj.ajuste)} de combustível, que já entram na meta.`}`
+    ? `Neste mês: lançou ${brl(aj.lancado)} e rodou ${virg(aj.km)} km (${brl(aj.rodado)}). ${aj.ajuste >= 0 ? `Os ${brl(aj.ajuste)} pagos a mais adiantam os próximos km.` : `Faltam ${brl(-aj.ajuste)} de combustível, que já entram na meta.`}`
     : "Preencha o Meu carro ou moto (km por mês e consumo) para o app fazer essa conta.";
   return `<section class="mot-meta-ex" aria-label="Como a sua meta é montada"><h3>Como a sua meta é montada</h3>${conta}
     <h4>O que entra na meta</h4><p>Contas e faturas a pagar, o que você já guardou, o quanto quer sobrar e o custo do carro por km (combustível, manutenção, pneus, estacionamento e pedágio).</p>
-    <h4>O que não aumenta a meta</h4><p>Abastecer, pagar pedágio ou estacionar. Esses gastos já estão no custo por km${kmMes > 0 ? `, calculado com os ${virg(kmMes)} km por mês que você informou` : ""}. ${carro} Se você rodar mais km do que informou, a meta sobe sozinha.</p>
-    <button class="btn sm" type="button" id="motExMeta">Ver a conta completa</button></section>`;
+    <h4>O que não aumenta a meta</h4><p>Abastecer, pedágio e estacionamento já estão no custo por km${kmMes > 0 ? ` (com ${virg(kmMes)} km por mês)` : ""}. ${carro}</p>
+    <div class="mot-ex-bts"><button class="btn sm" type="button" id="motExMeta">Ver a conta completa</button><button class="btn sm" type="button" id="motEntKm">Entenda o seu valor por km</button></div></section>`;
 }
 function paneMot() {
   clearInterval(motRelogio); const host = $("pane-mot");
@@ -6244,10 +6245,9 @@ function paneMot() {
   host.innerHTML = `<div id="motRoot">
     ${m.ativo ? htmlAbasMot("resumo") : ""}
     ${turno.replace("<!--ganhos-->", cartaoFech + cartaoGanhos)}
-    <div class="mot-entenda"><button class="mot-rap" type="button" id="motEntKm"><small>Entenda</small><b>Seu valor por km</b></button></div>
+    
     ${htmlMetaExplicada(painelDoMotorista())}
-    <button class="mot-rap larga" type="button" data-mot-sub="ajustes"><small>Minha meta</small><b>Ajustar dias, horas e quanto quero sobrar</b></button>
-    <button class="mot-rap larga" type="button" data-mot-sub="perfil"><small>Meu trabalho</small><b>${m.perfil?.veiculo === "moto" ? "Moto" : "Carro"}: ${appsDoPerfil(m.perfil).filter(([k]) => k !== "outros").map(([, n]) => n).join(", ")}</b></button>
+    <section class="mot-ajustes" aria-label="Ajustes da jornada"><h3>Ajustes da jornada</h3><button type="button" data-mot-sub="ajustes"><span><b>Minha meta</b><small>Dias, horas e quanto quero sobrar</small></span>${ico("chev")}</button><button type="button" data-mot-sub="perfil"><span><b>Meu trabalho</b><small>${m.perfil?.veiculo === "moto" ? "Moto" : "Carro"}: ${appsDoPerfil(m.perfil).filter(([k]) => k !== "outros").map(([, n]) => n).join(", ")}</small></span>${ico("chev")}</button></section>
   </div>`;
   host.querySelectorAll("[data-mot-acao]").forEach((b) => (b.onclick = () => acaoRapida(b.dataset.motAcao)));
   host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
@@ -6261,7 +6261,7 @@ function paneMot() {
   $("motContas").onclick = () => (semContas ? guiaPasso("contas") : contasMotTela());
   if ($("motFech")) $("motFech").onclick = () => abrirFechamento(fech.m);
   if ($("motEntMeta")) $("motEntMeta").onclick = () => metaTela();
-  $("motEntKm").onclick = () => custoKmTela();
+  if ($("motEntKm")) $("motEntKm").onclick = () => custoKmTela();
   host.querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
   host.querySelectorAll("[data-mot-cat-mais]").forEach((s) => (s.onchange = () => s.value && escolheCategoria(s.value)));
 }
