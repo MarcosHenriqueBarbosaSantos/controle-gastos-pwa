@@ -8514,6 +8514,7 @@ function ajustes() {
       <label class="check"><input type="checkbox" id="ajSemDin" ${S.prefs.avisos?.semDinheiro !== false ? "checked" : ""}> Falta de dinheiro para uma conta</label>
       <p class="hint" style="margin:0">Até 5 dias antes de uma conta vencer, o app avisa se o dinheiro que entra e o que você já tem não cobrem ela. Um aviso por data.</p>
       <label class="check"><input type="checkbox" id="ajNoite"${S.prefs.avisos?.noite === true ? "checked" : ""}> Lembrete às 20h, nos dias em que eu não anotar nada</label>
+      ${S.prefs.motorista?.usa ? `<label class="check"><input type="checkbox" id="ajJornada"${S.prefs.avisos?.jornada === false ? "" : " checked"}> Lembrete da jornada: com 3 horas sem lançar, ou se eu esquecer de encerrar</label>` : ""}
       <p class="hint" style="margin:0">Só por notificação, e só se você não tiver lançado nada nem marcado “Não gastei nada”. Se passar uma semana sem anotar, o lembrete para sozinho e volta quando você lançar de novo.</p>
       <p class="hint" style="margin:0" id="ajResumoMsg" role="status"></p>
       <button class="btn" type="button" id="ajVerSemana" style="justify-self:start">Enviar o resumo desta semana agora</button>
@@ -9344,6 +9345,13 @@ function ligaAjustesDeAvisos() {
   if ($("ajUso")) $("ajUso").onchange = async (e) => { S.prefs.medirUso = e.target.checked; await salvaPrefs(); msgR(e.target.checked ? "Obrigado! Só o uso do app, sem dados pessoais." : "Pronto, não mando mais o uso do app."); };
   $("ajSemDin").onchange = async (e) => { S.prefs.avisos = { ...S.prefs.avisos, semDinheiro: e.target.checked }; await salvaPrefs(); msgR(e.target.checked ? "Aviso de falta de dinheiro ligado." : "Aviso de falta de dinheiro desligado."); };
   $("ajSemana").onchange = async (e) => { S.prefs.avisos = { ...S.prefs.avisos, semana: e.target.checked }; await salvaPrefs(); msgR(e.target.checked ? "Resumo ligado. O próximo chega no domingo à noite." : "Resumo desligado."); };
+  if ($("ajJornada")) $("ajJornada").onchange = async (e) => {
+    S.prefs.avisos = { ...S.prefs.avisos, jornada: e.target.checked }; await salvaPrefs();
+    if (!e.target.checked) return msgR("Lembrete da jornada desligado.");
+    const sub = await Promise.race([inscricaoPush().catch(() => null), new Promise((r) => setTimeout(() => r(null), 2500))]);
+    const ok = Boolean(sub) && typeof Notification !== "undefined" && Notification.permission === "granted";
+    msgR(ok ? "Lembrete da jornada ligado. Chega mesmo com o app fechado." : "Lembrete ligado. Para chegar com o app fechado, use o app instalado e permita as notificações.", !ok);
+  };
   $("ajNoite").onchange = async (e) => {
     const cx = e.target; S.prefs.avisos = { ...S.prefs.avisos, noite: cx.checked }; await salvaPrefs();
     if (!cx.checked) return msgR("Lembrete desligado.");

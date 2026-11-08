@@ -13,7 +13,7 @@
 import { pendenciasParaAviso, calcMes, usoDoTeto, mKey, faturasDoMes, proximosVencimentos, projetaDiaADia, ocorrencias, diasEntre,
   lembreteDaMeta, parabensDaMeta, andamentoDaMeta, sugestaoDaMeta, diaDaSemana, resumoDaSemana, lembreteDoDia, comumDoCasal, proximaFatura, usoDoLimite, rotaDoMes, round2 } from "./regras.js";
 import { enviaPush, gerarChaves, cifra, b64u, deB64u, cabecalhoVapid } from "./webpush.js";
-import { montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, avisoDaSemana, avisoDaNoite, avisoDoCartao, avisoSemDinheiro, avisoDaReserva } from "./mensagem.js";
+import { montaAviso, avisoDeTeste, avisoDoLimite, avisoDaMeta, avisoDaSemana, avisoDaNoite, avisoDoCartao, avisoSemDinheiro, avisoDaReserva, lembreteDaJornada, avisoDaJornada } from "./mensagem.js";
 
 const CORS = { "Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type" };
@@ -325,6 +325,36 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
     return res;
   }
 
+  /**
+   * Rotina da jornada (de hora em hora): quem está com a jornada aberta no modo motorista recebe uma notificação
+   * com 3 horas sem lançar ou com a jornada esquecida. Não manda entre 23h e 7h de Brasília, nem para quem desligou (avisos.jornada === false).
+   * Cada aviso sai uma vez: a chave dele fica anotada em avisos_enviados ("jornada: ...").
+   */
+  async function rotinaDaJornada(db) {
+    const k = await chaves(db), dia = hoje(), t = agora(), res = { dia, rotina: "jornada", abertas: 0, avisados: 0, notificacoes: 0, erros: [] };
+    const hora = Number(new Intl.DateTimeFormat("en-GB", { timeZone: "America/Sao_Paulo", hour: "2-digit", hourCycle: "h23" }).format(t));
+    if (hora >= 23 || hora < 7) return { ...res, pulou: "noite" };
+    const { data, error } = await db.from("preferencias").select("user_id, dados").not("dados->motorista->ativo", "is", null);
+    if (error) throw new Error(`preferencias: ${error.message}`);
+    for (const p of data || []) {
+      try {
+        const dados = p.dados || {};
+        if (dados.avisos?.jornada === false) continue;
+        const l = lembreteDaJornada(dados.motorista?.ativo, t.getTime());
+        res.abertas++;
+        if (!l) continue;
+        const { data: ja } = await db.from("avisos_enviados").select("canais").eq("user_id", p.user_id).eq("dia", dia).maybeSingle();
+        if (String(ja?.canais || "").includes(`jornada: ${l.chave}`)) continue;
+        const push = await mandaPush(db, p.user_id, avisoDaJornada(l, urlApp()), k);
+        if (!push.aparelhos) continue;
+        res.avisados++; res.notificacoes += push.entregues;
+        await anota(db, p.user_id, dia, `jornada: ${l.chave}, aparelhos ${push.entregues}/${push.aparelhos}`);
+      } catch (e) { res.erros.push(String(e?.message || e).slice(0, 200)); }
+    }
+    res.erros = res.erros.slice(0, 20);
+    return res;
+  }
+
   async function rotinaDiaria(db) {
     const k = await chaves(db), dia = hoje(), res = { dia, usuarios: 0, avisados: 0, emails: 0, notificacoes: 0, erros: [] };
     await todos(db, async (user) => {
@@ -357,7 +387,7 @@ export function criaHandler({ createClient, env, fetchFn = fetch, agora = () => 
         const { data: confere } = await db.rpc("avisos_confere_segredo", { s: segredo });
         if (confere !== true) return json({ erro: "Segredo inválido." }, 401);
         const pedido = await req.json().catch(() => ({}));
-        return json(pedido?.rotina === "noite" ? await rotinaDaNoite(db) : await rotinaDiaria(db));
+        return json(pedido?.rotina === "noite" ? await rotinaDaNoite(db) : pedido?.rotina === "jornada" ? await rotinaDaJornada(db) : await rotinaDiaria(db));
       }
       const token = (req.headers.get("authorization") || "").replace(/^Bearer\s+/i, "");
       const { data: quem } = token ? await db.auth.getUser(token) : { data: null };

@@ -207,3 +207,24 @@ export function avisoDaNoite(l, urlApp) {
     : "Leva menos de um minuto. Lance o de hoje, ou abra o app e marque que não gastou nada.";
   return { titulo: "Anotou os gastos de hoje?", corpo, url: comAtalho(urlApp, "lancar"), tag: "meus-gastos-dia" };
 }
+
+/**
+ * Lembrete da jornada com o app fechado (modo motorista). `ativo` é a jornada em andamento guardada nas preferências.
+ * Com 3 horas sem lançar quanto fez (ou desde o começo), ou com a jornada rodando há 14 horas ou mais (esqueceu de encerrar).
+ * Pausada não avisa. `chave` muda a cada bloco de 3 horas (ou de 6, na jornada esquecida), para cada aviso sair uma vez só.
+ * @returns {null | {tipo: "lancar"|"esquecida", chave: string, horas: number}}
+ */
+export function lembreteDaJornada(ativo, agoraMs) {
+  const ini = Number(ativo?.ini);
+  if (!(ini > 0) || Number(ativo?.pausaIni) > 0) return null;
+  const ms = Math.max(0, agoraMs - ini - (Number(ativo.pausado) > 0 ? Number(ativo.pausado) : 0));
+  const desde = Number(ativo.parcialEm) > 0 ? Number(ativo.parcialEm) : ini, passou = agoraMs - desde, h = 3600000;
+  if (ms >= 14 * h) return { tipo: "esquecida", chave: `esq:${ini}:${Math.floor(ms / (6 * h))}`, horas: Math.floor(ms / h) };
+  if (passou >= 3 * h) return { tipo: "lancar", chave: `${desde}:${Math.floor(passou / (3 * h))}`, horas: Math.floor(passou / h) };
+  return null;
+}
+export function avisoDaJornada(l, urlApp) {
+  return l.tipo === "esquecida"
+    ? { titulo: "Esqueceu de encerrar a jornada?", corpo: `Ela está rodando há ${l.horas} horas. Toque para encerrar e acertar o horário em que parou.`, url: comAtalho(urlApp, "jornada"), tag: "meus-gastos-jornada" }
+    : { titulo: `Faz ${l.horas} horas que você não lança`, corpo: "Lance quanto fez até agora para ver se está valendo a pena. Se já parou, encerre a jornada.", url: comAtalho(urlApp, "jornada"), tag: "meus-gastos-jornada" };
+}
