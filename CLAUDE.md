@@ -24,7 +24,7 @@ App de controle de gastos (PWA, JavaScript puro, sem framework) com um **modo mo
 ## Como trabalhar
 - `npm test` roda os testes (devem passar todos). `npm run validar` é a trava antes de publicar.
 - Teste na tela: `npx serve -l 5180 .` e Playwright com `channel: "msedge"`, viewport 390x844. Demonstrações: `#demo` (geral) e `#motorista`. Congele a data com `page.clock.install({ time: new Date("2026-11-04T10:00:00") })`. Use `evaluate` para clicar em botões escondidos ou sobrepostos. Ids do menu de baixo: `inicio`, `l` (Extrato), `mais` (Lançar), `mot` (Jornada) ou `m` (Planejar), `menu` (Mais).
-- Acessibilidade das telas: com o servidor local no ar, `node scripts/axe-telas.mjs "#motorista"` (ou `"#demo"`) roda o axe-core em Início, Extrato, Jornada, Mais e Lançar e lista os problemas. Na v241 não restava nenhum grave ou sério, só avisos menores.
+- Acessibilidade das telas: com o servidor local no ar, `node scripts/axe-telas.mjs "#motorista"` (ou `"#demo"`) roda o axe-core em Início, Extrato, Jornada, Mais e Lançar e lista os problemas. Na v242 não restava nenhum grave ou sério, só avisos menores.
 - Contas novas vão em `calc.js` ou `motorista.js` (puras) com teste em `tests/`. A tela só monta o texto.
 - Para scripts que editam arquivos com texto cheio de barras invertidas, escreva o script com a ferramenta de escrever arquivo, não com heredoc no terminal: o terminal pode trocar `\\n` por uma quebra de linha de verdade.
 - Os arquivos da função `avisos` têm CRLF no Windows; normalize antes de comparar com o servidor.
@@ -36,7 +36,7 @@ App de controle de gastos (PWA, JavaScript puro, sem framework) com um **modo mo
 4. Confirme no ar: `curl -s https://meugastos.com.br/sw.js | grep VERSAO` mostra a versão nova (pode levar alguns minutos).
 5. Banco ou função `avisos`: ver [docs/memoria/supabase-publicar-sql-e-funcao.md](docs/memoria/supabase-publicar-sql-e-funcao.md). A pessoa clica em Run e Deploy; o sistema de segurança bloqueia isso para o assistente.
 
-## Estado ao passar o bastão (v241 no ar)
+## Estado ao passar o bastão (v242 no ar)
 - No ar até a v235: ganho por app com soma, km rodado contra o mínimo por km, barra de baixo visível com a jornada rodando, botão Pausar claro, topo do Início motorista por janelas de dias.
 - Publicado na v236: topo do Início em 4 passos (o que você tem, o que vence, quanto por dia, o que sobra) para o motorista e para quem tem salário; Jornada com duas abas durante a jornada (Em andamento e Resumo e meta); abastecer não aumenta mais a meta (`ajusteDoVeiculo` em `js/motorista.js`); bloco "Como a sua meta é montada".
 - Pendências: compra real na Hotmart e comissão de afiliado; refazer as imagens do kit de divulgação em azul; apresentação para influenciadores (Slides, 14 slides) e imagens das telas em `divulgacao-influenciadores/telas/`; revisão de coerência de textos em todas as abas; iPhone, tema claro, fonte grande e voz ainda sem teste; Cloudflare na frente do domínio; suíte de testes de tela (Playwright) ainda não existe; dividir `app.js`.

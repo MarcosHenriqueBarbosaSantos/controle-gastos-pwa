@@ -2666,3 +2666,37 @@ button,a,input,select,textarea,summary,[role="button"],label{touch-action:manipu
 /* Lançar: o que passa por baixo do botão fixo some num degradê, e o campo com foco sobe acima dele */
 #fOk{box-shadow:0 -16px 18px 4px var(--bg,#060e1d)}
 html:has(body.lancando){scroll-padding-bottom:110px}
+/* Caixinhas: o nome inteiro em até duas linhas, em vez de cortar com reticências */
+.caixa .info .nome{white-space:normal;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;text-overflow:clip}
+
+/* Jornada parada: pergunta do dia sem jornada */
+.mot-pergunta{display:grid;gap:8px;margin:10px 0 4px;padding:12px 14px;border-radius:14px;background:rgba(255,255,255,.14);color:#fff}
+.mot-pergunta b{font-size:15px}
+.mot-pergunta>div{display:flex;flex-wrap:wrap;gap:8px}
+.mot-pergunta .btn.sm{min-height:44px}
+
+/* Jornada: o ganho e o km só aparecem quando a pessoa toca em Lançar quanto fez até agora */
+.mot-lanca-ganho{width:100%;min-height:56px;margin:14px 0 0;font-size:17px}
+.mot-jornada .mot-leves{grid-template-columns:repeat(2,1fr)}
+
+/* Ponto de aviso no botão Mais opções da jornada */
+#motMais{position:relative}
+.mot-ponto{display:inline-block;width:8px;height:8px;margin-left:6px;border-radius:50%;background:var(--series,#5fd4ff);vertical-align:middle}
+
+/* Botão central da jornada: começa e encerra, com o tempo grande no meio */
+.mot-circ{display:grid;place-items:center;align-content:center;gap:2px;width:min(56vw,200px);aspect-ratio:1;margin:16px auto 8px;padding:0;border:0;border-radius:50%;cursor:pointer;color:#06101f;background:radial-gradient(circle at 50% 32%,#9ae9ff,#3db8ef 72%);box-shadow:0 0 0 8px rgba(95,212,255,.16),0 0 0 16px rgba(95,212,255,.06),0 12px 34px rgba(30,140,255,.35)}
+.mot-circ b{font-size:30px;font-weight:800;line-height:1}
+.mot-circ small,.mot-circ span{font-size:13px;font-weight:700}
+.mot-jornada .mot-circ .mot-cron{font-size:clamp(30px,9vw,38px);font-weight:700;color:#06101f;letter-spacing:-.02em}
+.mot-circ.pausa{background:radial-gradient(circle at 50% 32%,#ffe6ae,#f2b94b 72%);box-shadow:0 0 0 8px rgba(242,185,75,.18),0 0 0 16px rgba(242,185,75,.06),0 12px 34px rgba(242,185,75,.25)}
+.em-pausa .mot-circ .mot-cron{opacity:1}
+.mot-circ.inicio{color:#0b3a8f;background:radial-gradient(circle at 50% 32%,#ffffff,#dfeaff 75%);box-shadow:0 0 0 8px rgba(255,255,255,.16),0 0 0 16px rgba(255,255,255,.06),0 14px 34px rgba(0,20,80,.35)}
+.mot-circ.inicio .mc-play{width:0;height:0;margin:0 0 6px 8px;border-left:26px solid #0b3a8f;border-top:16px solid transparent;border-bottom:16px solid transparent}
+.mot-dia-base .mot-circ{justify-self:center}
+.mot-circ:focus-visible{outline:3px solid #fff;outline-offset:6px}
+@media (prefers-reduced-motion:no-preference){.mot-jornada .mot-circ:not(.pausa){animation:motPulsa 2.6s ease-in-out infinite}}
+@keyframes motPulsa{50%{box-shadow:0 0 0 12px rgba(95,212,255,.22),0 0 0 24px rgba(95,212,255,.05),0 12px 34px rgba(30,140,255,.35)}}
+/* Na tela parada o círculo é menor, para caber acima da barra de baixo */
+.mot-dia-base .mot-circ{width:min(36vw,140px);margin:4px auto 2px}
+.mot-dia-base .mot-circ b{font-size:24px}
+.mot-dia-base .mot-circ.inicio .mc-play{border-left-width:20px;border-top-width:12px;border-bottom-width:12px;margin-bottom:4px}

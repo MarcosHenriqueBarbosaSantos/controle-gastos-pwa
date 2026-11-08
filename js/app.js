@@ -5443,12 +5443,33 @@ function contasMotTela() {
 }
 /** "Domingo, 1º de novembro". */
 const dataPorExtenso = (iso) => { const d = Number(iso.slice(8, 10)), s = DIAS_SEMANA[diaDaSemana(iso)]; return `${s[0].toUpperCase()}${s.slice(1)}, ${d === 1 ? "1º" : d} de ${nomeMes(mKey(iso))}`; };
+/**
+ * Lembrete da jornada: com 3 horas sem lançar quanto fez, ou com a jornada rodando há 14 horas ou mais (esqueceu de encerrar),
+ * o app pergunta ao abrir (e a cada 5 minutos enquanto está aberto). Uma vez por bloco de 3 horas, para não insistir.
+ */
+function lembreteDaJornada() {
+  const a = S.loaded ? motDados().ativo : null;
+  if (!a || a.pausaIni || document.hidden || $("dlg").open || document.body.classList.contains("lancando") || motSub === "ganho" || motFechando) return;
+  const ms = msAndamento(a), desde = Number(a.parcialEm) || Number(a.ini), passou = Date.now() - desde, esquecida = ms >= 14 * 3600000;
+  if (!esquecida && passou < 3 * 3600000) return;
+  const chave = esquecida ? "esq:" + a.ini + ":" + Math.floor(ms / (6 * 3600000)) : desde + ":" + Math.floor(passou / (3 * 3600000));
+  if (S.lembreteJornada === chave) return;
+  S.lembreteJornada = chave; vibra([40, 60, 40]);
+  openDlg(esquecida
+    ? `<h3>Esqueceu de encerrar a jornada?</h3><p class="hint">Ela está rodando há ${horasCurtas(ms)}. Ao encerrar, você acerta o horário em que parou.</p><div class="actions"><button class="btn primary" type="button" id="ljEncerrar">Encerrar e acertar o horário</button><button class="btn" type="button" data-close>Ainda estou rodando</button></div>`
+    : `<h3>Faz ${horasCurtas(passou)} que você não lança</h3><p class="hint">Lance quanto fez até agora para o app dizer se está valendo a pena. Se já parou, encerre a jornada.</p><div class="actions"><button class="btn primary" type="button" id="ljLancar">Lançar quanto fez</button><button class="btn" type="button" id="ljEncerrar">Encerrar a jornada</button><button class="btn" type="button" data-close>Agora não</button></div>`);
+  if ($("ljLancar")) $("ljLancar").onclick = () => { $("dlg").close(); motoristaTela(); motEntra("ganho"); };
+  $("ljEncerrar").onclick = () => { $("dlg").close(); motoristaTela(); fecharTurno(); };
+}
+document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") setTimeout(lembreteDaJornada, 900); });
+setInterval(lembreteDaJornada, 5 * 60000);
+setTimeout(lembreteDaJornada, 6000);
 /** Rodando há mais de 2 horas sem atualizar o ganho: um lembrete na tela (e uma vibração leve, uma vez a cada 2 horas). */
 function lembraGanho(a) {
   if (!a || !(Number(a.parcial) > 0) || a.pausaIni) return "";
   const desde = Number(a.parcialEm) || Number(a.ini), passou = Date.now() - desde;
-  if (passou < 2 * 3600000) return "";
-  const vez = Math.floor(passou / (2 * 3600000)); if (S.lembrouGanho !== desde + ":" + vez) { S.lembrouGanho = desde + ":" + vez; vibra(25); }
+  if (passou < 3 * 3600000) return "";
+  const vez = Math.floor(passou / (3 * 3600000)); if (S.lembrouGanho !== desde + ":" + vez) { S.lembrouGanho = desde + ":" + vez; vibra(25); }
   return `<button type="button" class="mot-lembra" data-mot-lembra>${ico("agenda")}<span>Faz ${horasCurtas(passou)} que o ganho não é atualizado. <b>Atualizar agora</b></span></button>`;
 }
 /** "Sua semana", no domingo e na segunda: quanto ganhou, quanto foi para o carro, quanto sobrou e por hora. */
@@ -5471,6 +5492,28 @@ function htmlSemanaMot(m, hj, meta) {
     <span class="nums ocultavel"><span><small>Ganhou</small><b>${brl(r.ganho)}</b></span><span><small>${r.comCarro ? "Carro" : "Combustível"}</small><b>− ${brl(r.custo)}</b></span><span><small>Sobrou</small><b class="${r.lucro < 0 ? "neg" : "ok"}">${brl(r.lucro)}</b></span></span>
     <span class="pe ocultavel">${r.lucroPorHora !== null ? `<b>${brl(r.lucroPorHora)} por hora</b> depois dos custos. ` : ""}${comp}</span>${cobre(s, meta)}${proxima ? `<span class="melhor ocultavel">${ico("alvo")}Meta da próxima semana: <b>${brl(proxima)}</b>, ${brl(meta.brutoDia)} por dia em ${dias} dias.</span>` : ""}${melhor ? `<span class="melhor ocultavel">${ico("raio")}Seu melhor dia para rodar: <b>${DIAS_SEMANA[melhor.dia]}</b>, ${brl(melhor.ganhoPorHora)} por hora.</span>` : ""}</button>`;
 }
+/**
+ * Dia sem jornada nos últimos 3 dias (do mais recente para trás): o app pergunta se a pessoa rodou.
+ * Só para quem já usa a Jornada, e não para o dia que já foi marcado como folga ou que a jornada de agora atravessou.
+ */
+let diaParaLancar = "";
+function diaSemJornada(m) {
+  if (!m.turnos.length) return "";
+  const primeiro = isoLocal(Math.min(...m.turnos.map((t) => t.ini))), folgas = S.prefs.folgas || [], hj = hoje();
+  for (let i = 1; i <= 3; i++) {
+    const d = isoLocal(Date.now() - i * 864e5);
+    if (d >= hj || d < primeiro) continue;
+    if (m.ativo && isoLocal(m.ativo.ini) <= d) continue;
+    if (folgas.includes(d) || m.turnos.some((t) => isoLocal(t.ini) === d)) continue;
+    return d;
+  }
+  return "";
+}
+function htmlPerguntaDia(m) {
+  const d = diaSemJornada(m); if (!d) return "";
+  const rot = d === isoLocal(Date.now() - 864e5) ? "Ontem" : `${DIAS_SEMANA[diaDaSemana(d)][0].toUpperCase()}${DIAS_SEMANA[diaDaSemana(d)].slice(1)}, ${ddmm(d)}`;
+  return `<div class="mot-pergunta" role="group" aria-label="Dia sem jornada"><b>${rot} não tem jornada. Você rodou?</b><div><button type="button" class="btn sm primary" id="mpRodei" data-dia="${d}">Rodei: lançar o dia</button><button type="button" class="btn sm" id="mpFolga" data-dia="${d}">Não, folguei</button></div></div>`;
+}
 /** A tela Jornada parada: uma frase, a regra por km e o botão de começar. */
 function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa = false }) {
   const pct = Math.min(100, Math.round((doDia.ganho / (meta.brutoDia || 1)) * 100)), ultimoPainel = [...m.turnos].reverse().find((t) => t.odoFim)?.odoFim;
@@ -5478,7 +5521,7 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa 
   const comemora = !meta.coberto && doDia.ganho >= meta.brutoDia && S.metaBatida !== hj, cats_ = categoriasDoPerfil(motDados().perfil), catAtual = categoriaAtual();
   const catsVis = [catAtual, ...cats_.filter((k) => k !== catAtual)].filter(Boolean).slice(0, 3), catsResto = cats_.filter((k) => !catsVis.includes(k));
   if (comemora) { S.metaBatida = hj; vibra(40); }
-  return `<section class="mot-dia cheia${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${dataPorExtenso(hj)}</small><button type="button" class="mot-dia-pill" data-mot-sub="desafios">Desafios</button></div><h2 class="ocultavel">${f.titulo}</h2>
+  return `<section class="mot-dia cheia${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${dataPorExtenso(hj)}</small><button type="button" class="mot-dia-pill" data-mot-sub="desafios">Desafios</button></div>${ativa ? "" : htmlPerguntaDia(m)}<h2 class="ocultavel">${f.titulo}</h2>
     ${!acima && !doDia.ganho ? "" : `<p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>`}
     ${!m.turnos.length ? `<p class="mot-dia-como"><b>Como funciona:</b> inicie a jornada, lance o que gastou e veja quanto sobrou.</p>` : ""}
     ${regra ? `<p class="mot-dia-regra">Busque corridas de <b>${brl(regra.boa)} por km</b> ou mais.</p><p class="mot-dia-minimo">Seu mínimo: ${brl(regra.minimo)} por km${regra.custoKm > 0 ? ` (custo ${brl(regra.custoKm)} + ${brl(1)} de lucro)` : ""}.</p>` : ""}
@@ -5487,7 +5530,7 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa 
     ${htmlContasMot(semContas)}
     <div class="mot-dia-base">${ativa ? `<button class="mot-dia-bt" type="button" id="motVoltaJornada">Voltar à jornada em andamento</button>` : `${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
     <label class="mot-dia-odo">Km no painel do carro<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="${ultimoPainel ? `último: ${odoTxt(ultimoPainel)}` : "ex.: 84.120"}"></label>
-    <button class="mot-dia-bt" type="button" id="motIniciar">Iniciar jornada</button>
+    <button class="mot-circ inicio" type="button" id="motIniciar"><span class="mc-play" aria-hidden="true"></span><b>Iniciar</b><span>jornada</span></button>
     `}<div class="mot-dia-links"><button class="mot-dia-2" type="button" id="motVale">Essa corrida vale?</button><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button></div></div></section>`;
 }
 const htmlTresMot = (tit, hora, km, viagem, pe = "") => `<section class="mot-tres" aria-label="${tit}"><h3>${tit}</h3><div>${[["Por hora", hora], ["Por km", km], ["Por viagem", viagem]].map(([r, v]) => `<p><small>${r}</small><b class="ocultavel">${v === null ? "—" : brl(v)}</b></p>`).join("")}</div>${pe ? `<small class="ocultavel">${pe}</small>` : ""}</section>`;
@@ -5803,7 +5846,7 @@ function paneLancarDia(host) {
   const hj = hoje();
   host.innerHTML = `<div id="motRoot"><h3 class="mot-h" style="margin-top:0">Lançar o dia</h3><p class="hint" style="margin:0 0 10px">Copie o que cada app mostra. Este lançamento vale para o seu resultado, mas não conta nos desafios: lá só entra jornada iniciada no app.</p>
     <form id="mdForm" class="dlg-form" autocomplete="off">
-      <label class="f">Dia<input class="in" type="date" id="mdData" value="${hj}" max="${hj}"></label>
+      <label class="f">Dia<input class="in" type="date" id="mdData" value="${diaParaLancar || hj}" max="${hj}"></label>
       ${campoCategoria("mdCat", categoriaAtual())}
       ${camposApps(null)}
       ${camposKm(null, [...motDados().turnos].reverse().find((t) => t.odoFim)?.odoFim)}
@@ -6151,10 +6194,10 @@ function paneMot() {
     const aviso = bateu ? `<p class="mot-ver bom"><b>Meta do dia batida:</b> você fez ${brl(totalHoje)} e a meta era ${brl(meta.brutoDia)}. O que passar disso adianta os próximos dias.</p>`
       : ganho > 0 && gastos > 0 && ganho < gastos ? `<p class="mot-ver">As corridas já pagaram <b>${Math.round((ganho / gastos) * 100)}%</b> dos gastos de hoje (${brl(gastos)} em combustível e pedágio). Faltam ${brl(round2(gastos - ganho))} para empatar.</p>`
       : cobriu ? `<p class="mot-ver bom"><b>Os gastos de hoje já estão pagos.</b> Daqui para a frente é lucro.${meta.brutoDia > 0 ? ` Faltam ${brl(round2(meta.brutoDia - totalHoje))} para a meta do dia.` : ""}</p>` : "";
-    const titulo = v.desatualizado ? "Atualize o ganho para ver o ritmo." : v.veredito === "bom" ? "Está valendo a pena." : v.veredito === "abaixo" ? `Abaixo ${alvo}.` : ganho > 0 ? "Jornada em andamento." : "Boa jornada.";
+    const titulo = v.desatualizado ? "Atualize o ganho para ver o ritmo." : v.veredito === "bom" ? "Está valendo a pena." : v.veredito === "abaixo" ? `Abaixo ${alvo}.` : ganho > 0 ? "Jornada em andamento." : "";   // sem ganho lançado, o círculo do relógio já diz que a jornada está rodando
     const pctGastos = ganho > 0 ? Math.min(100, Math.round((gastos / ganho) * 100)) : 0, sobra = round2(ganho - gastos);
     const txtSobra = sobra < 0 ? `Faltam ${brl(-sobra)}` : `Sobram ${brl(sobra)}`, apertado = pctGastos > 50;   // sem espaço na parte amarela, o valor desce para a legenda
-    return `<h2 class="mot-frase">${titulo}</h2>
+    return `${titulo ? `<h2 class="mot-frase">${titulo}</h2>` : ""}
       ${ganho > 0 && !v.desatualizado ? `${v.liquidoPorHora === null || v.liquidoPorHora === undefined ? `<p class="mot-ver">Depois de 15 minutos de jornada o app mostra quanto você faz por hora.</p>` : `<p class="mot-hora ocultavel${v.liquidoPorHora < 0 ? " neg" : ""}" aria-label="${tracos(v.liquidoPorHora, brl)} líquidos por hora"><b>${tracos(v.liquidoPorHora, brl)}</b> por hora</p>`}
       <div class="mot-barra ocultavel" role="img" aria-label="De ${brl(ganho)} ganhos, ${brl(gastos)} foram gastos e ${sobra < 0 ? `faltam ${brl(-sobra)}` : `sobram ${brl(sobra)}`}">${pctGastos ? `<i style="width:${pctGastos}%">${sobra < 0 ? txtSobra : pctGastos >= 18 ? "Gastos" : ""}</i>` : ""}${sobra < 0 ? "" : `<span>${apertado ? "" : txtSobra}</span>`}</div>
       <small class="mot-barra-leg ocultavel">${apertado && sobra >= 0 ? `${txtSobra} de` : "De"} ${brl(ganho)} ganhos ${doDia.n ? "nesta jornada" : "hoje"}</small>` : ""}
@@ -6168,46 +6211,43 @@ function paneMot() {
         if (g.veredito === "abaixo") return `<p class="mot-ver abaixo">Você faz <b class="ocultavel">${brl(g.porKm)}</b> por km, abaixo do seu mínimo de ${brl(g.minimo)}. Faltam <b class="ocultavel">${brl(g.falta)}</b> para a média chegar no mínimo: prefira corridas que paguem mais por km.</p>`;
         return `<p class="mot-ver">Você faz <b class="ocultavel">${brl(g.porKm)}</b> por km nesta jornada.</p>`;
       })()}
-      <div class="gan-stats mot-vivo-st"><p><b class="ocultavel">${semContas ? "Sem meta" : meta.coberto ? "Coberta" : brl(meta.brutoDia)}</b><small>Meta de hoje</small></p><p><b class="ocultavel">${semContas ? "—" : meta.coberto || totalHoje >= meta.brutoDia ? "Nada" : brl(round2(meta.brutoDia - totalHoje))}</b><small>Faltam</small></p><p><b class="ocultavel">${brl(regra.minimo)}</b><small>Mínimo por km</small></p></div>
-      ${!semContas && meta.brutoDia > 0 ? `<div class="mot-meta-bar ocultavel" role="img" aria-label="${Math.min(100, Math.round((totalHoje / meta.brutoDia) * 100))}% da meta de hoje"><i style="width:${Math.min(100, Math.round((totalHoje / meta.brutoDia) * 100))}%"></i></div><small class="mot-meta-leg ocultavel">${totalHoje >= meta.brutoDia ? "Meta de hoje batida." : `Faltam ${brl(round2(meta.brutoDia - totalHoje))} para a meta de hoje (${Math.round((totalHoje / meta.brutoDia) * 100)}%).`}</small>` : ""}
+      <div class="gan-stats mot-vivo-st"><p><b class="ocultavel">${semContas ? "Sem meta" : meta.coberto ? "Coberta" : brl(meta.brutoDia)}</b><small>Meta de hoje</small></p><p><b class="ocultavel">${brl(totalHoje)}</b><small>Feito hoje</small></p><p><b class="ocultavel">${brl(regra.minimo)}</b><small>Mínimo por km</small></p></div>
+      ${!semContas && meta.brutoDia > 0 ? `<div class="mot-meta-bar ocultavel" role="img" aria-label="${Math.min(100, Math.round((totalHoje / meta.brutoDia) * 100))}% da meta de hoje"><i style="width:${Math.min(100, Math.round((totalHoje / meta.brutoDia) * 100))}%"></i></div><small class="mot-meta-leg ocultavel">${totalHoje >= meta.brutoDia ? "Meta de hoje batida." : `Faltam ${brl(round2(meta.brutoDia - totalHoje))} para a meta de hoje.`}</small>` : ""}
       ${lembraGanho(m.ativo)}`;
   };
   if (m.ativo && motAba !== "resumo") {   // jornada em andamento: uma tela só com o cronômetro, no estilo "dirigindo"
     const a = m.ativo, pausada = Boolean(a.pausaIni), gastosTot = gastosDaJornada(a);
+    // Jornada antiga sem km: o lembrete fica em "Mais opções", com um ponto no botão, para a tela de dirigir ficar limpa.
+    const limiteKm = isoLocal(Date.now() - 7 * 864e5), tSemKm = [...m.turnos].reverse().find((x) => x.fim && !(Number(x.km) > 0) && isoLocal(x.ini) >= limiteKm);
+    const rotSemKm = tSemKm ? (isoLocal(tSemKm.ini) === hoje() ? "hoje, de antes" : isoLocal(tSemKm.ini) === isoLocal(Date.now() - 864e5) ? "ontem" : ddmm(isoLocal(tSemKm.ini))) : "";
     host.innerHTML = `<div id="motRoot" class="mot-jornada${pausada ? " em-pausa" : ""}${motEntrou ? " entra" : ""}">
-      <div class="mot-topo"><span class="mot-estado">${pausada ? "" : `<i class="mot-pulso" aria-hidden="true"></i>`}${pausada ? "Jornada pausada" : "Jornada ativa"}</span><b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b></div>
+      <div class="mot-topo"><span class="mot-estado">${pausada ? "" : `<i class="mot-pulso" aria-hidden="true"></i>`}${pausada ? "Jornada pausada" : "Jornada ativa"}</span></div>
       ${htmlAbasMot("agora")}
+      <button type="button" class="mot-circ${pausada ? " pausa" : ""}" id="motParar"><small>${pausada ? "Pausada há" : "Rodando há"}</small><b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b><span>Toque para encerrar</span></button>
       ${pausada ? `<p class="mot-pausa-aviso" role="status"><span>Jornada pausada. O relógio está parado.</span><button type="button" id="motContinuar">Continuar</button></p>` : ""}
       <div id="motVivo" class="mot-vivo-box">${vivo()}</div>
-      ${a.parcial ? "" : `<form id="motGanhoRap" class="mot-ganho-rap" autocomplete="off"><b class="ag-tit">Quanto já ganhou${appsDaJornada(a).length > 1 ? " em cada app" : ""}?</b>${camposGanhoAgora(a)}<button class="btn primary" type="submit">Ver se vale</button><small>Copie o que cada app mostra agora: o app soma e compara com o seu mínimo por km. Dá para atualizar quando quiser.</small></form>`}
-      <button type="button" class="mot-odo" id="motVerDias">Ver meus ganhos e dias anteriores</button>
-      <button type="button" class="mot-odo" id="motOdo">${a.odoIni ? `Painel ao começar: ${odoTxt(a.odoIni)} km` : "Anotar o km do painel do carro"}</button>
-      ${(() => {   // jornada antiga sem km: um toque para completar, sem sair da jornada de agora
-        const limite = isoLocal(Date.now() - 7 * 864e5), t = [...m.turnos].reverse().find((x) => x.fim && !(Number(x.km) > 0) && isoLocal(x.ini) >= limite); if (!t) return "";
-        const d = isoLocal(t.ini), rot = d === hoje() ? "hoje, de antes" : d === isoLocal(Date.now() - 864e5) ? "ontem" : ddmm(d);
-        return `<button type="button" class="mot-odo mot-odo-falta" data-mot-edit="${esc(t.id)}">Faltou o km de ${rot}. Anotar agora</button>`;
-      })()}
+      <button class="btn primary mot-lanca-ganho" type="button" data-mot-sub="ganho">${a.parcial ? "Atualizar quanto fez até agora" : "Lançar quanto fez até agora"}</button>
       <div class="mot-comandos" role="group" aria-label="Controle da jornada">
         <div class="mot-leves">
-          ${a.parcial ? `<button type="button" data-mot-sub="ganho">Atualizar ganho</button>` : ""}
-          <button type="button" id="motPausa" class="${pausada ? "ativo" : ""}" aria-label="${pausada ? "Continuar a jornada" : "Pausar o relógio da jornada"}">${pausada ? "Continuar" : "Pausar o relógio"}</button>
-          <button type="button" id="motMais">Mais opções</button>
+                    <button type="button" id="motPausa" class="${pausada ? "ativo" : ""}" aria-label="${pausada ? "Continuar a jornada" : "Pausar o relógio da jornada"}">${pausada ? "Continuar" : "Pausar o relógio"}</button>
+          <button type="button" id="motMais"${tSemKm ? ` aria-label="Mais opções: faltou o km de ${rotSemKm}"` : ""}>Mais opções${tSemKm ? `<i class="mot-ponto" aria-hidden="true"></i>` : ""}</button>
         </div>
         <div class="mot-rapidos">
           <button class="mot-rap gasto" type="button" data-mot-gasto="Combustível"><b>Abastecer</b></button>
           <button class="mot-rap gasto" type="button" data-mot-gasto="Pedágio"><b>Pedágio</b></button>
         </div>
-        <button class="mot-para" type="button" id="motParar">Parar jornada</button>
       </div></div>`;
     motEntrou = false; ligaAbasMot(host);
     host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
     $("motMais").onclick = () => {
       openDlg(`<h3>Mais opções</h3><p class="hint">Começou às ${hhmm(a.ini)}${a.categoria ? ` · ${esc(a.categoria)}` : ""}${gastosTot ? ` · ${brl(gastosTot)} em gastos` : ""}</p>
-        <div class="mot-opcoes"><button class="btn" type="button" id="motComida">Alimentação</button><button class="btn" type="button" data-mot-op="lancar">Outro gasto</button><button class="btn" type="button" data-mot-op="ler">Escanear nota ou QR code</button><button class="btn" type="button" id="motDiasAnt">Corrigir um dia anterior</button><button class="btn" type="button" id="motDiaEsq">Lançar um dia que esqueci</button><button class="btn" type="button" id="motIrInicio">Ir para o Início</button><button class="btn" type="button" id="motDescartar">Descartar esta jornada</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+        <div class="mot-opcoes">${tSemKm ? `<button class="btn primary" type="button" id="motFaltaKm">Faltou o km de ${rotSemKm}: anotar agora</button>` : ""}<button class="btn" type="button" id="motComida">Alimentação</button><button class="btn" type="button" data-mot-op="lancar">Outro gasto</button><button class="btn" type="button" data-mot-op="ler">Escanear nota ou QR code</button><button class="btn" type="button" id="motOdoOp">${a.odoIni ? `Km do painel ao começar: ${odoTxt(a.odoIni)}` : "Anotar o km do painel do carro"}</button><button class="btn" type="button" id="motDiasAnt">Ver meus ganhos e dias anteriores</button><button class="btn" type="button" id="motDiaEsq">Lançar um dia que esqueci</button><button class="btn" type="button" id="motIrInicio">Ir para o Início</button><button class="btn" type="button" id="motDescartar">Descartar esta jornada</button><button class="btn" type="button" data-close>Fechar</button></div>`);
       $("dlgBody").querySelectorAll("[data-mot-op]").forEach((b) => (b.onclick = () => { $("dlg").close(); acaoRapida(b.dataset.motOp); }));
       $("motComida").onclick = () => { $("dlg").close(); lancaGastoMot("Alimentação"); };
       $("motDiasAnt").onclick = () => { $("dlg").close(); abrirGanhos("dia", isoLocal(Date.now() - 864e5)); };
       $("motDiaEsq").onclick = () => { $("dlg").close(); motEntra("dia"); };
+      $("motOdoOp").onclick = () => { $("dlg").close(); anotaPainelMot(); };
+      if ($("motFaltaKm")) $("motFaltaKm").onclick = () => { $("dlg").close(); motEditaDaJornada = true; motEntra("edit-" + tSemKm.id); };
       $("motIrInicio").onclick = () => { $("dlg").close(); $("bnav").querySelector('[data-nav="inicio"]').click(); };
       armDelete($("motDescartar"), () => {
         const guardada = motDados().ativo; $("dlg").close(); gravaMot({ ...motDados(), ativo: null }); render();
@@ -6228,9 +6268,6 @@ function paneMot() {
       ligaGanhoAgora($("motGanhoRap"));
       $("motGanhoRap").addEventListener("submit", (e) => { e.preventDefault(); if (guardaGanhoAgora($("motGanhoRap"), { exigeGanho: true })) render(); });
     }
-    $("motOdo").onclick = () => anotaPainelMot();
-    $("motVerDias").onclick = () => abrirGanhos("dia", isoLocal(Date.now() - 864e5));
-    host.querySelectorAll("[data-mot-edit]").forEach((b) => (b.onclick = () => { motEditaDaJornada = true; motEntra("edit-" + b.dataset.motEdit); }));
     motRelogio = setInterval(() => { const el = $("motCron"); if (!el || S.view !== "listas" || S.tab !== "mot") return clearInterval(motRelogio); const ag = motDados().ativo; if (!ag) return clearInterval(motRelogio); el.textContent = relogio(msAndamento(ag)); $("motVivo").innerHTML = vivo(); }, 1000);
     return;
   }
@@ -6253,6 +6290,8 @@ function paneMot() {
   host.querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => motEntra(b.dataset.motSub)));
   ligaAbasMot(host); if ($("motVoltaJornada")) $("motVoltaJornada").onclick = () => { motAba = "agora"; render(); scrollTo(0, 0); };
   if ($("motExMeta")) $("motExMeta").onclick = () => metaTela();
+  if ($("mpRodei")) $("mpRodei").onclick = () => { diaParaLancar = $("mpRodei").dataset.dia; motEntra("dia"); diaParaLancar = ""; };
+  if ($("mpFolga")) $("mpFolga").onclick = () => { S.prefs.folgas = [...(S.prefs.folgas || []), $("mpFolga").dataset.dia].slice(-60); salvaPrefs(); toast("Anotado: dia de folga."); render(); };
   if ($("motIniciar")) $("motIniciar").onclick = () => { const odo = odoNum($("motOdoIni").value) || null; motEntrou = true; iniciarJornada(odo); render(); scrollTo(0, 0); };
   $("motVerMais").onclick = $("motProg").onclick = () => abrirGanhos("dia", hj);
   if ($("motVale")) $("motVale").onclick = corridaValeTela;
@@ -6338,7 +6377,7 @@ function paneMotSub(host) {
   } else if (motSub === "ganho") {
     host.innerHTML = topo("Ganho e km até agora", "Copie o que cada app mostra agora e o km que você já rodou. O app soma, diz quanto você está rendendo por hora e por km e compara com o seu mínimo. No fim, os valores já vêm preenchidos.") +
       `<form id="motGanho" class="dlg-form mot-ganho-rap sub" autocomplete="off">${camposGanhoAgora(m.ativo)}
-      <div class="actions wide"><button class="btn primary" type="submit">Salvar</button></div></form></div>`;
+      <div class="actions wide"><button class="btn primary" type="submit">Ver se vale</button></div></form></div>`;
     ligaGanhoAgora($("motGanho"));
     $("motGanho").addEventListener("submit", (e) => { e.preventDefault(); if (guardaGanhoAgora($("motGanho"), { exigeGanho: false })) volta(); });
   }
