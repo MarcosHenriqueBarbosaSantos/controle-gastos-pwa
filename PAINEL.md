@@ -21,7 +21,8 @@ Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, tr
   - v251: Início do motorista com Iniciar jornada em primeiro, conta da meta recolhida, sem atrasadas repetidas, uma dica do carro por vez e Compartilhar minha semana.
   - v252: testes de tela automáticos (`npm run telas`, 17 verificações) que abrem o app e fazem os caminhos de todo dia; os números do Início, do Planejar e da Jornada batem.
   - v253: caixas de aviso legíveis na Jornada no tema claro; testes de tela agora são 21 (Contas fixas, Cartões, Ganhos e tema claro incluídos).
-- **Próxima rodada do Claude:** dividir o arquivo grande do app por tela, aos poucos e com os testes de tela rodando a cada passo.
+  - v254 (pronta, falta publicar): menu de baixo com Mercado (Mais no topo); Extrato em partes (Meus, Casal, Contas fixas); categoria e km do painel só uma vez; aviso de troca de óleo; Desafio mais colorido; a Conversa do desafio saiu do app.js para js/chat.js.
+- **Próxima rodada do Claude:** "Pago por Júlia" no Extrato (precisa de uma coluna nova no banco: pedir o sim); Mercado como tela própria, com ideias de outros apps de lista; foto do painel no fim do dia; continuar dividindo o app.js.
 
 ## 2. O que só você pode fazer (em ordem)
 

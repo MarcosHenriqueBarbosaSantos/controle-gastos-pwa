@@ -838,6 +838,20 @@ export function buscaDeFuncoes(q, itens, limite = 8) {
 export const filtraLancamentos = (lancs, { tipo = "", categoria = "" } = {}) =>
   lancs.filter((x) => (!tipo || (tipo === "Fixas" ? x.auto : x.tipo === tipo)) && (!categoria || x.categoria === categoria));
 
+/** As partes do Extrato: "meus" (gastos que eu lancei), "outro" (gastos que a outra pessoa do casal lançou) e "fixas" (contas fixas e faturas do mês).
+ *  Vazio = junta tudo. `outroId` é vazio para quem não tem conta de casal. */
+export function naParteDoExtrato(x, parte, outroId = "") {
+  if (!parte) return true;
+  if (parte === "fixas") return Boolean(x.auto) && x.tipo === "Despesa";
+  if (x.auto || x.tipo !== "Despesa") return false;
+  return parte === "outro" ? Boolean(outroId) && x.user_id === outroId : !outroId || x.user_id !== outroId;
+}
+/** O total de cada parte, com a mesma regra da lista: o número do cartão é a soma do que aparece ao tocar nele. */
+export function totaisDoExtrato(itens, outroId = "") {
+  const soma = (p) => Math.round(itens.filter((x) => naParteDoExtrato(x, p, outroId)).reduce((t, x) => t + (Number(x.valor) || 0), 0) * 100) / 100;
+  return { meus: soma("meus"), outro: outroId ? soma("outro") : 0, fixas: soma("fixas") };
+}
+
 /* ======================= Extrato do mês e do cartão (CSV, PDF e Excel) ======================= */
 const porData = (a, b) => (a.data < b.data ? -1 : a.data > b.data ? 1 : 0);
 /** O extrato de um mês: o que foi lançado, as contas e entradas fixas e, à parte (tipo "Fatura"), as faturas que vencem nele. */

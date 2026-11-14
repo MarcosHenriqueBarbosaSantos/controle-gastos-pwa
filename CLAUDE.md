@@ -6,7 +6,7 @@ Leia este arquivo primeiro. O andamento do negócio (o que falta, Hotmart, métr
 App de controle de gastos (PWA, JavaScript puro, sem framework) com um **modo motorista de aplicativo** (Uber, 99, inDrive). Site de venda em `site/`. Domínio: meugastos.com.br. Hospedagem: GitHub Pages (a `main` é o site no ar). Banco e avisos: Supabase (projeto `ebaivarzdqekmhnyrwxo`). Venda: Hotmart (R$ 89 por ano, até 3x sem juros).
 
 ## Onde está cada coisa
-- `js/app.js` (telas e eventos, ~9 mil linhas), `js/calc.js` (contas puras do mês), `js/motorista.js` (contas puras do motorista), `js/voz.js` (falar para lançar), `js/uso.js` (medição de uso sem dado pessoal), `js/novidades.js` (texto da tela Novidades), `js/config.js` (`APP_VERSAO`).
+- `js/app.js` (telas e eventos, ~9,7 mil linhas; sendo dividido aos poucos), `js/chat.js` (Conversa do desafio), `js/calc.js` (contas puras do mês), `js/motorista.js` (contas puras do motorista), `js/voz.js` (falar para lançar), `js/uso.js` (medição de uso sem dado pessoal), `js/novidades.js` (texto da tela Novidades), `js/config.js` (`APP_VERSAO`).
 - `css/style.css` e `css/tech.css`, `index.html`, `sw.js` (cache offline, `VERSAO`), `manifest.webmanifest`.
 - `supabase/` (SQL e a função `avisos`; `regras.js` da função é gerado de `calc.js` com `node supabase/functions/avisos/gera-regras.mjs`).
 - `tests/` (um arquivo por assunto), `scripts/validar.mjs`, `docs/PUBLICAR.md`.

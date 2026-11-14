@@ -2781,6 +2781,9 @@ button,[role=button],.btn,.chip,.mais-item,summary{-webkit-user-select:none;user
 /* Início do motorista: jornada que ficou sem o ganho lançado. */
 .ganho-falta{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;margin:12px 0 0;padding:12px 16px;border:1px solid var(--warn);border-radius:16px;background:var(--warn-soft);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
 .ganho-falta .tx{display:grid;gap:2px;flex:1} .ganho-falta .tx span{font-size:13px;color:var(--ink-2)} .ganho-falta .ir{font-size:24px;color:var(--warn)}
+/* O aviso fica entre a fileira de lançar e os cartões: os cartões não sobem por cima dele, e ele não encosta na borda da tela. */
+.ganho-falta + .agora{margin-top:12px!important}
+@media (max-width:700px){.ganho-falta{width:auto;margin:12px 16px 0}}
 
 /* Lançar em 3 segundos (celular): só valor e categoria na frente. Forma de pagamento e data ficam no botão
    "Pix · Hoje · Mudar"; tocando nele, os dois aparecem. Cartão de crédito continua mostrando cartão e parcelas. */
@@ -2795,3 +2798,64 @@ button,[role=button],.btn,.chip,.mais-item,summary{-webkit-user-select:none;user
 /* Início do motorista: compartilhar a semana no grupo. */
 .semana-share{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;margin:10px 0 0;padding:10px 14px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
 .semana-share>span{display:grid;gap:2px} .semana-share>span span{font-size:13px;color:var(--ink-2)} .semana-share .ic{width:22px;height:22px;color:var(--series)}
+
+/* Jornada: categoria escolhida uma vez, km do painel lembrado e aviso da troca de óleo. */
+.mot-cat-det{width:100%;border-radius:14px;background:rgba(255,255,255,.08)}
+.mot-cat-det>summary{display:flex;align-items:center;gap:8px;min-height:48px;padding:0 16px;cursor:pointer;list-style:none;font-size:15px}
+.mot-cat-det>summary::-webkit-details-marker{display:none}
+.mot-cat-det>summary span{margin-left:auto;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.mot-cat-det[open]>summary span{visibility:hidden}
+.mot-cat-det .ds-chips{padding:0 12px 8px}
+.mot-cat-det small{display:block;padding:0 16px 12px;font-size:13px;opacity:.85}
+.mot-cat-dica{margin:0 0 6px;font-size:14px;font-weight:600}
+.mot-painel{display:grid;gap:8px;width:100%}
+.mot-painel>p:first-child{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin:0;font-size:15px}
+.mot-painel .link{color:inherit;font-weight:600}
+.mot-trip{margin:0;font-size:13px;line-height:1.4;opacity:.85}
+.mot-oleo{justify-self:start;min-height:40px;padding:8px 14px;border:0;border-radius:999px;background:rgba(255,255,255,.14);color:inherit;font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.mot-oleo.perto{background:#ffd27a;color:#2a1a00}
+.mot-oleo.passou{background:#ffb4a8;color:#3a0a04}
+.mot-oleo-novo{justify-self:start}
+
+/* Menu de baixo do celular: Início, Mercado, Lançar, Jornada (ou Planejar) e Extrato. O Mais fica no topo, ao lado da lupa. */
+@media (max-width:700px){.bnav .bnav-menu{display:none}}
+.hero-mes .hero-mais-bt{margin-left:4px}
+#btnMaisM[aria-current]{color:var(--series)}
+
+/* Extrato em partes: Meus gastos, Gastos da outra pessoa e Contas fixas, cada um com o total. Tocar de novo junta tudo. */
+#lQuem{display:grid;gap:8px;margin:0 0 12px}
+#lQuem[hidden]{display:none}
+.ext-partes{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);gap:8px}
+.ext-partes button{display:grid;gap:2px;min-height:64px;padding:10px 12px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.ext-partes small{font-size:12.5px;color:var(--ink-2);line-height:1.25}
+.ext-partes b{font-family:var(--display);font-size:17px;font-weight:700;letter-spacing:-.01em}
+.ext-partes button[aria-pressed="true"]{border-color:var(--series);background:var(--series-soft);box-shadow:inset 0 0 0 1px var(--series)}
+.ext-juntar{justify-self:start;min-height:40px;padding:8px 14px;border:1px solid var(--border);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-size:14px;font-weight:600;cursor:pointer}
+
+/* Desafio mais vivo: quadro do topo no azul do Início, conversa em destaque e cada pessoa com a sua cor.
+   As cores fortes ficam só no topo, na conversa e na sua linha; o resto continua calmo para ler rápido. */
+.ds2 .ds-hero{background:linear-gradient(150deg,#1d4ed8 0%,#2f80ff 60%,#38bdf8 100%);border:0;color:#fff;box-shadow:0 14px 34px -14px rgba(47,128,255,.7)}
+.ds2 .ds-hero *{color:inherit}
+.ds2 .ds-hero small,.ds2 .ds-hero .ds-pos span{color:rgba(255,255,255,.85)}
+.ds2 .ds-hero .ds-pos b{color:#fff}
+.ds2 .ds-hero.lider{background:linear-gradient(150deg,#b45309 0%,#f59e0b 55%,#fcd34d 100%);color:#1f1300}
+.ds2 .ds-hero.lider small,.ds2 .ds-hero.lider .ds-pos span{color:rgba(31,19,0,.8)}
+.ds2 .ds-hero.lider .ds-pos b{color:#1f1300}
+.ds-chat-abre{background:linear-gradient(135deg,color-mix(in srgb,#22d3ee 30%,var(--surface)),color-mix(in srgb,#2f80ff 22%,var(--surface)));border-color:color-mix(in srgb,#22d3ee 70%,transparent);box-shadow:0 10px 26px -14px rgba(34,211,238,.8)}
+.ds-chat-abre .tx b{font-size:16px}
+.ds-chat-ic{display:grid;place-items:center;flex:none;width:44px;height:44px;border-radius:14px;background:#22d3ee;color:#04121f;position:relative}
+.ds-chat-ic svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:2;stroke-linejoin:round}
+.ds-chat-ic::after{content:"";position:absolute;top:-3px;right:-3px;width:12px;height:12px;border-radius:50%;background:#34d399;border:2px solid var(--surface)}
+.ds2 .ds-rank li{background:color-mix(in srgb,var(--ink) 4%,var(--surface))}
+.ds2 .ds-rank li:nth-child(6n+1) .av{background:#f97316;color:#fff}
+.ds2 .ds-rank li:nth-child(6n+2) .av{background:#8b5cf6;color:#fff}
+.ds2 .ds-rank li:nth-child(6n+3) .av{background:#10b981;color:#fff}
+.ds2 .ds-rank li:nth-child(6n+4) .av{background:#ec4899;color:#fff}
+.ds2 .ds-rank li:nth-child(6n+5) .av{background:#0ea5e9;color:#fff}
+.ds2 .ds-rank li:nth-child(6n) .av{background:#eab308;color:#1f1300}
+.ds2 .ds-rank li.eu .av{background:rgba(255,255,255,.3);color:var(--on-series)}
+.ds2 .ds-rank li.m1{border-color:color-mix(in srgb,#ffd24a 60%,var(--border))}
+.ds-conv{border-style:solid;background:linear-gradient(135deg,color-mix(in srgb,#34d399 18%,var(--surface)),var(--surface));border-color:color-mix(in srgb,#34d399 50%,var(--border))}
+.ds-conv .btn.primary,.ds-conv .btn{background:#25d366;border-color:#25d366;color:#062b14}
+.ds2 .ds-hero :is(.mot-frase,.ds-nome,.ds-pos b,b,strong,p,span){color:#fff!important;-webkit-text-fill-color:#fff;background:none}
+.ds2 .ds-hero.lider :is(.mot-frase,.ds-nome,.ds-pos b,b,strong,p,span){color:#1f1300!important;-webkit-text-fill-color:#1f1300}

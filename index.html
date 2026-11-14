@@ -142,6 +142,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
       <span class="who"><span id="whoName"></span><button class="link" id="btnSair" type="button">Sair</button></span>
     </div>
     <button class="iconbtn so-mobile" id="btnBuscarM" type="button" aria-label="Buscar telas, ferramentas e lançamentos"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 18a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM20 20l-4-4"/></svg></button>
+    <button class="iconbtn so-mobile" id="btnMaisM" type="button" aria-label="Mais: todas as funções e ajustes"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></button>
   </div>
 
   <div class="banner" id="banner" role="status" hidden></div>
@@ -285,10 +286,11 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
 <nav class="bnav" id="bnav" aria-label="Navegação" hidden>
   <div class="bnav-marca"><img src="icons/icon-192.png" alt="" width="34" height="34">Meus Gastos</div>
   <button type="button" data-nav="inicio"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 11l8-7 8 7v8a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>Início</button>
-  <button type="button" data-nav="l"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Extrato</button>
+  <button type="button" data-nav="merc"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 4h2l2.2 10.2a1.5 1.5 0 0 0 1.5 1.2h8.2a1.5 1.5 0 0 0 1.5-1.1L20 8H6M9 20h.01M17 20h.01"/></svg>Mercado</button>
   <button type="button" data-nav="mais" class="mais"><span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></span>Lançar</button>
   <button type="button" data-nav="m" data-slot="plano"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.5"/><path d="M12 4v2M12 18v2M4 12h2M18 12h2"/></svg>Planejar</button>
-  <button type="button" data-nav="menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg>Mais</button>
+  <button type="button" data-nav="l"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01"/></svg>Extrato</button>
+  <button type="button" data-nav="menu" class="bnav-menu"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg>Mais</button>
 </nav>
 <div class="toast" id="toast" role="status" hidden></div>
 

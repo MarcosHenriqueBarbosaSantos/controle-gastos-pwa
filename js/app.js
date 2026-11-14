@@ -18,10 +18,11 @@ import { NOVIDADES } from "./novidades.js";
 import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
-import { ajusteDoVeiculo, ganhoPorKmAgora, limpaGanhosPorApp, semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, corridaVale, resumoDasOfertas, MAX_OFERTAS, NOME_RESERVA_CARRO, PARTES_DO_CARRO, PARTES_PADRAO, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
+import { criaConversa } from "./chat.js";
+import { ajusteDoVeiculo, ganhoPorKmAgora, limpaGanhosPorApp, semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, corridaVale, resumoDasOfertas, MAX_OFERTAS, NOME_RESERVA_CARRO, PARTES_DO_CARRO, PARTES_PADRAO, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, painelAtual, avisoOleo, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
-  avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
+  avaliaConta, revisaoDoMes, custoDoVeiculo, combustivelPorKm, custoDaCasa, pesoDaCasa, dicaDoDia, chaveDoItem, itemNaLista, precoDoItem, agrupaPorCorredor, registraPrecos, variacaoDoPreco, itensParaRepetir, sugestoesDeItens, resumoDaCompra, estimativaDaLista, ticketMedioMercado, juntaLista, compraDoCarrinho, textoDaLista, buscaDeFuncoes, filtraLancamentos, naParteDoExtrato, totaisDoExtrato, conquistas, novasConquistas, acertoDoCasal, rolagemDosLimites, conferirDivisao, montaBackup, leBackup, faltaRestaurar, ajustesRestauraveis, linhasDoMes, linhasDoCartao, csvDoMes, csvDoCartao, CAB_EXTRATO, CAB_CARTAO, extratoDoMesEmLinhas, cartaoEmLinhas } from "./extras.js";
 import { conferirListaComNota, valoresDaLinha as valoresDaLinhaNota } from "./notamercado.js";
 import { interpretaQr, criaLeitorDeCodigos, codigosDaImagem, leituraDaNota, itensEmTexto } from "./qr.js";
 import { leExtrato, decodifica, ehExtrato, ehPlanilha, faturaProvavel, dataNaFatura, comChaves, separaCsv } from "./extrato.js";
@@ -601,7 +602,7 @@ document.addEventListener("visibilitychange", () => {
   if (saiuEm && Date.now() - saiuEm > 3 * 60 * 1000 && travaId()) { try { sessionStorage.removeItem("cg-destravado"); } catch { /* nada */ } travar(); }
 });
 async function startApp(store, quem) {
-  S.store = store; S.loaded = false; S.acesso = null; S.casal = null; S.quem = "";
+  S.store = store; S.loaded = false; S.acesso = null; S.casal = null; S.parteExt = undefined;
   if (store.addLancamentos && !store.medido) { const orig = store.addLancamentos.bind(store); store.addLancamentos = async (rows) => { const r = await orig(rows); uso("lancamento", { n: (rows || []).length }); return r; }; store.medido = true; }
   $("auth").hidden = true; $("acesso").hidden = true; $("app").hidden = false; $("bnav").hidden = false;
   $("whoName").textContent = quem;
@@ -791,6 +792,7 @@ function render() {
   navPlano.dataset.ativo = motUsa && S.prefs.motorista?.ativo?.ini ? "1" : "0";   // jornada rodando: um ponto no botão, em qualquer tela
   const onde = S.view === "inicio" ? "inicio" : S.view === "analise" ? "m" : motUsa && S.view === "listas" && S.tab === "mot" ? "mot" : naMais || sub ? "menu" : S.tab;
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
+  $("btnMaisM").toggleAttribute("aria-current", onde === "menu");
   $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? (motSub === "ganhos" ? "Ganhos" : motSub === "chat" ? "Conversa" : "Jornada") : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   $("listaVoltar").hidden = !sub;
@@ -1185,7 +1187,7 @@ function renderKpis(c) {
   const ritmo = atualM && sb.livre > 0 && sb.entra > 0 && c.dias >= 3 ? (usado <= tempo - 8 ? { cls: "ok", t: `No ritmo: você usou ${usado}% da folga e o mês já passou ${tempo}%.` } : usado >= tempo + 8 && usado < 100 ? { cls: "alto", t: `Acima do ritmo: você usou ${usado}% da folga e o mês já passou ${tempo}%.` } : null) : null;
   // Conta nova, ainda sem nada: no lugar dos "R$ 0", um convite para começar (as três perguntas ou o primeiro gasto).
   const semEnt = semEntradaNoMes(c), motUsa = Boolean(S.prefs.motorista?.usa), dMot = motUsa && atualM ? painelDoMotorista() : null;   // o ganho do motorista entra aos poucos: o mês dele se mede pelas contas, não pelo salário
-  const mesNaTela = `<div class="hero-mes"><button type="button" data-hero-nav="prev" aria-label="Mês anterior">${ico("chev")}</button><b>${mesTitulo}</b><button type="button" data-hero-nav="next" aria-label="Próximo mês">${ico("chev")}</button>${atualM ? "" : `<button type="button" class="hero-hoje" data-hero-nav="hoje">Mês atual</button>`}<button type="button" class="hero-busca" data-hero-nav="btnBuscarM" aria-label="Buscar">${ico("busca")}</button></div>`;
+  const mesNaTela = `<div class="hero-mes"><button type="button" data-hero-nav="prev" aria-label="Mês anterior">${ico("chev")}</button><b>${mesTitulo}</b><button type="button" data-hero-nav="next" aria-label="Próximo mês">${ico("chev")}</button>${atualM ? "" : `<button type="button" class="hero-hoje" data-hero-nav="hoje">Mês atual</button>`}<button type="button" class="hero-busca" data-hero-nav="btnBuscarM" aria-label="Buscar">${ico("busca")}</button><button type="button" class="hero-busca hero-mais-bt" data-hero-nav="btnMaisM" aria-label="Mais: todas as funções e ajustes"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h.01M12 12h.01M19 12h.01"/></svg></button></div>`;
   // As datas do mês: o primeiro prazo em que falta dinheiro. O motorista vê quanto o Uber precisa trazer por dia; os outros, qual conta não fecha.
   const rotaM = dMot && S.loaded ? rotaDoMes(S.data, hoje(), { comMedia: false }) : null, frM = rotaM ? fraseDaRota(rotaM, true, dMot.m.diasSemana) : null;
   const rotaN = !dMot && atualM && S.loaded && !semEnt ? rotaDoMes(S.data, hoje()) : null, frN = rotaN?.prazo ? fraseDaRota(rotaN, false) : null;
@@ -1241,6 +1243,7 @@ function renderKpis(c) {
     <button type="button" data-acao="ler">${ico("camera")}<span>Escanear</span></button>
     ${Reconhecedor ? `<button type="button" data-acao="voz">${ico("mic")}<span>Falar</span></button>` : ""}</nav>` : ""}
   ${atualM && dMot && jornadasSemGanho().length ? (() => { const t = jornadasSemGanho()[0], d = isoLocal(t.ini), qd = d === hoje() ? "de hoje" : d === isoLocal(Date.now() - 864e5) ? "de ontem" : "de " + ddmm(d); return `<button type="button" class="ganho-falta" data-ganho-falta="${esc(t.id)}"><span class="tx"><b>Faltam os ganhos ${qd}</b><span>Jornada de ${horasCurtas(duracaoMs(t))}. Lance quanto cada app pagou.</span></span><span class="ir" aria-hidden="true">›</span></button>`; })() : ""}
+  ${atualM && dMot ? (() => { const mm = motDados(), o = avisoOleo(painelAtual(mm.painel, mm.turnos)?.odo, mm.painel); return o && o.nivel !== "ok" ? `<button type="button" class="ganho-falta" data-oleo><span class="tx"><b>${o.nivel === "passou" ? "Passou da troca de óleo" : "Troca de óleo chegando"}</b><span>${o.nivel === "passou" ? `Já passou ${odoTxt(-o.falta)} km. Trocou? Toque para anotar.` : `Faltam ${odoTxt(o.falta)} km pelo painel.`}</span></span><span class="ir" aria-hidden="true">›</span></button>` : ""; })() : ""}
   ${atualM && (dMot || !semEnt) ? htmlAgora(c, dMot) : ""}
   ${atualM && dMot && motDados().turnos.some((t) => t.fim && isoLocal(t.ini) >= isoLocal(Date.now() - 6 * 864e5)) ? `<button type="button" class="semana-share" id="semanaShare">${ico("imagem")}<span><b>Compartilhar minha semana</b><span>Uma imagem com ganho, horas e lucro para mandar no grupo</span></span></button>` : ""}
   ${atualM ? htmlDiarios() : ""}
@@ -1394,6 +1397,7 @@ function ligaMotoristaIni() {
   if ($("heroVer")) $("heroVer").onclick = () => ($("heroVer").closest(".hero").nextElementSibling || $("resumo2")).scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
   $("resumo").querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra(b.dataset.motSub); }));
   if ($("semanaShare")) $("semanaShare").onclick = () => { const r = resumoTurnos(motDados().turnos, isoLocal(Date.now() - 6 * 864e5), hoje(), S.prefs.veiculo || {}); compartilharResultadoMot("Últimos 7 dias", r); };
+  $("resumo").querySelectorAll("[data-oleo]").forEach((b) => (b.onclick = () => trocaDeOleo()));
   $("resumo").querySelectorAll("[data-ganho-falta]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra("edit-" + b.dataset.ganhoFalta); }));
   $("resumo").querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
   $("resumo").querySelectorAll("[data-mot-cat-mais]").forEach((s) => (s.onchange = () => s.value && escolheCategoria(s.value)));
@@ -2906,14 +2910,20 @@ function listaL(c) {
   const host = $("lLista"), q = (S.busca || "").trim(), toque = noCelular() ? ` tabindex="0" role="button"` : "";
   $("lBuscaX").hidden = !q;
   // Conta de casal: dá para ver só os lançamentos de um dos dois.
-  const fq = $("lQuem"), deQuem = casalAtivo() ? S.quem || "" : "", doQuem = (x) => !deQuem || (!x.auto && (deQuem === "eu" ? x.user_id !== S.casal.outro_id : x.user_id === S.casal.outro_id));
-  fq.hidden = !casalAtivo();
-  if (casalAtivo()) {
-    fq.innerHTML = [["", "Todos"], ["eu", "Meus"], ["outro", `De ${String(nomeDoOutro() || "").trim().split(/\s+/)[0]}`]].map(([v, r]) => `<button type="button" data-quem="${v}" aria-pressed="${deQuem === v}">${esc(r)}</button>`).join("");
-    fq.querySelectorAll("button").forEach((b) => (b.onclick = () => { S.quem = b.dataset.quem; listaL(calcMes(S.data, S.mes, hoje())); }));
+  // O Extrato separado em partes: os meus gastos, os da outra pessoa do casal e as contas fixas. "Juntar tudo" mostra o mês inteiro.
+  // Com conta de casal, abre nos meus gastos; sem casal, abre com tudo junto.
+  const outroId = casalAtivo() ? S.casal.outro_id : "";
+  if (S.parteExt === undefined || (S.parteExt === "outro" && !outroId)) S.parteExt = outroId ? "meus" : "";
+  const fq = $("lQuem"), deQuem = S.parteExt, doQuem = (x) => naParteDoExtrato(x, deQuem, outroId);
+  fq.hidden = false;
+  {
+    const tot = totaisDoExtrato([...c.it, ...contasDoExtrato(c)], outroId), nomeO = String(nomeDoOutro() || "").trim().split(/\s+/)[0];
+    const partes = [["meus", outroId ? "Meus gastos" : "Gastos do dia a dia", tot.meus], ...(outroId ? [["outro", `Gastos de ${nomeO}`, tot.outro]] : []), ["fixas", "Contas fixas", tot.fixas]];
+    fq.innerHTML = `<div class="ext-partes">${partes.map(([k, r, v]) => `<button type="button" data-parte="${k}" aria-pressed="${deQuem === k}"><small>${esc(r)}</small><b class="ocultavel">${brl(v)}</b></button>`).join("")}</div>${deQuem ? `<button type="button" class="ext-juntar" data-parte="">Juntar tudo</button>` : ""}`;
+    fq.querySelectorAll("[data-parte]").forEach((b) => (b.onclick = () => { S.parteExt = S.parteExt === b.dataset.parte ? "" : b.dataset.parte; S.fTipo = ""; listaL(calcMes(S.data, S.mes, hoje())); }));
   }
   // Filtros: por tipo e por categoria, valem para o mês e também para a busca em todos os meses.
-  const filtro = { tipo: S.fTipo || "", categoria: S.fCat || "" }, filtrando = Boolean(filtro.tipo || filtro.categoria || S.fRap || S.fDia);
+  const filtro = { tipo: deQuem ? "" : S.fTipo || "", categoria: S.fCat || "" }, filtrando = Boolean(filtro.tipo || filtro.categoria || S.fRap || S.fDia);
   // Filtros de um toque: o dia, a semana e as formas de pagamento mais usadas. Valem junto com o tipo e a categoria.
   const hjL = hoje(), iniSemana = (() => { const d = new Date(hjL + "T12:00:00"); d.setDate(d.getDate() - diaDaSemana(hjL)); return toISO(d); })();
   const RAP = { hoje: ["Hoje", (x) => x.data === hjL], semana: ["Esta semana", (x) => x.data >= iniSemana && x.data <= hjL], cartao: ["Cartão", (x) => x.forma === CARTAO], pix: ["Pix", (x) => x.forma === "Pix"], debito: ["Débito", (x) => x.forma === "Débito"], dinheiro: ["Dinheiro", (x) => x.forma === "Dinheiro"] };
@@ -2923,7 +2933,7 @@ function listaL(c) {
   const rap = (x) => !S.fRap || !RAP[S.fRap] || (!x.auto && !x.aPagar && !x.previsto && RAP[S.fRap][1](x));
   const catsDoExtrato = [...new Set(S.data.lancamentos.map((x) => x.categoria).filter(Boolean))].sort((a, b) => a.localeCompare(b, "pt-BR"));
   const nFiltros = [S.fRap, filtro.categoria, S.fDia].filter(Boolean).length;   // filtros além do tipo, que fica sempre à vista
-  $("lFiltros").innerHTML = `${q.length >= 2 || filtrando || deQuem ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>
+  $("lFiltros").innerHTML = `${q.length >= 2 || filtrando ? "" : `<div class="tela-frase">${fraseDoExtrato(c)}</div>`}${deQuem ? "" : `<div class="seg" role="group" aria-label="Tipo de lançamento">${[["", "Tudo"], ["Despesa", "Gastos"], ["Receita", "Entradas"], ["Fixas", "Fixas"], ["Reserva", "Guardado"]].map(([v, r]) => `<button type="button" data-ftipo="${v}" aria-pressed="${filtro.tipo === v}">${r}</button>`).join("")}</div>`}
     <details class="lf-tudo"${nFiltros || S.sel || !noCelular() ? " open" : ""}><summary>Filtros e opções${nFiltros ? ` (${nFiltros})` : ""}</summary>
     <div class="chips-rap" role="group" aria-label="Filtros rápidos">${Object.entries(RAP).filter(([k]) => S.mes === mKey(hjL) || !["hoje", "semana"].includes(k)).map(([k, [r]]) => `<button type="button" class="chip" data-frap="${k}" aria-pressed="${S.fRap === k}">${r}</button>`).join("")}</div>
     ${q.length >= 2 ? "" : (() => { const top = catMap(c).slice(0, 6); return top.length >= 2 ? `<div class="chips-rap chips-cat" role="group" aria-label="Categorias do mês">${top.map(([k, v]) => `<button type="button" class="chip" data-fcat="${esc(k)}" aria-pressed="${filtro.categoria === k}">${esc(k)} <small>${brl0(v)}</small></button>`).join("")}</div>` : ""; })()}
@@ -2955,7 +2965,7 @@ function listaL(c) {
       previsto: c.fase === "futuro" || (c.fase === "atual" && d > c.dias) }; });
   const it = filtraLancamentos([...c.it, ...auto, ...contasDoExtrato(c)].filter(doQuem).filter(rap).filter((x) => !S.fDia || x.data === S.fDia), filtro).sort((a, b) => b.data.localeCompare(a.data) || String(b.created_at || "").localeCompare(String(a.created_at || "")));
   { const gastos = c.it.filter((x) => x.tipo === "Despesa" && !x.auto && x.id); if (gastos.length >= 5) maiorDoMesId = gastos.reduce((m, x) => (Number(x.valor) > Number(m.valor) ? x : m)).id; }
-  if (!it.length && deQuem) { host.innerHTML = `<div class="welcome"><p><b>${deQuem === "eu" ? "Você não lançou nada" : `${esc(nomeDoOutro())} não lançou nada`} em ${nomeMes(S.mes)}.</b></p></div>`; return; }
+  if (!it.length && deQuem) { host.innerHTML = `<div class="welcome"><p><b>${deQuem === "fixas" ? `Nenhuma conta fixa em ${nomeMes(S.mes)}` : deQuem === "outro" ? `${esc(nomeDoOutro())} não lançou gastos em ${nomeMes(S.mes)}` : `Nenhum gasto lançado em ${nomeMes(S.mes)}`}.</b> Toque em Juntar tudo para ver o mês inteiro.</p></div>`; return; }
   const navDia = () => `<div class="dia-nav"><button class="btn sm" type="button" data-dia-anda="-1"${S.fDia.slice(8) === "01" ? " disabled" : ""}>${ico("esq")}Dia anterior</button><button class="btn sm" type="button" data-dia-anda="1"${S.fDia >= hoje() || Number(S.fDia.slice(8)) >= dim(S.mes) ? " disabled" : ""}>Próximo dia${ico("chev")}</button></div>`;
   if (!it.length && S.fDia) { host.innerHTML = `<div class="welcome"><p><b>Nada lançado em ${esc(rotuloDia(S.fDia).toLowerCase())}.</b></p></div>${navDia()}<p style="text-align:center"><button class="link" type="button" id="fDiaTodos">Ver o mês todo</button></p>`; ligaDiaNav(); return; }
   if (!it.length && S.fRap) { host.innerHTML = `<div class="welcome"><p><b>Nada em ${esc(RAP[S.fRap][0].toLowerCase())}${["hoje", "semana"].includes(S.fRap) ? "" : ` em ${nomeMes(S.mes)}`}.</b> Toque de novo no filtro para ver tudo.</p></div>`; return; }
@@ -3659,6 +3669,7 @@ addEventListener("popstate", (e) => {
   else if (!e.state?.sub && (noCelular() || comMenuLateral()) && S.view !== "inicio" && !(e.state?.aba && S.view === "mais")) { S.view = "inicio"; render(); scrollTo(0, 0); }
 });
 $("lancFechar").onclick = () => fecharLancar();
+$("btnMaisM").onclick = () => $("bnav").querySelector('[data-nav="menu"]').click();   // o Mais saiu do menu de baixo e fica no topo
 $("bnav").addEventListener("click", (e) => {
   const b = e.target.closest("button"); if (!b) return;
   const n = b.dataset.nav;
@@ -4401,7 +4412,7 @@ function renderCasalIni(c) {
       <span class="cs-sobra ${falta ? "ruim" : "bom"}"><small>${falta ? "Faltam" : "Sobram"}</small><i>${falta ? "▼ " : "▲ "}${brl0(Math.abs(j.sobra))}</i></span></div>
     <p class="hint" style="margin:8px 0 6px;font-size:13px">Tudo junto, como uma conta só. Toque para ver quem anotou cada gasto:</p>
     <div class="cs-quem"><button type="button" class="btn sm" data-cs-ver="eu">Meus gastos <b>${brl0(r.eu.gasto)}</b></button><button type="button" class="btn sm" data-cs-ver="outro">Gastos de ${esc(outro)} <b>${brl0(r.outro.gasto)}</b></button></div></div>`;
-  host.querySelectorAll("[data-cs-ver]").forEach((b) => (b.onclick = () => { S.quem = b.dataset.csVer; abrirSub("l"); }));
+  host.querySelectorAll("[data-cs-ver]").forEach((b) => (b.onclick = () => { S.parteExt = b.dataset.csVer === "eu" ? "meus" : "outro"; abrirSub("l"); }));
 }
 /* ---------- Meu desempenho ---------- */
 const ICO_TOM = { good: "sobe", warn: "desce", info: "rumo" };
@@ -5254,9 +5265,9 @@ const motDados = () => {
   const m = S.prefs.motorista || {}, a = m.ativo;
   return { ativo: a?.ini ? { ini: Number(a.ini), parcial: Math.max(0, Number(a.parcial) || 0), antes: Array.isArray(a.antes) ? a.antes : [], pausado: Math.max(0, Number(a.pausado) || 0), pausaIni: Number(a.pausaIni) > 0 ? Number(a.pausaIni) : null, categoria: String(a.categoria || ""), odoIni: Number(a.odoIni) > 0 ? Number(a.odoIni) : null, parcialEm: Number(a.parcialEm) > 0 ? Number(a.parcialEm) : null, parcialApps: limpaGanhosPorApp(a.parcialApps), kmAgora: Number(a.kmAgora) > 0 && Number(a.kmAgora) <= 3000 ? Number(a.kmAgora) : null, kmAgoraEm: Number(a.kmAgoraEm) > 0 ? Number(a.kmAgoraEm) : null } : null,
     turnos: Array.isArray(m.turnos) ? m.turnos : [], diasSemana: Math.min(7, Math.max(1, Math.round(Number(m.diasSemana)) || 6)),
-    horasDia: Math.min(16, Math.max(1, Math.round(Number(m.horasDia)) || 8)), extra: Math.max(0, Number(m.extra) || 0), perfil: m.perfil?.veiculo ? m.perfil : null };
+    horasDia: Math.min(16, Math.max(1, Math.round(Number(m.horasDia)) || 8)), extra: Math.max(0, Number(m.extra) || 0), perfil: m.perfil?.veiculo ? m.perfil : null, painel: m.painel && typeof m.painel === "object" ? m.painel : null };
 };
-const gravaMot = (m) => { S.prefs.motorista = { usa: true, ativo: m.ativo || null, turnos: m.turnos.slice(-MAX_TURNOS), diasSemana: m.diasSemana, horasDia: m.horasDia, extra: m.extra, perfil: m.perfil || null }; salvaPrefs(); };
+const gravaMot = (m) => { S.prefs.motorista = { usa: true, ativo: m.ativo || null, turnos: m.turnos.slice(-MAX_TURNOS), diasSemana: m.diasSemana, horasDia: m.horasDia, extra: m.extra, perfil: m.perfil || null, painel: m.painel || null }; salvaPrefs(); };
 /** O que foi gasto durante a jornada: as despesas lançadas no app (Lançar, escanear nota ou QR) depois que ela começou. Nada é digitado duas vezes. */
 const gastosDaJornada = (a) => round2(S.data.lancamentos.filter((x) => x.tipo === "Despesa" && x.data >= isoLocal(a.ini) && x.data <= hoje() && !a.antes.includes(x.id)).reduce((t, x) => t + Number(x.valor), 0));
 const hhmm = (ms) => new Date(ms).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
@@ -5547,9 +5558,10 @@ function htmlPerguntaDia(m) {
 }
 /** A tela Jornada parada: uma frase, a regra por km e o botão de começar. */
 function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa = false }) {
-  const pct = Math.min(100, Math.round((doDia.ganho / (meta.brutoDia || 1)) * 100)), ultimoPainel = [...m.turnos].reverse().find((t) => t.odoFim)?.odoFim;
+  const pct = Math.min(100, Math.round((doDia.ganho / (meta.brutoDia || 1)) * 100));
   const f = fraseDoDia({ meta, ganhoHoje: doDia.ganho, brl, semContas }), acima = alc.nivel === "fora" && ritmo;
   const comemora = !meta.coberto && doDia.ganho >= meta.brutoDia && S.metaBatida !== hj, cats_ = categoriasDoPerfil(motDados().perfil), catAtual = categoriaAtual();
+  const catFixa = cats_.includes(motDados().perfil?.categoria), pn = painelAtual(m.painel, m.turnos), oleo = avisoOleo(pn?.odo, m.painel);
   const catsVis = [catAtual, ...cats_.filter((k) => k !== catAtual)].filter(Boolean).slice(0, 3), catsResto = cats_.filter((k) => !catsVis.includes(k));
   if (comemora) { S.metaBatida = hj; vibra(40); }
   return `<section class="mot-dia cheia${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${dataPorExtenso(hj)}</small><button type="button" class="mot-dia-pill" data-mot-sub="desafios">Desafios</button></div>${ativa ? "" : htmlPerguntaDia(m)}<h2 class="ocultavel">${f.titulo}</h2>
@@ -5559,8 +5571,8 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa 
     <button class="mot-dia-prog" type="button" id="motProg"><span class="t ocultavel"><b>Hoje: ${brl(doDia.ganho)}</b>${meta.coberto ? "" : `<span>de ${brl(meta.brutoDia)}</span>`}</span>${meta.coberto ? "" : `<span class="tbar"><i style="width:${pct}%"></i></span>`}</button>
     ${htmlSemanaMot(m, hj, meta)}
     ${htmlContasMot(semContas)}
-    <div class="mot-dia-base">${ativa ? `<button class="mot-dia-bt" type="button" id="motVoltaJornada">Voltar à jornada em andamento</button>` : `${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
-    <label class="mot-dia-odo">Km no painel do carro<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="${ultimoPainel ? `último: ${odoTxt(ultimoPainel)}` : "ex.: 84.120"}"></label>
+    <div class="mot-dia-base">${ativa ? `<button class="mot-dia-bt" type="button" id="motVoltaJornada">Voltar à jornada em andamento</button>` : `${cats_.length < 2 ? "" : catFixa ? `<details class="mot-cat-det"><summary>Categoria: <b>${esc(catAtual)}</b><span>Trocar</span></summary>${`<div class="ds-chips" role="group" aria-label="Categoria do seu carro">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>`}<small>Troque só se mudar de carro ou de categoria.</small></details>` : `<p class="mot-cat-dica">Em qual categoria o seu carro roda? Escolha uma vez: o app lembra.</p>${`<div class="ds-chips" role="group" aria-label="Categoria do seu carro">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>`}`}
+    ${pn ? `<div class="mot-painel"><p>Painel do carro: <b>${odoTxt(pn.odo)} km</b><button type="button" class="link" id="motPainelMuda">Mudou? Atualizar</button></p><label class="mot-dia-odo" id="motOdoWrap" hidden>Km no painel agora<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="ex.: ${odoTxt(pn.odo)}"></label><p class="mot-trip">Antes de sair, zere o hodômetro parcial (o &quot;trip&quot;) do carro. No fim do dia, ele mostra quantos km você rodou.</p>${oleo ? `<button type="button" class="mot-oleo ${oleo.nivel}" id="motOleo">${oleo.nivel === "passou" ? `Troca de óleo passou ${odoTxt(-oleo.falta) || 0} km. Trocou? Toque aqui.` : `Troca de óleo em ${odoTxt(oleo.falta)} km`}</button>` : `<button type="button" class="link mot-oleo-novo" id="motOleo">Avisar a troca de óleo</button>`}</div>` : `<label class="mot-dia-odo">Km no painel do carro <small>(só desta vez: depois o app lembra)</small><input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="ex.: 84.120"></label>`}
     <button class="mot-circ inicio" type="button" id="motIniciar"><span class="mc-play" aria-hidden="true"></span><b>Iniciar</b><span>jornada</span></button>
     `}<div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button></div></div></section>`;
 }
@@ -5698,65 +5710,8 @@ function resumoDoDesafio(d, hj) {
   const crit = d.regras?.vence || "km", rk = rankingDoDesafio(totaisDoDesafio(d.membros, d.regras), crit), eu = rk.find((x) => x.eu);
   return { pos: eu?.pos || 0, qtd: rk.filter((x) => x.pos).length, acabou: d.fim < hj, faltam: Math.round((new Date(`${d.fim}T12:00:00`) - new Date(`${hj}T12:00:00`)) / 864e5), critNome: { hora: "hora", km: "km", sobra: "sobra", total: "faturamento", dia: "melhor dia", geral: "pontos" }[crit] || crit };
 }
-/* ---------- Conversa do desafio ----------
-   Texto curto entre quem está no mesmo desafio. Busca as novas a cada 5 segundos só com a tela aberta.
-   Para quem está dirigindo: o microfone dita a mensagem, e "Ler em voz alta" fala as mensagens que chegam (no fone). */
-let chatDe = null, chatMsgs = [], chatTimer = 0, chatFalar = false, chatErro = "";
-try { chatFalar = localStorage.getItem("cg-chat-falar") === "1"; } catch { /* nada */ }
-const ERROS_CHAT = { devagar: "Calma: espere uns segundos para mandar outra.", longa: "Mensagem longa demais (até 280 letras).", fora_do_desafio: "Você não está mais neste desafio.", vazia: "Escreva alguma coisa antes de mandar." };
-const erroDoChat = (e) => Object.entries(ERROS_CHAT).find(([k]) => String(e?.message).includes(k))?.[1] || (String(e?.message).includes("desafio_msgs") || String(e?.message).includes("function") ? "A conversa ainda não foi ligada no servidor." : "Não deu para falar com o servidor. Tente de novo.");
-function falaMsg(m) { try { if (!chatFalar || m.eu || !("speechSynthesis" in window)) return; const u = new SpeechSynthesisUtterance(`${m.apelido} disse: ${m.texto}`); u.lang = "pt-BR"; speechSynthesis.speak(u); } catch { /* sem voz no aparelho */ } }
-const horaMsg = (iso) => { const d = new Date(iso); return isoLocal(d.getTime()) === hoje() ? hhmm(d.getTime()) : `${ddmm(isoLocal(d.getTime()))} ${hhmm(d.getTime())}`; };
-function htmlMsgs() {
-  if (!chatMsgs.length) return `<p class="chat-vazio">Ninguém falou nada ainda. Mande um oi para a galera.</p>`;
-  return chatMsgs.map((m) => `<li class="chat-m${m.eu ? " eu" : ""}"><span class="quem">${m.eu ? "Você" : esc(m.apelido)} · ${horaMsg(m.criado)}</span><p>${esc(m.texto)}</p>${m.pode_apagar ? `<button type="button" class="chat-x" data-chat-x="${m.id}" aria-label="Apagar a mensagem">Apagar</button>` : ""}</li>`).join("");
-}
-function desenhaMsgs(rolar) {
-  const ul = $("chatLista"); if (!ul) return; const perto = ul.scrollHeight - ul.scrollTop - ul.clientHeight < 80;
-  ul.innerHTML = htmlMsgs(); if (rolar || perto) ul.scrollTop = ul.scrollHeight;
-  ul.querySelectorAll("[data-chat-x]").forEach((b) => armDelete(b, async () => { try { await S.store.chatApagar(Number(b.dataset.chatX)); chatMsgs = chatMsgs.filter((m) => m.id !== Number(b.dataset.chatX)); desenhaMsgs(); } catch (e) { toast(erroDoChat(e)); } }, "Toque de novo"));
-}
-async function buscaMsgs(primeira) {
-  if (!chatDe || !$("chatLista")) return clearInterval(chatTimer);
-  if (document.hidden) return;
-  try {
-    const depois = primeira ? 0 : chatMsgs.at(-1)?.id || 0, novas = await S.store.chatMsgs(chatDe.id, depois);
-    if (primeira) chatMsgs = novas; else { novas.forEach(falaMsg); chatMsgs = [...chatMsgs, ...novas].slice(-200); }
-    chatErro = ""; if (primeira || novas.length) desenhaMsgs(primeira);
-  } catch (e) { chatErro = erroDoChat(e); const el = $("chatMsg"); if (el) el.textContent = chatErro; }
-}
-function paneChat(host) {
-  if (!chatDe) { motSub = "desafios"; return paneDesafios(host); }
-  clearInterval(chatTimer);
-  host.innerHTML = `<div id="motRoot" class="chat">
-    <button class="mot-voltar" type="button" id="chatVolta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Voltar ao desafio</button>
-    <h2 class="chat-tit">${esc(chatDe.nome)}</h2>
-    <label class="check sm chat-falar"><input type="checkbox" id="chatFalar"${chatFalar ? " checked" : ""}> Ler as mensagens novas em voz alta (bom com fone)</label>
-    <ul class="chat-lista" id="chatLista" aria-live="polite"><li class="chat-vazio">Carregando a conversa…</li></ul>
-    <p class="auth-msg err" id="chatMsg" role="alert">${esc(chatErro)}</p>
-    <form class="chat-form" id="chatForm" autocomplete="off">
-      <input class="in" id="chatTxt" maxlength="280" placeholder="Escreva para a galera" aria-label="Mensagem">
-      ${Reconhecedor ? `<button type="button" class="chat-mic" id="chatMic" aria-label="Falar a mensagem">${ico("mic")}</button>` : ""}
-      <button type="submit" class="btn primary chat-env">Enviar</button></form>
-    <p class="hint chat-regra">Só quem está no desafio vê a conversa. Seja gentil: quem criou o desafio pode apagar mensagens e remover participantes.</p></div>`;
-  $("chatVolta").onclick = () => { clearInterval(chatTimer); motSub = "desafios"; render(); };
-  $("chatFalar").onchange = (e) => { chatFalar = e.target.checked; try { localStorage.setItem("cg-chat-falar", chatFalar ? "1" : "0"); } catch { /* nada */ } if (chatFalar) toast("As mensagens novas serão lidas em voz alta."); };
-  $("chatForm").addEventListener("submit", async (e) => {
-    e.preventDefault(); const t = $("chatTxt").value.trim(); if (!t) return $("chatTxt").focus();
-    const bt = host.querySelector(".chat-env"); bt.disabled = true;
-    try { const m = await S.store.chatEnviar(chatDe.id, t); chatMsgs = [...chatMsgs.filter((x) => x.id !== m.id), m]; $("chatTxt").value = ""; $("chatMsg").textContent = ""; desenhaMsgs(true); uso("chat_mensagem"); }
-    catch (er) { $("chatMsg").textContent = erroDoChat(er); }
-    bt.disabled = false;
-  });
-  if ($("chatMic")) $("chatMic").onclick = () => {
-    try {
-      const r = new Reconhecedor(); r.lang = "pt-BR"; r.interimResults = false; r.maxAlternatives = 1;
-      $("chatMic").classList.add("ouvindo"); r.onresult = (ev) => { const t = ev.results[0][0].transcript; $("chatTxt").value = ($("chatTxt").value + " " + t).trim(); };
-      r.onend = () => $("chatMic")?.classList.remove("ouvindo"); r.onerror = () => $("chatMic")?.classList.remove("ouvindo"); r.start();
-    } catch { toast("O microfone não está disponível agora."); }
-  };
-  buscaMsgs(true); chatTimer = setInterval(() => buscaMsgs(false), 5000);
-}
+/* Conversa do desafio: mora em js/chat.js. Aqui só entregamos o que ela usa do app. */
+const conversa = criaConversa({ $, esc, ico, toast: (t) => toast(t), armDelete, uso, hhmm, ddmm, isoLocal, hoje, store: () => S.store, Reconhecedor: window.SpeechRecognition || window.webkitSpeechRecognition, voltar: () => { motSub = "desafios"; render(); } });
 function paneDesafios(host) {
   if (dsVista === "ranking") return paneRanking(host);
   if (dsLista === null) {
@@ -5849,7 +5804,7 @@ function paneDesafios(host) {
         <h2 class="mot-frase">${titulo}</h2>${mudou}
         ${faltaPass ? `<p class="ds-falta">Para passar <b>${esc(faltaPass.apelido)}</b>: faltam <b>${dsCrit === "geral" ? `${faltaPass.falta} pts` : `${brl(faltaPass.falta)}${dsCrit === "hora" ? "/h" : dsCrit === "km" ? "/km" : ""}`}</b>.</p>` : ""}
         ${motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais) ? `<p class="mot-ver">${esc(motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais))}</p>` : ""}</section>
-      <button type="button" class="ds-chat-abre" id="dsChat" data-ds-chat="${esc(atual.id)}"><span class="tx"><b>Conversa do desafio</b><span>Fale com a galera enquanto roda: onde está tocando, quem vai vencer.</span></span><span class="ir" aria-hidden="true">›</span></button>
+      <button type="button" class="ds-chat-abre" id="dsChat" data-ds-chat="${esc(atual.id)}"><span class="ds-chat-ic" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M4 5h16v11H9l-5 4z"/></svg></span><span class="tx"><b>Conversa do desafio</b><span>Fale com a galera enquanto roda: onde está tocando, quem vai vencer.</span></span><span class="ir" aria-hidden="true">›</span></button>
       <details class="ds-crit"><summary><span class="tx"><b>Ranking por: ${nomesCrit[dsCrit]}${dsCrit === (atual.regras?.vence || "km") ? " ★" : ""}</b><span>${EXPLICA_CRIT[dsCrit]} Toque para trocar.</span></span></summary>
         <div class="ds-chips" role="group" aria-label="Comparar por">${[["geral", "Geral"], ...CRITERIOS_DESAFIO].map(([k, n]) => `<button type="button" data-crit="${k}" aria-pressed="${k === dsCrit}">${n}${k === (atual.regras?.vence || "km") ? " ★" : ""}</button>`).join("")}</div>
         <p class="hint" style="margin:6px 0 0">A estrela ★ é o que decide quem vence este desafio.</p></details>
@@ -5893,7 +5848,7 @@ function paneDesafios(host) {
       compartilharPlacarDoDesafio(atual.nome, nomeCrit, pos.map((x) => ({ pos: x.pos, apelido: x.apelido, eu: x.eu, sub: [x.carro, x.categoria].filter(Boolean).join(" · "), valor: fmt(x) })), texto);
     };
     if ($("dsLink")) $("dsLink").onclick = async () => { try { await navigator.clipboard.writeText(linkDoDesafio); toast("Link copiado. Cole na bio ou nos stories."); } catch { toast(linkDoDesafio); } };
-    if ($("dsChat")) $("dsChat").onclick = () => { chatDe = { id: atual.id, nome: atual.nome }; motEntra("chat"); };
+    if ($("dsChat")) $("dsChat").onclick = () => { conversa.abre({ id: atual.id, nome: atual.nome }); motEntra("chat"); };
     armDelete($("dsSair"), async () => { try { await S.store.desafioSair(atual.id); dsLista = null; paneDesafios(host); } catch (e) { toast(erroDoDesafio(e)); } }, "Toque de novo para sair");
   }
   ligaAbasDesafio(host);
@@ -6267,7 +6222,7 @@ function paneMot() {
   motFechando = false;
   if (motSub === "perfil" || (!motSub && !motDados().perfil && !motDados().ativo)) return panePerfilMot(host);
   if (motSub === "desafios") return paneDesafios(host);
-  if (motSub === "chat") return paneChat(host);
+  if (motSub === "chat") return conversa.tela(host);
   if (motSub === "reservas") return paneReservas(host);
   if (motSub === "dia") return paneLancarDia(host);
   if (motSub === "ganhos") return paneGanhos(host);
@@ -6385,7 +6340,14 @@ function paneMot() {
   if ($("motExMeta")) $("motExMeta").onclick = () => metaTela();
   if ($("mpRodei")) $("mpRodei").onclick = () => { diaParaLancar = $("mpRodei").dataset.dia; motEntra("dia"); diaParaLancar = ""; };
   if ($("mpFolga")) $("mpFolga").onclick = () => { S.prefs.folgas = [...(S.prefs.folgas || []), $("mpFolga").dataset.dia].slice(-60); salvaPrefs(); toast("Anotado: dia de folga."); render(); };
-  if ($("motIniciar")) $("motIniciar").onclick = () => { const odo = odoNum($("motOdoIni").value) || null; motEntrou = true; iniciarJornada(odo); render(); scrollTo(0, 0); };
+  if ($("motIniciar")) $("motIniciar").onclick = () => {
+    const digitado = odoNum($("motOdoIni")?.value), pn = painelAtual(motDados().painel, motDados().turnos);
+    if (digitado && pn && digitado < pn.odo && !confirm(`O painel estava em ${odoTxt(pn.odo)} km. Usar ${odoTxt(digitado)} km mesmo assim?`)) return $("motOdoIni").focus();
+    if (digitado) { const mm = motDados(); gravaMot({ ...mm, painel: { ...(mm.painel || {}), odo: digitado, em: Date.now() } }); }
+    motEntrou = true; iniciarJornada(digitado || pn?.odo || null); render(); scrollTo(0, 0);
+  };
+  if ($("motPainelMuda")) $("motPainelMuda").onclick = () => { $("motOdoWrap").hidden = false; $("motPainelMuda").hidden = true; $("motOdoIni").focus(); };
+  if ($("motOleo")) $("motOleo").onclick = () => trocaDeOleo();
   $("motVerMais").onclick = $("motProg").onclick = () => abrirGanhos("dia", hj);
   if ($("motVale")) $("motVale").onclick = corridaValeTela;
   if ($("motSemana")) $("motSemana").onclick = () => abrirGanhos("semana", $("motSemana").dataset.ref);
@@ -6517,6 +6479,20 @@ function leKm() {
   return { km, kmPass, kmEst, odoIni: odoIni || null, odoFim: odoFim > odoIni ? odoFim : null };
 }
 const erroDoKm = (k) => (k.km > 3000 ? "Esse dia tem km demais. Confira o número." : k.kmPass > k.km ? "O km com passageiro não pode passar do km total." : "");
+/** Troca de óleo: a pessoa diz em que km trocou e de quanto em quanto troca; o app avisa quando chegar perto. */
+function trocaDeOleo() {
+  const m = motDados(), pn = painelAtual(m.painel, m.turnos), p = m.painel || {}, cada = Number(p.oleoCada) || 10000;
+  openDlg(`<h3>Troca de óleo</h3><p class="hint">O app avisa 1.000 km antes, pelo km do painel que você anota nas jornadas.</p>
+    <form id="oleoForm" class="dlg-form" autocomplete="off">
+      <label class="f wide">Em que km do painel você trocou?<input class="in" id="oleoKm" inputmode="numeric" maxlength="9" placeholder="ex.: ${odoTxt(pn?.odo) || "80.000"}" value="${odoTxt(p.oleoKm)}"></label>
+      ${pn ? `<button type="button" class="link wide" id="oleoHoje">Troquei hoje (${odoTxt(pn.odo)} km)</button>` : ""}
+      <label class="f wide">Trocar a cada<select class="in" id="oleoCada">${[5000, 7000, 10000, 15000].map((k) => `<option value="${k}"${k === cada ? " selected" : ""}>${odoTxt(k)} km</option>`).join("")}</select></label>
+      <div class="actions wide"><button class="btn primary" type="submit">Salvar</button>${p.oleoKm ? '<button class="btn" type="button" id="oleoTira">Não avisar mais</button>' : '<button class="btn" type="button" data-close>Fechar</button>'}</div></form>`);
+  if ($("oleoHoje")) $("oleoHoje").onclick = () => { $("oleoKm").value = odoTxt(pn.odo); };
+  const salva = (painel) => { const mm = motDados(); gravaMot({ ...mm, painel }); $("dlg").close(); render(); };
+  $("oleoForm").onsubmit = (e) => { e.preventDefault(); const km = odoNum($("oleoKm").value); if (!km) return $("oleoKm").focus(); salva({ ...(motDados().painel || {}), oleoKm: km, oleoCada: Number($("oleoCada").value) || 10000 }); toast(`Anotado. O app avisa perto de ${odoTxt(km + (Number($("oleoCada").value) || 10000))} km.`); };
+  if ($("oleoTira")) $("oleoTira").onclick = () => { const { oleoKm, oleoCada, ...resto } = motDados().painel || {}; salva(resto); toast("O aviso da troca de óleo foi desligado."); };
+}
 /** O km do painel na hora de começar: guardado na jornada para a conta do total no fim. */
 function anotaPainelMot() {
   const a = motDados().ativo; if (!a) return;

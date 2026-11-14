@@ -25,6 +25,20 @@ export function appsDoPerfil(perfil, usados = []) {
   const base = perfil?.veiculo ? (perfil.apps?.length ? perfil.apps : APPS_POR_VEICULO[perfil.veiculo] || []) : APPS.map(([k]) => k);
   return APPS.filter(([k]) => base.includes(k) || usados.includes(k));
 }
+/** O km do painel mais recente que o app conhece: o que a pessoa anotou ou o do começo/fim de uma jornada. */
+export function painelAtual(painel, turnos = []) {
+  const vistos = [[Number(painel?.odo) || 0, Number(painel?.em) || 0], ...turnos.flatMap((t) => [[Number(t.odoIni) || 0, Number(t.ini) || 0], [Number(t.odoFim) || 0, Number(t.fim) || 0]])].filter(([o]) => o > 0);
+  if (!vistos.length) return null;
+  const [odo, em] = vistos.reduce((a, b) => (b[0] > a[0] ? b : a));
+  return { odo, em };
+}
+/** Troca de óleo: quanto falta pelo km do painel. "perto" a partir de 1.000 km antes; "passou" quando já passou. */
+export function avisoOleo(odo, painel) {
+  const ultima = Number(painel?.oleoKm) || 0, cada = Number(painel?.oleoCada) || 10000;
+  if (!(ultima > 0) || !(Number(odo) > 0)) return null;
+  const prox = ultima + cada, falta = prox - Number(odo);
+  return { prox, falta, cada, nivel: falta <= 0 ? "passou" : falta <= Math.min(1000, cada / 5) ? "perto" : "ok" };
+}
 export const TIPOS_GASTO = [["comb", "Combustível"], ["pedagio", "Pedágio"], ["estac", "Estacionamento"], ["outros", "Outros"]];
 export const MAX_TURNOS = 400;
 export const somaValores = (o) => r2(Object.values(o || {}).reduce((t, v) => t + (Number(v) > 0 ? Number(v) : 0), 0));

@@ -83,9 +83,15 @@ await teste("Escanear explica o que dá para ler", "#demo", async ({ pg, w, clic
   await clica('.acoes-ini [data-acao="ler"]'); await w(600);
   confere((await pg.locator(".esc-ex li").count()) >= 3, "sem os exemplos do escanear");
 });
-await teste("Menu Mais abre com Ferramentas fechado", "#demo", async ({ pg, w, clica }) => {
-  await clica('#bnav [data-nav="menu"]'); await w(800);
+await teste("Menu Mais (no topo) abre com Ferramentas fechado", "#demo", async ({ pg, w }) => {
+  await pg.locator("#app .hero-mais-bt").first().click({ timeout: 5000 }); await w(800);
   confere(/Ferramentas/.test(await pg.locator("#mais").innerText()), "sem o grupo Ferramentas");
+});
+await teste("Menu de baixo: Início, Mercado, Lançar, Planejar, Extrato; Mercado abre a lista", "#demo", async ({ pg, w }) => {
+  const nomes = await pg.locator("#bnav button:visible").allInnerTexts();
+  confere(nomes.map((n) => n.trim()).join(",") === "Início,Mercado,Lançar,Planejar,Extrato", `menu de baixo: ${nomes.join(",")}`);
+  await pg.locator('#bnav [data-nav="merc"]').click(); await w(800);
+  confere(await pg.locator("#mlRoot").isVisible(), "o Mercado não abriu a lista");
 });
 
 await teste("Contas fixas: cadastrar uma conta nova", "#demo", async ({ pg, w, clica, aviso }) => {
@@ -136,6 +142,18 @@ await teste("Motorista: jornada inteira (iniciar, pausar, continuar, encerrar, l
   await pg.evaluate(() => document.querySelector(".toast-acao")?.click()); await w(800);
   await pg.locator("[data-app]").first().fill("150"); await clica("#meForm button[type=submit]"); await w(900);
   confere(/atualizado/i.test(await aviso()), "não salvou os ganhos lançados depois");
+});
+await teste("Motorista: categoria e km do painel só na primeira vez; aviso da troca de óleo", "#motorista", async ({ pg, w, clica }) => {
+  await clica('#bnav [data-nav="mot"]'); await w(800);
+  await clica('[data-mot-cat="UberX"]'); await w(500);
+  confere(await pg.locator(".mot-cat-det").count(), "a categoria escolhida não virou uma linha só");
+  await pg.locator("#motOdoIni").fill("84120"); await clica("#motIniciar"); await w(700);
+  await clica("#motParar"); await w(200); await clica("#motParar"); await w(900);
+  await pg.evaluate(() => document.querySelectorAll("dialog[open]").forEach((d) => d.close()));
+  await clica('#bnav [data-nav="mot"]'); await w(800);
+  confere(/84\.120 km/.test(await pg.locator(".mot-painel").innerText()), "o app não lembrou o km do painel");
+  await clica("#motOleo"); await w(400); await pg.locator("#oleoKm").fill("75000"); await clica("#oleoForm button[type=submit]"); await w(800);
+  confere(/880 km/.test(await pg.locator(".mot-oleo").innerText()), "o aviso de óleo não mostra quanto falta");
 });
 await teste("Motorista: conversa do desafio envia mensagem", "#motorista", async ({ pg, w, clica }) => {
   await pg.evaluate(() => [...document.querySelectorAll("button")].find((x) => /desafio/i.test(x.innerText))?.click()); await w(1500);
