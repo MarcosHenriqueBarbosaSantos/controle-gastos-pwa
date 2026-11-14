@@ -791,7 +791,7 @@ function render() {
   navPlano.dataset.ativo = motUsa && S.prefs.motorista?.ativo?.ini ? "1" : "0";   // jornada rodando: um ponto no botão, em qualquer tela
   const onde = S.view === "inicio" ? "inicio" : S.view === "analise" ? "m" : motUsa && S.view === "listas" && S.tab === "mot" ? "mot" : naMais || sub ? "menu" : S.tab;
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
-  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? (motSub === "ganhos" ? "Ganhos" : "Jornada") : "";
+  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? (motSub === "ganhos" ? "Ganhos" : motSub === "chat" ? "Conversa" : "Jornada") : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   $("listaVoltar").hidden = !sub;
   renderForm(); renderInstalar(); renderFechamento(); renderRepetidos(); renderVenc(); renderSemanaIni(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
@@ -5673,6 +5673,65 @@ function resumoDoDesafio(d, hj) {
   const crit = d.regras?.vence || "km", rk = rankingDoDesafio(totaisDoDesafio(d.membros, d.regras), crit), eu = rk.find((x) => x.eu);
   return { pos: eu?.pos || 0, qtd: rk.filter((x) => x.pos).length, acabou: d.fim < hj, faltam: Math.round((new Date(`${d.fim}T12:00:00`) - new Date(`${hj}T12:00:00`)) / 864e5), critNome: { hora: "hora", km: "km", sobra: "sobra", total: "faturamento", dia: "melhor dia", geral: "pontos" }[crit] || crit };
 }
+/* ---------- Conversa do desafio ----------
+   Texto curto entre quem está no mesmo desafio. Busca as novas a cada 5 segundos só com a tela aberta.
+   Para quem está dirigindo: o microfone dita a mensagem, e "Ler em voz alta" fala as mensagens que chegam (no fone). */
+let chatDe = null, chatMsgs = [], chatTimer = 0, chatFalar = false, chatErro = "";
+try { chatFalar = localStorage.getItem("cg-chat-falar") === "1"; } catch { /* nada */ }
+const ERROS_CHAT = { devagar: "Calma: espere uns segundos para mandar outra.", longa: "Mensagem longa demais (até 280 letras).", fora_do_desafio: "Você não está mais neste desafio.", vazia: "Escreva alguma coisa antes de mandar." };
+const erroDoChat = (e) => Object.entries(ERROS_CHAT).find(([k]) => String(e?.message).includes(k))?.[1] || (String(e?.message).includes("desafio_msgs") || String(e?.message).includes("function") ? "A conversa ainda não foi ligada no servidor." : "Não deu para falar com o servidor. Tente de novo.");
+function falaMsg(m) { try { if (!chatFalar || m.eu || !("speechSynthesis" in window)) return; const u = new SpeechSynthesisUtterance(`${m.apelido} disse: ${m.texto}`); u.lang = "pt-BR"; speechSynthesis.speak(u); } catch { /* sem voz no aparelho */ } }
+const horaMsg = (iso) => { const d = new Date(iso); return isoLocal(d.getTime()) === hoje() ? hhmm(d.getTime()) : `${ddmm(isoLocal(d.getTime()))} ${hhmm(d.getTime())}`; };
+function htmlMsgs() {
+  if (!chatMsgs.length) return `<p class="chat-vazio">Ninguém falou nada ainda. Mande um oi para a galera.</p>`;
+  return chatMsgs.map((m) => `<li class="chat-m${m.eu ? " eu" : ""}"><span class="quem">${m.eu ? "Você" : esc(m.apelido)} · ${horaMsg(m.criado)}</span><p>${esc(m.texto)}</p>${m.pode_apagar ? `<button type="button" class="chat-x" data-chat-x="${m.id}" aria-label="Apagar a mensagem">Apagar</button>` : ""}</li>`).join("");
+}
+function desenhaMsgs(rolar) {
+  const ul = $("chatLista"); if (!ul) return; const perto = ul.scrollHeight - ul.scrollTop - ul.clientHeight < 80;
+  ul.innerHTML = htmlMsgs(); if (rolar || perto) ul.scrollTop = ul.scrollHeight;
+  ul.querySelectorAll("[data-chat-x]").forEach((b) => armDelete(b, async () => { try { await S.store.chatApagar(Number(b.dataset.chatX)); chatMsgs = chatMsgs.filter((m) => m.id !== Number(b.dataset.chatX)); desenhaMsgs(); } catch (e) { toast(erroDoChat(e)); } }, "Toque de novo"));
+}
+async function buscaMsgs(primeira) {
+  if (!chatDe || !$("chatLista")) return clearInterval(chatTimer);
+  if (document.hidden) return;
+  try {
+    const depois = primeira ? 0 : chatMsgs.at(-1)?.id || 0, novas = await S.store.chatMsgs(chatDe.id, depois);
+    if (primeira) chatMsgs = novas; else { novas.forEach(falaMsg); chatMsgs = [...chatMsgs, ...novas].slice(-200); }
+    chatErro = ""; if (primeira || novas.length) desenhaMsgs(primeira);
+  } catch (e) { chatErro = erroDoChat(e); const el = $("chatMsg"); if (el) el.textContent = chatErro; }
+}
+function paneChat(host) {
+  if (!chatDe) { motSub = "desafios"; return paneDesafios(host); }
+  clearInterval(chatTimer);
+  host.innerHTML = `<div id="motRoot" class="chat">
+    <button class="mot-voltar" type="button" id="chatVolta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Voltar ao desafio</button>
+    <h2 class="chat-tit">${esc(chatDe.nome)}</h2>
+    <label class="check sm chat-falar"><input type="checkbox" id="chatFalar"${chatFalar ? " checked" : ""}> Ler as mensagens novas em voz alta (bom com fone)</label>
+    <ul class="chat-lista" id="chatLista" aria-live="polite"><li class="chat-vazio">Carregando a conversa…</li></ul>
+    <p class="auth-msg err" id="chatMsg" role="alert">${esc(chatErro)}</p>
+    <form class="chat-form" id="chatForm" autocomplete="off">
+      <input class="in" id="chatTxt" maxlength="280" placeholder="Escreva para a galera" aria-label="Mensagem">
+      ${Reconhecedor ? `<button type="button" class="chat-mic" id="chatMic" aria-label="Falar a mensagem">${ico("mic")}</button>` : ""}
+      <button type="submit" class="btn primary chat-env">Enviar</button></form>
+    <p class="hint chat-regra">Só quem está no desafio vê a conversa. Seja gentil: quem criou o desafio pode apagar mensagens e remover participantes.</p></div>`;
+  $("chatVolta").onclick = () => { clearInterval(chatTimer); motSub = "desafios"; render(); };
+  $("chatFalar").onchange = (e) => { chatFalar = e.target.checked; try { localStorage.setItem("cg-chat-falar", chatFalar ? "1" : "0"); } catch { /* nada */ } if (chatFalar) toast("As mensagens novas serão lidas em voz alta."); };
+  $("chatForm").addEventListener("submit", async (e) => {
+    e.preventDefault(); const t = $("chatTxt").value.trim(); if (!t) return $("chatTxt").focus();
+    const bt = host.querySelector(".chat-env"); bt.disabled = true;
+    try { const m = await S.store.chatEnviar(chatDe.id, t); chatMsgs = [...chatMsgs.filter((x) => x.id !== m.id), m]; $("chatTxt").value = ""; $("chatMsg").textContent = ""; desenhaMsgs(true); uso("chat_mensagem"); }
+    catch (er) { $("chatMsg").textContent = erroDoChat(er); }
+    bt.disabled = false;
+  });
+  if ($("chatMic")) $("chatMic").onclick = () => {
+    try {
+      const r = new Reconhecedor(); r.lang = "pt-BR"; r.interimResults = false; r.maxAlternatives = 1;
+      $("chatMic").classList.add("ouvindo"); r.onresult = (ev) => { const t = ev.results[0][0].transcript; $("chatTxt").value = ($("chatTxt").value + " " + t).trim(); };
+      r.onend = () => $("chatMic")?.classList.remove("ouvindo"); r.onerror = () => $("chatMic")?.classList.remove("ouvindo"); r.start();
+    } catch { toast("O microfone não está disponível agora."); }
+  };
+  buscaMsgs(true); chatTimer = setInterval(() => buscaMsgs(false), 5000);
+}
 function paneDesafios(host) {
   if (dsVista === "ranking") return paneRanking(host);
   if (dsLista === null) {
@@ -5765,6 +5824,7 @@ function paneDesafios(host) {
         <h2 class="mot-frase">${titulo}</h2>${mudou}
         ${faltaPass ? `<p class="ds-falta">Para passar <b>${esc(faltaPass.apelido)}</b>: faltam <b>${dsCrit === "geral" ? `${faltaPass.falta} pts` : `${brl(faltaPass.falta)}${dsCrit === "hora" ? "/h" : dsCrit === "km" ? "/km" : ""}`}</b>.</p>` : ""}
         ${motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais) ? `<p class="mot-ver">${esc(motivoDoPlacar(totais, dsCrit) || destaqueDoDesafio(totais))}</p>` : ""}</section>
+      <button type="button" class="ds-chat-abre" id="dsChat" data-ds-chat="${esc(atual.id)}"><span class="tx"><b>Conversa do desafio</b><span>Fale com a galera enquanto roda: onde está tocando, quem vai vencer.</span></span><span class="ir" aria-hidden="true">›</span></button>
       <details class="ds-crit"><summary><span class="tx"><b>Ranking por: ${nomesCrit[dsCrit]}${dsCrit === (atual.regras?.vence || "km") ? " ★" : ""}</b><span>${EXPLICA_CRIT[dsCrit]} Toque para trocar.</span></span></summary>
         <div class="ds-chips" role="group" aria-label="Comparar por">${[["geral", "Geral"], ...CRITERIOS_DESAFIO].map(([k, n]) => `<button type="button" data-crit="${k}" aria-pressed="${k === dsCrit}">${n}${k === (atual.regras?.vence || "km") ? " ★" : ""}</button>`).join("")}</div>
         <p class="hint" style="margin:6px 0 0">A estrela ★ é o que decide quem vence este desafio.</p></details>
@@ -5808,6 +5868,7 @@ function paneDesafios(host) {
       compartilharPlacarDoDesafio(atual.nome, nomeCrit, pos.map((x) => ({ pos: x.pos, apelido: x.apelido, eu: x.eu, sub: [x.carro, x.categoria].filter(Boolean).join(" · "), valor: fmt(x) })), texto);
     };
     if ($("dsLink")) $("dsLink").onclick = async () => { try { await navigator.clipboard.writeText(linkDoDesafio); toast("Link copiado. Cole na bio ou nos stories."); } catch { toast(linkDoDesafio); } };
+    if ($("dsChat")) $("dsChat").onclick = () => { chatDe = { id: atual.id, nome: atual.nome }; motEntra("chat"); };
     armDelete($("dsSair"), async () => { try { await S.store.desafioSair(atual.id); dsLista = null; paneDesafios(host); } catch (e) { toast(erroDoDesafio(e)); } }, "Toque de novo para sair");
   }
   ligaAbasDesafio(host);
@@ -6181,6 +6242,7 @@ function paneMot() {
   motFechando = false;
   if (motSub === "perfil" || (!motSub && !motDados().perfil && !motDados().ativo)) return panePerfilMot(host);
   if (motSub === "desafios") return paneDesafios(host);
+  if (motSub === "chat") return paneChat(host);
   if (motSub === "reservas") return paneReservas(host);
   if (motSub === "dia") return paneLancarDia(host);
   if (motSub === "ganhos") return paneGanhos(host);

@@ -4,7 +4,7 @@
    Quem não quiser desliga em Ajustes. Na demonstração não manda nada. */
 
 /** Os únicos eventos que o app pode mandar. O banco também só aceita nomes simples (letras e _). */
-export const EVENTOS = ["aberto", "tela", "lancamento", "voz", "jornada_iniciada", "jornada_encerrada", "vale_usado", "oferta", "reserva_ligada", "fixo_diario", "meses_cartao"];
+export const EVENTOS = ["aberto", "tela", "lancamento", "voz", "jornada_iniciada", "jornada_encerrada", "vale_usado", "oferta", "reserva_ligada", "fixo_diario", "meses_cartao", "chat_mensagem"];
 
 /** Um código aleatório e sem relação com o login, guardado só neste aparelho. */
 export function codigoDoAparelho(armazem = globalThis.localStorage, aleatorio = () => (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`)) {

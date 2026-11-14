@@ -19,6 +19,7 @@
 //   casalMeu() / casalConvidar(email) / casalResponder(aceita) / casalSair() / casalSalvar(dados)
 //                                  → conta de casal (supabase/casal.sql); na demonstração, casalMeu() devolve { situacao: "demo" }
 //   desafiosMeus() / desafioCriar(d) / desafioVer(codigo) / desafioEntrar(d) / desafioSair(id) / desafioRemover(id, mid) / placarEnviar(dias, linhas)
+//   chatMsgs(id, depois) / chatEnviar(id, texto) / chatApagar(msgId) → conversa do desafio (supabase/desafio-chat.sql)
 //                                  → desafios entre motoristas (supabase/desafios.sql); na demonstração, os amigos são de exemplo
 
 const num = (r) => ({ ...r, valor: Number(r.valor) });
@@ -130,7 +131,11 @@ export function createSupabaseStore(client) {
     async desafioVer(codigo) { return ok(await client.rpc("desafio_ver", { cod: codigo })); },
     async desafioEntrar({ codigo, apelido, carro, categoria }) { return ok(await client.rpc("desafio_entrar", { cod: codigo, a: apelido, c: carro, k: categoria, aceito: true })); },
     async desafioSair(id) { ok(await client.rpc("desafio_sair", { d: id })); },
-    async desafioRemover(id, mid) { ok(await client.rpc("desafio_remover", { d: id, m: mid })); },   // só o criador do desafio (supabase/desafios-grande.sql)
+    async desafioRemover(id, mid) { ok(await client.rpc("desafio_remover", { d: id, m: mid })); },
+    // Conversa do desafio (supabase/desafio-chat.sql): só quem está no desafio lê e escreve.
+    async chatMsgs(id, depois = 0) { return ok(await client.rpc("desafio_msgs", { d: id, depois })) || []; },
+    async chatEnviar(id, texto) { return ok(await client.rpc("desafio_msg_enviar", { d: id, t: texto })); },
+    async chatApagar(msgId) { ok(await client.rpc("desafio_msg_apagar", { m: msgId })); },   // só o criador do desafio (supabase/desafios-grande.sql)
     async rankingGeral(criterio, categoria = "", periodo = "semana") { return ok(await client.rpc("ranking_geral", { crit: criterio, cat: categoria, periodo })); },
     async rankingEntrar({ apelido, carro, categoria }) { ok(await client.rpc("ranking_entrar", { a: apelido, c: carro, k: categoria })); },
     async rankingSair() { ok(await client.rpc("ranking_sair")); },
@@ -294,6 +299,18 @@ export function createLocalStore(key, seedFn) {
     async desafioEntrar(d) { return this.desafioCriar({ ...d, nome: "Desafio dos amigos", regras: { gastos: true, carro: true, vence: "geral" } }); },
     async desafioSair(id) { db.desafios = (db.desafios || []).filter((d) => d.id !== id); persist(); },
     async desafioRemover(id, mid) { const d = (db.desafios || []).find((x) => x.id === id); if (d) d.membros = d.membros.filter((m) => m.apelido !== mid); persist(); },
+    // Conversa na demonstração: os amigos de exemplo já disseram algumas coisas; o que a pessoa manda fica só neste aparelho.
+    async chatMsgs(id, depois = 0) {
+      db.chats = db.chats || {};
+      if (!db.chats[id]) { const t = Date.now(); db.chats[id] = [["Falcão", "Bom dia, galera! Hoje eu passo vocês 😎", 95], ["Rota 7", "Centro tá tocando bastante agora de manhã.", 62], ["Noturno", "Aeroporto parado, não vale a pena ir pra lá.", 20]].map(([apelido, texto, min], i) => ({ id: i + 1, apelido, texto, criado: new Date(t - min * 60000).toISOString(), eu: false, pode_apagar: false })); persist(); }
+      return structuredClone(db.chats[id].filter((m) => m.id > depois));
+    },
+    async chatEnviar(id, texto) {
+      db.chats = db.chats || {}; const l = db.chats[id] || (db.chats[id] = []), d = (db.desafios || []).find((x) => x.id === id);
+      const m = { id: (l.at(-1)?.id || 0) + 1, apelido: d?.membros.find((x) => x.eu)?.apelido || "Você", texto: String(texto).trim().slice(0, 280), criado: new Date().toISOString(), eu: true, pode_apagar: true };
+      l.push(m); persist(); return structuredClone(m);
+    },
+    async chatApagar(msgId) { for (const l of Object.values(db.chats || {})) { const i = l.findIndex((m) => m.id === msgId); if (i >= 0) l.splice(i, 1); } persist(); },
     // Ranking na demonstração: nomes de exemplo.
     async rankingGeral(criterio, categoria = "", periodo = "semana") {
       const escala = { dia: 0.16, semana: 1, mes: 4.1 }[periodo] ?? 1;
