@@ -22,13 +22,14 @@ Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, tr
   - v252: testes de tela automáticos (`npm run telas`, 17 verificações) que abrem o app e fazem os caminhos de todo dia; os números do Início, do Planejar e da Jornada batem.
   - v253: caixas de aviso legíveis na Jornada no tema claro; testes de tela agora são 21 (Contas fixas, Cartões, Ganhos e tema claro incluídos).
   - v254 (pronta, falta publicar): menu de baixo com Mercado (Mais no topo); Extrato em partes (Meus, Casal, Contas fixas); categoria e km do painel só uma vez; aviso de troca de óleo; Desafio mais colorido; a Conversa do desafio saiu do app.js para js/chat.js.
-- **Próxima rodada do Claude:** "Pago por Júlia" no Extrato (precisa de uma coluna nova no banco: pedir o sim); Mercado como tela própria, com ideias de outros apps de lista; foto do painel no fim do dia; continuar dividindo o app.js.
+- **Próxima rodada do Claude:** Mercado como tela própria, com ideias de outros apps de lista; foto do painel no fim do dia; continuar dividindo o app.js.
 
 ## 2. O que só você pode fazer (em ordem)
 
 - [ ] **Testar a compra na Hotmart.** Compre pelo link `pay.hotmart.com/X108304792E` com outro e-mail. Confira se o acesso é liberado no app e peça o reembolso. É o risco número 1 antes de divulgar.
 - [ ] **Testar o link de afiliado.** Com um afiliado de teste, confira se a venda aparece com a comissão de 40%.
 - [ ] **Desativar o produto antigo** (link G107911431C) pelo suporte da Hotmart.
+- [ ] **Ligar o "Quem pagou?" das contas fixas (casal).** No Supabase: SQL Editor, cole o arquivo `supabase/pago-por.sql` e clique em Run.
 - [ ] **Ligar a Conversa do desafio.** No Supabase: SQL Editor, cole o arquivo `supabase/desafio-chat.sql` e clique em Run.
 - [ ] **Deixar o banco mais rápido.** No Supabase, rode o arquivo `supabase/otimizacao.sql` do mesmo jeito.
 - [ ] **Proteção de senha vazada.** No Supabase: Authentication, Policies, ligar "Leaked password protection".

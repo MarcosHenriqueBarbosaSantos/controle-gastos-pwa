@@ -33,7 +33,7 @@ export function createSupabaseStore(client) {
       const [l, f, p, c, k] = await Promise.all([
         client.from("lancamentos").select("*").order("data"),
         client.from("fixos").select("*").order("dia"),
-        client.from("fixos_pagos").select("fixo_id, mes"),
+        client.from("fixos_pagos").select("fixo_id, mes, pago_por").then((r) => (r.error ? client.from("fixos_pagos").select("fixo_id, mes") : r)),
         client.from("faturas").select("*").order("vencimento"),
         client.from("cartoes").select("*").order("created_at"),
       ]);
@@ -96,6 +96,8 @@ export function createSupabaseStore(client) {
       if (pago) ok(await client.from("fixos_pagos").upsert({ fixo_id, mes }, { onConflict: "fixo_id,mes" }));
       else ok(await client.from("fixos_pagos").delete().eq("fixo_id", fixo_id).eq("mes", mes));
     },
+    /** Conta de casal: quem pagou a conta fixa naquele mês (supabase/pago-por.sql). */
+    async setPagoPor(fixo_id, mes, quem) { ok(await client.from("fixos_pagos").update({ pago_por: quem || null }).eq("fixo_id", fixo_id).eq("mes", mes)); },
     async addFatura(row) { return num(ok(await client.from("faturas").insert(row).select().single())); },
     async updateFatura(id, patch) { ok(await client.from("faturas").update(patch).eq("id", id)); },
     async deleteFatura(id) { ok(await client.from("faturas").delete().eq("id", id)); },
@@ -372,6 +374,7 @@ export function createLocalStore(key, seedFn) {
       if (pago) db.pagos.push({ fixo_id, mes });
       persist();
     },
+    async setPagoPor(fixo_id, mes, quem) { const p = db.pagos.find((x) => x.fixo_id === fixo_id && x.mes === mes); if (p) p.pago_por = quem || null; persist(); },
     async addFatura(row) { const r = { ...row, id: uuid() }; db.faturas.push(r); persist(); return { ...r }; },
     async updateFatura(id, patch) { Object.assign(db.faturas.find((r) => r.id === id) || {}, patch); persist(); },
     async deleteFatura(id) { db.faturas = db.faturas.filter((r) => r.id !== id); persist(); },

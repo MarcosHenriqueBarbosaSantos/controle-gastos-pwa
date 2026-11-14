@@ -2779,15 +2779,29 @@ function fraseDoExtrato(c) {
 /** As contas fixas e as faturas do mês no Extrato, pagas ou não. Conta no cartão fica de fora: ela já está dentro da fatura. */
 function contasDoExtrato(c) {
   return [...(c.foraFx || []).filter((o) => o.forma !== CARTAO).map((o) => ({ auto: true, pagaFixa: true, fora: true, chave: o.chave, id: o.id, data: o.data, descricao: o.descricao, categoria: o.categoria, tipo: "Despesa", valor: Number(o.valor) })),
-    ...c.fx.filter((o) => o.forma !== CARTAO).map((o) => ({ auto: true, pagaFixa: true, aPagar: !c.pagosSet.has(o.id + "|" + o.chave), chave: o.chave, id: o.id, data: o.data, descricao: o.descricao, categoria: o.categoria, tipo: "Despesa", valor: Number(o.valor) })),
+    ...c.fx.filter((o) => o.forma !== CARTAO).map((o) => ({ auto: true, pagaFixa: true, aPagar: !c.pagosSet.has(o.id + "|" + o.chave), pagoPor: S.data.pagos.find((p) => p.fixo_id === o.id && p.mes === o.chave)?.pago_por || "", chave: o.chave, id: o.id, data: o.data, descricao: o.descricao, categoria: o.categoria, tipo: "Despesa", valor: Number(o.valor) })),
     ...c.fat.filter((f) => Number(f.valor) > 0).map((f) => ({ auto: true, pagaFixa: true, aPagar: f.status !== "Paga", id: "", data: String(f.vencimento).slice(0, 10), descricao: `Fatura ${f.cartao}`, categoria: "Cartão", tipo: "Despesa", valor: Number(f.valor) }))];
 }
 /** Conta fixa ou fatura no Extrato. Não é um lançamento: tocar abre a conta fixa, quando há uma. */
+/** Conta de casal: escolher quem pagou a conta fixa neste mês. A conta continua sendo da casa; muda só a etiqueta "paga por". */
+function quemPagou(fixoId, mes) {
+  const f = S.data.fixos.find((z) => z.id === fixoId), p = S.data.pagos.find((x) => x.fixo_id === fixoId && x.mes === mes); if (!f || !p) return;
+  const outro = primeiroNomeDoOutro(), atual = p.pago_por || "";
+  openDlg(`<h3>Quem pagou ${esc(f.descricao || "a conta")}?</h3><p class="hint">Fica anotado só neste mês. O total das contas fixas não muda.</p>
+    <div class="actions"><button class="btn${atual === S.casal.eu ? " primary" : ""}" type="button" data-qp="${esc(S.casal.eu)}">Eu paguei</button><button class="btn${atual === S.casal.outro_id ? " primary" : ""}" type="button" data-qp="${esc(S.casal.outro_id)}">${esc(outro)} pagou</button>${atual ? '<button class="btn" type="button" data-qp="">Não sei / tirar</button>' : ""}</div>`);
+  $("dlgBody").querySelectorAll("[data-qp]").forEach((b) => (b.onclick = async () => {
+    const quem = b.dataset.qp;
+    try { await S.store.setPagoPor(fixoId, mes, quem); }
+    catch (e) { toast(/pago_por|column|schema/i.test(String(e?.message)) ? "Falta ligar o \"Quem pagou\" no servidor (supabase/pago-por.sql)." : "Não deu para salvar. Tente de novo."); return; }
+    p.pago_por = quem || null; $("dlg").close(); render();
+    toast(quem ? `Anotado: ${f.descricao} paga por ${quem === S.casal.outro_id ? outro : "você"}.` : "Tirado quem pagou.");
+  }));
+}
 function linhaPaga(x, toque) {
   const atrasada = x.aPagar && x.data < hoje();
   const opcoes = (x.aPagar || x.fora) && x.id;   // conta que ainda pode mudar: o toque abre as opções daquele mês
   const toqueLinha = opcoes ? toque.replace(' role="button"', "") : toque;   // a linha com o botão Já paguei dentro não pode ser um botão (controle dentro de controle)
-  return `<tr class="${x.aPagar || x.fora ? "previsto" : ""}"${x.id ? ` data-fixa="${esc(x.id)}"${opcoes ? ` data-chave="${esc(x.chave)}" data-venc="${esc(x.data)}"` : ""}${toqueLinha}` : ""}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Despesa")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.fora ? "fora do mês" : atrasada ? "atrasada" : x.aPagar ? "a pagar" : "paga"}</span><span class="sub show-sm">${x.aPagar ? `Vence ${ddmm(x.data)} · ` : ""}${esc(x.categoria)}</span>${opcoes && x.aPagar ? `<button class="paguei-rapido" type="button" data-paguei>Já paguei</button>` : ""}</span></td>
+  return `<tr class="${x.aPagar || x.fora ? "previsto" : ""}"${x.id ? ` data-fixa="${esc(x.id)}"${opcoes ? ` data-chave="${esc(x.chave)}" data-venc="${esc(x.data)}"` : ""}${toqueLinha}` : ""}><td class="d">${ddmm(x.data)}</td><td class="desc">${ava(x.categoria, "Despesa")}<span class="tx">${esc(x.descricao)} <span class="tag">${x.fora ? "fora do mês" : atrasada ? "atrasada" : x.aPagar ? "a pagar" : casalAtivo() && x.pagoPor ? `paga por ${x.pagoPor === S.casal.outro_id ? esc(primeiroNomeDoOutro()) : "você"}` : "paga"}</span><span class="sub show-sm">${x.aPagar ? `Vence ${ddmm(x.data)} · ` : ""}${esc(x.categoria)}</span>${opcoes && x.aPagar ? `<button class="paguei-rapido" type="button" data-paguei>Já paguei</button>` : ""}${casalAtivo() && x.id && !x.aPagar && !x.fora ? `<button class="paguei-rapido quem-pagou" type="button" data-quem-pagou="${esc(x.chave)}">Quem pagou?</button>` : ""}</span></td>
       <td class="hide-sm" style="color:var(--ink-2);font-size:13px">${esc(x.categoria)}</td><td class="hide-sm" style="color:var(--ink-2);font-size:13px">Conta do mês</td><td class="num">− ${brl(x.valor)}</td><td class="acts">${opcoes ? `<button class="act" type="button" data-conta>Opções</button>` : ""}</td></tr>`;
 }
 /* ---------- Escolher vários lançamentos no Extrato: trocar a categoria ou apagar de uma vez ---------- */
@@ -3010,6 +3024,7 @@ function listaL(c) {
   $("pane-l").querySelectorAll("tr[data-id],tr[data-fixa]").forEach((tr) => {
     tr.querySelector("[data-conta]")?.addEventListener("click", () => opcoesDaConta(tr.dataset.fixa, tr.dataset.chave, tr.dataset.venc));
     const abre = () => { if (tr.dataset.chave) opcoesDaConta(tr.dataset.fixa, tr.dataset.chave, tr.dataset.venc); else if (tr.dataset.id) editarLancamento(tr.dataset.id); else if (tr.dataset.fixa && tr.dataset.fixa !== "1") editarFixo(tr.dataset.fixa); else { S.view = "listas"; S.tab = "r"; render(); } };
+    tr.querySelector("[data-quem-pagou]")?.addEventListener("click", (e) => { e.stopPropagation(); quemPagou(tr.dataset.fixa, e.currentTarget.dataset.quemPagou); });
     tr.querySelector("[data-paguei]")?.addEventListener("click", () => {
       const f = S.data.fixos.find((z) => z.id === tr.dataset.fixa); if (!f) return;
       pagarConta({ tipo: "fixo", id: f.id, chave: tr.dataset.chave, titulo: f.descricao, valor: Number(f.valor), data: tr.dataset.venc, mes: mKey(tr.dataset.venc) });
