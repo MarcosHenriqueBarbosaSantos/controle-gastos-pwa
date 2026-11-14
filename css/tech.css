@@ -154,6 +154,6 @@ button,a,summary,.btn{touch-action:manipulation}
   .wrap[data-tab="mot"] #listas::before{display:none}
   .wrap[data-tab="mot"] #listas{padding:18px}
   #listas:has(.mot-dia.cheia) #listaVoltar,#listas:has(.mot-jornada) #listaVoltar{display:none}
-  .wrap[data-tab="mot"] .mot-jornada{min-height:calc(100vh - 120px)}
+  .wrap[data-tab="mot"] .mot-jornada{min-height:calc(100dvh - 120px)}
   .toast:not(.com-acao):not([hidden]){display:block;position:fixed;right:24px;bottom:24px;max-width:420px;z-index:50;padding:12px 16px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:14px;box-shadow:var(--shadow)}
 }

@@ -1218,7 +1218,7 @@ function renderKpis(c) {
     <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
     ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
     <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : atualM ? `ainda livres de ${brl(sb.livre)} depois das contas` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span></div>` : ""}
-    ${passos}
+    ${passos ? `<details class="ip-detalhe"><summary>Entenda esse número</summary>${passos}</details>` : ""}
     ${ficou}
     ${est.nivel !== "neutro" && !(frN && aperto) ? `<span class="estado">${fraseDoMes && !aperto && est.nivel !== "atencao" ? "" : `<b>${est.rotulo || ROTULO[est.nivel]}</b>`}${est.motivo && est.nivel !== "estourado" ? `<span class="ocultavel">${est.motivo}</span>` : ""}</span>` : ""}
     ${rotaN?.pontos.length ? `<button type="button" class="hero-liga" id="heroRota">Ver o mês dia a dia</button>` : ""}
@@ -1987,11 +1987,14 @@ function detalheVencimento(x) {
     ${cobre}
     <div class="actions">
       ${x.semValor ? `<button class="btn primary" type="button" id="dvAcao">Informar valor</button>` : x.tipo === "repetida" ? `<button class="btn primary" type="button" id="dvAcao">Virar conta fixa</button>` : `<button class="btn primary" type="button" id="dvPagar">Já paguei</button>${x.tipo === "fixo" || x.tipo === "fatura" ? `<button class="btn" type="button" id="dvEditar">Editar${x.tipo === "fixo" ? " conta" : " fatura"}</button>` : ""}`}
-      <button class="btn" type="button" id="dvCal">Ver no calendário</button><button class="btn" type="button" data-close>Fechar</button></div>`);
+      <button class="btn" type="button" id="dvCal">Ver no calendário</button><button class="btn" type="button" data-close>Fechar</button></div>
+    ${x.tipo === "fixo" && !x.semValor ? `<div class="dv-mais"><p class="hint">Não vai pagar agora?</p><button class="btn" type="button" id="dvAmanha">Lembrar amanhã</button><button class="btn" type="button" id="dvFora">Não pagar este mês</button><p class="hint">"Não pagar este mês" tira a conta só de ${nomeMes(mKey(x.data))}: ela volta no mês seguinte e nada é apagado.</p></div>` : ""}`);
   if ($("dvOrdem")) $("dvOrdem").onclick = () => equilibrioTela();
   if ($("dvPagar")) $("dvPagar").onclick = () => { $("dvPagar").disabled = true; $("dlg").close(); pagarConta(x); };
   if ($("dvEditar")) $("dvEditar").onclick = () => abrirItem(x.tipo === "fixo" ? { k: "fixo", id: x.id } : { k: "fatura", id: x.id || null, cartao_id: x.cartao_id || null, cartao: x.cartao, venc: x.data });
   if ($("dvCal")) $("dvCal").onclick = () => calendario(mKey(x.data), x.data);
+  if ($("dvAmanha")) $("dvAmanha").onclick = () => { $("dlg").close(); const k = `${x.id}|${x.chave}`, ad = { ...(S.prefs.adiados || {}) }; ad[k] = toISO(new Date(Date.now() + 864e5)); S.prefs.adiados = ad; salvaPrefs(); render(); toastDesfazer(`Certo, ${x.titulo} volta a aparecer amanhã.`, () => { const a2 = { ...(S.prefs.adiados || {}) }; delete a2[k]; S.prefs.adiados = a2; salvaPrefs(); render(); }); };
+  if ($("dvFora")) $("dvFora").onclick = () => { $("dlg").close(); const k = `${x.id}|${x.chave}`, mes = nomeMes(mKey(x.data)); mudaFora([k], true); toastDesfazer(`${x.titulo} ficou fora de ${mes}.`, () => mudaFora([k], false)); };
   if ($("dvAcao")) $("dvAcao").onclick = async () => {
     $("dlg").close();
     if (x.semValor) return editarFatura({ ...x, vencimento: x.data, itens: [], calculado: 0, valor: 0, valor_fixo: false, status: "Aberta" });
@@ -2044,7 +2047,8 @@ function renderVenc() {
   // As atrasadas viram uma linha só: misturadas com as próximas, deixavam a lista difícil de ler.
   const emAtraso = S.loaded ? contasEmAtraso(S.data, hoje(), S.prefs.saldoDesde) : { itens: [], total: 0 };
   const atrasadaPaga = (x) => x.dias < 0 && (x.tipo === "fixo" || x.tipo === "fatura") && !x.semValor;
-  const l = [...reais, ...extras].filter((x) => !atrasadaPaga(x)).sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
+  const adiados = S.prefs.adiados || {}, hjA = hoje(), adiado = (x) => x.tipo === "fixo" && adiados[`${x.id}|${x.chave}`] > hjA;
+  const l = [...reais, ...extras].filter((x) => !atrasadaPaga(x) && !adiado(x)).sort((a, b) => a.data.localeCompare(b.data) || a.titulo.localeCompare(b.titulo));
   // Faturas que fecham nos próximos 5 dias: o que a pessoa comprar até lá ainda entra nelas, então o aviso vem antes.
   const fechando = S.loaded && S.mes === mKey(hoje()) ? cartoesAtivos().map((k) => ({ k, p: proximaFatura(S.data, k, hoje()), u: usoDoLimite(S.data, k, limiteDe(k.id), hoje()) })).filter((x) => x.p.dias <= 5 && x.p.valor > 0 && !x.p.paga) : [];
   const linhaFechando = fechando.map(({ k, p, u }) => `<li class="alerta warn fecha-cartao"><span class="quando">fatura fechando</span><span class="oque"><b class="ocultavel">${esc(k.nome)}: ${brl(p.valor)}, ${p.dias === 0 ? "fecha hoje" : p.dias === 1 ? "fecha amanhã" : `fecha em ${p.dias} dias`}</b><span class="ocultavel">${u ? `${textoDoLimite(u)}. ` : ""}O que você comprar no cartão até lá ainda entra nessa fatura.</span></span></li>`).join("");
