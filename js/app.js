@@ -962,7 +962,17 @@ function chipsDoForm() {
   const listaCat = [...cat.options].map((o) => o.value).filter((v) => v && v !== NOVA_CAT);
   montar(cat, "fCatChips", categoriasDeUmToque(listaCat, S.tipo), S.tipo === "Reserva" ? "+ Nova caixinha" : "+ Nova categoria");
   montar(forma, "fFormaChips", [...forma.options].map((o) => o.value).filter(Boolean), "");
+  resumoDoLancar();
 }
+/** Lançar em 3 segundos: valor e categoria na frente; forma de pagamento e data num botão com o que vai valer ("Pix · Hoje"). */
+function resumoDoLancar() {
+  const bt = $("fResumo"), form = $("formLanc"); if (!bt || !form) return;
+  const forma = $("fFormaWrap").style.display === "none" || $("fFormaWrap").hidden ? "" : $("fForma").value;
+  const v = $("fData").value || hoje(), dia = v === hoje() ? "Hoje" : v === ontemISO() ? "Ontem" : ddmm(v);
+  bt.innerHTML = `<span>${[forma, dia].filter(Boolean).map(esc).join(" · ")}</span><b>${form.classList.contains("detalhes") ? "Fechar" : "Mudar"}</b>`;
+  bt.setAttribute("aria-expanded", String(form.classList.contains("detalhes")));
+}
+$("fResumo")?.addEventListener("click", () => { $("formLanc").classList.toggle("detalhes"); resumoDoLancar(); });
 (function ligaChipsDoForm() {
   const form = $("formLanc"); if (!form) return;
   let agendado = false;
@@ -1361,7 +1371,7 @@ function ligaMotoristaIni() {
     S.prefs.combOculto = { ...(S.prefs.combOculto || {}), [mKey(hoje())]: Math.round(r.falta) }; await salvaPrefs(); render();
     toast("Ok. Aviso de novo quando a diferença crescer uns R$ 50.");
   };
-  document.querySelectorAll("[data-dia]").forEach((b) => (b.onclick = () => {
+  document.querySelectorAll("[data-dia][data-chave]").forEach((b) => (b.onclick = () => {   // só os botões das contas diárias (os "Hoje/Ontem" de lançar também usam data-dia)
     const { id, chave, nome } = b.dataset, k = `${id}|${chave}`, a = b.dataset.dia, dia = chave.slice(8, 10) + "/" + chave.slice(5, 7);
     if (a === "mandei") { mudaPago({ tipo: "fixo", id, chave }, true); toastDesfazer(`${nome}: mandou em ${dia}.`, () => mudaPago({ tipo: "fixo", id, chave }, false)); }
     else if (a === "desfaz") mudaPago({ tipo: "fixo", id, chave }, false);
@@ -3383,7 +3393,7 @@ $("fDiaChips").addEventListener("click", (e) => {
   const b = e.target.closest("[data-dia]"); if (!b) return;
   const fd = $("fData");
   if (b.dataset.dia === "outro") { diaOutroAberto = true; syncDiaChips(); try { fd.showPicker?.(); } catch { fd.focus(); } return; }
-  diaOutroAberto = false; fd.value = b.dataset.dia === "hoje" ? hoje() : ontemISO(); renderForm(); mostraEfeito();
+  diaOutroAberto = false; fd.value = b.dataset.dia === "hoje" ? hoje() : ontemISO(); renderForm(); mostraEfeito(); resumoDoLancar();
 });
 /** Ao abrir o formulário limpo, já vem marcada a forma de pagamento que a pessoa mais usa (se ela não escolheu outra). */
 function formaDoCostume() {

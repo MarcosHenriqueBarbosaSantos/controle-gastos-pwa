@@ -206,6 +206,7 @@ try { var L = localStorage.getItem("cg-letra"); if (L === "grande" || L === "mai
       <p class="conta-res" id="fContaRes" aria-live="polite" hidden></p>
       <label class="f desc">Descrição<input class="in" id="fDesc" placeholder="Ex.: mercado, uber, farmácia" maxlength="80" enterkeyhint="done" aria-describedby="fComoAntes" aria-controls="fSugere"><span class="sugere" id="fSugere" role="group" aria-label="Descrições que você já usou" hidden></span><span class="como-antes" id="fComoAntes" aria-live="polite" hidden></span></label>
       <label class="f"><span id="fCatLbl">Categoria</span><select class="in" id="fCat"></select></label>
+      <button type="button" class="f-resumo" id="fResumo" aria-expanded="false" aria-controls="fFormaWrap"></button>
       <label class="f" id="fFormaWrap"><span id="fFormaLbl">Forma de pagamento</span><select class="in" id="fForma"></select></label>
       <div class="f data-f"><span id="fDataLbl">Data</span><div class="seg dia-chips" role="group" aria-labelledby="fDataLbl" id="fDiaChips"><button type="button" data-dia="hoje">Hoje</button><button type="button" data-dia="ontem">Ontem</button><button type="button" data-dia="outro">Outro dia</button></div><input class="in" type="date" id="fData" aria-label="Data do lançamento" required hidden></div>
       <button class="btn primary" id="fOk" type="submit">Lançar gasto</button>

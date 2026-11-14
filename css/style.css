@@ -2781,3 +2781,12 @@ button,[role=button],.btn,.chip,.mais-item,summary{-webkit-user-select:none;user
 /* Início do motorista: jornada que ficou sem o ganho lançado. */
 .ganho-falta{display:flex;align-items:center;gap:12px;width:100%;min-height:64px;margin:12px 0 0;padding:12px 16px;border:1px solid var(--warn);border-radius:16px;background:var(--warn-soft);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
 .ganho-falta .tx{display:grid;gap:2px;flex:1} .ganho-falta .tx span{font-size:13px;color:var(--ink-2)} .ganho-falta .ir{font-size:24px;color:var(--warn)}
+
+/* Lançar em 3 segundos (celular): só valor e categoria na frente. Forma de pagamento e data ficam no botão
+   "Pix · Hoje · Mudar"; tocando nele, os dois aparecem. Cartão de crédito continua mostrando cartão e parcelas. */
+.f-resumo{display:none}
+@media (max-width:700px){
+  #formLanc:not(.detalhes) #fFormaWrap,#formLanc:not(.detalhes) .data-f{display:none!important}
+  .f-resumo{display:flex;justify-content:space-between;align-items:center;gap:10px;order:-1;grid-column:1/-1;flex:0 0 100%;width:100%;text-align:left;min-height:48px;padding:0 14px;border:1px solid var(--border);border-radius:12px;background:var(--sunk);color:var(--ink);font:inherit;font-size:15px;cursor:pointer}
+  .f-resumo b{color:var(--series);font-size:14px}
+}
