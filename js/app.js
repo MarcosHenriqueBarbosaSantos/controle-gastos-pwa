@@ -640,7 +640,7 @@ async function startApp(store, quem) {
     else if (S.casal?.situacao === "convidado") conviteDeCasal();
     else if (!S.prefs.boasVindas && !S.data.lancamentos.length && !S.data.fixos.length) { S.prefs.boasVindas = true; salvaPrefs(); tourInicial(() => setTimeout(() => guiaPasso("renda", true), 250)); }
     else if (store.kind === "local" && !S.prefs.tourVisto) tourInicial(null, TOUR_DEMO);
-    else { if (S.prefs.motorista?.usa && noCelular()) { S.atalho = "motorista"; aoChegar(); } conviteAvisos(); }
+    else conviteAvisos();
   } catch (e) { console.error(e); showBanner("Não foi possível carregar seus dados. Confira a internet e recarregue a página."); }
 }
 
@@ -5347,6 +5347,11 @@ function blocoKm(r, pctRef, porKm) {
     <p class="hint">${r.custoVazio > 0 ? `Os km sem passageiro custaram <b class="ocultavel">${brl(r.custoVazio)}</b> e não pagaram nada. ` : ""}Cada km com passageiro rendeu <b class="ocultavel">${brl(r.ganhoPorKmPass)}</b>.${r.kmEstimado ? " Parte do km total é estimada." : ""}</p></section>`;
 }
 /** Ganhos no jeito dos apps de corrida: dia, semana, mês ou ano, com o gráfico e de onde veio cada real. */
+/** Jornadas encerradas sem ganho lançado (as mais novas primeiro). */
+const jornadasSemGanho = () => motDados().turnos.filter((t) => t.fim && t.semGanho && !(somaValores(t.apps || {}) > 0)).slice(-5).reverse();
+const pendentesHtml = () => { const l = jornadasSemGanho(); if (!l.length) return "";
+  return `<section class="gan-pend" aria-label="Falta lançar"><b>${l.length === 1 ? "1 jornada sem ganho lançado" : `${l.length} jornadas sem ganho lançado`}</b>
+    ${l.map((t) => `<button type="button" class="gan-pend-it" data-medit="${esc(t.id)}"><span>${ddmm(isoLocal(t.ini))} · ${horasCurtas(duracaoMs(t))}</span><span>Lançar ganhos</span></button>`).join("")}</section>`; };
 function paneGanhos(host) {
   const m = motDados(), veic = S.prefs.veiculo || {}, hj = hoje(), iso = ganData || hj, per = motPer, { de, ate } = periodoDe(per, iso), fim = ate < hj ? ate : hj;
   const r = resumoTurnos(m.turnos, de, ate, veic), barras = barrasDoPeriodo(m.turnos, per, iso, veic), max = Math.max(...barras.map((b) => b.ganho)), nomeApp = Object.fromEntries(APPS), apps = ganhoPorApp(m.turnos, de, ate);
@@ -5366,6 +5371,7 @@ function paneGanhos(host) {
       <button class="del x" type="button" data-mdel="${esc(t.id)}" aria-label="Apagar o turno de ${ddmm(isoLocal(t.ini))}" title="Apaga o turno e os lançamentos que ele criou">×</button></li>`; }).join("");
   host.innerHTML = `<div id="motRoot" class="gan">
     ${m.ativo ? `<button class="mot-voltar" type="button" id="ganVolta"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg>Voltar à jornada</button>` : ""}
+    ${pendentesHtml()}
     <div class="gan-per" role="group" aria-label="Período">${[["dia", "Dia"], ["semana", "Semana"], ["mes", "Mês"], ["ano", "Ano"]].map(([k, n]) => `<button type="button" data-per="${k}" aria-pressed="${per === k}">${n}</button>`).join("")}</div>
     <p class="gan-data">${esc(tituloDoPeriodo(per, iso))}</p>
     <div class="gan-valor"><button type="button" class="gan-seta" id="ganAnt" aria-label="Período anterior"><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button><b class="ocultavel">${brl(r.ganho)}</b><button type="button" class="gan-seta" id="ganProx" aria-label="Próximo período"${temProxima ? "" : " disabled"}><svg class="ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button></div>
@@ -6223,13 +6229,13 @@ function paneMot() {
     host.innerHTML = `<div id="motRoot" class="mot-jornada${pausada ? " em-pausa" : ""}${motEntrou ? " entra" : ""}">
       <div class="mot-topo"><span class="mot-estado">${pausada ? "" : `<i class="mot-pulso" aria-hidden="true"></i>`}${pausada ? "Jornada pausada" : "Jornada ativa"}</span></div>
       ${htmlAbasMot("agora")}
-      <button type="button" class="mot-circ${pausada ? " pausa" : ""}" id="motParar"><small>${pausada ? "Pausada há" : "Rodando há"}</small><b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b><span>Toque para encerrar</span></button>
+      <button type="button" class="mot-circ${pausada ? " pausa" : ""}" id="motCirc"><small>${pausada ? "Pausada há" : "Rodando há"}</small><b class="mot-cron" id="motCron">${relogio(msAndamento(a))}</b><span>${pausada ? "Toque para continuar" : "Toque para pausar"}</span></button>
       ${pausada ? `<p class="mot-pausa-aviso" role="status"><span>Jornada pausada. O relógio está parado.</span><button type="button" id="motContinuar">Continuar</button></p>` : ""}
       <div id="motVivo" class="mot-vivo-box">${vivo()}</div>
       <button class="btn primary mot-lanca-ganho" type="button" data-mot-sub="ganho">${a.parcial ? "Atualizar quanto fez até agora" : "Lançar quanto fez até agora"}</button>
       <div class="mot-comandos" role="group" aria-label="Controle da jornada">
         <div class="mot-leves">
-                    <button type="button" id="motPausa" class="${pausada ? "ativo" : ""}" aria-label="${pausada ? "Continuar a jornada" : "Pausar o relógio da jornada"}">${pausada ? "Continuar" : "Pausar o relógio"}</button>
+          <button type="button" id="motParar" class="encerrar">Encerrar jornada</button>
           <button type="button" id="motMais"${tSemKm ? ` aria-label="Mais opções: faltou o km de ${rotSemKm}"` : ""}>Mais opções${tSemKm ? `<i class="mot-ponto" aria-hidden="true"></i>` : ""}</button>
         </div>
         <div class="mot-rapidos">
@@ -6260,8 +6266,8 @@ function paneMot() {
       if (mm.ativo.pausaIni) { mm.ativo.pausado += t - mm.ativo.pausaIni; mm.ativo.pausaIni = null; } else mm.ativo.pausaIni = t;
       gravaMot(mm); vibra(parou ? [40, 60, 40] : 30); render(); toast(parou ? "Jornada pausada. O relógio parou." : "Jornada continuando. O relógio voltou a contar.");
     };
-    $("motPausa").onclick = alternaPausa; if ($("motContinuar")) $("motContinuar").onclick = alternaPausa;
-    $("motParar").onclick = () => fecharTurno();
+    $("motCirc").onclick = alternaPausa; if ($("motContinuar")) $("motContinuar").onclick = alternaPausa;
+    armDelete($("motParar"), () => encerraJornada(), "Toque de novo para encerrar");
     $("motVivo").onclick = (e) => { if (e.target.closest("[data-mot-lembra]")) motEntra("ganho"); };   // o quadro se refaz a cada segundo: o toque é pego aqui
     // Ganho direto na tela, sem abrir outra: com ele o app já diz se está valendo a pena.
     if ($("motGanhoRap")) {
@@ -6318,6 +6324,17 @@ function motSai() {
   if (history.state?.motsub) { S.ignoraPop = true; try { history.back(); } catch { S.ignoraPop = false; } }
   render(); scrollTo(0, 0); $("listas").scrollTop = 0;
 }
+/** Encerra a jornada na hora: guarda o tempo trabalhado. Ganhos, km e viagens a pessoa lança depois, quando quiser. */
+function encerraJornada() {
+  const mm = motDados(), a = mm.ativo; if (!a) return;
+  const fim = Date.now(), pausado = Math.round((a.pausado || 0) + (a.pausaIni ? fim - a.pausaIni : 0));
+  const turno = { id: crypto.randomUUID(), categoria: a.categoria || "", ini: a.ini, fim, pausado, apps: {}, viagensApp: {}, gastos: {}, viagens: 0, km: 0, comb: gastosDaJornada(a), rid: null, cids: [], semGanho: true };
+  if (a.parcial > 0) turno.parcial = a.parcial;   // o que a pessoa anotou durante a jornada aparece como sugestão na hora de lançar
+  uso("jornada_encerrada");
+  gravaMot({ ...mm, ativo: null, turnos: [...mm.turnos, turno] });
+  motSub = null; motFechando = false; vibra(30); render(); scrollTo(0, 0);
+  toastAcao(`Jornada encerrada: ${horasCurtas(fim - a.ini - pausado)} trabalhadas. Lance os ganhos quando quiser, em Ganhos.`, "Lançar agora", () => motEntra("edit-" + turno.id), 12000);
+}
 function fecharTurno() {
   const mm = motDados();
   if (mm.ativo?.pausaIni) { mm.ativo.pausado += Date.now() - mm.ativo.pausaIni; mm.ativo.pausaIni = null; gravaMot(mm); }   // encerrar durante a pausa: a pausa termina agora
@@ -6331,7 +6348,7 @@ function paneMotSub(host) {
     const t = m.turnos.find((x) => x.id === motSub.slice(5));
     if (!t) { motSub = null; return render(); }
     const hm = (ms) => `${pad(new Date(ms).getHours())}:${pad(new Date(ms).getMinutes())}`;
-    host.innerHTML = topo("Editar o turno", `Turno de ${ddmm(isoLocal(t.ini))}. Corrija o que faltou ou errou; o ganho também muda no extrato. Os gastos lançados nesse turno ficam como estão (mude-os no Extrato).`) +
+    host.innerHTML = topo(t.semGanho && !(somaValores(t.apps || {}) > 0) ? "Lançar os ganhos" : "Editar o turno", `Turno de ${ddmm(isoLocal(t.ini))}. ${t.semGanho && !(somaValores(t.apps || {}) > 0) ? "Digite quanto cada app pagou e os km rodados." : "Corrija o que faltou ou errou;"} o ganho também muda no extrato. Os gastos lançados nesse turno ficam como estão (mude-os no Extrato).`) +
       `<form id="meForm" class="dlg-form" autocomplete="off">
       ${campoCategoria("meCat", categoriaDoTurno(t, motDados().perfil))}
       ${camposApps(t, Object.keys(t.apps || {}))}
@@ -6354,7 +6371,7 @@ function paneMotSub(host) {
       if (erroDoKm(k)) return erro(erroDoKm(k));
       const dia = $("meDia").value, [h1, m1] = $("meDe").value.split(":").map(Number), [h2, m2] = $("meAte").value.split(":").map(Number);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(dia) || [h1, m1, h2, m2].some((n) => !Number.isFinite(n))) return erro("Confira o dia e os horários.");
-      const [ya, ma, da] = dia.split("-").map(Number), a = new Date(ya, ma - 1, da, h1, m1, 0, 0), b = new Date(ya, ma - 1, da, h2, m2, 0, 0); if (b <= a) b.setDate(b.getDate() + 1);
+      const [ya, ma, da] = dia.split("-").map(Number), a = new Date(ya, ma - 1, da, h1, m1, 0, 0), b = new Date(ya, ma - 1, da, h2, m2, 0, 0); if (b <= a) { if (h1 === h2 && m1 === m2) b.setTime(a.getTime() + Math.max(0, Math.min(t.fim - t.ini, 59000))); else b.setDate(b.getDate() + 1); }   // mesmo minuto: jornada de menos de 1 minuto, não de 24 horas
       if (b - a > 24 * 3600 * 1000 || b.getTime() > Date.now() + 60000) return erro("Confira o horário: o turno passou de 24 horas ou termina no futuro.");
       const catR = cats("Receita").find((x) => /extra|app|motor/i.test(x)) || cats("Receita")[0], desc = "Ganhos: " + APPS.filter(([k]) => apps[k]).map(([, n]) => n).join(" + ");
       let rid = t.rid || null; const l = rid ? lancPorId(rid) : null;

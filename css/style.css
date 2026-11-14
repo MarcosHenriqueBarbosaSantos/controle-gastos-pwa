@@ -2700,3 +2700,12 @@ html:has(body.lancando){scroll-padding-bottom:110px}
 .mot-dia-base .mot-circ{width:min(36vw,140px);margin:4px auto 2px}
 .mot-dia-base .mot-circ b{font-size:24px}
 .mot-dia-base .mot-circ.inicio .mc-play{border-left-width:20px;border-top-width:12px;border-bottom-width:12px;margin-bottom:4px}
+
+/* Jornada: o círculo pausa e continua; Encerrar fica ao lado de "Mais opções", em vermelho, e pede um segundo toque. */
+.mot-leves #motParar.encerrar{color:var(--bad);border-inline-end:1px solid var(--border);border-radius:0}
+.mot-leves #motParar.encerrar.arm{background:var(--bad);color:#fff;border-radius:10px}
+/* Ganhos: jornadas que ficaram sem o ganho lançado. */
+.gan-pend{display:grid;gap:8px;margin:0 0 14px;padding:12px;border:1px solid var(--warn);border-radius:14px;background:var(--warn-soft)}
+.gan-pend>b{font-size:14px}
+.gan-pend-it{display:flex;justify-content:space-between;align-items:center;min-height:48px;padding:0 14px;border:0;border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;cursor:pointer}
+.gan-pend-it span:last-child{color:var(--series);font-weight:700}
