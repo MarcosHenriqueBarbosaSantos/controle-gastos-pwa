@@ -1210,7 +1210,7 @@ function renderKpis(c) {
       <div class="hero-top"><span class="l">Seu dinheiro em ${mesNome}</span>
         <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
       <h2 class="hero-frase ocultavel">${dMot.meta.coberto ? `As contas de ${mesNome} estão cobertas.` : `Faltam ${brl(dMot.meta.falta)} para pagar as contas de ${mesNome}.`}</h2>
-      ${passos || `<span class="n ocultavel">${fraseContasMot(c)}</span>`}
+      ${passos ? `<details class="ip-detalhe"><summary>Entenda esse número</summary>${passos}</details>` : `<span class="n ocultavel">${fraseContasMot(c)}</span>`}
       ${passos && Number(dMot.m.extra) > 0 && !dMot.meta.coberto ? `<span class="n ocultavel">Esse valor já conta as suas metas de sobra no mês.</span>` : ""}
       ${ficou}
       <button type="button" class="hero-liga" id="heroFora">${frM ? "Ver o mês dia a dia" : "Entenda esse valor"}</button>
@@ -1235,12 +1235,14 @@ function renderKpis(c) {
     <button type="button" class="hero-ver" id="heroVer">Ver meu mês</button>
   </div>`}
   ${atualM ? `<nav class="acoes-ini" aria-label="Lançar">
-    <button type="button" class="ai-forte" data-acao="lancar">${ico("mais")}<span>Lançar gasto</span></button>
-    <button type="button" data-acao="recebi">${ico("entra")}<span>Recebi</span></button>
+    ${dMot ? `<button type="button" class="ai-forte" data-atalho="motorista">${ico("carro")}<span>${S.prefs.motorista?.ativo?.ini ? "Voltar à jornada" : "Iniciar jornada"}</span></button>
+    <button type="button" data-acao="lancar">${ico("mais")}<span>Lançar gasto</span></button>` : `<button type="button" class="ai-forte" data-acao="lancar">${ico("mais")}<span>Lançar gasto</span></button>
+    <button type="button" data-acao="recebi">${ico("entra")}<span>Recebi</span></button>`}
     <button type="button" data-acao="ler">${ico("camera")}<span>Escanear</span></button>
     ${Reconhecedor ? `<button type="button" data-acao="voz">${ico("mic")}<span>Falar</span></button>` : ""}</nav>` : ""}
   ${atualM && dMot && jornadasSemGanho().length ? (() => { const t = jornadasSemGanho()[0], d = isoLocal(t.ini), qd = d === hoje() ? "de hoje" : d === isoLocal(Date.now() - 864e5) ? "de ontem" : "de " + ddmm(d); return `<button type="button" class="ganho-falta" data-ganho-falta="${esc(t.id)}"><span class="tx"><b>Faltam os ganhos ${qd}</b><span>Jornada de ${horasCurtas(duracaoMs(t))}. Lance quanto cada app pagou.</span></span><span class="ir" aria-hidden="true">›</span></button>`; })() : ""}
   ${atualM && (dMot || !semEnt) ? htmlAgora(c, dMot) : ""}
+  ${atualM && dMot && motDados().turnos.some((t) => t.fim && isoLocal(t.ini) >= isoLocal(Date.now() - 6 * 864e5)) ? `<button type="button" class="semana-share" id="semanaShare">${ico("imagem")}<span><b>Compartilhar minha semana</b><span>Uma imagem com ganho, horas e lucro para mandar no grupo</span></span></button>` : ""}
   ${atualM ? htmlDiarios() : ""}
   ${atualM && dMot && !noCelular() ? cartoesMot(dMot) : ""}
   ${!semEnt && !dMot && (rx.sobra < 0 || (atualM && est.projSobra < 0)) && c.it.length ? `<button type="button" class="ordem-card" data-atalho="ordem">${ico("cofre")}<span><b>Quer recomeçar sem peso?</b><span>Veja as contas, o que ficou para trás e um jeito leve de repor.</span></span>${ico("chev")}</button>` : ""}
@@ -1391,6 +1393,7 @@ function ligaMotoristaIni() {
   if ($("agoraMes")) $("agoraMes").onclick = () => $("agoraMes").closest(".agora").nextElementSibling?.scrollIntoView({ block: "start", behavior: "smooth" });
   if ($("heroVer")) $("heroVer").onclick = () => ($("heroVer").closest(".hero").nextElementSibling || $("resumo2")).scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
   $("resumo").querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra(b.dataset.motSub); }));
+  if ($("semanaShare")) $("semanaShare").onclick = () => { const r = resumoTurnos(motDados().turnos, isoLocal(Date.now() - 6 * 864e5), hoje(), S.prefs.veiculo || {}); compartilharResultadoMot("Últimos 7 dias", r); };
   $("resumo").querySelectorAll("[data-ganho-falta]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra("edit-" + b.dataset.ganhoFalta); }));
   $("resumo").querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
   $("resumo").querySelectorAll("[data-mot-cat-mais]").forEach((s) => (s.onchange = () => s.value && escolheCategoria(s.value)));
@@ -1421,6 +1424,7 @@ function htmlHoje(c) {
   const hj = hoje(), g = gastoDoDia(S.data, hj), avista = gastoAVistaDoDia(S.data, hj), pg = semEntradaNoMes(c) ? null : podeGastarHoje(c, avista), itens = oQueFazerAgora(S.data, hj, S.prefs.semGasto || []).filter((x) => x.tipo !== "hoje");   // a conta de hoje já está no topo e nos Próximos vencimentos
   // O número de atrasadas é o mesmo da lista de vencimentos, de qualquer mês.
   const atrasoTotal = contasEmAtraso(S.data, hj, S.prefs.saldoDesde);
+  for (let i = itens.length - 1; i >= 0; i--) if (itens[i].tipo === "atrasada") itens.splice(i, 1);   // atrasadas: só em Próximos vencimentos, para não aparecer duas vezes
   itens.forEach((x) => { if (x.tipo === "atrasada" && atrasoTotal.itens.length) { x.titulo = atrasoTotal.itens.length === 1 ? `${atrasoTotal.itens[0].titulo} está atrasada` : `${atrasoTotal.itens.length} contas atrasadas`; x.valor = atrasoTotal.total; } });
   const seq = sequenciaDeDias(S.data, hj, S.prefs.semGasto || []);
   const ult = S.data.lancamentos.filter((x) => x.tipo === "Despesa" && !x.pendente && !x.enviando).sort((p, q) => q.data.localeCompare(p.data) || String(q.created_at || "").localeCompare(String(p.created_at || "")))[0];
@@ -2595,7 +2599,7 @@ function htmlComoUsarMot() {
 function cartoesMot(dMot) {
   if (!S.prefs.comoMotOk && !motDados().turnos.length) return htmlComoUsarMot();
   const { reserva, km } = htmlReservaCarro(dMot);
-  return [reserva, htmlCombustivel(), km].filter(Boolean).slice(0, 2).join("");
+  return [reserva, htmlCombustivel(), km].filter(Boolean).slice(0, 1).join("");   // uma oferta por vez: a próxima aparece quando esta for resolvida
 }
 /** Os dias de hoje para trás (até 3) em que a pessoa rodou e ainda não marcou se guardou, mais hoje: cada um com a sua situação. */
 function diasDaReserva(r) {

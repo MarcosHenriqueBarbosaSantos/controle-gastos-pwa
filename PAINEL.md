@@ -1,6 +1,6 @@
 # Painel do Meus Gastos
 
-Um lugar só para saber **onde paramos, o que falta e quem faz o quê**. Atualizado em 14/11/2026, com a **v250** no ar.
+Um lugar só para saber **onde paramos, o que falta e quem faz o quê**. Atualizado em 14/11/2026, com a **v251** no ar.
 
 Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, troque `[ ]` por `[x]`. Quando o Claude terminar uma rodada, ele atualiza a parte "Onde paramos".
 
@@ -8,7 +8,7 @@ Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, tr
 
 ## 1. Onde paramos
 
-- **No ar:** v250 em meugastos.com.br. Site de venda em meugastos.com.br/site/.
+- **No ar:** v251 em meugastos.com.br. Site de venda em meugastos.com.br/site/.
 - **Últimas mudanças (14/11):**
   - O app abre no Início.
   - Jornada: o círculo pausa e continua, e encerrar não pede formulário. Os ganhos são lançados depois.
@@ -18,7 +18,8 @@ Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, tr
   - Escanear explicado com exemplos.
   - No Mais, as ferramentas ficam juntas em Ferramentas.
   - v249 e v250: Início sem vão e um aviso por vez; "Faltam os ganhos de ontem" no motorista; Ferramentas no Mais; primeiros passos sem travar; lançar só com valor e categoria na frente; corrigido um erro ao tocar em "Ontem".
-- **Próxima rodada do Claude:** Início diferente para motorista e para assalariado, e o resumo da semana para compartilhar no grupo.
+  - v251: Início do motorista com Iniciar jornada em primeiro, conta da meta recolhida, sem atrasadas repetidas, uma dica do carro por vez e Compartilhar minha semana.
+- **Próxima rodada do Claude:** revisar se os mesmos números batem em todas as telas (Início, Planejar, Jornada e Ganhos); testes automáticos dos caminhos principais (lançar, jornada, pagar conta).
 
 ## 2. O que só você pode fazer (em ordem)
 

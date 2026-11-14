@@ -2774,7 +2774,7 @@ button,[role=button],.btn,.chip,.mais-item,summary{-webkit-user-select:none;user
 
 /* Um aviso por vez no Início: com conta atrasada, dinheiro curto ou o convite para pôr o mês em ordem,
    o convite para instalar o app espera; ele volta quando não houver nada mais importante. */
-#app:has(#venc .alerta) #instCard,#app:has(.ordem-card) #instCard{display:none!important}
+#app:has(#venc .alerta) #instCard,#app:has(#venc .atras-grupo) #instCard,#app:has(.ordem-card) #instCard{display:none!important}
 /* Sem o vão: o espaço de baixo do cartão azul é só o que a fileira de lançar cobre. */
 @media (max-width:700px){.hero.banco.cheia{padding-bottom:40px}}
 
@@ -2790,3 +2790,8 @@ button,[role=button],.btn,.chip,.mais-item,summary{-webkit-user-select:none;user
   .f-resumo{display:flex;justify-content:space-between;align-items:center;gap:10px;order:-1;grid-column:1/-1;flex:0 0 100%;width:100%;text-align:left;min-height:48px;padding:0 14px;border:1px solid var(--border);border-radius:12px;background:var(--sunk);color:var(--ink);font:inherit;font-size:15px;cursor:pointer}
   .f-resumo b{color:var(--series);font-size:14px}
 }
+
+
+/* Início do motorista: compartilhar a semana no grupo. */
+.semana-share{display:flex;align-items:center;gap:12px;width:100%;min-height:60px;margin:10px 0 0;padding:10px 14px;border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer}
+.semana-share>span{display:grid;gap:2px} .semana-share>span span{font-size:13px;color:var(--ink-2)} .semana-share .ic{width:22px;height:22px;color:var(--series)}
