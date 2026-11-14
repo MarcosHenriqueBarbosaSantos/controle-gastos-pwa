@@ -1224,6 +1224,11 @@ function renderKpis(c) {
     ${rotaN?.pontos.length ? `<button type="button" class="hero-liga" id="heroRota">Ver o mês dia a dia</button>` : ""}
     <button type="button" class="hero-ver" id="heroVer">Ver meu mês</button>
   </div>`}
+  ${atualM ? `<nav class="acoes-ini" aria-label="Lançar">
+    <button type="button" class="ai-forte" data-acao="lancar">${ico("mais")}<span>Lançar gasto</span></button>
+    <button type="button" data-acao="recebi">${ico("entra")}<span>Recebi</span></button>
+    <button type="button" data-acao="ler">${ico("camera")}<span>Escanear</span></button>
+    ${Reconhecedor ? `<button type="button" data-acao="voz">${ico("mic")}<span>Falar</span></button>` : ""}</nav>` : ""}
   ${atualM && (dMot || !semEnt) ? htmlAgora(c, dMot) : ""}
   ${atualM ? htmlDiarios() : ""}
   ${atualM && dMot && !noCelular() ? cartoesMot(dMot) : ""}
@@ -7400,10 +7405,17 @@ document.body.classList.toggle("ocultar", valoresOcultos());
 /** "Escanear e importar": tudo o que traz gastos de fora, num lugar só. */
 function escanearEImportar() {
   const op = (id, icone, t, s) => `<button class="mais-item" type="button" id="${id}"><span class="ic-box">${ico(icone)}</span><span class="tx"><b>${t}</b><span>${s}</span></span>${ico("chev")}</button>`;
-  openDlg(`<h3>Ler comprovante e exportar</h3><p class="hint" style="margin:0 0 12px">O app lê no próprio aparelho e mostra tudo para você conferir antes de lançar.</p>
+  openDlg(`<h3>Escanear e lançar sem digitar</h3>
+    <p class="hint" style="margin:0 0 10px">Aponte a câmera ou escolha uma foto: o app lê o valor, a data e o nome da loja e preenche o lançamento. Você confere antes de salvar.</p>
+    <ul class="esc-ex" aria-label="O que dá para escanear">
+      <li><b>Comprovante do cartão ou do Pix</b><span>A foto da maquininha ou o print do banco vira um gasto.</span></li>
+      <li><b>QR code da nota fiscal (cupom do mercado)</b><span>O valor e a loja entram sozinhos.</span></li>
+      <li><b>Boleto ou conta de luz, água, internet</b><span>Lê o código de barras, o valor e o vencimento.</span></li>
+      <li><b>Print dos ganhos do app (Uber, 99)</b><span>Na hora de lançar os ganhos da jornada.</span></li></ul>
+    <p class="hint" style="margin:0 0 12px">A leitura é feita no seu celular. No cupom do mercado, o app busca o valor no site da Fazenda. A foto só fica guardada se você pedir.</p>
     <div class="caixa-mais">${IMPORTA_EXTRATO ? op("esExtrato", "subir", "Importar extrato do banco", "Fatura do cartão ou extrato da conta. O app descobre qual é.") : ""}
       ${op("esQr", "camera", "Ler com a câmera", "QR code, boleto, nota fiscal, comprovante ou fatura")}
-      ${op("esMsg", "clipe", "Colar mensagem do banco", "a notificação ou o SMS de uma compra, Pix ou pagamento")}</div>
+      ${op("esMsg", "clipe", "Colar mensagem do banco", "A notificação ou o SMS de uma compra, Pix ou pagamento")}</div>
     <h4 class="ferr-h" style="margin:16px 0 6px">Exportar</h4>
     <div class="caixa-mais">${op("esExpMes", "baixar", "Extrato do mês", `${nomeMes(S.mes)} de ${S.mes.slice(0, 4)}, em Excel, PDF ou CSV`)}
       ${op("esExpCartao", "baixar", "Cartão", "A fatura do mês ou todas as compras, em Excel, PDF ou CSV")}</div>
