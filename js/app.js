@@ -1830,7 +1830,7 @@ function htmlSobra(c) {
   const passos = dd.map((x) => { saldo = round2(saldo - Number(x.valor)); return { x, saldo }; }).reverse();
   const MAX = 30, vis = passos.slice(0, MAX);
   const tempo = `<h3 class="sobra-h3">Como a sobra foi mudando</h3>
-    <ul class="itens sobra-tempo">${vis.map(({ x, saldo: sd }) => `<li class="toca" role="button" tabindex="0" data-ref="${esc(JSON.stringify({ k: "lanc", id: x.id }))}"><span class="d">${ddmm(x.data)}</span><span>${esc(x.descricao || x.categoria)} <span class="tag t-dia">Dia a dia</span><span class="mini">${esc(x.categoria)} · − ${brl(x.valor)}</span></span><b class="${sd < 0 ? "txt-bad" : ""}">${sd < 0 ? "faltam " + brl(-sd) : "restam " + brl(sd)}</b></li>`).join("")}
+    <ul class="itens sobra-tempo" role="none">${vis.map(({ x, saldo: sd }) => `<li class="toca" role="button" tabindex="0" data-ref="${esc(JSON.stringify({ k: "lanc", id: x.id }))}"><span class="d">${ddmm(x.data)}</span><span>${esc(x.descricao || x.categoria)} <span class="tag t-dia">Dia a dia</span><span class="mini">${esc(x.categoria)} · − ${brl(x.valor)}</span></span><b class="${sd < 0 ? "txt-bad" : ""}">${sd < 0 ? "faltam " + brl(-sd) : "restam " + brl(sd)}</b></li>`).join("")}
       <li class="ini"><span class="d">01/${S.mes.slice(5)}</span><span>Começo do mês<span class="mini">a sobra depois das contas fixas</span></span><b>${brl(s.livre)}</b></li></ul>
     ${passos.length > MAX ? `<p class="hint">Mostrando os ${MAX} mais recentes. Todos estão em Lançamentos.</p>` : ""}
     ${c.comprasCartao ? `<p class="hint">Compras no cartão neste mês (${brl(c.comprasCartao)}) não descontam agora: entram na sobra do mês em que a fatura vencer.</p>` : ""}`;
