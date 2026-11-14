@@ -36,7 +36,7 @@ h1,h2,h3{letter-spacing:-.03em}
 :root .hero .hstat{background:rgba(255,255,255,.08);border-color:rgba(255,255,255,.14)}
 :root .hero .ln,:root .hero .entenda{color:inherit}
 :root:not([data-tema="claro"]) .btn.primary{box-shadow:0 0 0 1px rgba(95,212,255,.45),0 10px 28px rgba(95,212,255,.22);color:#04121f}
-.wrap[data-tab="mot"] #listas{background:#060e1d;border-color:#1f3254;--surface:#0e1b32;--surface-2:#13233f;--sunk:#0a1528;--ink:#e8f0fb;--ink-2:#b3c3d9;--muted:#8fa3bd;--border:#1f3254;--grid:#1f3254;--axis:rgba(255,255,255,.2)}
+.wrap[data-tab="mot"] #listas{background:#060e1d;border-color:#1f3254;--surface:#0e1b32;--surface-2:#13233f;--sunk:#0a1528;--ink:#e8f0fb;--ink-2:#b3c3d9;--muted:#8fa3bd;--border:#1f3254;--grid:#1f3254;--axis:rgba(255,255,255,.2);--good:#3ecf74;--good-soft:rgba(62,207,116,.15);--bad:#f37373;--bad-soft:rgba(243,115,115,.14);--warn:#f2b94b;--warn-soft:rgba(242,185,75,.15);--series:#5fd4ff;--series-soft:rgba(95,212,255,.13);--on-series:#04121f;color:var(--ink)}   /* a Jornada é sempre escura: as cores de aviso também (antes, no tema claro, letra clara sobre fundo claro) */
 .wrap[data-tab="mot"] #listas .in{background:#0a1528}
 /* a aba Motorista mantém a barra de baixo, com a jornada rodando ou não: dá para ver as outras telas sem encerrar */
 @media (max-width:900px){#app[data-view="listas"][data-tab="mot"] #listas{bottom:var(--bnav-h,69px)}}

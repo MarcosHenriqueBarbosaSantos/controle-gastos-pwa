@@ -88,7 +88,31 @@ await teste("Menu Mais abre com Ferramentas fechado", "#demo", async ({ pg, w, c
   confere(/Ferramentas/.test(await pg.locator("#mais").innerText()), "sem o grupo Ferramentas");
 });
 
+await teste("Contas fixas: cadastrar uma conta nova", "#demo", async ({ pg, w, clica, aviso }) => {
+  await clica('#bnav [data-nav="menu"]'); await w(600);
+  await pg.locator("#mais button", { hasText: /Contas (e entradas )?fixas/ }).first().evaluate((e) => e.click()); await w(900);
+  await pg.locator("#xDesc").fill("Academia"); await pg.locator("#xVal").fill("99,90"); await pg.locator("#xDia").fill("15").catch(() => {});
+  await clica("#formFx button[type=submit]"); await w(900);
+  confere(/Academia/.test(await aviso()) || /Academia/.test(await pg.locator("#pane-f").innerText()), "a conta nova não apareceu");
+});
+await teste("Cartões: cadastrar um cartão novo", "#demo", async ({ pg, w, clica }) => {
+  await clica('#bnav [data-nav="menu"]'); await w(600);
+  await pg.locator("#mais button", { hasText: "Cartões" }).first().evaluate((e) => e.click()); await w(900);
+  await pg.evaluate(() => { const d = document.querySelector("details.novo-cartao"); if (d) d.open = true; });
+  await pg.locator("#kNome").fill("Cartão teste"); await pg.locator("#kFech").fill("5"); await pg.locator("#kVenc").fill("12");
+  await clica("#formK button[type=submit]"); await w(900);
+  confere(/Cartão teste/.test(await pg.locator("#pane-c").innerText()), "o cartão novo não apareceu na lista");
+});
+
 // ---------- Caminhos do motorista ----------
+await teste("Motorista: Ganhos da semana abre com o total", "#motorista", async ({ pg, w, clica }) => {
+  await clica('#bnav [data-nav="mot"]'); await w(800);
+  const sem = dinheiro(await pg.locator("#motGanhos").innerText());
+  await clica("#motGanhos"); await w(900);
+  await pg.locator('[data-per="semana"]').first().evaluate((e) => e.click()).catch(() => {}); await w(600);
+  confere(/Ganhos que caíram nos apps/.test(await pg.locator("#pane-mot").innerText()), "a tela Ganhos não abriu");
+  confere(sem, "sem o total da semana no cartão da Jornada");
+});
 await teste("Motorista: Início com Iniciar jornada em primeiro", "#motorista", async ({ pg, w, clica }) => {
   await clica('#bnav [data-nav="inicio"]'); await w(800);
   const primeiro = await pg.locator(".acoes-ini button").first().innerText();
@@ -124,6 +148,16 @@ await teste("Motorista: conversa do desafio envia mensagem", "#motorista", async
   const antes = await pg.locator(".chat-m").count();
   await pg.locator("#chatTxt").fill("teste"); await clica("#chatForm .chat-env"); await w(800);
   confere((await pg.locator(".chat-m").count()) === antes + 1, "a mensagem não apareceu na conversa");
+});
+
+await teste("Motorista no tema claro: jornada pausada com texto legível", "#motorista", async ({ pg, w, clica }) => {
+  await pg.evaluate(() => { localStorage.setItem("cg-tema", "claro"); document.documentElement.dataset.tema = "claro"; });
+  await clica('#bnav [data-nav="mot"]'); await w(800);
+  if (await pg.locator("#motIniciar").count()) { await clica("#motIniciar"); await w(800); }
+  await clica("#motCirc"); await w(600);
+  await pg.addScriptTag({ content: AXE });
+  const ruins = await pg.evaluate(async () => (await axe.run("#listas", { runOnly: ["color-contrast"] })).violations.flatMap((v) => v.nodes.map((n) => n.target.join(" "))));
+  confere(!ruins.length, "texto sem contraste: " + ruins.slice(0, 3).join("; "));
 });
 
 // ---------- Acessibilidade das telas principais ----------

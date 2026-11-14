@@ -1,6 +1,6 @@
 # Painel do Meus Gastos
 
-Um lugar só para saber **onde paramos, o que falta e quem faz o quê**. Atualizado em 14/11/2026, com a **v252** no ar.
+Um lugar só para saber **onde paramos, o que falta e quem faz o quê**. Atualizado em 14/11/2026, com a **v253** no ar.
 
 Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, troque `[ ]` por `[x]`. Quando o Claude terminar uma rodada, ele atualiza a parte "Onde paramos".
 
@@ -8,7 +8,7 @@ Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, tr
 
 ## 1. Onde paramos
 
-- **No ar:** v252 em meugastos.com.br. Site de venda em meugastos.com.br/site/.
+- **No ar:** v253 em meugastos.com.br. Site de venda em meugastos.com.br/site/.
 - **Últimas mudanças (14/11):**
   - O app abre no Início.
   - Jornada: o círculo pausa e continua, e encerrar não pede formulário. Os ganhos são lançados depois.
@@ -20,7 +20,8 @@ Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, tr
   - v249 e v250: Início sem vão e um aviso por vez; "Faltam os ganhos de ontem" no motorista; Ferramentas no Mais; primeiros passos sem travar; lançar só com valor e categoria na frente; corrigido um erro ao tocar em "Ontem".
   - v251: Início do motorista com Iniciar jornada em primeiro, conta da meta recolhida, sem atrasadas repetidas, uma dica do carro por vez e Compartilhar minha semana.
   - v252: testes de tela automáticos (`npm run telas`, 17 verificações) que abrem o app e fazem os caminhos de todo dia; os números do Início, do Planejar e da Jornada batem.
-- **Próxima rodada do Claude:** dividir o arquivo grande do app por tela (deixa as correções mais seguras) e mais testes de tela para Cartões, Contas fixas e Ganhos.
+  - v253: caixas de aviso legíveis na Jornada no tema claro; testes de tela agora são 21 (Contas fixas, Cartões, Ganhos e tema claro incluídos).
+- **Próxima rodada do Claude:** dividir o arquivo grande do app por tela, aos poucos e com os testes de tela rodando a cada passo.
 
 ## 2. O que só você pode fazer (em ordem)
 
