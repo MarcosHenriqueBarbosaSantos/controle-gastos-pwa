@@ -1229,6 +1229,7 @@ function renderKpis(c) {
     <button type="button" data-acao="recebi">${ico("entra")}<span>Recebi</span></button>
     <button type="button" data-acao="ler">${ico("camera")}<span>Escanear</span></button>
     ${Reconhecedor ? `<button type="button" data-acao="voz">${ico("mic")}<span>Falar</span></button>` : ""}</nav>` : ""}
+  ${atualM && dMot && jornadasSemGanho().length ? (() => { const t = jornadasSemGanho()[0], d = isoLocal(t.ini), qd = d === hoje() ? "de hoje" : d === isoLocal(Date.now() - 864e5) ? "de ontem" : "de " + ddmm(d); return `<button type="button" class="ganho-falta" data-ganho-falta="${esc(t.id)}"><span class="tx"><b>Faltam os ganhos ${qd}</b><span>Jornada de ${horasCurtas(duracaoMs(t))}. Lance quanto cada app pagou.</span></span><span class="ir" aria-hidden="true">›</span></button>`; })() : ""}
   ${atualM && (dMot || !semEnt) ? htmlAgora(c, dMot) : ""}
   ${atualM ? htmlDiarios() : ""}
   ${atualM && dMot && !noCelular() ? cartoesMot(dMot) : ""}
@@ -1337,7 +1338,7 @@ function htmlMotoristaIni() {
 }
 function ligaMotoristaIni() {
   // A tela inteira do Início termina na barra de baixo, seja qual for o aviso que apareceu acima dela.
-  const hc = document.querySelector(".hero.cheia"); if (hc && noCelular()) hc.style.minHeight = `calc(100dvh - ${Math.round(hc.getBoundingClientRect().top + scrollY + (document.querySelector(".agora")?.offsetHeight || 0) - 30)}px - var(--bnav-h,69px))`;
+  const hc = document.querySelector(".hero.cheia"); if (hc) hc.style.minHeight = "";   // o cartão do tamanho do que mostra: as ações e as contas aparecem sem rolar
   if ($("heroFora")) $("heroFora").onclick = () => ($("heroFora").textContent.includes("dia a dia") ? rotaTela() : contaDoMesTela());
   if ($("heroRota")) $("heroRota").onclick = () => rotaTela();
   if ($("comoOk")) $("comoOk").onclick = async () => { S.prefs.comoMotOk = true; await salvaPrefs(); render(); };
@@ -1380,6 +1381,7 @@ function ligaMotoristaIni() {
   if ($("agoraMes")) $("agoraMes").onclick = () => $("agoraMes").closest(".agora").nextElementSibling?.scrollIntoView({ block: "start", behavior: "smooth" });
   if ($("heroVer")) $("heroVer").onclick = () => ($("heroVer").closest(".hero").nextElementSibling || $("resumo2")).scrollIntoView({ block: "start", behavior: matchMedia("(prefers-reduced-motion:reduce)").matches ? "auto" : "smooth" });
   $("resumo").querySelectorAll("[data-mot-sub]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra(b.dataset.motSub); }));
+  $("resumo").querySelectorAll("[data-ganho-falta]").forEach((b) => (b.onclick = () => { motoristaTela(); motEntra("edit-" + b.dataset.ganhoFalta); }));
   $("resumo").querySelectorAll("[data-mot-cat]").forEach((b) => (b.onclick = () => escolheCategoria(b.dataset.motCat)));
   $("resumo").querySelectorAll("[data-mot-cat-mais]").forEach((s) => (s.onchange = () => s.value && escolheCategoria(s.value)));
   $("resumo2").querySelectorAll("[data-mot-ini]").forEach((b) => (b.onclick = () => {
@@ -1807,7 +1809,7 @@ function htmlSobra(c) {
   const ritmo = !atual ? "" : s.ritmo === "dentro"
     ? `<p class="sobra-aviso ok">No ritmo certo. Hoje é dia ${c.dias} de ${c.n}: para a sobra durar o mês todo, dava para ter usado até <b>${brl(s.ideal)}</b>, e você usou <b>${brl(s.usado)}</b>.</p>`
     : `<p class="sobra-aviso warn">Mais rápido que o ideal. Hoje é dia ${c.dias} de ${c.n}: para a sobra durar o mês todo por igual, dava para ter usado até <b>${brl(s.ideal)}</b>, e já foram <b>${brl(s.usado)}</b>.${s.resta > 0 ? " Se foi uma compra grande de uma vez (como o mercado do mês), tudo bem: o valor por dia abaixo já mostra quanto dá para gastar daqui em diante." : ""}</p>`;
-  const porDia = atual ? (s.porDia > 0 ? `<div class="sobra-dia"><span>Dá para gastar por dia</span><b>${brl(s.porDia)}</b><small>nos ${s.restam} ${s.restam === 1 ? "dia que falta" : "dias que faltam"} · ${brl(s.porSemana)} por semana</small></div>` : "") : "";
+  const porDia = atual ? (s.porDia > 0 ? `<div class="sobra-dia"><span>Cabe por dia</span><b>${brl(s.porDia)}</b><small>nos ${s.restam} ${s.restam === 1 ? "dia que falta" : "dias que faltam"} · ${brl(s.porSemana)} por semana</small></div>` : "") : "";
   // Linha do tempo: cada gasto do dia a dia e quanto da sobra restou depois dele.
   const dd = c.it.filter((x) => x.tipo === "Despesa" && x.forma !== CARTAO).sort((a, b) => a.data.localeCompare(b.data) || String(a.created_at || "").localeCompare(String(b.created_at || "")));
   let saldo = s.livre;
@@ -3728,9 +3730,9 @@ const HUBS = {
     intro: "Dúvidas, novidades e sugestões.", itens: ["btnAjuda", "novidades", "btnSugerir"] },
 };
 const GRUPOS_MAIS = [
-  { titulo: "Seu dia a dia", ids: ["planos", "motorista", "mercado", "veiculo", "casa"] },
+  { titulo: "Seu dia a dia", ids: ["motorista", "mercado", "planos"] },
   { titulo: "Meu mês", ids: ["analise", "conferir", "msg"] },
-  { titulo: "Guardar e aprender", ids: ["desafio", "calc", "dica"], fechado: true },
+  { titulo: "Ferramentas", ids: ["veiculo", "casa", "calc", "desafio", "dica"], fechado: true },
   { titulo: "Levar com você", ids: ["share", "baixar"], fechado: true },
 ];
 const TODAS_FERR = () => [...GRUPOS_FERR.flatMap((g) => g.itens), ...Object.entries(HUBS).map(([id, h]) => ({ id, ...h }))];
@@ -9596,8 +9598,8 @@ function guiaPasso(k, todos = false) {
         cat: escolheCat(tipo, el.dataset.cat || (ent ? "Renda extra" : guessCat(nome, "Despesa"))) };
     }).filter((l) => l.valor > 0);
     if (!linhas.length) {
-      if (ja.length) return guiaProximo(k, todos);
-      return erro(ent ? "Digite quanto você recebe, ou toque em Minha renda varia." : "Preencha o valor de pelo menos uma conta, ou toque em Pular.");
+      if (ja.length || !ent) return guiaProximo(k, todos);   // sem conta fixa para cadastrar: segue em frente, sem travar a pessoa
+      return erro("Digite quanto você recebe, ou toque em Minha renda varia.");
     }
     const bt = e.target.querySelector("[type=submit]"); bt.disabled = true;
     const ok = await grava(async () => {
