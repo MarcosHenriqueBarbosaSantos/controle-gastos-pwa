@@ -49,3 +49,8 @@ Os números de estrelas vêm da página de cada repositório no dia da consulta.
 - **Hooks:** o Impeccable pode instalar um "design hook" que roda sozinho ao editar arquivos. Pergunte antes de aceitar.
 - **Licenças:** Apache-2.0, MIT e MPL-2.0 permitem uso comercial; as skills de documentos da Anthropic têm termos próprios.
 - **Números:** as estrelas mudam; confirme na página antes de citar.
+
+## Skills instaladas em 14/11/2026 (as mais usadas no GitHub, pelo instalador `npx skills`)
+- Design mobile: `design-mobile-apps` (designed-by-ai), `mobile-native` (Emil Kowalski: o PWA parecer app instalado), `frontend-design` (Anthropic), `design-taste-frontend` (taste-skill: para o site de venda; traz muitos componentes em JS, use só no site).
+- Qualidade: `accessibility` (Addy Osmani, WCAG 2.2), `playwright-cli` (Microsoft, testes no navegador), já existiam `web-design-guidelines`, `ui-ux-pro-max` e `webapp-testing`.
+- Venda e divulgação: `copywriting`, `marketing-psychology`, `seo-audit`, `community-marketing` (Corey Haines) e `landing-page-conversion-audit` (autonnel).
