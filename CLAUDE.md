@@ -1,6 +1,6 @@
 # Meus Gastos: guia para quem continuar o app e o site
 
-Leia este arquivo primeiro. Ele resume o projeto, como trabalhar com a pessoa dona e como publicar. A lista de habilidades (skills e plugins) por etapa está em [docs/HABILIDADES.md](docs/HABILIDADES.md). A memória do trabalho anterior está em [docs/memoria/](docs/memoria/).
+Leia este arquivo primeiro. O andamento do negócio (o que falta, Hotmart, métricas) está em [PAINEL.md](PAINEL.md): atualize a seção "Onde paramos" no fim de cada rodada. Ele resume o projeto, como trabalhar com a pessoa dona e como publicar. A lista de habilidades (skills e plugins) por etapa está em [docs/HABILIDADES.md](docs/HABILIDADES.md). A memória do trabalho anterior está em [docs/memoria/](docs/memoria/).
 
 ## O que é
 App de controle de gastos (PWA, JavaScript puro, sem framework) com um **modo motorista de aplicativo** (Uber, 99, inDrive). Site de venda em `site/`. Domínio: meugastos.com.br. Hospedagem: GitHub Pages (a `main` é o site no ar). Banco e avisos: Supabase (projeto `ebaivarzdqekmhnyrwxo`). Venda: Hotmart (R$ 89 por ano, até 3x sem juros).
