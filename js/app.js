@@ -1220,7 +1220,7 @@ function renderKpis(c) {
     <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : atualM ? `ainda livres de ${brl(sb.livre)} depois das contas` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span></div>` : ""}
     ${passos ? `<details class="ip-detalhe"><summary>Entenda esse número</summary>${passos}</details>` : ""}
     ${ficou}
-    ${est.nivel !== "neutro" && !(frN && aperto) ? `<span class="estado">${fraseDoMes && !aperto && est.nivel !== "atencao" ? "" : `<b>${est.rotulo || ROTULO[est.nivel]}</b>`}${est.motivo && est.nivel !== "estourado" ? `<span class="ocultavel">${est.motivo}</span>` : ""}</span>` : ""}
+    ${est.nivel !== "neutro" && !(frN && aperto) ? `<span class="estado">${fraseDoMes && !aperto && est.nivel !== "atencao" ? "" : `<b>${est.rotulo || ROTULO[est.nivel]}</b>`}${est.motivo && est.nivel !== "estourado" && !frN ? `<span class="ocultavel">${est.motivo}</span>` : ""}</span>` : ""}
     ${rotaN?.pontos.length ? `<button type="button" class="hero-liga" id="heroRota">Ver o mês dia a dia</button>` : ""}
     <button type="button" class="hero-ver" id="heroVer">Ver meu mês</button>
   </div>`}
@@ -2058,9 +2058,9 @@ function renderVenc() {
   // Alerta de saldo: uma linha acima da lista, só quando o mês está ou vai fechar no vermelho.
   const sd = S.loaded ? avisosDeHoje(S.data, hoje()).saldo : null;
   const ac = S.loaded && !semEntradaNoMes(calcMes(S.data, mKey(hoje()), hoje())) ? quandoOsDinheiroAcaba(S.data, hoje()) : null, faltaAte = ac?.minimo ? round2(-ac.minimo.saldo) : 0, aperto = apertoAteAEntrada(ac);
-  const alerta = !ac?.diaZero ? "" : S.prefs.motorista?.usa ? "" : `<li class="alerta ${ac.diasAteZero === 0 && !aperto ? "bad" : "warn"}"><span class="quando bad">dinheiro curto</span>
+  const alerta = !ac?.diaZero ? "" : S.prefs.motorista?.usa ? "" : `<li class="alerta ${ac.diasAteZero === 0 && !aperto ? "bad" : "warn"}"><span class="quando bad">atenção</span>
       <span class="oque"><b>${aperto ? `Falta dinheiro até a entrada do dia ${aperto.dia}` : ac.diasAteZero === 0 ? "O dinheiro deste mês já acabou" : `Até o fim do mês faltam ${brl(faltaAte)}`}</b>
-      <span>${aperto ? `Faltam ${brl(aperto.falta)} até entrar ${brl(ac.proximaEntrada.valor)} no dia ${aperto.dia}.` : (ac.diasAteZero === 0 ? `Até o fim do mês faltam ${brl(faltaAte)}.` : `O dinheiro acaba por volta do dia ${ac.diaZero.slice(8, 10)}, mas dá tempo de ajustar.`)}${!aperto && ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""}</span><button class="link link-toque" type="button" data-ordem>Ver um jeito leve de fechar</button></span></li>`;
+      <span>${aperto ? `Faltam ${brl(aperto.falta)} até entrar ${brl(ac.proximaEntrada.valor)} no dia ${aperto.dia}.` : (ac.diasAteZero === 0 ? `Até o fim do mês faltam ${brl(faltaAte)}.` : `Dá tempo de ajustar até lá.`)}${!aperto && ac.proximaEntrada && ac.proximaEntrada.data > ac.diaZero ? ` A próxima entrada (${brl(ac.proximaEntrada.valor)}) é só no dia ${ac.proximaEntrada.data.slice(8, 10)}.` : ""}</span><button class="link link-toque" type="button" data-ordem>Ver um jeito leve de fechar</button></span></li>`;
   // Combinados das metas: aparecem junto, mas não são contas. Não entram no total e nunca ficam atrasados.
   const comb = S.loaded ? combinadosDoMes(S.data, S.prefs.metas, hoje()) : [];
   const combItens = comb.map((x, i) => ({ data: x.data, html: `<li class="comb" data-u="ok">
@@ -5541,7 +5541,7 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa 
     <div class="mot-dia-base">${ativa ? `<button class="mot-dia-bt" type="button" id="motVoltaJornada">Voltar à jornada em andamento</button>` : `${cats_.length > 1 ? `<div class="ds-chips" role="group" aria-label="Categoria desta jornada">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>` : ""}
     <label class="mot-dia-odo">Km no painel do carro<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="${ultimoPainel ? `último: ${odoTxt(ultimoPainel)}` : "ex.: 84.120"}"></label>
     <button class="mot-circ inicio" type="button" id="motIniciar"><span class="mc-play" aria-hidden="true"></span><b>Iniciar</b><span>jornada</span></button>
-    `}<div class="mot-dia-links"><button class="mot-dia-2" type="button" id="motVale">Essa corrida vale?</button><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button></div></div></section>`;
+    `}<div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button></div></div></section>`;
 }
 const htmlTresMot = (tit, hora, km, viagem, pe = "") => `<section class="mot-tres" aria-label="${tit}"><h3>${tit}</h3><div>${[["Por hora", hora], ["Por km", km], ["Por viagem", viagem]].map(([r, v]) => `<p><small>${r}</small><b class="ocultavel">${v === null ? "—" : brl(v)}</b></p>`).join("")}</div>${pe ? `<small class="ocultavel">${pe}</small>` : ""}</section>`;
 /** Quanto está rendendo: hoje, ou os últimos 7 dias enquanto hoje não tem jornada. */
@@ -6235,10 +6235,10 @@ function htmlMetaExplicada(d) {
   const carro = aj.custoKm > 0
     ? `Neste mês: lançou ${brl(aj.lancado)} e rodou ${virg(aj.km)} km (${brl(aj.rodado)}). ${aj.ajuste >= 0 ? `Os ${brl(aj.ajuste)} pagos a mais adiantam os próximos km.` : `Faltam ${brl(-aj.ajuste)} de combustível, que já entram na meta.`}`
     : "Preencha o Meu carro ou moto (km por mês e consumo) para o app fazer essa conta.";
-  return `<section class="mot-meta-ex" aria-label="Como a sua meta é montada"><h3>Como a sua meta é montada</h3>${conta}
+  return `<details class="mot-meta-ex"><summary>Como a sua meta é montada</summary>${conta}
     <h4>O que entra na meta</h4><p>Contas e faturas a pagar, o que você já guardou, o quanto quer sobrar e o custo do carro por km (combustível, manutenção, pneus, estacionamento e pedágio).</p>
     <h4>O que não aumenta a meta</h4><p>Abastecer, pedágio e estacionamento já estão no custo por km${kmMes > 0 ? ` (com ${virg(kmMes)} km por mês)` : ""}. ${carro}</p>
-    <div class="mot-ex-bts"><button class="btn sm" type="button" id="motExMeta">Ver a conta completa</button><button class="btn sm" type="button" id="motEntKm">Entenda o seu valor por km</button></div></section>`;
+    <div class="mot-ex-bts"><button class="btn sm" type="button" id="motExMeta">Ver a conta completa</button><button class="btn sm" type="button" id="motEntKm">Entenda o seu valor por km</button></div></details>`;
 }
 function paneMot() {
   clearInterval(motRelogio); const host = $("pane-mot");
