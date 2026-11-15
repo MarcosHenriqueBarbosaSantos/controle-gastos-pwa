@@ -6,7 +6,7 @@ Leia este arquivo primeiro. O andamento do negócio (o que falta, Hotmart, métr
 App de controle de gastos (PWA, JavaScript puro, sem framework) com um **modo motorista de aplicativo** (Uber, 99, inDrive). Site de venda em `site/`. Domínio: meugastos.com.br. Hospedagem: GitHub Pages (a `main` é o site no ar). Banco e avisos: Supabase (projeto `ebaivarzdqekmhnyrwxo`). Venda: Hotmart (R$ 89 por ano, até 3x sem juros).
 
 ## Onde está cada coisa
-- `js/app.js` (telas e eventos, ~9,7 mil linhas; sendo dividido aos poucos), `js/chat.js` (Conversa do desafio), `js/calc.js` (contas puras do mês), `js/motorista.js` (contas puras do motorista), `js/voz.js` (falar para lançar), `js/uso.js` (medição de uso sem dado pessoal), `js/novidades.js` (texto da tela Novidades), `js/config.js` (`APP_VERSAO`).
+- `js/app.js` (telas e eventos, ~9,7 mil linhas; sendo dividido aos poucos), `js/chat.js` (Conversa do desafio), `js/recibo.js` (Recibo de corrida particular), `js/calc.js` (contas puras do mês), `js/motorista.js` (contas puras do motorista), `js/voz.js` (falar para lançar), `js/uso.js` (medição de uso sem dado pessoal), `js/novidades.js` (texto da tela Novidades), `js/config.js` (`APP_VERSAO`).
 - `css/style.css` e `css/tech.css`, `index.html`, `sw.js` (cache offline, `VERSAO`), `manifest.webmanifest`.
 - `supabase/` (SQL e a função `avisos`; `regras.js` da função é gerado de `calc.js` com `node supabase/functions/avisos/gera-regras.mjs`).
 - `tests/` (um arquivo por assunto), `scripts/validar.mjs`, `docs/PUBLICAR.md`.
@@ -15,7 +15,7 @@ App de controle de gastos (PWA, JavaScript puro, sem framework) com um **modo mo
 1. **Publicar só depois de um "sim" explícito** ("Sim, publicar"). Fim de cada rodada: relatório em linguagem simples e a pergunta "Posso publicar a vNNN?".
 2. **Perguntar antes** de preço, Hotmart, função grande nova, mudança no banco e apagar coisas.
 3. **Nunca digitar senha ou credencial.** A pessoa entra nos painéis; você só opera depois.
-4. **Cores do app e do site mudam sempre juntas** (azul neon: fundo `#060e1d`, destaque `#5fd4ff`).
+4. **Cores do app e do site mudam sempre juntas.** Desde a v256 os dois são claros, com cara de banco: fundo `#f2f5fa`, cartões brancos, azul-marinho `#0b2545` e destaque `#1f5fbf`. O escuro azul neon (`#060e1d` / `#5fd4ff`) é opção em Ajustes. Use o nosso azul, nunca a cor de outra marca.
 5. **Ideias novas devem ser da tela mexida na rodada**, não soltas.
 6. **Texto simples, para quem não é técnico.** Número que aparece em duas telas tem que bater. Se uma frase pode ser lida de dois jeitos, reescreva.
 7. "Ajustar antes" sem detalhe = mais melhorias da mesma tela; se repetir, diga que não vê mais nada certo e peça uma frase.

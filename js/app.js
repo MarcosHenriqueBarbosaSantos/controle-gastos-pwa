@@ -19,6 +19,7 @@ import { ganhoContraGasto } from "./ganhogasto.js";
 import { ligaCapturaDeErros } from "./erros.js";
 import { linhaDaSemana } from "./semana.js";
 import { criaConversa } from "./chat.js";
+import { criaRecibo } from "./recibo.js";
 import { ajusteDoVeiculo, ganhoPorKmAgora, limpaGanhosPorApp, semanaDoMotorista, combustivelDoMes, COMB_MIN_AVISO, reservaDoCarro, corridaVale, resumoDasOfertas, MAX_OFERTAS, NOME_RESERVA_CARRO, PARTES_DO_CARRO, PARTES_PADRAO, metaVsKm, ganhosDoPrint, linhaDasContas, valorDaHora, horasDeTrabalho, regraDeAceite, msAndamento, APPS, TIPOS_GASTO, MAX_TURNOS, isoLocal, ganhoDoTurno, somaValores, duracaoMs, relogio, horasCurtas, custoVariavelPorKm, custoTotalPorKm, resumoTurnos, kmPorDia, metaDoDia, ritmoAoVivo, fraseDoDia, lerHoras, contaDoDia, appsDoPerfil, APPS_POR_VEICULO, CATEGORIAS_POR_VEICULO, resumoDoTeste, categoriasDoPerfil, categoriaDoTurno, painelAtual, avisoOleo, resultadoPorCategoria, placarDosDias, CRITERIOS_DESAFIO, VENCE_DESAFIO, regrasEmTexto, turnoValeNoDesafio, corridasPrevistas, reservasDoMotorista, CATEGORIAS_DESAFIO, categoriaPodeEntrar, motivoDoPlacar, totaisDoDesafio, rankingDoDesafio, faltaParaPassar, destaqueDoDesafio, ganhoPorApp, vazioDoMotorista, VAZIO_PADRAO, kmTotalEstimado, porKmComVazio, periodoDe, andaPeriodo, barrasDoPeriodo, melhorDiaDaSemana, ritmoHistorico, alcanceDaMeta, kmRealPorMes } from "./motorista.js";
 import { desempenhoDoMes, planosSugeridos, parceiroValido, linkDeCompra, cadastrosDe, mudaCadastro, rendimentoDeGuardar, quantoGuardarPorMes, liberdadeFinanceira, parcelaComJuros, jurosCompostos, ferias, decimoTerceiro, MODOS_DESAFIO, criaDesafio, valorDaSemana, totalDoDesafio, andamentoDoDesafio,
   resumoDoAno, MOEDAS, valorEmReais, textoDaMoeda, entendeMensagemBanco, csvDoAno, relatorioEmLinhas, pdfDeLinhas, SEP, nomeDeSub, agrupaPorPai,
@@ -793,7 +794,7 @@ function render() {
   const onde = S.view === "inicio" ? "inicio" : S.view === "analise" ? "m" : motUsa && S.view === "listas" && S.tab === "mot" ? "mot" : naMais || sub ? "menu" : S.tab;
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   $("btnMaisM").toggleAttribute("aria-current", onde === "menu");
-  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? (motSub === "ganhos" ? "Ganhos" : motSub === "chat" ? "Conversa" : "Jornada") : "";
+  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? (motSub === "ganhos" ? "Ganhos" : motSub === "chat" ? "Conversa" : motSub === "recibo" ? "Recibo para o cliente" : "Jornada") : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   $("listaVoltar").hidden = !sub;
   renderForm(); renderInstalar(); renderFechamento(); renderRepetidos(); renderVenc(); renderSemanaIni(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
@@ -1282,7 +1283,7 @@ function renderKpis(c) {
   ligaMercadoIni();
   if ($("usaMetaIni")) $("usaMetaIni").onclick = () => usaMeta(Number($("usaMetaIni").dataset.valor), () => {});
   inicioQ("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
-  inicioQ("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), merc: () => mercado(), cal: () => calendario(mKey(hoje())), motorista: motoristaTela, ordem: () => equilibrioTela() })[b.dataset.atalho]()));
+  inicioQ("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), merc: () => mercado(), cal: () => calendario(mKey(hoje())), motorista: motoristaTela, recibo: () => { motoristaTela(); motEntra("recibo"); }, ordem: () => equilibrioTela() })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
@@ -3728,6 +3729,7 @@ const GRUPOS_FERR = [
   { titulo: "No dia a dia", itens: [
     { id: "planos", k: "plano sonho ferias casa carro viagem reserva emergencia independencia liberdade guardar", ico: "sol", t: "Meus planos", s: "Férias, casa, carro: quanto guardar por mês" },
     { id: "motorista", k: "uber 99 indrive motorista aplicativo corrida turno rodar renda extra", ico: "carro", t: "Modo motorista", s: "Inicie o turno, veja o lucro do dia e quanto rodar para fechar o mês" },
+    { id: "recibo", k: "recibo nota comprovante cliente particular corrida empresa whatsapp", ico: "clipe", t: "Recibo de corrida", s: "Para a corrida particular: o recibo com a conta, pronto para o WhatsApp" },
     { id: "mercado", k: "supermercado compras feira carrinho comprar", ico: "carrinho", t: "Lista de mercado", s: "Anote o que comprar, estime o gasto e lance ao finalizar" },
     { id: "veiculo", k: "gasolina combustivel ipva seguro oficina moto", ico: "carro", t: "Custo do carro ou moto", s: "Quanto custa por mês, por dia e por km" },
     { id: "hora", k: "hora trabalho salario quanto vale quanto custa em horas tempo", ico: "alvo", t: "Quanto vale minha hora", s: "Veja quantas horas de trabalho cada compra custa" },
@@ -5589,7 +5591,7 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa 
     <div class="mot-dia-base">${ativa ? `<button class="mot-dia-bt" type="button" id="motVoltaJornada">Voltar à jornada em andamento</button>` : `${cats_.length < 2 ? "" : catFixa ? `<details class="mot-cat-det"><summary>Categoria: <b>${esc(catAtual)}</b><span>Trocar</span></summary>${`<div class="ds-chips" role="group" aria-label="Categoria do seu carro">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>`}<small>Troque só se mudar de carro ou de categoria.</small></details>` : `<p class="mot-cat-dica">Em qual categoria o seu carro roda? Escolha uma vez: o app lembra.</p>${`<div class="ds-chips" role="group" aria-label="Categoria do seu carro">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>`}`}
     ${pn ? `<div class="mot-painel"><p>Painel do carro: <b>${odoTxt(pn.odo)} km</b><button type="button" class="link" id="motPainelMuda">Mudou? Atualizar</button></p><label class="mot-dia-odo" id="motOdoWrap" hidden>Km no painel agora<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="ex.: ${odoTxt(pn.odo)}"></label><p class="mot-trip">Antes de sair, zere o hodômetro parcial (o &quot;trip&quot;) do carro. No fim do dia, ele mostra quantos km você rodou.</p>${oleo ? `<button type="button" class="mot-oleo ${oleo.nivel}" id="motOleo">${oleo.nivel === "passou" ? `Troca de óleo passou ${odoTxt(-oleo.falta) || 0} km. Trocou? Toque aqui.` : `Troca de óleo em ${odoTxt(oleo.falta)} km`}</button>` : `<button type="button" class="link mot-oleo-novo" id="motOleo">Avisar a troca de óleo</button>`}</div>` : `<label class="mot-dia-odo">Km no painel do carro <small>(só desta vez: depois o app lembra)</small><input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="ex.: 84.120"></label>`}
     <button class="mot-circ inicio" type="button" id="motIniciar"><span class="mc-play" aria-hidden="true"></span><b>Iniciar</b><span>jornada</span></button>
-    `}<div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button></div></div></section>`;
+    `}<div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button><button class="mot-dia-2" type="button" data-mot-sub="recibo">Recibo para cliente</button></div></div></section>`;
 }
 const htmlTresMot = (tit, hora, km, viagem, pe = "") => `<section class="mot-tres" aria-label="${tit}"><h3>${tit}</h3><div>${[["Por hora", hora], ["Por km", km], ["Por viagem", viagem]].map(([r, v]) => `<p><small>${r}</small><b class="ocultavel">${v === null ? "—" : brl(v)}</b></p>`).join("")}</div>${pe ? `<small class="ocultavel">${pe}</small>` : ""}</section>`;
 /** Quanto está rendendo: hoje, ou os últimos 7 dias enquanto hoje não tem jornada. */
@@ -5725,6 +5727,13 @@ function resumoDoDesafio(d, hj) {
   const crit = d.regras?.vence || "km", rk = rankingDoDesafio(totaisDoDesafio(d.membros, d.regras), crit), eu = rk.find((x) => x.eu);
   return { pos: eu?.pos || 0, qtd: rk.filter((x) => x.pos).length, acabou: d.fim < hj, faltam: Math.round((new Date(`${d.fim}T12:00:00`) - new Date(`${hj}T12:00:00`)) / 864e5), critNome: { hora: "hora", km: "km", sobra: "sobra", total: "faturamento", dia: "melhor dia", geral: "pontos" }[crit] || crit };
 }
+/* Recibo de corrida particular: mora em js/recibo.js. Aqui entregamos o que ele usa do app. */
+const recibo = criaRecibo({ $, esc, brl, parseMoney, toast: (t) => toast(t), hoje, prefs: () => S.prefs, salvaPrefs: () => salvaPrefs(), voltar: () => motSai(),
+  carro: () => { try { const v = motDados().perfil?.veiculo; const n = cadastrosDe(S.prefs, "veiculo", v === "moto" ? "Minha moto" : "Meu carro").ativo.nome; return /^Meu carro$|^Minha moto$/.test(n) ? "" : n; } catch { return ""; } },
+  lancaGanho: async (valor, descricao, data) => {
+    const catR = cats("Receita").find((x) => /extra|app|motor/i.test(x)) || cats("Receita")[0]; let criados = [];
+    if (await grava(async () => { criados = await S.store.addLancamentos([{ data, import_key: null, cartao_id: null, parcelas: 1, descricao, tipo: "Receita", categoria: catR, forma: "", valor }]); })) { criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) })); uso("recibo_enviado"); }
+  } });
 /* Conversa do desafio: mora em js/chat.js. Aqui só entregamos o que ela usa do app. */
 const conversa = criaConversa({ $, esc, ico, toast: (t) => toast(t), armDelete, uso, hhmm, ddmm, isoLocal, hoje, store: () => S.store, Reconhecedor: window.SpeechRecognition || window.webkitSpeechRecognition, voltar: () => { motSub = "desafios"; render(); } });
 function paneDesafios(host) {
@@ -6238,6 +6247,7 @@ function paneMot() {
   if (motSub === "perfil" || (!motSub && !motDados().perfil && !motDados().ativo)) return panePerfilMot(host);
   if (motSub === "desafios") return paneDesafios(host);
   if (motSub === "chat") return conversa.tela(host);
+  if (motSub === "recibo") return recibo.tela(host);
   if (motSub === "reservas") return paneReservas(host);
   if (motSub === "dia") return paneLancarDia(host);
   if (motSub === "ganhos") return paneGanhos(host);
@@ -6800,7 +6810,8 @@ function paraRevisarTela() {
 function corDaBarra(escura) {
   const m = document.querySelector('meta[name="theme-color"]'); if (!m) return;
   if (!m.dataset.orig) m.dataset.orig = m.getAttribute("content") || "";
-  m.setAttribute("content", escura ? "#060e1d" : (document.documentElement.dataset.tema === "claro" ? "#0b2545" : m.dataset.orig));
+  const claro = document.documentElement.dataset.tema === "claro";   // no claro a Jornada também é clara: a barra fica no azul do app
+  m.setAttribute("content", claro ? "#0b2545" : escura ? "#060e1d" : m.dataset.orig);
 }
 /** Os jeitos de chamar a pessoa da conta casal (para reconhecer o dinheiro que passa de um para o outro); vazio sem conta de casal. */
 const nomesDoParceiro = () => (casalAtivo() ? [nomeDoOutro(), nomeDoEmail(S.casal.outro)].filter(Boolean) : []);

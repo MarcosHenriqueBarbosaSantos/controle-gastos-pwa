@@ -83,6 +83,10 @@ await teste("Escanear explica o que dá para ler", "#demo", async ({ pg, w, clic
   await clica('.acoes-ini [data-acao="ler"]'); await w(600);
   confere((await pg.locator(".esc-ex li").count()) >= 3, "sem os exemplos do escanear");
 });
+await teste("Tema claro é o padrão, com atalhos em quadradinhos", "#demo", async ({ pg }) => {
+  confere(await pg.evaluate(() => document.documentElement.dataset.tema) === "claro", "o app não abriu no tema claro");
+  confere(await pg.locator(".acoes-ini button .ic").count() >= 3, "sem os atalhos do Início");
+});
 await teste("Menu Mais (no topo) abre com Ferramentas fechado", "#demo", async ({ pg, w }) => {
   await pg.locator("#app .hero-mais-bt").first().click({ timeout: 5000 }); await w(800);
   confere(/Ferramentas/.test(await pg.locator("#mais").innerText()), "sem o grupo Ferramentas");
@@ -154,6 +158,24 @@ await teste("Motorista: categoria e km do painel só na primeira vez; aviso da t
   confere(/84\.120 km/.test(await pg.locator(".mot-painel").innerText()), "o app não lembrou o km do painel");
   await clica("#motOleo"); await w(400); await pg.locator("#oleoKm").fill("75000"); await clica("#oleoForm button[type=submit]"); await w(800);
   confere(/880 km/.test(await pg.locator(".mot-oleo").innerText()), "o aviso de óleo não mostra quanto falta");
+});
+await teste("Motorista: recibo de corrida faz a conta e vai para o WhatsApp", "#motorista", async ({ pg, w, clica }) => {
+  await clica('#bnav [data-nav="mot"]'); await w(800);
+  await clica('[data-mot-sub="recibo"]'); await w(800);
+  await pg.locator("#rcCliente").fill("Empresa Alfa"); await pg.locator("#rcValor").fill("180,00"); await pg.locator("#rcPed").fill("14,60");
+  await pg.locator("#rcDesc").fill("10"); await pg.locator("#rcDescTipo").selectOption("pct"); await w(300);
+  confere(/R\$\s?176,60/.test(limpa(await pg.locator(".rc-topo b").innerText())), "o total do recibo não bate (180 + 14,60 − 10% da corrida)");
+  await pg.evaluate(() => { window.__wa = ""; window.open = (u) => { window.__wa = u; return null; }; });
+  await clica("#rcEnviar"); await w(900);
+  const url = await pg.evaluate(() => window.__wa);
+  confere(url.startsWith("https://wa.me/") && /N%C3%A3o%20%C3%A9%20nota%20fiscal/.test(url), "não abriu o WhatsApp com o recibo");
+  confere(/Empresa Alfa/.test(await pg.locator(".rc-enviados").innerText()), "o recibo enviado não aparece em Últimos recibos");
+  await clica("[data-rc-usa='0']"); await w(400);
+  confere((await pg.locator("#rcCliente").inputValue()) === "Empresa Alfa" && /176,60/.test(limpa(await pg.locator(".rc-topo b").innerText())), "Usar de novo não preencheu o recibo");
+  await pg.evaluate(() => { window.__wa = ""; }); await clica("[data-rc-reenvia='0']"); await w(300);
+  confere((await pg.evaluate(() => window.__wa)) === url, "Mandar de novo não abriu o mesmo texto");
+  await pg.locator("#rcFone").fill("123"); await w(200);
+  confere(/incompleto/.test(await pg.locator("#rcFoneAviso").innerText()), "não avisou o telefone incompleto");
 });
 await teste("Motorista: conversa do desafio envia mensagem", "#motorista", async ({ pg, w, clica }) => {
   await pg.evaluate(() => [...document.querySelectorAll("button")].find((x) => /desafio/i.test(x.innerText))?.click()); await w(1500);

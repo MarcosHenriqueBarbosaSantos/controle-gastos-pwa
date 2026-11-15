@@ -157,3 +157,104 @@ button,a,summary,.btn{touch-action:manipulation}
   .wrap[data-tab="mot"] .mot-jornada{min-height:calc(100dvh - 120px)}
   .toast:not(.com-acao):not([hidden]){display:block;position:fixed;right:24px;bottom:24px;max-width:420px;z-index:50;padding:12px 16px;border-radius:12px;background:var(--ink);color:var(--bg);font-size:14px;box-shadow:var(--shadow)}
 }
+
+/* v256: no tema claro (o padrão), a Jornada e o Desafio também são claros, como num app de banco.
+   Fica azul só o quadro do topo (a meta do dia); o resto vem em cartões brancos sobre o cinza-claro. */
+:root[data-tema="claro"] .wrap[data-tab="mot"] #listas{background:var(--bg);border-color:var(--border);
+  --surface:#fff;--surface-2:#f5f8fc;--sunk:#ebf0f7;--ink:#13253b;--ink-2:#3d4d61;--muted:#5c6b7d;--border:#d9e1ec;--grid:rgba(11,37,69,.07);--axis:rgba(11,37,69,.28);
+  --good:#157347;--good-soft:#e7f4ec;--bad:#b42318;--bad-soft:#fdecea;--warn:#9a4a06;--warn-soft:#fdf0e3;
+  --series:#1f5fbf;--series-soft:rgba(31,95,191,.09);--on-series:#fff;color:var(--ink)}
+:root[data-tema="claro"] #app[data-view="listas"][data-tab="mot"] #listas,:root[data-tema="claro"] body:has(#app[data-view="listas"][data-tab="mot"]){background:var(--bg)}
+:root[data-tema="claro"] .wrap[data-tab="mot"] #listas .in{background:var(--surface);color:var(--ink);border-color:var(--border)}
+:root[data-tema="claro"] .wrap[data-tab="mot"] #listas .btn.primary{background:#0b2545;border-color:#0b2545;color:#fff;box-shadow:none}
+:root[data-tema="claro"] .wrap[data-tab="mot"] #listas h2{color:var(--ink)}
+:root[data-tema="claro"] .wrap[data-tab="mot"] #listas .mot-dia h2{color:#fff}
+/* Jornada no claro: a parte de começar (categoria, painel, óleo e o círculo) sobe como um cartão claro sobre o azul. */
+:root[data-tema="claro"] .mot-dia.cheia .mot-dia-base{margin:14px -20px -10px;padding:20px 20px 14px;background:var(--bg);border-radius:26px 26px 0 0;color:var(--ink);box-shadow:0 -8px 24px rgba(11,37,69,.12)}
+:root[data-tema="claro"] .mot-dia-base .ds-chips button{background:#fff;border-color:var(--border);color:var(--ink)}
+:root[data-tema="claro"] .mot-dia-base .ds-chips button[aria-pressed="true"]{background:#0b2545;border-color:#0b2545;color:#fff}
+:root[data-tema="claro"] .mot-dia-base .mot-cat-mais{background:#fff;border-color:var(--border);color:var(--ink)}
+:root[data-tema="claro"] .mot-dia-base .mot-cat-det{background:#fff;border:1px solid var(--border)}
+:root[data-tema="claro"] .mot-dia-base .mot-cat-det>summary span,:root[data-tema="claro"] .mot-painel .link{color:var(--series)}
+:root[data-tema="claro"] .mot-dia-base .mot-painel>p:first-child{padding:12px 16px;border-radius:16px;background:#fff;border:1px solid var(--border)}
+:root[data-tema="claro"] .mot-dia-base .mot-trip{color:var(--ink-2);opacity:1}
+:root[data-tema="claro"] .mot-dia-base .mot-oleo{background:#fff;border:1px solid var(--border);color:var(--ink)}
+:root[data-tema="claro"] .mot-dia-base .mot-oleo.perto{background:#fdf0e3;border-color:#f0c99a;color:#7a3a04}
+:root[data-tema="claro"] .mot-dia-base .mot-oleo.passou{background:#fdecea;border-color:#f3b1aa;color:#8a1c12}
+:root[data-tema="claro"] .mot-dia-base .mot-dia-2,:root[data-tema="claro"] .mot-dia-base .mot-dia-odo,:root[data-tema="claro"] .mot-dia-base .mot-cat-dica{color:var(--ink)}
+:root[data-tema="claro"] .mot-dia-base .mot-dia-odo input{background:#fff;border:1px solid var(--border);color:var(--ink)}
+:root[data-tema="claro"] .mot-dia-base .mot-circ.inicio{box-shadow:0 10px 30px rgba(21,80,200,.28),0 0 0 10px rgba(31,95,191,.08)}
+:root[data-tema="claro"] .mot-dia-base .mot-painel>p:first-child{justify-content:space-between}
+
+/* v256: atalhos como nos apps de banco: um quadrado de cantos redondos com o ícone e o nome embaixo, fora do quadrado.
+   O atalho principal (Iniciar jornada ou Lançar gasto) é o quadrado azul-marinho. */
+@media (max-width:700px){
+  .acoes-ini{margin:16px 12px 0;padding:0;background:none;border:0;box-shadow:none;gap:4px}
+  .acoes-ini + .agora,.ganho-falta + .agora{margin-top:14px!important}
+}
+.acoes-ini button,.ir-para button{display:grid;justify-items:center;align-content:start;gap:8px;min-height:0;padding:0 2px;border:0;border-radius:0;background:none;box-shadow:none;color:var(--ink-2);font-size:13px;font-weight:500;line-height:1.2}
+.acoes-ini button .ic,.ir-para button .ic{box-sizing:border-box;width:64px;height:64px;padding:20px;border-radius:20px;background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(11,37,69,.06),0 4px 14px rgba(11,37,69,.06)}
+.acoes-ini .ai-forte{background:none;color:var(--ink)}
+.acoes-ini .ai-forte .ic{background:#0b2545;color:#fff}
+:root:not([data-tema="claro"]) .acoes-ini .ai-forte .ic{background:var(--series);color:var(--on-series)}
+.acoes-ini button:active .ic,.ir-para button:active .ic{transform:scale(.95);background:var(--sunk)}
+.acoes-ini .ai-forte:active .ic{background:#13315c}
+.ir-para{gap:4px}
+.ir-para .ic{color:var(--ink)}
+@media (max-width:700px){.ganho-falta{width:calc(100% - 32px)}}   /* botão não estica sozinho: todos os avisos com a mesma largura */
+.mais-atalhos .mais-atalho{display:grid;justify-items:center;align-content:start;gap:8px;padding:0 2px;border:0;background:none;box-shadow:none;color:var(--ink-2);font-size:13px;font-weight:500;text-align:center}
+.mais-atalhos .mais-atalho .ava{display:grid;place-items:center;width:64px;height:64px;border-radius:20px;background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(11,37,69,.06),0 4px 14px rgba(11,37,69,.06)}
+.mais-atalhos .mais-atalho b{font-weight:500;color:var(--ink-2)}
+
+/* v256: Extrato como a lista de comprovantes de um banco: os lançamentos de cada dia ficam juntos em um cartão branco,
+   separados por uma linha fina, com a setinha mostrando que dá para abrir. */
+@media (max-width:700px){
+  table.lanc tr:not(.dia){grid-template-columns:minmax(0,1fr) auto 14px;margin:0;border-radius:0;border-width:0 1px 1px;box-shadow:none}
+  table.lanc tr:not(.dia)::after{content:"›";justify-self:end;font-size:22px;line-height:1;color:var(--muted)}
+  table.lanc tr.dia + tr:not(.dia),table.lanc tr:not(.dia):first-child{border-top-width:1px;border-radius:18px 18px 0 0}
+  table.lanc tr:not(.dia):has(+ tr.dia),table.lanc tr:not(.dia):last-child{border-radius:0 0 18px 18px;margin-bottom:8px}
+  table.lanc tr.dia + tr:not(.dia):has(+ tr.dia),table.lanc tr.dia + tr:not(.dia):last-child{border-radius:18px}
+}
+/* No claro o azul de destaque é escuro: a letra em cima dele é branca. */
+:root[data-tema="claro"] .mot-abas button[aria-pressed="true"],:root[data-tema="claro"] .mot-pausa-aviso button,:root[data-tema="claro"] .mot-leves #motPausa.ativo{color:#fff}
+.pl-alerta span{color:var(--ink-2)}   /* cinza claro demais sobre o fundo rosado do aviso */
+
+/* Recibo de corrida: a prévia parece um comprovante de banco (valor grande, linhas finas) e o formulário vem em blocos brancos. */
+.rc{display:grid;gap:12px}
+.rc-tit{margin:4px 0 0;font-size:26px}
+.rc-previa{display:grid;gap:10px;padding:18px;border-radius:20px;background:var(--surface);border:1px solid var(--border);box-shadow:var(--shadow-sm)}
+.rc-topo{display:grid;gap:2px}
+.rc-topo small{font-size:13px;color:var(--muted)}
+.rc-topo b{font-size:32px;font-weight:700;letter-spacing:-.02em;color:var(--ink)}
+.rc-topo span{font-size:14px;color:var(--ink-2)}
+.rc-linhas{list-style:none;margin:0;padding:0;display:grid}
+.rc-linhas li{display:flex;justify-content:space-between;gap:10px;padding:9px 0;border-top:1px solid var(--border);font-size:15px;color:var(--ink-2)}
+.rc-linhas li b{color:var(--ink);font-variant-numeric:tabular-nums}
+.rc-linhas li.desc b{color:var(--good)}
+.rc-linhas li.tot{font-weight:700;color:var(--ink)}
+.rc-previa p{display:grid;gap:1px;margin:0;font-size:15px;color:var(--ink)}
+.rc-previa p small{font-size:12.5px;color:var(--muted)}
+.rc-form{display:grid;gap:12px}
+.rc-bloco{margin:0;padding:14px;border:1px solid var(--border);border-radius:18px;background:var(--surface);min-width:0}
+.rc-bloco legend,.rc-meus>summary{padding:0 4px;font-size:15px;font-weight:700;color:var(--ink)}
+.rc-meus>summary{cursor:pointer;min-height:32px;display:flex;align-items:center}
+.rc-meus[open]>summary{margin-bottom:8px}
+.rc-km{margin-top:4px}
+.rc-km>summary{cursor:pointer;color:var(--series);font-weight:600;min-height:40px;display:flex;align-items:center}
+.rc-desc{display:grid;grid-template-columns:minmax(0,1fr) 72px;gap:6px}
+.rc-lanca{padding:4px 2px}
+.rc-bts{display:grid;gap:8px}
+.rc-bts .btn{min-height:52px;justify-content:center;font-size:16px}
+.rc-aviso{margin:0;color:var(--ink-2)}
+.rc-aviso:empty{display:none}
+.rc-enviados{margin-top:12px}
+.rc-enviados h3{margin:0 0 6px;font-size:15px;color:var(--ink)}
+.rc-enviados ul{list-style:none;margin:0;padding:0;display:grid}
+.rc-enviados li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 10px;align-items:center;padding:10px 0;border-top:1px solid var(--border)}
+.rc-enviados li:first-child{border-top:0}
+.rc-enviados li>div:first-child{display:grid;gap:1px;min-width:0}
+.rc-enviados li b{font-size:15px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc-enviados li small{font-size:12.5px;color:var(--muted)}
+.rc-enviados li>span{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+.rc-env-bts{grid-column:1/-1;display:flex;gap:8px}
+.rc-env-bts .btn{flex:1;min-height:44px;justify-content:center;font-size:14px}

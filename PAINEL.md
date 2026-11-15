@@ -22,7 +22,8 @@ Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, tr
   - v252: testes de tela automáticos (`npm run telas`, 17 verificações) que abrem o app e fazem os caminhos de todo dia; os números do Início, do Planejar e da Jornada batem.
   - v253: caixas de aviso legíveis na Jornada no tema claro; testes de tela agora são 21 (Contas fixas, Cartões, Ganhos e tema claro incluídos).
   - v254 (pronta, falta publicar): menu de baixo com Mercado (Mais no topo); Extrato em partes (Meus, Casal, Contas fixas); categoria e km do painel só uma vez; aviso de troca de óleo; Desafio mais colorido; a Conversa do desafio saiu do app.js para js/chat.js.
-- **Próxima rodada do Claude:** Mercado como tela própria, com ideias de outros apps de lista; foto do painel no fim do dia; continuar dividindo o app.js.
+  - v256: tema claro de banco como padrão no app e no site (escuro em Ajustes); Jornada e Desafio claros; atalhos em quadradinhos; Extrato agrupado por dia com setinha; Recibo para cliente (corrida particular, no modelo do recibo que você já mandava) com envio pelo WhatsApp, em js/recibo.js.
+- **Próxima rodada do Claude:** refazer as fotos de telas do site no visual claro; Mercado como tela própria, com ideias de outros apps de lista; foto do painel no fim do dia; continuar dividindo o app.js.
 
 ## 2. O que só você pode fazer (em ordem)
 
