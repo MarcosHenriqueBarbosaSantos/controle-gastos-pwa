@@ -6,7 +6,7 @@ Leia este arquivo primeiro. O andamento do negócio (o que falta, Hotmart, métr
 App de controle de gastos (PWA, JavaScript puro, sem framework) com um **modo motorista de aplicativo** (Uber, 99, inDrive). Site de venda em `site/`. Domínio: meugastos.com.br. Hospedagem: GitHub Pages (a `main` é o site no ar). Banco e avisos: Supabase (projeto `ebaivarzdqekmhnyrwxo`). Venda: Hotmart (R$ 89 por ano, até 3x sem juros).
 
 ## Onde está cada coisa
-- `js/app.js` (telas e eventos, ~9,7 mil linhas; sendo dividido aos poucos), `js/chat.js` (Conversa do desafio), `js/recibo.js` (Recibo de corrida particular), `js/calc.js` (contas puras do mês), `js/motorista.js` (contas puras do motorista), `js/voz.js` (falar para lançar), `js/uso.js` (medição de uso sem dado pessoal), `js/novidades.js` (texto da tela Novidades), `js/config.js` (`APP_VERSAO`).
+- `js/app.js` (telas e eventos, ~9,7 mil linhas; sendo dividido aos poucos), `js/chat.js` (Conversa do desafio), `js/recibo.js` (Recibo de corrida particular), `js/anual.js` (Resumo do ano do motorista para IR e contador), `js/calc.js` (contas puras do mês), `js/motorista.js` (contas puras do motorista), `js/voz.js` (falar para lançar), `js/uso.js` (medição de uso sem dado pessoal), `js/novidades.js` (texto da tela Novidades), `js/config.js` (`APP_VERSAO`).
 - `css/style.css` e `css/tech.css`, `index.html`, `sw.js` (cache offline, `VERSAO`), `manifest.webmanifest`.
 - `supabase/` (SQL e a função `avisos`; `regras.js` da função é gerado de `calc.js` com `node supabase/functions/avisos/gera-regras.mjs`).
 - `tests/` (um arquivo por assunto), `scripts/validar.mjs`, `docs/PUBLICAR.md`.
@@ -24,6 +24,7 @@ App de controle de gastos (PWA, JavaScript puro, sem framework) com um **modo mo
 ## Como trabalhar
 - `npm test` roda os testes (devem passar todos). `npm run validar` é a trava antes de publicar.
 - `npm run telas` abre o app num navegador (Edge ou Chromium do Playwright, tamanho de celular, data fixa em 14/11/2026) e faz os caminhos de todo dia: lançar, trocar a data, pagar e desfazer, não pagar este mês, escanear, Mais, jornada inteira, conversa do desafio, números iguais entre Início/Planejar/Jornada e acessibilidade sem problema grave. Rode antes de publicar mudança de tela; precisa de `npm i`. Arquivo: `scripts/telas.mjs`.
+- `node scripts/fotos-site.mjs` refaz as fotos das telas do site (`site/img/tela-*.png`) a partir da demonstração. Rode quando o visual do app mudar, para o site mostrar o app que a pessoa recebe.
 - Teste na tela: `npx serve -l 5180 .` e Playwright com `channel: "msedge"`, viewport 390x844. Demonstrações: `#demo` (geral) e `#motorista`. Congele a data com `page.clock.install({ time: new Date("2026-11-04T10:00:00") })`. Use `evaluate` para clicar em botões escondidos ou sobrepostos. Ids do menu de baixo: `inicio`, `l` (Extrato), `mais` (Lançar), `mot` (Jornada) ou `m` (Planejar), `menu` (Mais).
 - Acessibilidade das telas: com o servidor local no ar, `node scripts/axe-telas.mjs "#motorista"` (ou `"#demo"`) roda o axe-core em Início, Extrato, Jornada, Mais e Lançar e lista os problemas. Na v243 não restava nenhum grave ou sério, só avisos menores.
 - Contas novas vão em `calc.js` ou `motorista.js` (puras) com teste em `tests/`. A tela só monta o texto.

@@ -177,6 +177,15 @@ await teste("Motorista: recibo de corrida faz a conta e vai para o WhatsApp", "#
   await pg.locator("#rcFone").fill("123"); await w(200);
   confere(/incompleto/.test(await pg.locator("#rcFoneAviso").innerText()), "não avisou o telefone incompleto");
 });
+await teste("Motorista: resumo do ano soma os ganhos e baixa o PDF", "#motorista", async ({ pg, w, clica }) => {
+  await clica('#bnav [data-nav="mot"]'); await w(800);
+  await clica('[data-mot-sub="anual"]'); await w(800);
+  await clica('[data-an-ano="2026"]'); await w(500);
+  const txt = limpa(await pg.locator(".an-previa").innerText());
+  confere(/Total de ganhos/.test(txt) && /Gastos com o veículo/.test(txt), "o resumo do ano não mostrou ganhos e gastos: " + txt.slice(0, 120));
+  const [arq] = await Promise.all([pg.waitForEvent("download", { timeout: 5000 }), clica("#anPdf")]);
+  confere(/resumo-motorista-2026\.pdf/.test(arq.suggestedFilename()), "não baixou o PDF do resumo");
+});
 await teste("Motorista: conversa do desafio envia mensagem", "#motorista", async ({ pg, w, clica }) => {
   await pg.evaluate(() => [...document.querySelectorAll("button")].find((x) => /desafio/i.test(x.innerText))?.click()); await w(1500);
   if (!(await pg.locator("#dsChat").count())) {

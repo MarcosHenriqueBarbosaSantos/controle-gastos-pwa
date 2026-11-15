@@ -22,6 +22,8 @@ Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, tr
   - v252: testes de tela automáticos (`npm run telas`, 17 verificações) que abrem o app e fazem os caminhos de todo dia; os números do Início, do Planejar e da Jornada batem.
   - v253: caixas de aviso legíveis na Jornada no tema claro; testes de tela agora são 21 (Contas fixas, Cartões, Ganhos e tema claro incluídos).
   - v254 (pronta, falta publicar): menu de baixo com Mercado (Mais no topo); Extrato em partes (Meus, Casal, Contas fixas); categoria e km do painel só uma vez; aviso de troca de óleo; Desafio mais colorido; a Conversa do desafio saiu do app.js para js/chat.js.
+  - v257 (15/11, pronta, falta publicar): Resumo do ano do motorista (IR, MEI, contador) em js/anual.js, com PDF, planilha e WhatsApp; fotos do site refeitas no claro (script `node scripts/fotos-site.mjs`); site sem a promessa de importar extrato do cartão (está desligado no app desde a v159).
+  - SQL de 15/11 aplicados pelo Claude: pago-por, desafio-chat, erros e otimizacao.
   - v256: tema claro de banco como padrão no app e no site (escuro em Ajustes); Jornada e Desafio claros; atalhos em quadradinhos; Extrato agrupado por dia com setinha; Recibo para cliente (corrida particular, no modelo do recibo que você já mandava) com envio pelo WhatsApp, em js/recibo.js.
 - **Próxima rodada do Claude:** refazer as fotos de telas do site no visual claro; Mercado como tela própria, com ideias de outros apps de lista; foto do painel no fim do dia; continuar dividindo o app.js.
 
@@ -30,9 +32,9 @@ Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, tr
 - [ ] **Testar a compra na Hotmart.** Compre pelo link `pay.hotmart.com/X108304792E` com outro e-mail. Confira se o acesso é liberado no app e peça o reembolso. É o risco número 1 antes de divulgar.
 - [ ] **Testar o link de afiliado.** Com um afiliado de teste, confira se a venda aparece com a comissão de 40%.
 - [ ] **Desativar o produto antigo** (link G107911431C) pelo suporte da Hotmart.
-- [ ] **Ligar o "Quem pagou?" das contas fixas (casal).** No Supabase: SQL Editor, cole o arquivo `supabase/pago-por.sql` e clique em Run.
-- [ ] **Ligar a Conversa do desafio.** No Supabase: SQL Editor, cole o arquivo `supabase/desafio-chat.sql` e clique em Run.
-- [ ] **Deixar o banco mais rápido.** No Supabase, rode o arquivo `supabase/otimizacao.sql` do mesmo jeito.
+- [x] **Ligar o "Quem pagou?" das contas fixas (casal).** `supabase/pago-por.sql` aplicado pelo Claude em 15/11/2026.
+- [x] **Ligar a Conversa do desafio.** `supabase/desafio-chat.sql` aplicado pelo Claude em 15/11/2026.
+- [x] **Deixar o banco mais rápido.** `supabase/otimizacao.sql` aplicado em 15/11/2026 (e `erros.sql`, aviso de erros do app). Falta só, no painel: Authentication → ligar "Leaked password protection".
 - [ ] **Proteção de senha vazada.** No Supabase: Authentication, Policies, ligar "Leaked password protection".
 - [ ] **Testar no seu celular:** feche e abra o app, use a jornada, lance um gasto e marque uma conta paga. Anote o que estranhar.
 - [ ] **Chamar o primeiro grupo:** de 5 a 10 motoristas, com o link da página e um desafio já criado.

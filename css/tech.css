@@ -258,3 +258,34 @@ button,a,summary,.btn{touch-action:manipulation}
 .rc-enviados li>span{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
 .rc-env-bts{grid-column:1/-1;display:flex;gap:8px}
 .rc-env-bts .btn{flex:1;min-height:44px;justify-content:center;font-size:14px}
+.an-anos{display:flex;gap:8px}
+.an-anos .chip{min-height:44px;padding:0 22px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font:inherit;font-weight:600}
+.an-anos .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.an-h{margin:8px 0 0;font-size:14px;color:var(--muted);font-weight:600}
+.an-previa .rc-linhas li small{color:var(--muted);font-size:12.5px;margin-left:4px}
+.an-como ul{margin:6px 0 0;padding-left:18px;display:grid;gap:6px;font-size:14px;color:var(--ink-2)}
+.an-como>summary{cursor:pointer;min-height:40px;display:flex;align-items:center;font-weight:700;color:var(--ink)}
+.an-vazio{display:grid;gap:6px}
+.an-vazio p{margin:0}
+.an{display:grid;gap:12px}
+.an-grupo{display:block!important;padding:0!important}
+.an-grupo>details>summary{display:flex;justify-content:space-between;gap:10px;padding:9px 0;cursor:pointer;list-style:none;min-height:44px;align-items:center}
+.an-grupo>details>summary::-webkit-details-marker{display:none}
+.an-grupo>details>summary span::after{content:" ›";color:var(--muted)}
+.an-grupo>details[open]>summary span::after{content:" ˅"}
+.an-grupo>details>summary b{color:var(--ink);font-variant-numeric:tabular-nums}
+.an-grupo small{color:var(--muted);font-size:12.5px;margin-left:4px}
+.an-grupo ul{list-style:none;margin:0 0 8px;padding:0 0 0 10px;display:grid;gap:2px;border-left:2px solid var(--border)}
+.an-grupo ul li{display:flex;justify-content:space-between;gap:10px;font-size:13.5px;color:var(--ink-2);padding:3px 0}
+.an-grupo ul li span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.an-grupo ul li b{font-weight:600;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.an-confira{border-color:#f0c48a;background:#fff7ec}
+.an-confira h3{margin:0 0 6px;font-size:15px;color:var(--ink)}
+.an-confira ul{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+.an-confira li{display:grid;gap:6px}
+.an-confira p{margin:0;font-size:14px;color:var(--ink)}
+.an-confira .btn{justify-self:start;min-height:40px}
+:root[data-tema="escuro"] .an-confira{border-color:#7a5520;background:rgba(240,170,80,.08)}
+.an-meses>summary{cursor:pointer;min-height:40px;display:flex;align-items:center;font-weight:700;color:var(--ink)}
+.an-meses .rc-linhas li span{display:grid;gap:1px}
+.an-meses .rc-linhas li small{font-size:12.5px;color:var(--muted)}
