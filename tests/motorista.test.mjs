@@ -306,3 +306,26 @@ test("quanto falta para passar quem está logo à frente", () => {
   assert.equal(faltaParaPassar([{ apelido: "Leo", valor: 4, pos: 1 }, { apelido: "Você", eu: true, valor: null, pos: null }]), null);
   assert.equal(faltaParaPassar([]), null);
 });
+
+test("dias sem ganho: os últimos 7 dias, sem hoje, que não têm jornada com ganho", async () => {
+  const { diasSemGanho } = await import("../js/motorista.js");
+  const at = (iso) => new Date(`${iso}T09:00:00`).getTime();
+  const turnos = [
+    { ini: at("2026-11-10"), fim: at("2026-11-10") + 3600000, apps: { uber: 120 } },
+    { ini: at("2026-11-12"), fim: at("2026-11-12") + 3600000, apps: {} },            // encerrada sem ganho: falta
+    { ini: at("2026-11-13"), apps: { uber: 50 } },                                     // em andamento: falta
+    { ini: at("2026-11-14"), fim: at("2026-11-14") + 3600000, apps: { "99": 80 } },
+  ];
+  assert.deepEqual(diasSemGanho(turnos, "2026-11-15"), ["2026-11-08", "2026-11-09", "2026-11-11", "2026-11-12", "2026-11-13"]);
+  assert.deepEqual(diasSemGanho(turnos, "2026-11-15", 2), ["2026-11-13"]);
+});
+
+test("jornada esquecida: pausada há 6 horas ou mais, ou aberta há 16 horas ou mais", async () => {
+  const { jornadaEsquecida } = await import("../js/motorista.js");
+  const h = 3600000, agora = new Date("2026-11-15T16:10:00").getTime();
+  assert.deepEqual(jornadaEsquecida({ ini: agora - 27 * h, pausaIni: agora - 26 * h }, agora), { tipo: "pausada", horas: 26 });
+  assert.equal(jornadaEsquecida({ ini: agora - 5 * h, pausaIni: agora - 2 * h }, agora), null);       // pausa de almoço
+  assert.deepEqual(jornadaEsquecida({ ini: agora - 20 * h }, agora), { tipo: "aberta", horas: 20 });
+  assert.equal(jornadaEsquecida({ ini: agora - 10 * h }, agora), null);
+  assert.equal(jornadaEsquecida(null, agora), null);
+});

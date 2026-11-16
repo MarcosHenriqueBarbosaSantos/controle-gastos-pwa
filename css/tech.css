@@ -289,3 +289,36 @@ button,a,summary,.btn{touch-action:manipulation}
 .an-meses>summary{cursor:pointer;min-height:40px;display:flex;align-items:center;font-weight:700;color:var(--ink)}
 .an-meses .rc-linhas li span{display:grid;gap:1px}
 .an-meses .rc-linhas li small{font-size:12.5px;color:var(--muted)}
+
+/* v258: Jornada em quadradinhos (Abastecer, Pedágio, Lançar outro dia, Mais) e os dias da semana sem ganho */
+.mot-tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px;width:100%}
+.mot-tile{display:grid;justify-items:center;align-content:start;gap:8px;min-height:0;padding:4px 2px;border:0;background:none;color:var(--ink-2);font:inherit;font-size:13px;font-weight:500;line-height:1.2;text-align:center;cursor:pointer;-webkit-tap-highlight-color:transparent;touch-action:manipulation}
+.mot-tile .ic-box{position:relative;display:grid;place-items:center;width:64px;height:64px;border-radius:20px;background:var(--surface);color:var(--ink);box-shadow:0 1px 2px rgba(11,37,69,.06),0 4px 14px rgba(11,37,69,.06);transition:transform .1s ease-out}
+.mot-tile .ic-box .ic{width:24px;height:24px}
+.mot-tile:active .ic-box{transform:scale(.95)}
+.mot-tile .mot-ponto{position:absolute;top:8px;right:8px}
+.mot-comandos .mot-encerrar{display:block;margin:14px auto 0;min-height:44px;padding:0 18px;border:0;background:none;color:#b42318;font:inherit;font-size:15px;font-weight:600}
+.mot-faltam{margin-top:12px}
+.mot-op-tit{margin:14px 0 8px;font-size:13px;font-weight:600;color:var(--muted)}
+#dlgBody .mot-tiles .ic-box{background:var(--surface-2,#eef2f8);box-shadow:none}
+.mot-falta-km{width:100%;margin:6px 0 0}
+.mot-op-fim{display:grid;gap:4px;margin-top:18px}
+.mot-op-fim .btn{min-height:48px;justify-content:center}
+.mot-descartar{min-height:44px;color:#b42318!important;font-weight:600}
+.md-faltam{margin:0 0 12px;padding:12px;border-radius:16px;background:var(--surface);border:1px solid var(--border)}
+.md-faltam p{margin:0 0 8px;font-size:14px;color:var(--ink-2)}
+.md-dias{display:flex;flex-wrap:wrap;gap:8px}
+.md-dias .chip{min-height:44px;padding:0 16px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font:inherit;font-weight:600}
+.md-dias .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+:root[data-tema="escuro"] .mot-tile .ic-box{background:rgba(255,255,255,.06);box-shadow:none}
+:root[data-tema="escuro"] .mot-comandos .mot-encerrar,:root[data-tema="escuro"] .mot-descartar{color:#ff8a80!important}
+.mot-esquecida{display:grid;gap:6px;margin:12px 0 4px;padding:14px;border-radius:18px;background:#fff4e5;border:1px solid #f0c48a;color:var(--ink)}
+.mot-esquecida b{font-size:16px}
+.mot-esquecida p{margin:0;font-size:14.5px;line-height:1.4;color:var(--ink)}
+.mot-esq-bts{display:grid;gap:8px;margin-top:6px}
+.mot-esq-bts .btn{min-height:48px;justify-content:center}
+:root[data-tema="escuro"] .mot-esquecida{background:rgba(240,170,80,.1);border-color:#7a5520}
+.md-horas{display:flex;flex-wrap:wrap;gap:8px;margin:6px 0 8px}
+.md-horas .chip{min-height:44px;min-width:56px;padding:0 14px;border-radius:999px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font:inherit;font-weight:600}
+.md-horas .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--surface)}
+.md-horas + .in{margin-top:0}

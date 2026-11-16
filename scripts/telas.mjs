@@ -177,6 +177,34 @@ await teste("Motorista: recibo de corrida faz a conta e vai para o WhatsApp", "#
   await pg.locator("#rcFone").fill("123"); await w(200);
   confere(/incompleto/.test(await pg.locator("#rcFoneAviso").innerText()), "não avisou o telefone incompleto");
 });
+await teste("Motorista: com a jornada rodando, lança os dias da semana que faltaram, um atrás do outro", "#motorista", async ({ pg, w, clica, aviso }) => {
+  await clica('#bnav [data-nav="mot"]'); await w(800);
+  if (await pg.locator('[data-mot-cat="UberX"]').count()) { await clica('[data-mot-cat="UberX"]'); await w(400); }
+  await pg.locator("#motOdoIni").fill("84120").catch(() => {}); await clica("#motIniciar"); await w(900);
+  confere(await pg.locator(".mot-tiles .mot-tile").count() >= 4, "a jornada não mostrou os quadradinhos");
+  await clica("#motOutroDia"); await w(800);
+  const dias = await pg.locator("[data-md-dia]").count();
+  confere(dias >= 1, "a tela Lançar o dia não mostrou os dias sem ganho");
+  await clica('[data-md-h="6"]'); await w(200);
+  confere((await pg.locator("#mdHoras").inputValue()) === "6:00", "o botão 6h não preencheu as horas");
+  await pg.locator("[data-app]").first().fill("150");
+  await clica("#mdForm button[type=submit]"); await w(900);
+  confere(/salvo/i.test(await aviso()), "não avisou que o dia foi salvo");
+  if (dias > 1) confere((await pg.locator("[data-md-dia]").count()) === dias - 1, "depois de salvar, não foi para o próximo dia que faltava");
+  else confere(!(await pg.locator("#motFaltam").count()), "o dia salvo continuou como dia sem ganho na jornada");
+});
+await teste("Motorista: jornada pausada e esquecida avisa e encerra direto na correção", "#motorista", async ({ pg, w, clica }) => {
+  await clica('#bnav [data-nav="mot"]'); await w(800);
+  if (await pg.locator('[data-mot-cat="UberX"]').count()) { await clica('[data-mot-cat="UberX"]'); await w(400); }
+  await clica("#motIniciar"); await w(900);
+  confere(!(await pg.locator(".mot-esquecida").count()), "avisou jornada esquecida logo no começo");
+  await clica("#motCirc"); await w(500);                       // pausa
+  await pg.clock.fastForward("07:00:00");
+  await clica('#bnav [data-nav="inicio"]'); await w(500); await clica('#bnav [data-nav="mot"]'); await w(800);
+  confere(/pausada há 7 horas/.test(await pg.locator(".mot-esquecida").innerText().catch(() => "")), "não avisou a jornada pausada há 7 horas");
+  await clica("#motEsqEncerra"); await w(900);
+  confere(!(await pg.locator("#motCirc").count()), "a jornada continuou aberta depois de Encerrar");
+});
 await teste("Motorista: resumo do ano soma os ganhos e baixa o PDF", "#motorista", async ({ pg, w, clica }) => {
   await clica('#bnav [data-nav="mot"]'); await w(800);
   await clica('[data-mot-sub="anual"]'); await w(800);

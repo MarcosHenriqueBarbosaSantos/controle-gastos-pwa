@@ -680,3 +680,30 @@ export function ajusteDoVeiculo({ lancamentos, turnos, veic, hoje, kmDiaEstimado
   const km = r2([...por.values()].reduce((s, v) => s + (v > 0 ? v : kmDiaEstimado), 0)), rodado = r2(km * custoKm);
   return { ajuste: r2(lancado - rodado), lancado, km, rodado, custoKm };
 }
+
+/**
+ * Os dias dos últimos `n` dias (sem contar hoje) em que não há ganho lançado: nenhuma jornada encerrada com ganho naquele dia.
+ * Do mais antigo para o mais novo. É a lista de "dias que faltaram" para lançar de uma vez, sem procurar no calendário.
+ * O motorista que folga num dia vê esse dia também: a tela deixa claro que só lança quem rodou.
+ */
+export function diasSemGanho(turnos, hoje, n = 7) {
+  const com = new Set((turnos || []).filter((t) => t.fim && ganhoDoTurno(t) > 0).map((t) => isoLocal(t.ini)));
+  const [a, m, d] = hoje.split("-").map(Number), dias = [];
+  for (let i = n; i >= 1; i--) { const iso = isoLocal(new Date(a, m - 1, d - i, 12).getTime()); if (!com.has(iso)) dias.push(iso); }
+  return dias;
+}
+
+/** A partir de quantas horas parada uma jornada pausada parece esquecida, e de quantas horas aberta uma rodando. */
+export const HORAS_PAUSA_ESQUECIDA = 6;
+export const HORAS_ABERTA_ESQUECIDA = 16;
+/**
+ * A jornada ficou aberta por engano? Pausada há muito tempo ou aberta há mais horas do que alguém roda num dia.
+ * Devolve { tipo: "pausada" | "aberta", horas } ou null. Na pausada as horas são as da pausa; na aberta, desde o começo.
+ */
+export function jornadaEsquecida(a, agora = Date.now()) {
+  if (!a?.ini) return null;
+  const h = 3600000, parada = a.pausaIni ? agora - a.pausaIni : 0;
+  if (parada >= HORAS_PAUSA_ESQUECIDA * h) return { tipo: "pausada", horas: Math.floor(parada / h) };
+  if (!a.pausaIni && agora - a.ini >= HORAS_ABERTA_ESQUECIDA * h) return { tipo: "aberta", horas: Math.floor((agora - a.ini) / h) };
+  return null;
+}
