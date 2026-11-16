@@ -3484,7 +3484,10 @@ function mostraEfeito() {
   const conta = S.loaded && v > 0 && S.tipo !== "Receita" && mKey(d) === mKey(hoje()) && !(S.tipo === "Despesa" && $("fForma").value === CARTAO) && !$("fFixo").checked && !(S.tipo === "Reserva" && $("fForma").value === "Retirar");
   el.hidden = !conta; if (!conta) return mostraContasSemCobrir();
   const livre = raioX(calcMes(S.data, mKey(hoje()), hoje())).sobra, depois = round2(livre - v);
-  el.innerHTML = `Livre agora ${brl(livre)} → depois <b class="${depois < 0 ? "txt-bad" : ""}">${brl(depois)}</b>`;
+  // em palavras: "livre negativo" não diz nada para quem lê rápido; quando falta dinheiro, a frase diz que falta
+  el.innerHTML = livre < 0 ? `Faltam ${brl(-livre)} no mês. Com este gasto, faltam <b class="txt-bad">${brl(-depois)}</b>.`
+    : depois < 0 ? `Livre no mês: ${brl(livre)}. Com este gasto, vão faltar <b class="txt-bad">${brl(-depois)}</b>.`
+    : `Livre no mês: ${brl(livre)}. Depois deste gasto: <b>${brl(depois)}</b>.`;
   mostraContasSemCobrir();
 }
 /** "Última vez em Mercado: R$ 87,30, ontem": um toque põe esse valor no campo (só com o valor vazio e fora de gasto fixo). */
