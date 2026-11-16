@@ -42,6 +42,15 @@ async function teste(nome, hash, fn) {
   await ctx.close();
 }
 const confere = (cond, msg) => { if (!cond) throw new Error(msg); };
+/** Toca em Iniciar; na primeira jornada vem a pergunta (categoria e km do painel), que é respondida aqui. */
+async function inicia(pg, w, odo = "") {
+  await pg.evaluate(() => document.getElementById("motIniciar")?.click()); await w(600);
+  if (await pg.locator("#icForm").count()) {
+    await pg.evaluate(() => document.querySelector('[data-ic-cat="UberX"]')?.click());
+    if (odo && (await pg.locator("#icOdo").count())) await pg.locator("#icOdo").fill(odo);
+    await pg.evaluate(() => document.getElementById("icOk")?.click()); await w(800);
+  }
+}
 
 // ---------- Caminhos de quem tem salário ----------
 await teste("Início abre com o saldo e a fileira de lançar", "#demo", async ({ pg }) => {
@@ -138,7 +147,7 @@ await teste("Motorista: meta de hoje igual no Início e na Jornada", "#motorista
 });
 await teste("Motorista: jornada inteira (iniciar, pausar, continuar, encerrar, lançar ganhos)", "#motorista", async ({ pg, w, clica, aviso }) => {
   await clica('#bnav [data-nav="mot"]'); await w(800);
-  if (await pg.locator("#motIniciar").count()) { await clica("#motIniciar"); await w(800); }
+  if (await pg.locator("#motIniciar").count()) await inicia(pg, w);
   await clica("#motCirc"); await w(500); confere(/pausada/i.test(await pg.locator(".mot-estado").innerText()), "o toque no círculo não pausou");
   await clica("#motCirc"); await w(500); confere(/ativa/i.test(await pg.locator(".mot-estado").innerText()), "o segundo toque não continuou");
   await clica("#motParar"); await w(200); await clica("#motParar"); await w(900);
@@ -150,13 +159,15 @@ await teste("Motorista: jornada inteira (iniciar, pausar, continuar, encerrar, l
 });
 await teste("Motorista: categoria e km do painel só na primeira vez; aviso da troca de óleo", "#motorista", async ({ pg, w, clica }) => {
   await clica('#bnav [data-nav="mot"]'); await w(800);
-  await clica('[data-mot-cat="UberX"]'); await w(500);
-  confere(await pg.locator(".mot-cat-det").count(), "a categoria escolhida não virou uma linha só");
-  await pg.locator("#motOdoIni").fill("84120"); await clica("#motIniciar"); await w(700);
+  confere(!(await pg.locator(".mot-dia-base .ds-chips").count()), "a escolha de categoria apareceu antes do Iniciar (devia vir na pergunta)");
+  await inicia(pg, w, "84120");
+  confere(await pg.locator("#motCirc").count(), "a jornada não começou depois da pergunta");
   await clica("#motParar"); await w(200); await clica("#motParar"); await w(900);
   await pg.evaluate(() => document.querySelectorAll("dialog[open]").forEach((d) => d.close()));
   await clica('#bnav [data-nav="mot"]'); await w(800);
   confere(/84\.120 km/.test(await pg.locator(".mot-painel").innerText()), "o app não lembrou o km do painel");
+  confere(await pg.locator(".mot-cat-det").count(), "a categoria escolhida não virou uma linha só");
+  confere(!(await pg.locator("#motIniciar[data-pergunta]").count()), "a pergunta da primeira vez voltou a aparecer");
   await clica("#motOleo"); await w(400); await pg.locator("#oleoKm").fill("75000"); await clica("#oleoForm button[type=submit]"); await w(800);
   confere(/880 km/.test(await pg.locator(".mot-oleo").innerText()), "o aviso de óleo não mostra quanto falta");
 });
@@ -180,8 +191,7 @@ await teste("Motorista: recibo de corrida faz a conta e vai para o WhatsApp", "#
 });
 await teste("Motorista: com a jornada rodando, lança os dias da semana que faltaram, um atrás do outro", "#motorista", async ({ pg, w, clica, aviso }) => {
   await clica('#bnav [data-nav="mot"]'); await w(800);
-  if (await pg.locator('[data-mot-cat="UberX"]').count()) { await clica('[data-mot-cat="UberX"]'); await w(400); }
-  await pg.locator("#motOdoIni").fill("84120").catch(() => {}); await clica("#motIniciar"); await w(900);
+  await inicia(pg, w, "84120");
   confere(await pg.locator(".mot-tiles .mot-tile").count() >= 4, "a jornada não mostrou os quadradinhos");
   await clica("#motOutroDia"); await w(800);
   const dias = await pg.locator("[data-md-dia]").count();
@@ -196,8 +206,7 @@ await teste("Motorista: com a jornada rodando, lança os dias da semana que falt
 });
 await teste("Motorista: jornada pausada e esquecida avisa e encerra direto na correção", "#motorista", async ({ pg, w, clica }) => {
   await clica('#bnav [data-nav="mot"]'); await w(800);
-  if (await pg.locator('[data-mot-cat="UberX"]').count()) { await clica('[data-mot-cat="UberX"]'); await w(400); }
-  await clica("#motIniciar"); await w(900);
+  await inicia(pg, w);
   confere(!(await pg.locator(".mot-esquecida").count()), "avisou jornada esquecida logo no começo");
   await clica("#motCirc"); await w(500);                       // pausa
   await pg.clock.fastForward("07:00:00");
@@ -239,7 +248,7 @@ await teste("Motorista: conversa do desafio envia mensagem", "#motorista", async
 await teste("Motorista no tema claro: jornada pausada com texto legível", "#motorista", async ({ pg, w, clica }) => {
   await pg.evaluate(() => { localStorage.setItem("cg-tema", "claro"); document.documentElement.dataset.tema = "claro"; });
   await clica('#bnav [data-nav="mot"]'); await w(800);
-  if (await pg.locator("#motIniciar").count()) { await clica("#motIniciar"); await w(800); }
+  if (await pg.locator("#motIniciar").count()) await inicia(pg, w);
   await clica("#motCirc"); await w(600);
   await pg.addScriptTag({ content: AXE });
   const ruins = await pg.evaluate(async () => (await axe.run("#listas", { runOnly: ["color-contrast"] })).violations.flatMap((v) => v.nodes.map((n) => n.target.join(" "))));

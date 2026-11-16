@@ -14,7 +14,7 @@
 }
 :root[data-tema="claro"]{
   /* A mesma marca no tema claro: branco, azul-marinho e o mesmo cartão azul. */
-  --bg:#f2f5fa; --surface:#fff; --surface-2:#f5f8fc; --sunk:#ebf0f7; --border:#d9e1ec; --ink:#13253b; --ink-2:#3d4d61; --muted:#5c6b7d;
+  --bg:#f2f5fa; --surface:#fff; --surface-2:#f5f8fc; --sunk:#ebf0f7; --border:#d9e1ec; --ink:#13253b; --ink-2:#2e3d51; --muted:#4a5768;
   --series:#1f5fbf; --series-soft:rgba(31,95,191,.09); --on-series:#fff; --brand:#0b2545; --navy:#0b2545; --navy-2:#13315c; --navy-3:#1b4079;
   --hero:linear-gradient(135deg,#0b3a8f 0%,#1550c8 55%,#2a6cf0 100%); --hero-ink:#fff; --btn:#0b2545; --on-btn:#fff; --glass:rgba(255,255,255,.96);
 }
@@ -161,7 +161,7 @@ button,a,summary,.btn{touch-action:manipulation}
 /* v256: no tema claro (o padrão), a Jornada e o Desafio também são claros, como num app de banco.
    Fica azul só o quadro do topo (a meta do dia); o resto vem em cartões brancos sobre o cinza-claro. */
 :root[data-tema="claro"] .wrap[data-tab="mot"] #listas{background:var(--bg);border-color:var(--border);
-  --surface:#fff;--surface-2:#f5f8fc;--sunk:#ebf0f7;--ink:#13253b;--ink-2:#3d4d61;--muted:#5c6b7d;--border:#d9e1ec;--grid:rgba(11,37,69,.07);--axis:rgba(11,37,69,.28);
+  --surface:#fff;--surface-2:#f5f8fc;--sunk:#ebf0f7;--ink:#13253b;--ink-2:#2e3d51;--muted:#4a5768;--border:#d9e1ec;--grid:rgba(11,37,69,.07);--axis:rgba(11,37,69,.28);
   --good:#157347;--good-soft:#e7f4ec;--bad:#b42318;--bad-soft:#fdecea;--warn:#9a4a06;--warn-soft:#fdf0e3;
   --series:#1f5fbf;--series-soft:rgba(31,95,191,.09);--on-series:#fff;color:var(--ink)}
 :root[data-tema="claro"] #app[data-view="listas"][data-tab="mot"] #listas,:root[data-tema="claro"] body:has(#app[data-view="listas"][data-tab="mot"]){background:var(--bg)}
@@ -386,3 +386,12 @@ button,a,summary,.btn{touch-action:manipulation}
 /* quadradinhos: nome mais escuro e maior, para ler no sol */
 .mot-tile{color:var(--ink);font-size:14px;font-weight:600}
 :root[data-tema="escuro"] .mot-caixa .ic-c{background:rgba(95,212,255,.12);color:#5fd4ff}
+
+
+/* v261: leitura em primeiro lugar. Texto na Atkinson Hyperlegible Next (feita para ler fácil: 0/O, 1/l, 6/8 bem diferentes),
+   um pouco maior, e os cinzas mais escuros no tema claro (sumiam no sol e no tablet). */
+:root{--sans:"Atkinson Hyperlegible Next","IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif}
+body{font-size:15px;line-height:1.5}
+.hint,small{letter-spacing:.005em}
+/* aba Começar: o quadro azul acaba onde acaba o conteúdo (antes ocupava uma tela inteira e deixava um vão azul) */
+.mot-comecar .mot-dia.cheia{min-height:0}

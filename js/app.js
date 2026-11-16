@@ -3756,7 +3756,7 @@ const GRUPOS_FERR = [
   { titulo: "Guardar e planejar", itens: [
     { id: "ordem", k: "atraso atrasada devendo negativo vermelho recomecar zerar virar pagina equilibrar recuperar reserva imprevisto buraco", ico: "cofre", t: "Pôr o mês em ordem", s: "Contas, atrasos, um jeito leve de recomeçar e sua reserva" },
     { id: "revisao", k: "fechar mes balanco resumo", ico: "grafico", t: "Revisão do mês", s: "3 passos: como foi, onde ajustar e quanto guardar" },
-    { id: "desafio", k: "economizar guardar semanal poupar cofrinho", ico: "alvo", t: "Desafio de economia", s: "Guarde um valor por semana e acompanhe" },
+    { id: "desafio", k: "economizar guardar semanal poupar cofrinho", ico: "alvo", t: "Cofrinho da semana", s: "Guarde um valor por semana e acompanhe" },
     { id: "calc", k: "ferias decimo terceiro juros parcelas rendimento investir divida simulador", ico: "calc", t: "Calculadoras", s: "Rendimento, parcelas, juros, férias e 13º" },
     { id: "dica", k: "habito economia ideia", ico: "luz", t: "Dicas para guardar dinheiro", s: "Um hábito pequeno por dia" }] },
   { titulo: "Entender e comemorar", itens: [
@@ -3780,17 +3780,16 @@ const HUBS = {
   conferir: { ico: "lupa", t: "Conferir meus lançamentos", s: "Tirar o que está repetido e dar categoria ao que ficou em \"Outros\"", k: "arrumar limpar corrigir revisar conferir repetido duplicado outros categoria transferencia",
     intro: "Deixe os lançamentos certos para os números do app baterem com a sua vida.", itens: ["arrumar", "revisar"] },
   analise: { ico: "rumo", t: "Como foi o seu mês", s: "Revisão, para onde foi o dinheiro, o ano e as assinaturas", k: "analise relatorio resumo revisao fechar balanco atraso ordem comparar evolucao ano assinaturas conquistas onde gastei",
-    intro: "Escolha o que você quer entender sobre o seu dinheiro.", itens: ["revisao", "graficos", "pof", "ordem", "ganhogasto", "desemp", "ano", "assin", "conq"] },
+    intro: "Escolha o que você quer entender sobre o seu dinheiro.", itens: ["revisao", "pof", "ano", "assin"] },
   baixar: { ico: "baixar", t: "Exportar e backup", s: "Relatório em Excel, PDF ou CSV e cópia de segurança", k: "excel pdf csv planilha exportar baixar backup restaurar seguranca",
     intro: "Leve os seus dados com você ou guarde uma cópia.", itens: ["btnExport", "copia"] },
   ajuda: { ico: "ajuda", t: "Ajuda", s: "Como usar, o que mudou e como falar com a gente", k: "ajuda duvida tutorial suporte novidades versao sugestao feedback problema",
     intro: "Dúvidas, novidades e sugestões.", itens: ["btnAjuda", "novidades", "btnSugerir"] },
 };
 const GRUPOS_MAIS = [
-  { titulo: "Seu dia a dia", ids: ["motorista", "mercado", "planos"] },
+  { titulo: "Seu dia a dia", ids: ["motorista", "mercado"] },
   { titulo: "Meu mês", ids: ["analise", "conferir", "msg"] },
-  { titulo: "Ferramentas", ids: ["veiculo", "casa", "calc", "desafio", "dica"], fechado: true },
-  { titulo: "Levar com você", ids: ["share", "baixar"], fechado: true },
+  { titulo: "Ferramentas", ids: ["calc", "share", "baixar"], fechado: true },
 ];
 const TODAS_FERR = () => [...GRUPOS_FERR.flatMap((g) => g.itens), ...Object.entries(HUBS).map(([id, h]) => ({ id, ...h }))];
 function hubTela(id) {
@@ -5595,6 +5594,8 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa 
   const comemora = !meta.coberto && doDia.ganho >= meta.brutoDia && S.metaBatida !== hj, cats_ = categoriasDoPerfil(motDados().perfil), catAtual = categoriaAtual();
   const catFixa = cats_.includes(motDados().perfil?.categoria), pn = painelAtual(m.painel, m.turnos), oleo = avisoOleo(pn?.odo, m.painel);
   const catsVis = [catAtual, ...cats_.filter((k) => k !== catAtual)].filter(Boolean).slice(0, 3), catsResto = cats_.filter((k) => !catsVis.includes(k));
+  const catHtml = `${cats_.length < 2 ? "" : catFixa ? `<details class="mot-cat-det"><summary>Categoria: <b>${esc(catAtual)}</b><span>Trocar</span></summary>${`<div class="ds-chips" role="group" aria-label="Categoria do seu carro">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>`}<small>Troque só se mudar de carro ou de categoria.</small></details>` : `<p class="mot-cat-dica">Em qual categoria o seu carro roda? Escolha uma vez: o app lembra.</p>${`<div class="ds-chips" role="group" aria-label="Categoria do seu carro">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>`}`}`, pnHtml = `${pn ? `<div class="mot-painel"><p>Painel do carro: <b>${odoTxt(pn.odo)} km</b><button type="button" class="link" id="motPainelMuda">Mudou? Atualizar</button></p><label class="mot-dia-odo" id="motOdoWrap" hidden>Km no painel agora<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="ex.: ${odoTxt(pn.odo)}"></label><p class="mot-trip">Antes de sair, zere o hodômetro parcial (o &quot;trip&quot;) do carro. No fim do dia, ele mostra quantos km você rodou.</p>${oleo ? `<button type="button" class="mot-oleo ${oleo.nivel}" id="motOleo">${oleo.nivel === "passou" ? `Troca de óleo passou ${odoTxt(-oleo.falta) || 0} km. Trocou? Toque aqui.` : `Troca de óleo em ${odoTxt(oleo.falta)} km`}</button>` : `<button type="button" class="link mot-oleo-novo" id="motOleo">Avisar a troca de óleo</button>`}</div>` : `<label class="mot-dia-odo">Km no painel do carro <small>(só desta vez: depois o app lembra)</small><input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="ex.: 84.120"></label>`}`;
+  const precisaPergunta = (cats_.length >= 2 && !catFixa) || !pn;   // primeira jornada: categoria e km do painel são perguntados ao tocar em Iniciar
   if (comemora) { S.metaBatida = hj; vibra(40); }
   return `<section class="mot-dia cheia${comemora ? " comemora" : ""}" aria-label="Seu dia como motorista"><div class="mot-dia-topo"><small>${dataPorExtenso(hj)}</small><button type="button" class="mot-dia-pill" data-mot-sub="desafios">Desafios</button></div>${ativa ? "" : htmlPerguntaDia(m)}${compacto ? `<p class="mot-meta-linha ocultavel">${semContas ? "Cadastre as contas do mês para ter a meta de hoje." : meta.coberto ? "As contas do mês estão cobertas: hoje é sobra." : `Meta de hoje <b>${brl(meta.brutoDia)}</b>`}${regra ? ` · corridas de <b>${brl(regra.boa)}/km</b> ou mais` : ""}</p>` : `<h2 class="ocultavel">${f.titulo}</h2>`}
     ${compacto || (!acima && !doDia.ganho) ? "" : `<p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>`}
@@ -5603,10 +5604,11 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa 
     <button class="mot-dia-prog" type="button" id="motProg"><span class="t ocultavel"><b>Hoje: ${brl(doDia.ganho)}</b>${meta.coberto ? "" : `<span>de ${brl(meta.brutoDia)}</span>`}</span>${meta.coberto ? "" : `<span class="tbar"><i style="width:${pct}%"></i></span>`}</button>
     ${compacto ? "" : htmlSemanaMot(m, hj, meta)}
     ${compacto ? "" : htmlContasMot(semContas)}
-    <div class="mot-dia-base">${semIniciar ? `<button class="mot-dia-bt" type="button" id="motIrComecar">Começar a jornada</button>` : ativa ? `<button class="mot-dia-bt" type="button" id="motVoltaJornada">Voltar à jornada em andamento</button>` : `${cats_.length < 2 ? "" : catFixa ? `<details class="mot-cat-det"><summary>Categoria: <b>${esc(catAtual)}</b><span>Trocar</span></summary>${`<div class="ds-chips" role="group" aria-label="Categoria do seu carro">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>`}<small>Troque só se mudar de carro ou de categoria.</small></details>` : `<p class="mot-cat-dica">Em qual categoria o seu carro roda? Escolha uma vez: o app lembra.</p>${`<div class="ds-chips" role="group" aria-label="Categoria do seu carro">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>`}`}
-    ${pn ? `<div class="mot-painel"><p>Painel do carro: <b>${odoTxt(pn.odo)} km</b><button type="button" class="link" id="motPainelMuda">Mudou? Atualizar</button></p><label class="mot-dia-odo" id="motOdoWrap" hidden>Km no painel agora<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="ex.: ${odoTxt(pn.odo)}"></label><p class="mot-trip">Antes de sair, zere o hodômetro parcial (o &quot;trip&quot;) do carro. No fim do dia, ele mostra quantos km você rodou.</p>${oleo ? `<button type="button" class="mot-oleo ${oleo.nivel}" id="motOleo">${oleo.nivel === "passou" ? `Troca de óleo passou ${odoTxt(-oleo.falta) || 0} km. Trocou? Toque aqui.` : `Troca de óleo em ${odoTxt(oleo.falta)} km`}</button>` : `<button type="button" class="link mot-oleo-novo" id="motOleo">Avisar a troca de óleo</button>`}</div>` : `<label class="mot-dia-odo">Km no painel do carro <small>(só desta vez: depois o app lembra)</small><input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="ex.: 84.120"></label>`}
+    <div class="mot-dia-base">${semIniciar ? `<button class="mot-dia-bt" type="button" id="motIrComecar">Começar a jornada</button>` : ativa ? `<button class="mot-dia-bt" type="button" id="motVoltaJornada">Voltar à jornada em andamento</button>` : compacto ? `<button class="mot-circ inicio" type="button" id="motIniciar"${precisaPergunta ? ' data-pergunta="1"' : ""}><span class="mc-play" aria-hidden="true"></span><b>Iniciar</b><span>jornada</span></button>${catFixa ? catHtml : ""}${pn ? pnHtml : ""}
+    ` : `${catHtml}
+    ${pnHtml}
     <button class="mot-circ inicio" type="button" id="motIniciar"><span class="mc-play" aria-hidden="true"></span><b>Iniciar</b><span>jornada</span></button>
-    `}${compacto ? `${htmlContasMot(semContas)}</div></section>` : `<div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button><button class="mot-dia-2" type="button" data-mot-sub="recibo">Recibo para cliente</button><button class="mot-dia-2" type="button" data-mot-sub="prints">Lançar por prints</button><button class="mot-dia-2" type="button" data-mot-sub="anual">Resumo do ano (IR)</button></div></div></section>`}`;
+    `}${compacto ? `${htmlContasMot(semContas)}</div></section>` : `<div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Lançar outro dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button><button class="mot-dia-2" type="button" data-mot-sub="recibo">Recibo para cliente</button><button class="mot-dia-2" type="button" data-mot-sub="prints">Lançar por prints</button><button class="mot-dia-2" type="button" data-mot-sub="anual">Resumo do ano (IR)</button></div></div></section>`}`;
 }
 const htmlTresMot = (tit, hora, km, viagem, pe = "") => `<section class="mot-tres" aria-label="${tit}"><h3>${tit}</h3><div>${[["Por hora", hora], ["Por km", km], ["Por viagem", viagem]].map(([r, v]) => `<p><small>${r}</small><b class="ocultavel">${v === null ? "—" : brl(v)}</b></p>`).join("")}</div>${pe ? `<small class="ocultavel">${pe}</small>` : ""}</section>`;
 /** Quanto está rendendo: hoje, ou os últimos 7 dias enquanto hoje não tem jornada. */
@@ -6263,6 +6265,25 @@ function guardaGanhoAgora(host, { exigeGanho }) {
   mm.ativo.kmAgora = r.km > 0 ? r.km : null; mm.ativo.kmAgoraEm = r.km > 0 ? t : null;
   gravaMot(mm); vibra(15); return true;
 }
+/** Na primeira jornada: a categoria do carro e o km do painel, numa pergunta só. Depois disso, o Iniciar começa direto. */
+function perguntaAntesDeIniciar() {
+  const m = motDados(), cats_ = categoriasDoPerfil(m.perfil), atual = categoriaAtual(), pn = painelAtual(m.painel, m.turnos);
+  const precisaCat = cats_.length >= 2 && !cats_.includes(m.perfil?.categoria);
+  openDlg(`<h3>Antes de começar</h3><p class="hint">Só na primeira vez. Depois o app lembra.</p>
+    <form id="icForm" class="dlg-form" autocomplete="off">
+      ${precisaCat ? `<p class="ic-rot wide">Em qual categoria o seu carro roda?</p><div class="ds-chips wide" role="group" aria-label="Categoria">${cats_.map((k) => `<button type="button" data-ic-cat="${esc(k)}" aria-pressed="${k === atual}">${esc(k)}</button>`).join("")}</div>` : ""}
+      ${pn ? "" : `<label class="f wide">Km no painel do carro agora (opcional)<input class="in" id="icOdo" inputmode="numeric" maxlength="9" placeholder="ex.: 84.120"></label><p class="hint wide">Com ele, o app calcula os km rodados no fim do dia.</p>`}
+      <div class="actions wide"><button class="btn primary" type="submit" id="icOk">Iniciar jornada</button><button class="btn" type="button" data-close>Agora não</button></div>
+    </form>`);
+  let cat = atual;
+  $("dlgBody").querySelectorAll("[data-ic-cat]").forEach((b) => (b.onclick = () => { cat = b.dataset.icCat; $("dlgBody").querySelectorAll("[data-ic-cat]").forEach((x) => x.setAttribute("aria-pressed", String(x === b))); }));
+  $("icForm").addEventListener("submit", (e) => {
+    e.preventDefault();
+    const mm = motDados(), odo = odoNum($("icOdo")?.value);
+    gravaMot({ ...mm, perfil: mm.perfil ? { ...mm.perfil, categoria: cat || mm.perfil.categoria } : mm.perfil, ...(odo ? { painel: { ...(mm.painel || {}), odo, em: Date.now() } } : {}) });
+    $("dlg").close(); motEntrou = true; iniciarJornada(odo || pn?.odo || null); render(); scrollTo(0, 0);
+  });
+}
 function iniciarJornada(odoIni = null) {
   uso("jornada_iniciada"); motAba = "agora";
   const ini = Date.now();
@@ -6378,7 +6399,7 @@ function paneMot() {
       openDlg(`<h3>Mais opções</h3><p class="hint">Começou às ${hhmm(a.ini)}${a.categoria ? ` · ${esc(a.categoria)}` : ""}${gastosTot ? ` · ${brl(gastosTot)} em gastos` : ""}</p>
         ${tSemKm ? `<button class="ganho-falta mot-falta-km" type="button" id="motFaltaKm"><span class="tx"><b>Faltou o km de ${rotSemKm}</b><span>Toque para anotar agora.</span></span><span class="ir" aria-hidden="true">›</span></button>` : ""}
         <p class="mot-op-tit">Lançar</p>
-        <div class="mot-caixas">${caixa('id="motComida"', "talher", "Alimentação")}${caixa('data-mot-op="lancar"', "mais", "Outro gasto")}${caixa('data-mot-op="ler"', "camera", "Escanear", "nota ou QR code")}${caixa('id="motDiaEsq"', "agenda", "Outro dia", "esqueceu de lançar?")}${caixa('id="motPrints"', "imagem", "Por prints", "vários dias de uma vez")}</div>
+        <div class="mot-caixas">${caixa('id="motComida"', "talher", "Alimentação")}${caixa('data-mot-op="lancar"', "mais", "Outro gasto")}${caixa('data-mot-op="ler"', "camera", "Escanear", "nota ou QR code")}${caixa('id="motDiaEsq"', "agenda", "Lançar outro dia", "esqueceu de lançar?")}${caixa('id="motPrints"', "imagem", "Por prints", "vários dias de uma vez")}</div>
         <p class="mot-op-tit">Ver e ajustar</p>
         <div class="mot-caixas">${caixa('id="motDiasAnt"', "grafico", "Meus ganhos", "dias anteriores")}${caixa('id="motOdoOp"', "carro", "Km do painel", a.odoIni ? `ao começar: ${odoTxt(a.odoIni)}` : "anotar agora")}${caixa('id="motIrInicio"', "casa", "Ir para o Início")}</div>
         <div class="mot-op-fim"><button class="btn" type="button" data-close>Fechar</button><button class="link mot-descartar" type="button" id="motDescartar">Descartar esta jornada</button></div>`);
@@ -6446,6 +6467,7 @@ function paneMot() {
   if ($("mpRodei")) $("mpRodei").onclick = () => { diaParaLancar = $("mpRodei").dataset.dia; motEntra("dia"); diaParaLancar = ""; };
   if ($("mpFolga")) $("mpFolga").onclick = () => { S.prefs.folgas = [...(S.prefs.folgas || []), $("mpFolga").dataset.dia].slice(-60); salvaPrefs(); toast("Anotado: dia de folga."); render(); };
   if ($("motIniciar")) $("motIniciar").onclick = () => {
+    if ($("motIniciar").dataset.pergunta) return perguntaAntesDeIniciar();
     const digitado = odoNum($("motOdoIni")?.value), pn = painelAtual(motDados().painel, motDados().turnos);
     if (digitado && pn && digitado < pn.odo && !confirm(`O painel estava em ${odoTxt(pn.odo)} km. Usar ${odoTxt(digitado)} km mesmo assim?`)) return $("motOdoIni").focus();
     if (digitado) { const mm = motDados(); gravaMot({ ...mm, painel: { ...(mm.painel || {}), odo: digitado, em: Date.now() } }); }
