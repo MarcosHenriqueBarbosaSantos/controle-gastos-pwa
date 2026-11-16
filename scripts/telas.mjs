@@ -117,6 +117,7 @@ await teste("Cartões: cadastrar um cartão novo", "#demo", async ({ pg, w, clic
 // ---------- Caminhos do motorista ----------
 await teste("Motorista: Ganhos da semana abre com o total", "#motorista", async ({ pg, w, clica }) => {
   await clica('#bnav [data-nav="mot"]'); await w(800);
+  await clica('[data-mot-aba="resumo"]'); await w(600);   // o cartão da semana fica na aba "Resumo e meta"
   const sem = dinheiro(await pg.locator("#motGanhos").innerText());
   await clica("#motGanhos"); await w(900);
   await pg.locator('[data-per="semana"]').first().evaluate((e) => e.click()).catch(() => {}); await w(600);
@@ -215,7 +216,7 @@ await teste("Motorista: Lançar por prints abre pela Jornada e pelo Lançar o di
 });
 await teste("Motorista: resumo do ano soma os ganhos e baixa o PDF", "#motorista", async ({ pg, w, clica }) => {
   await clica('#bnav [data-nav="mot"]'); await w(800);
-  await clica('[data-mot-sub="anual"]'); await w(800);
+  await clica('[data-mot-aba="resumo"]'); await w(600); await clica('[data-mot-sub="anual"]'); await w(800);
   await clica('[data-an-ano="2026"]'); await w(500);
   const txt = limpa(await pg.locator(".an-previa").innerText());
   confere(/Total de ganhos/.test(txt) && /Gastos com o veículo/.test(txt), "o resumo do ano não mostrou ganhos e gastos: " + txt.slice(0, 120));

@@ -357,3 +357,32 @@ button,a,summary,.btn{touch-action:manipulation}
 .lp-linha label{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 6px}
 .lp-linha label .in{flex-basis:100%;padding-left:10px;padding-right:6px}
 .lp-linha.tres{grid-template-columns:1.25fr 1fr .75fr}
+
+/* v260: Jornada parada em duas abas: Começar (enxuta, Iniciar no alto) e Resumo e meta */
+.mot-meta-linha{margin:6px 0 10px;font-size:17px;line-height:1.4;color:inherit;opacity:.95}
+.mot-meta-linha b{font-weight:700}
+.mot-comecar .mot-abas{margin-bottom:10px}
+.mot-comecar .mot-dia .mot-dia-prog{margin-top:4px}
+.mot-comecar .mot-dia-base .mot-dia-conta{margin-top:14px}
+.mot-tiles-comecar{margin:16px 0 8px}
+.mot-dia-base .mot-dia-odo{grid-template-columns:minmax(0,1fr) 140px;grid-template-areas:"rot campo" "dica campo"}
+.mot-dia-base .mot-dia-odo small{grid-column:1;grid-row:2;display:block;font-weight:400;font-size:13px;opacity:.8}
+.mot-dia-base .mot-dia-odo input{grid-column:2;grid-row:1 / span 2}
+
+/* v260: contraste e caixas grandes */
+/* "Você rodou?": o botão de folga herdava letra branca sobre fundo branco */
+.mot-pergunta .btn:not(.primary){background:transparent;border:1.5px solid rgba(255,255,255,.85);color:#fff}
+.mot-pergunta .btn.primary{background:#fff;color:#0b2545;border:0}
+/* Mais opções: caixas grandes, duas por linha, ícone em cima e nome embaixo */
+.mot-caixas{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.mot-caixa{display:grid;align-content:space-between;justify-items:start;gap:14px;min-height:112px;padding:16px;border-radius:20px;border:1px solid var(--border);background:var(--surface);color:var(--ink);font:inherit;text-align:left;cursor:pointer;box-shadow:0 1px 2px rgba(11,37,69,.05);touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+.mot-caixa .ic-c{display:grid;place-items:center;width:40px;height:40px;border-radius:12px;background:#e8f0fc;color:#1f5fbf}
+.mot-caixa .ic-c .ic{width:22px;height:22px}
+.mot-caixa b{font-size:16.5px;font-weight:700;line-height:1.25;color:var(--ink)}
+.mot-caixa small{display:block;margin-top:-10px;font-size:13.5px;color:var(--ink-2)}
+.mot-caixa:active{transform:scale(.98)}
+#dlgBody .mot-op-tit{font-size:14px;font-weight:700;color:var(--ink)}
+@media (min-width:700px){.mot-caixas{grid-template-columns:repeat(3,minmax(0,1fr))} .mot-caixa{min-height:128px}}
+/* quadradinhos: nome mais escuro e maior, para ler no sol */
+.mot-tile{color:var(--ink);font-size:14px;font-weight:600}
+:root[data-tema="escuro"] .mot-caixa .ic-c{background:rgba(95,212,255,.12);color:#5fd4ff}
