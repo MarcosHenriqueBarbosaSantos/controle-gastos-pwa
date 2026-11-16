@@ -8,7 +8,8 @@ import { agendaDaRota, CATS_PADRAO, RETIRADA, JA_TINHA, FORMAS, MESES, MES3, pad
 import { leEtiquetaDePreco } from "./etiqueta.js";
 import { createSupabaseStore, createLocalStore, demoSeed, comFila, semRede, comPrazo } from "./store.js";
 import { buildWorkbook, norm, guessCat } from "./excel.js";
-import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto } from "./leitor.js";
+import { lerImagem, lerPdf, textoDoPdf, ehPdf, interpretaTexto, carregaLeitor, preparaImagem } from "./leitor.js";
+import { criaLancarPrints } from "./prints.js";
 import { ehExtratoDeContaPdf, leExtratoDeContaPdf, ehExtratoNubankPdf, leExtratoNubankPdf, documentoDeVariasLinhas, leFaturaPdf } from "./extratopdf.js";
 import { saldosDoCasal } from "./casalvisao.js";
 import { paraOndeFoi, nomeDoMes, metaSugerida, limiteViavel } from "./paraondefoi.js";
@@ -797,7 +798,7 @@ function render() {
   const onde = S.view === "inicio" ? "inicio" : S.view === "analise" ? "m" : motUsa && S.view === "listas" && S.tab === "mot" ? "mot" : naMais || sub ? "menu" : S.tab;
   document.querySelectorAll("#bnav button").forEach((b) => b.dataset.nav === onde ? b.setAttribute("aria-current", "page") : b.removeAttribute("aria-current"));
   $("btnMaisM").toggleAttribute("aria-current", onde === "menu");
-  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? (motSub === "ganhos" ? "Ganhos" : motSub === "chat" ? "Conversa" : motSub === "recibo" ? "Recibo para o cliente" : motSub === "anual" ? "Resumo do ano" : "Jornada") : "";
+  $("listaTitulo").textContent = S.tab === "l" ? "Lançamentos" : S.tab === "c" ? "Cartões" : S.tab === "m" ? "Planejar" : S.tab === "mot" ? (motSub === "ganhos" ? "Ganhos" : motSub === "chat" ? "Conversa" : motSub === "recibo" ? "Recibo para o cliente" : motSub === "anual" ? "Resumo do ano" : motSub === "prints" ? "Lançar por prints" : "Jornada") : "";
   $("listaTitulo").hidden = S.tab === "f" || S.tab === "r";
   $("listaVoltar").hidden = !sub;
   renderForm(); renderInstalar(); renderFechamento(); renderRepetidos(); renderVenc(); renderSemanaIni(); renderKpis(c); renderCusto(c); renderCat(c); renderEvo(); renderTabs(c); renderMais(c); aplicaInicio();
@@ -809,13 +810,22 @@ async function aoChegar() {
   const atalho = S.atalho, compartilhado = S.compartilhado; S.atalho = ""; S.compartilhado = false;
   if (!compartilhado) { if (atalho === "lancar" || atalho === "qr" || atalho === "voz") abrirLancar(); if (atalho === "qr") abrirQr(); if (atalho === "voz") ouvirGasto(); if (atalho === "mercado") mercado(); if (atalho === "vale") { motoristaTela(); setTimeout(corridaValeTela, 150); } if (atalho === "jornada") motoristaTela(); if (atalho === "desafios") { motoristaTela(); motEntra("desafios"); } if (atalho === "motorista") motoristaTela(); return; }
   // O arquivo ou o texto compartilhado foi guardado pelo app neste aparelho (sw.js) e é apagado assim que é lido.
-  let arquivo = null, texto = "";
+  let arquivo = null, texto = "", extras = [];
   try {
     const c = await caches.open("meus-gastos-compartilhado"), ra = await c.match("./__compartilhado/arquivo"), rt = await c.match("./__compartilhado/texto");
     if (ra) { const b = await ra.blob(); arquivo = new File([b], decodeURIComponent(ra.headers.get("X-Nome") || "arquivo"), { type: b.type }); }
+    for (let i = 1; i < 30; i++) { const r = await c.match(`./__compartilhado/arquivo-${i}`); if (!r) break; const b = await r.blob(); extras.push(new File([b], `print-${i}`, { type: b.type })); await c.delete(`./__compartilhado/arquivo-${i}`); }
     if (rt) texto = (await rt.text()).trim();
     await c.delete("./__compartilhado/arquivo"); await c.delete("./__compartilhado/texto");
   } catch { /* sem o que ler: abre o formulário */ }
+  const imagens = arquivo && /^image\//.test(arquivo.type) ? [arquivo, ...extras.filter((f) => /^image\//.test(f.type))] : [];
+  if (imagens.length && S.prefs.motorista?.usa) {
+    const ganhos = () => { $("dlg").close(); printsChegados = imagens; motoristaTela(); motEntra("prints"); };
+    if (imagens.length > 1) return ganhos();
+    openDlg(`<h3>O que é esse print?</h3><div class="mot-opcoes"><button class="btn primary" type="button" id="chGanhos">Ganhos de um app (Uber, 99…)</button><button class="btn" type="button" id="chGasto">Comprovante de um gasto</button></div>`);
+    $("chGanhos").onclick = ganhos; $("chGasto").onclick = () => { $("dlg").close(); S.lerComo = ""; processaLeitura(arquivo); };
+    return;
+  }
   if (arquivo) { S.lerComo = ""; return !ehPdf(arquivo) && !/^image\//.test(arquivo.type) && ehExtrato(arquivo) ? (IMPORTA_EXTRATO ? importarExtrato(arquivo) : (abrirLancar(), toast("Esse tipo de arquivo não é lido. Lance a compra à mão ou use a foto ou o PDF do comprovante."))) : processaLeitura(arquivo); }
   if (texto) { if (!usaCodigo(texto)) { S.lerComo = ""; conferirLeitura(interpretaTexto(texto, hoje()), texto, ""); } return; }
   abrirLancar(); toast("Não consegui abrir o que foi compartilhado. Tente de novo, ou lance por aqui.");
@@ -1286,7 +1296,7 @@ function renderKpis(c) {
   ligaMercadoIni();
   if ($("usaMetaIni")) $("usaMetaIni").onclick = () => usaMeta(Number($("usaMetaIni").dataset.valor), () => {});
   inicioQ("[data-cartao-ini]").forEach((b) => (b.onclick = () => abrirSub("c")));
-  inicioQ("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), merc: () => mercado(), cal: () => calendario(mKey(hoje())), motorista: motoristaTela, recibo: () => { motoristaTela(); motEntra("recibo"); }, anual: () => { motoristaTela(); motEntra("anual"); }, ordem: () => equilibrioTela() })[b.dataset.atalho]()));
+  inicioQ("[data-atalho]").forEach((b) => (b.onclick = () => ({ ext: () => abrirSub("l"), graficos: abrirAnalise, plan: () => abrirSub("m"), cart: () => abrirSub("c"), fixas: () => abrirSub("f"), merc: () => mercado(), cal: () => calendario(mKey(hoje())), motorista: motoristaTela, recibo: () => { motoristaTela(); motEntra("recibo"); }, anual: () => { motoristaTela(); motEntra("anual"); }, prints: () => { motoristaTela(); motEntra("prints"); }, ordem: () => equilibrioTela() })[b.dataset.atalho]()));
   $("entenda").onclick = () => entendaAConta(c);
   if ($("verFech")) $("verFech").onclick = () => abrirFechamento(S.mes);
   if ($("verRev")) $("verRev").onclick = () => revisaoTela(S.mes);
@@ -3733,6 +3743,7 @@ const GRUPOS_FERR = [
     { id: "planos", k: "plano sonho ferias casa carro viagem reserva emergencia independencia liberdade guardar", ico: "sol", t: "Meus planos", s: "Férias, casa, carro: quanto guardar por mês" },
     { id: "motorista", k: "uber 99 indrive motorista aplicativo corrida turno rodar renda extra", ico: "carro", t: "Modo motorista", s: "Inicie o turno, veja o lucro do dia e quanto rodar para fechar o mês" },
     { id: "recibo", k: "recibo nota comprovante cliente particular corrida empresa whatsapp", ico: "clipe", t: "Recibo de corrida", s: "Para a corrida particular: o recibo com a conta, pronto para o WhatsApp" },
+    { id: "prints", k: "print captura tela ganhos uber 99 indrive varios dias lancar semana tablet", ico: "imagem", t: "Lançar por prints", s: "Os prints da tela de ganhos de cada app viram os ganhos de cada dia" },
     { id: "anual", k: "imposto de renda ir mei contador declaracao resumo ano anual relatorio carne leao", ico: "baixar", t: "Resumo do ano (IR e MEI)", s: "Ganhos por app e gastos do carro no ano, em PDF para o contador" },
     { id: "mercado", k: "supermercado compras feira carrinho comprar", ico: "carrinho", t: "Lista de mercado", s: "Anote o que comprar, estime o gasto e lance ao finalizar" },
     { id: "veiculo", k: "gasolina combustivel ipva seguro oficina moto", ico: "carro", t: "Custo do carro ou moto", s: "Quanto custa por mês, por dia e por km" },
@@ -5595,7 +5606,7 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa 
     <div class="mot-dia-base">${ativa ? `<button class="mot-dia-bt" type="button" id="motVoltaJornada">Voltar à jornada em andamento</button>` : `${cats_.length < 2 ? "" : catFixa ? `<details class="mot-cat-det"><summary>Categoria: <b>${esc(catAtual)}</b><span>Trocar</span></summary>${`<div class="ds-chips" role="group" aria-label="Categoria do seu carro">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>`}<small>Troque só se mudar de carro ou de categoria.</small></details>` : `<p class="mot-cat-dica">Em qual categoria o seu carro roda? Escolha uma vez: o app lembra.</p>${`<div class="ds-chips" role="group" aria-label="Categoria do seu carro">${catsVis.map((k) => `<button type="button" data-mot-cat="${esc(k)}" aria-pressed="${k === catAtual}">${esc(k)}</button>`).join("")}${catsResto.length ? `<select class="mot-cat-mais" data-mot-cat-mais aria-label="Outra categoria"><option value="">Outra</option>${catsResto.map((k) => `<option>${esc(k)}</option>`).join("")}</select>` : ""}</div>`}`}
     ${pn ? `<div class="mot-painel"><p>Painel do carro: <b>${odoTxt(pn.odo)} km</b><button type="button" class="link" id="motPainelMuda">Mudou? Atualizar</button></p><label class="mot-dia-odo" id="motOdoWrap" hidden>Km no painel agora<input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="ex.: ${odoTxt(pn.odo)}"></label><p class="mot-trip">Antes de sair, zere o hodômetro parcial (o &quot;trip&quot;) do carro. No fim do dia, ele mostra quantos km você rodou.</p>${oleo ? `<button type="button" class="mot-oleo ${oleo.nivel}" id="motOleo">${oleo.nivel === "passou" ? `Troca de óleo passou ${odoTxt(-oleo.falta) || 0} km. Trocou? Toque aqui.` : `Troca de óleo em ${odoTxt(oleo.falta)} km`}</button>` : `<button type="button" class="link mot-oleo-novo" id="motOleo">Avisar a troca de óleo</button>`}</div>` : `<label class="mot-dia-odo">Km no painel do carro <small>(só desta vez: depois o app lembra)</small><input id="motOdoIni" inputmode="numeric" maxlength="9" autocomplete="off" placeholder="ex.: 84.120"></label>`}
     <button class="mot-circ inicio" type="button" id="motIniciar"><span class="mc-play" aria-hidden="true"></span><b>Iniciar</b><span>jornada</span></button>
-    `}<div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button><button class="mot-dia-2" type="button" data-mot-sub="recibo">Recibo para cliente</button><button class="mot-dia-2" type="button" data-mot-sub="anual">Resumo do ano (IR)</button></div></div></section>`;
+    `}<div class="mot-dia-links"><button class="mot-dia-2" type="button" data-mot-sub="dia">Já rodou? Lançar o dia</button><button class="mot-dia-2" type="button" id="motVerMais">Ver meus ganhos</button><button class="mot-dia-2" type="button" data-mot-sub="recibo">Recibo para cliente</button><button class="mot-dia-2" type="button" data-mot-sub="prints">Lançar por prints</button><button class="mot-dia-2" type="button" data-mot-sub="anual">Resumo do ano (IR)</button></div></div></section>`;
 }
 const htmlTresMot = (tit, hora, km, viagem, pe = "") => `<section class="mot-tres" aria-label="${tit}"><h3>${tit}</h3><div>${[["Por hora", hora], ["Por km", km], ["Por viagem", viagem]].map(([r, v]) => `<p><small>${r}</small><b class="ocultavel">${v === null ? "—" : brl(v)}</b></p>`).join("")}</div>${pe ? `<small class="ocultavel">${pe}</small>` : ""}</section>`;
 /** Quanto está rendendo: hoje, ou os últimos 7 dias enquanto hoje não tem jornada. */
@@ -5738,6 +5749,28 @@ const recibo = criaRecibo({ $, esc, brl, parseMoney, toast: (t) => toast(t), hoj
     const catR = cats("Receita").find((x) => /extra|app|motor/i.test(x)) || cats("Receita")[0]; let criados = [];
     if (await grava(async () => { criados = await S.store.addLancamentos([{ data, import_key: null, cartao_id: null, parcelas: 1, descricao, tipo: "Receita", categoria: catR, forma: "", valor }]); })) { criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) })); uso("recibo_enviado"); }
   } });
+/* Lançar por prints: mora em js/prints.js. Aqui entregamos como gravar um dia e o que já foi lançado. */
+let printsChegados = null;   // prints que vieram pelo Compartilhar do aparelho
+const lancarPrints = criaLancarPrints({ $, esc, brl, nm, toast: (t) => toast(t), hoje, lerHoras, voltar: () => motSai(), deps: { carregaLeitor, preparaImagem },
+  apps: () => { const meus = appsDoPerfil(motDados().perfil, Object.keys(Object.assign({}, ...motDados().turnos.map((t) => t.apps || {})))), todos = APPS.filter(([k]) => APPS_POR_VEICULO[motDados().perfil?.veiculo === "moto" ? "moto" : "carro"].includes(k));
+    return [...meus, ...todos.filter(([k]) => !meus.some(([m]) => m === k))]; },   // os seus primeiro, depois os outros do mesmo tipo de veículo
+  lado: (n, i) => S.prefs.motorista?.printLados?.[`${n}-${i}`] || null,
+  guardaLado: (n, i, a) => { const m = S.prefs.motorista || (S.prefs.motorista = {}); m.printLados = { ...(m.printLados || {}), [`${n}-${i}`]: a }; salvaPrefs(); },
+  jaTem: (dia, a) => round2(motDados().turnos.filter((t) => t.fim && isoLocal(t.ini) === dia).reduce((s2, t) => s2 + (Number(t.apps?.[a]) || 0), 0)),
+  gravaDia: (d) => gravaDiaDosApps(d) });
+/** Grava um dia lançado sem jornada (como "Lançar o dia"): o ganho vai para o Extrato e o dia vira um turno manual. */
+async function gravaDiaDosApps({ dia, apps, viagensApp = {}, km = 0, viagens = 0, ms = 0 }) {
+  const ganho = round2(Object.values(apps).reduce((a, b) => a + b, 0)); if (!(ganho > 0) || !dia) return false;
+  const ini = dia === hoje() ? Math.max(new Date(`${dia}T00:01:00`).getTime(), Date.now() - ms) : new Date(`${dia}T06:00:00`).getTime();
+  const nomes = APPS.filter(([k]) => apps[k]).map(([, n]) => n).join(" + "), catR = cats("Receita").find((x) => /extra|app|motor/i.test(x)) || cats("Receita")[0];
+  let criados = [];
+  if (!(await grava(async () => { criados = await S.store.addLancamentos([{ data: dia, import_key: null, cartao_id: null, parcelas: 1, descricao: `Ganhos: ${nomes}`, tipo: "Receita", categoria: catR, forma: "", valor: ganho }]); }))) return false;
+  criados.forEach((g) => S.data.lancamentos.push({ ...g, valor: Number(g.valor) }));
+  const mm = motDados(), turno = { id: crypto.randomUUID(), manual: true, porPrint: true, categoria: categoriaAtual(), ini, fim: ini + ms, pausado: 0, apps, viagensApp, gastos: {}, viagens, km, comb: 0, rid: criados[0]?.id || null, cids: [] };
+  gravaMot({ ...mm, turnos: [...mm.turnos, turno].sort((a, b) => a.ini - b.ini) });
+  enviaPlacar([dia]); uso("prints_lancados");
+  return true;
+}
 /* Resumo do ano do motorista (IR, MEI, contador): mora em js/anual.js. */
 const resumoAnual = criaResumoAnual({ $, esc, brl, toast: (t) => toast(t), hoje, voltar: () => motSai(), baixa: (n, b) => baixaArquivo(n, b), uso: () => uso("resumo_anual"), lancar: () => acaoRapida("lancar"), ganhos: () => motEntra("ganhos"),
   dados: () => ({ st: S.data, turnos: motDados().turnos }), meus: () => { const m = S.prefs.recibo || {}; return { nome: m.nome, doc: m.doc, carro: m.carro, placa: m.placa }; } });
@@ -5925,6 +5958,7 @@ function paneLancarDia(host) {
   const faltam = diasSemGanho(motDados().turnos, hj), DS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
   const rotDia = (iso) => `${DS[new Date(iso + "T12:00:00").getDay()]} ${ddmm(iso)}`;
   host.innerHTML = `<div id="motRoot"><h3 class="mot-h" style="margin-top:0">Lançar o dia</h3><p class="hint" style="margin:0 0 10px">Copie o que cada app mostra. Este lançamento vale para o seu resultado, mas não conta nos desafios: lá só entra jornada iniciada no app.</p>
+    <button type="button" class="ganho-falta md-prints" id="mdPrints"><span class="tx"><b>Lançar por prints</b><span>Tirou print da tela de ganhos de cada app? Escolha todos de uma vez.</span></span><span class="ir" aria-hidden="true">›</span></button>
     ${faltam.length ? `<div class="md-faltam"><p>Dias desta semana sem ganho. Toque no dia que você rodou:</p><div class="md-dias" role="group" aria-label="Dias sem ganho">${faltam.map((d) => `<button type="button" class="chip" data-md-dia="${d}" aria-pressed="${d === (diaParaLancar || "")}">${rotDia(d)}</button>`).join("")}</div></div>` : ""}
     <form id="mdForm" class="dlg-form" autocomplete="off">
       <label class="f">Dia<input class="in" type="date" id="mdData" value="${diaParaLancar || hj}" max="${hj}"></label>
@@ -5939,7 +5973,7 @@ function paneLancarDia(host) {
   const le = () => { const a = leApps(host), k = leKm(); return { ...a, ...k, ganho: somaValores(a.apps), gasto: Math.max(0, nm($("mdGasto").value)), ms: lerHoras($("mdHoras").value) || 0 }; };
   const conta = () => { const v = le(), r = contaDoDia(v); $("mdConta").innerHTML = v.ganho > 0 ? htmlTresMot("Nesse dia você ganhou", r.porHora, r.porKm, r.porViagem, r.sobraPorHora === null ? "" : `Depois dos gastos, ${brl(r.sobraPorHora)} por hora.`) : ""; };
   ["mdGasto", "mdHoras"].forEach((id) => $(id).addEventListener("input", conta)); host.querySelectorAll("[data-app],[data-viag]").forEach((i) => i.addEventListener("input", conta)); ligaKm(conta);
-  $("mdVolta").onclick = motSai;
+  $("mdVolta").onclick = motSai; $("mdPrints").onclick = () => motEntra("prints");
   const marcaH = () => host.querySelectorAll("[data-md-h]").forEach((b) => b.setAttribute("aria-pressed", String(`${b.dataset.mdH}:00` === $("mdHoras").value)));
   host.querySelectorAll("[data-md-h]").forEach((b) => (b.onclick = () => { $("mdHoras").value = `${b.dataset.mdH}:00`; marcaH(); conta(); }));
   $("mdHoras").addEventListener("input", marcaH); marcaH();
@@ -6267,6 +6301,7 @@ function paneMot() {
   if (motSub === "chat") return conversa.tela(host);
   if (motSub === "recibo") return recibo.tela(host);
   if (motSub === "anual") return resumoAnual.tela(host);
+  if (motSub === "prints") { const a = printsChegados; printsChegados = null; return lancarPrints.tela(host, a); }
   if (motSub === "reservas") return paneReservas(host);
   if (motSub === "dia") return paneLancarDia(host);
   if (motSub === "ganhos") return paneGanhos(host);
@@ -6342,7 +6377,7 @@ function paneMot() {
       openDlg(`<h3>Mais opções</h3><p class="hint">Começou às ${hhmm(a.ini)}${a.categoria ? ` · ${esc(a.categoria)}` : ""}${gastosTot ? ` · ${brl(gastosTot)} em gastos` : ""}</p>
         ${tSemKm ? `<button class="ganho-falta mot-falta-km" type="button" id="motFaltaKm"><span class="tx"><b>Faltou o km de ${rotSemKm}</b><span>Toque para anotar agora.</span></span><span class="ir" aria-hidden="true">›</span></button>` : ""}
         <p class="mot-op-tit">Lançar</p>
-        <div class="mot-tiles">${tile('id="motComida"', "talher", "Alimentação")}${tile('data-mot-op="lancar"', "mais", "Outro gasto")}${tile('data-mot-op="ler"', "camera", "Escanear")}${tile('id="motDiaEsq"', "agenda", "Outro dia")}</div>
+        <div class="mot-tiles">${tile('id="motComida"', "talher", "Alimentação")}${tile('data-mot-op="lancar"', "mais", "Outro gasto")}${tile('data-mot-op="ler"', "camera", "Escanear")}${tile('id="motDiaEsq"', "agenda", "Outro dia")}${tile('id="motPrints"', "imagem", "Por prints")}</div>
         <p class="mot-op-tit">Ver e ajustar</p>
         <div class="mot-tiles">${tile('id="motDiasAnt"', "grafico", "Meus ganhos")}${tile('id="motOdoOp"', "carro", a.odoIni ? `Km ${odoTxt(a.odoIni)}` : "Km do painel")}${tile('id="motIrInicio"', "casa", "Início")}</div>
         <div class="mot-op-fim"><button class="btn" type="button" data-close>Fechar</button><button class="link mot-descartar" type="button" id="motDescartar">Descartar esta jornada</button></div>`);
@@ -6350,6 +6385,7 @@ function paneMot() {
       $("motComida").onclick = () => { $("dlg").close(); lancaGastoMot("Alimentação"); };
       $("motDiasAnt").onclick = () => { $("dlg").close(); abrirGanhos("dia", isoLocal(Date.now() - 864e5)); };
       $("motDiaEsq").onclick = () => { $("dlg").close(); outroDia(); };
+      $("motPrints").onclick = () => { $("dlg").close(); motEntra("prints"); };
       $("motOdoOp").onclick = () => { $("dlg").close(); anotaPainelMot(); };
       if ($("motFaltaKm")) $("motFaltaKm").onclick = () => { $("dlg").close(); motEditaDaJornada = true; motEntra("edit-" + tSemKm.id); };
       $("motIrInicio").onclick = () => { $("dlg").close(); $("bnav").querySelector('[data-nav="inicio"]').click(); };

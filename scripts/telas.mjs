@@ -205,6 +205,14 @@ await teste("Motorista: jornada pausada e esquecida avisa e encerra direto na co
   await clica("#motEsqEncerra"); await w(900);
   confere(!(await pg.locator("#motCirc").count()), "a jornada continuou aberta depois de Encerrar");
 });
+await teste("Motorista: Lançar por prints abre pela Jornada e pelo Lançar o dia", "#motorista", async ({ pg, w, clica }) => {
+  await clica('#bnav [data-nav="mot"]'); await w(800);
+  await clica('[data-mot-sub="prints"]'); await w(700);
+  confere(await pg.locator("#lpEscolhe").count(), "a tela Lançar por prints não abriu pela Jornada");
+  await clica("#lpVolta"); await w(600); await clica('[data-mot-sub="dia"]'); await w(700);
+  await clica("#mdPrints"); await w(700);
+  confere(await pg.locator("#lpEscolhe").count(), "o atalho Lançar por prints não abriu pelo Lançar o dia");
+});
 await teste("Motorista: resumo do ano soma os ganhos e baixa o PDF", "#motorista", async ({ pg, w, clica }) => {
   await clica('#bnav [data-nav="mot"]'); await w(800);
   await clica('[data-mot-sub="anual"]'); await w(800);

@@ -468,7 +468,7 @@ export async function textoDoPdf(arquivo, { senha = "", maxPaginas = 80, aoProgr
 const TESSERACT = "https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js";
 let carregando = null;
 /** Carrega a biblioteca de leitura só quando a pessoa usa o leitor pela primeira vez. */
-function carregaLeitor() {
+export function carregaLeitor() {
   if (globalThis.Tesseract) return Promise.resolve(globalThis.Tesseract);
   carregando ||= new Promise((ok, erro) => {
     const s = document.createElement("script"); s.src = TESSERACT;

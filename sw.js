@@ -1,10 +1,10 @@
 // Service worker: guarda os arquivos do app para abrir na hora, com ou sem sinal, e funcionar como app instalado.
 // Os dados (Supabase) sempre vêm da internet; sem conexão, o app usa a cópia e a fila do aparelho (js/store.js, comFila).
 // Ao mudar arquivos, aumente a VERSAO: é ela que faz os celulares baixarem a versão nova.
-const VERSAO = "meus-gastos-v258";
+const VERSAO = "meus-gastos-v259";
 const ARQUIVOS = [
   "./", "index.html", "css/style.css", "css/tech.css", "manifest.webmanifest",
-  "js/app.js", "js/calc.js", "js/store.js", "js/excel.js", "js/leitor.js", "js/etiqueta.js", "js/notamercado.js", "js/qr.js", "js/extrato.js", "js/config.js", "js/voz.js", "js/extras.js", "js/conta.js", "js/escuta.js", "js/extratopdf.js", "js/motorista.js", "js/erros.js", "js/uso.js", "js/semana.js", "js/chat.js", "js/recibo.js", "js/anual.js", "js/ganhogasto.js", "js/novidades.js", "js/arrumar.js", "js/paraondefoi.js", "js/casalvisao.js",
+  "js/app.js", "js/calc.js", "js/store.js", "js/excel.js", "js/leitor.js", "js/etiqueta.js", "js/notamercado.js", "js/qr.js", "js/extrato.js", "js/config.js", "js/voz.js", "js/extras.js", "js/conta.js", "js/escuta.js", "js/extratopdf.js", "js/motorista.js", "js/erros.js", "js/uso.js", "js/semana.js", "js/chat.js", "js/recibo.js", "js/anual.js", "js/prints.js", "js/ganhogasto.js", "js/novidades.js", "js/arrumar.js", "js/paraondefoi.js", "js/casalvisao.js",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png", "icons/apple-touch-icon.png",
 ];
 // Bibliotecas de fora que a tela usa logo ao abrir. Se a rede falhar na instalação, elas entram no primeiro uso.
@@ -30,7 +30,9 @@ const COMPARTILHADO = "meus-gastos-compartilhado";
 async function recebeCompartilhado(req) {
   try {
     const f = await req.formData(), c = await caches.open(COMPARTILHADO);
-    const arq = f.getAll("arquivo").find((x) => x && typeof x !== "string" && x.size > 0);
+    const todos = f.getAll("arquivo").filter((x) => x && typeof x !== "string" && x.size > 0), arq = todos[0];
+    for (let i = 1; i < 30; i++) await c.delete(`./__compartilhado/arquivo-${i}`);
+    for (let i = 1; i < Math.min(todos.length, 30); i++) await c.put(`./__compartilhado/arquivo-${i}`, new Response(todos[i], { headers: { "Content-Type": todos[i].type || "application/octet-stream" } }));
     const texto = ["titulo", "texto", "link"].map((k) => f.get(k)).filter((x) => typeof x === "string" && x.trim()).join("\n").slice(0, 20000);
     await c.delete("./__compartilhado/arquivo"); await c.delete("./__compartilhado/texto");
     if (arq) await c.put("./__compartilhado/arquivo", new Response(arq, { headers: { "Content-Type": arq.type || "application/octet-stream", "X-Nome": encodeURIComponent(arq.name || "arquivo") } }));
