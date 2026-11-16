@@ -1,0 +1,38 @@
+# Monta o APK de teste da bolinha (pasta android/) a cada envio para o ramo "android"
+# e publica como um lançamento de teste, para baixar no tablet sem login.
+name: APK de teste da bolinha
+
+on:
+  push:
+    branches: [android]
+    paths: ["android/**", ".github/workflows/android-apk.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+      - name: Montar o APK
+        run: gradle -p android assembleDebug --no-daemon --stacktrace
+      - name: Dar nome ao arquivo
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk meus-gastos-bolinha-teste.apk
+      - name: Publicar como lançamento de teste
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: bolinha-teste-${{ github.run_number }}
+          name: "Bolinha (teste ${{ github.run_number }})"
+          prerelease: true
+          body: "APK de teste da bolinha do Meus Gastos. Baixe no tablet, instale e siga as instruções da tela. Não é a versão da loja."
+          files: meus-gastos-bolinha-teste.apk
