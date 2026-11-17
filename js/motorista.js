@@ -120,7 +120,10 @@ export function resumoTurnos(turnos, de, ate, veic) {
   return { n: lista.length, ganho, km, viagens, comb, ms, custo, lucro, comCarro: Boolean(porKm && km > 0),
     kmBase, kmPass, kmVazio, pctVazio: kmBase > 0 ? Math.round((kmVazio / kmBase) * 100) : null, custoVazio: porKm ? r2(kmVazio * porKm) : null,
     ganhoPorKmPass: kmPass > 0 ? r2(ganhoBase / kmPass) : null, kmEstimado: lista.some((t) => t.kmEst),
-    ganhoPorHora: horas > 0 ? r2(ganho / horas) : null, lucroPorHora: horas > 0 ? r2(lucro / horas) : null,
+    // por hora: só os dias que têm horas (um dia lançado sem horas não pode fazer a hora parecer valer mais)
+    ...(() => { const ch = lista.filter((t) => duracaoMs(t) > 0), g = ch.reduce((s, t) => s + ganhoDoTurno(t), 0), k = ch.reduce((s, t) => s + (Number(t.km) || 0), 0);
+      const c = porKm && k > 0 ? k * porKm : ch.reduce((s, t) => s + (Number(t.comb) || 0), 0);
+      return { ganhoPorHora: horas > 0 ? r2(g / horas) : null, lucroPorHora: horas > 0 ? r2((g - c) / horas) : null, semHoras: lista.length - ch.length }; })(),
     ganhoPorKm: km > 0 ? r2(ganho / km) : null, lucroPorKm: km > 0 ? r2(lucro / km) : null,
     ganhoPorViagem: viagens > 0 ? r2(ganho / viagens) : null };
 }
@@ -591,12 +594,12 @@ export function ritmoHistorico(turnos, ate, janela = 30) {
   const ini = isoLocal(new Date(`${ate}T12:00:00`).getTime() - (janela - 1) * 864e5);
   const por = new Map();
   (turnos || []).filter((t) => t.fim && isoLocal(t.ini) >= ini && isoLocal(t.ini) <= ate).forEach((t) => {
-    const d = isoLocal(t.ini), a = por.get(d) || { ganho: 0, ms: 0 }; a.ganho += ganhoDoTurno(t); a.ms += duracaoMs(t); por.set(d, a);
+    const d = isoLocal(t.ini), a = por.get(d) || { ganho: 0, ms: 0, gh: 0 }; a.ganho += ganhoDoTurno(t); a.ms += duracaoMs(t); if (duracaoMs(t) > 0) a.gh += ganhoDoTurno(t); por.set(d, a);
   });
   const dias = [...por.values()].filter((a) => a.ganho > 0);
   if (dias.length < 2) return null;
-  const ganho = dias.reduce((s, a) => s + a.ganho, 0), ms = dias.reduce((s, a) => s + a.ms, 0);
-  return { dias: dias.length, ganhoMedioDia: r2(ganho / dias.length), melhorDia: r2(Math.max(...dias.map((a) => a.ganho))), ganhoPorHora: ms > 0 ? r2(ganho / (ms / 3600000)) : null };
+  const ganho = dias.reduce((s, a) => s + a.ganho, 0), ms = dias.reduce((s, a) => s + a.ms, 0), gh = dias.reduce((s, a) => s + a.gh, 0);
+  return { dias: dias.length, ganhoMedioDia: r2(ganho / dias.length), melhorDia: r2(Math.max(...dias.map((a) => a.ganho))), ganhoPorHora: ms > 0 ? r2(gh / (ms / 3600000)) : null };
 }
 
 /**

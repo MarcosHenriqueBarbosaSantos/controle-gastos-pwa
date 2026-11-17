@@ -64,3 +64,11 @@ test("as leituras viram um lançamento por dia, sem repetir o que já foi lança
   assert.equal(r.dias[1].km, 101.7);
   assert.equal(r.repetidos.length, 1);
 });
+
+test("leitura sem app (app em que não ganhou nada) fica de fora e não impede as outras", () => {
+  const r = lancamentosDosPrints([
+    { usar: true, data: "2026-11-11", app: "uber", valor: 61.18 },
+    { usar: true, data: "2026-11-11", app: null, valor: 48.44 },     // o leitor pegou um número de um app sem ganho
+  ]);
+  assert.deepEqual(r.dias.map((d) => [d.dia, d.apps]), [["2026-11-11", { uber: 61.18 }]]);
+});

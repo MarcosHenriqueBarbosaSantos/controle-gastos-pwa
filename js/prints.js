@@ -237,9 +237,10 @@ export function criaLancarPrints(app) {
           <label class="lp-usa"><input type="checkbox" data-lp-usar="${i}"${l.usar ? " checked" : ""}> Lançar este${l.partes > 1 ? ` <small>(parte ${l.parte + 1} de ${l.partes} do print)</small>` : ""}</label>
           <div class="lp-linha"><label>App<select class="in" data-lp-app="${i}">${opcoes(l.app)}</select></label><label>Dia${l.dataLida ? "" : ` <small class="lp-conf">confira</small>`}<input class="in" type="date" max="${hoje()}" data-lp-data="${i}" value="${l.data}"></label></div>
           <div class="lp-linha tres"><label>Ganho (R$)${l.confianca === "alta" ? "" : ` <small class="lp-conf">confira</small>`}<input class="in" inputmode="decimal" data-lp-valor="${i}" value="${l.valor > 0 ? l.valor.toFixed(2).replace(".", ",") : ""}"></label><label>Km<input class="in" inputmode="decimal" data-lp-km="${i}" value="${l.km ? String(l.km).replace(".", ",") : ""}"></label><label>Viagens<input class="in" inputmode="numeric" data-lp-viag="${i}" value="${l.viagens || ""}"></label></div>
+          ${l.usar && l.valor > 0 && !l.app ? `<p class="lp-ja">Sem app escolhido: este não entra. Se ganhou nesse app, escolha qual é.</p>` : ""}
           ${ja > 0 && l.usar ? `<p class="lp-ja">Já tem ${brl(ja)} desse app nesse dia. Este não será lançado de novo.</p>` : ""}
         </div></li>`; }).join("")}</ul>
-      ${dias.length ? `<h3 class="lp-h">Horas trabalhadas em cada dia</h3><ul class="lp-dias">${dias.map((d) => `<li><div class="lp-dia-tit"><b>${rotDiaP(d.dia)}</b><span>${Object.entries(d.apps).map(([k, v]) => `${nomeApp(k)} ${brl(v)}`).join(" + ")}</span></div>
+      ${dias.length ? `<h3 class="lp-h">Horas trabalhadas (opcional)</h3><p class="hint">Sabe as horas? Toque nelas. Se não souber, pode lançar assim mesmo.</p><ul class="lp-dias">${dias.map((d) => `<li><div class="lp-dia-tit"><b>${rotDiaP(d.dia)}</b><span>${Object.entries(d.apps).map(([k, v]) => `${nomeApp(k)} ${brl(v)}`).join(" + ")}</span></div>
         <div class="md-horas" role="group" aria-label="Horas em ${rotDiaP(d.dia)}">${HS.map((h) => `<button type="button" class="chip" data-lp-h="${d.dia}|${h}" aria-pressed="${horas[d.dia] === `${h}:00`}">${h}h</button>`).join("")}</div>
         <input class="in lp-hin" data-lp-hin="${d.dia}" inputmode="text" maxlength="5" placeholder="ou digite, ex.: 7:30" value="${esc(horas[d.dia] && !HS.some((h) => horas[d.dia] === `${h}:00`) ? horas[d.dia] : "")}"></li>`).join("")}</ul>` : ""}
       ${repetidos.length ? `<p class="hint">${repetidos.length === 1 ? "1 leitura já estava lançada e ficou de fora." : `${repetidos.length} leituras já estavam lançadas e ficaram de fora.`}</p>` : ""}
@@ -255,11 +256,9 @@ export function criaLancarPrints(app) {
     lista.querySelectorAll("[data-lp-h]").forEach((x) => (x.onclick = () => { const [d, h] = x.dataset.lpH.split("|"); horas[d] = `${h}:00`; desenha(); }));
     lista.querySelectorAll("[data-lp-hin]").forEach((x) => (x.onchange = () => { horas[x.dataset.lpHin] = x.value.trim(); desenha(); }));
     if ($("lpLanca")) $("lpLanca").onclick = async () => {
-      const falta = dias.filter((d) => !app.lerHoras(horas[d.dia] || "")), semApp = leituras.some((l) => l.usar && l.valor > 0 && !l.app);
-      if (semApp) return void ($("lpMsg").textContent = "Escolha o app de cada leitura marcada.");
-      if (falta.length) return void ($("lpMsg").textContent = `Toque nas horas trabalhadas de ${falta.map((d) => rotDiaP(d.dia)).join(", ")}.`);
-      $("lpLanca").disabled = true; let ok = 0;
-      for (const d of dias) if (await app.gravaDia({ ...d, ms: app.lerHoras(horas[d.dia]) })) ok++;
+      // leitura sem app (um app em que não ganhou nada, por exemplo) não trava: simplesmente não entra
+      $("lpLanca").disabled = true; let ok = 0;   // horas são opcionais: sem elas, o dia entra só com o ganho
+      for (const d of dias) if (await app.gravaDia({ ...d, ms: app.lerHoras(horas[d.dia] || "") || 0 })) ok++;
       toast(ok === dias.length ? `${ok === 1 ? "1 dia lançado" : `${ok} dias lançados`}: ${brl(total)}. Confira em Ganhos.` : `Lancei ${ok} de ${dias.length} dias. Tente de novo os que faltaram.`);
       if (ok) app.voltar(); else $("lpLanca").disabled = false;
     };

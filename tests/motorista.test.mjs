@@ -329,3 +329,13 @@ test("jornada esquecida: pausada há 6 horas ou mais, ou aberta há 16 horas ou 
   assert.equal(jornadaEsquecida({ ini: agora - 10 * h }, agora), null);
   assert.equal(jornadaEsquecida(null, agora), null);
 });
+
+test("dia lançado sem horas não aumenta o ganho por hora", () => {
+  const at = (iso) => new Date(`${iso}T09:00:00`).getTime();
+  const com = { ini: at("2026-11-10"), fim: at("2026-11-10") + 4 * 3600000, apps: { uber: 200 } };   // 4 h, R$ 200
+  const sem = { ini: at("2026-11-11"), fim: at("2026-11-11"), apps: { uber: 300 } };                // sem horas, R$ 300
+  const r = resumoTurnos([com, sem], "2026-11-01", "2026-11-30", {});
+  assert.equal(r.ganho, 500);
+  assert.equal(r.ganhoPorHora, 50);
+  assert.equal(r.semHoras, 1);
+});
