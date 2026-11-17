@@ -2765,6 +2765,11 @@ function anelDoLivre(usado, tempo) {
     <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="${r}" class="fundo"/><circle cx="32" cy="32" r="${r}" class="arco" stroke-dasharray="${arco.toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 32 32)"/>${ang !== null ? `<line x1="${tx(ang).toFixed(1)}" y1="${ty(ang).toFixed(1)}" x2="${(32 + (r - 7) * Math.cos((ang * Math.PI) / 180)).toFixed(1)}" y2="${(32 + (r - 7) * Math.sin((ang * Math.PI) / 180)).toFixed(1)}" class="ideal"/>` : ""}</svg>
     <span><b>${resta}%</b><small>livre</small></span></div>`;
 }
+/** O anel da Jornada: quanto da meta de hoje já foi feito. */
+function anelDaMeta(pct) {
+  const p = Math.max(0, Math.min(100, pct)), r = 26, c = 2 * Math.PI * r;
+  return `<span class="hero-anel anel-meta" role="img" aria-label="${p}% da meta de hoje"><svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="${r}" class="fundo"/><circle cx="32" cy="32" r="${r}" class="arco" stroke-dasharray="${((c * p) / 100).toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 32 32)"/></svg><span><b>${p}%</b><small>da meta</small></span></span>`;
+}
 function htmlAgora(c, dMot) {
   const hj = hoje(), pg = dMot || semEntradaNoMes(c) ? null : podeGastarHoje(c, gastoAVistaDoDia(S.data, hj)), prox = proximosVencimentos(S.data, hj, 30)[0], a = metaPrincipal(metasEmAndamento(S.data, S.prefs.metas, hj));
   const quando = (d) => (d <= 0 ? "hoje" : d === 1 ? "amanhã" : `em ${d} dias`);
@@ -5618,7 +5623,8 @@ function htmlFraseMot({ m, hj, doDia, meta, alc, ritmo, regra, semContas, ativa 
     ${compacto || (!acima && !doDia.ganho) ? "" : `<p class="ocultavel">${acima ? `Acima do seu ritmo normal, de ${brl(ritmo.ganhoMedioDia)} por dia. Faça o que der: o app mostra o caminho.` : f.sub}</p>`}
     ${compacto ? "" : !m.turnos.length ? `<p class="mot-dia-como"><b>Como funciona:</b> inicie a jornada, lance o que gastou e veja quanto sobrou.</p>` : ""}
     ${regra && !compacto ? `<p class="mot-dia-regra">Busque corridas de <b>${brl(regra.boa)} por km</b> ou mais.</p><p class="mot-dia-minimo">Seu mínimo: ${brl(regra.minimo)} por km${regra.custoKm > 0 ? ` (custo ${brl(regra.custoKm)} + ${brl(1)} de lucro)` : ""}.</p>` : ""}
-    <button class="mot-dia-prog" type="button" id="motProg"><span class="t ocultavel"><b>Hoje: ${brl(doDia.ganho)}</b>${meta.coberto ? "" : `<span>de ${brl(meta.brutoDia)}</span>`}</span>${meta.coberto ? "" : `<span class="tbar"><i style="width:${pct}%"></i></span>`}</button>
+    ${compacto && !meta.coberto && !semContas ? `<button class="mot-dia-prog com-anel" type="button" id="motProg">${anelDaMeta(pct)}<span class="t ocultavel"><b>Hoje: ${brl(doDia.ganho)}</b><span>de ${brl(meta.brutoDia)}</span><small>${pct >= 100 ? "Meta de hoje batida!" : `Faltam ${brl(round2(meta.brutoDia - doDia.ganho))}`}</small></span></button>`
+    : `<button class="mot-dia-prog" type="button" id="motProg"><span class="t ocultavel"><b>Hoje: ${brl(doDia.ganho)}</b>${meta.coberto ? "" : `<span>de ${brl(meta.brutoDia)}</span>`}</span>${meta.coberto ? "" : `<span class="tbar"><i style="width:${pct}%"></i></span>`}</button>`}
     ${compacto ? "" : htmlSemanaMot(m, hj, meta)}
     ${compacto ? "" : htmlContasMot(semContas)}
     <div class="mot-dia-base">${semIniciar ? `<button class="mot-dia-bt" type="button" id="motIrComecar">Começar a jornada</button>` : ativa ? `<button class="mot-dia-bt" type="button" id="motVoltaJornada">Voltar à jornada em andamento</button>` : compacto ? `<button class="mot-circ inicio" type="button" id="motIniciar"${precisaPergunta ? ' data-pergunta="1"' : ""}><span class="mc-play" aria-hidden="true"></span><b>Iniciar</b><span>jornada</span></button>${catFixa ? catHtml : ""}${pn ? pnHtml : ""}
