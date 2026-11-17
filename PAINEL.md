@@ -22,7 +22,8 @@ Como usar: abra este arquivo no começo de cada dia. Quando terminar um item, tr
   - v252: testes de tela automáticos (`npm run telas`, 17 verificações) que abrem o app e fazem os caminhos de todo dia; os números do Início, do Planejar e da Jornada batem.
   - v253: caixas de aviso legíveis na Jornada no tema claro; testes de tela agora são 21 (Contas fixas, Cartões, Ganhos e tema claro incluídos).
   - v254 (pronta, falta publicar): menu de baixo com Mercado (Mais no topo); Extrato em partes (Meus, Casal, Contas fixas); categoria e km do painel só uma vez; aviso de troca de óleo; Desafio mais colorido; a Conversa do desafio saiu do app.js para js/chat.js.
-  - v265 (17/11, pronta, falta publicar): anel da meta do dia na aba Começar (anelDaMeta) com "Faltam R$ X"; atalhos da Jornada com cor suave.
+  - v266 (17/11, publicada): Extrato com os exemplos do dono: três números no topo (ext-nums em fraseDoExtrato), aba ativa em azul cheio, valor em letra comum, seta redonda nas linhas.
+  - v265 (17/11, publicada): anel da meta do dia na aba Começar (anelDaMeta) com "Faltam R$ X"; atalhos da Jornada com cor suave.
   - v264 (17/11, publicada): visual novo do Início inspirado nas referências do dono (sem copiar marcas): saudação (saudacaoDoDia), anel do livre no mês no cartão azul (anelDoLivre, no lugar da barra), atalhos com cor suave por ação, seta redonda nos cartões. Próximo: levar o anel para a Jornada (meta do dia).
   - v263 (17/11, publicada): horas opcionais no Lançar por prints; ganho e lucro por hora (resumoTurnos, ritmoHistorico) contam só os turnos com horas.
   - v262 (16/11, publicada): Lançar no celular em ordem de uso (valor grande, categoria, forma e data, cartão quando for o caso, Lançar; o resto depois do botão). Também: Falar e Câmera numa faixa baixa; frase do efeito do gasto em palavras ("Faltam R$ X no mês. Com este gasto, faltam R$ Y.") em vez de "Livre agora -R$".

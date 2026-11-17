@@ -2802,12 +2802,15 @@ function fraseDoExtrato(c) {
   if (c.fase === "futuro") return `<h2 class="ocultavel">Devem sair ${brl(c.custo)} em ${mes}.</h2><p class="ocultavel">${c.rec > 0 ? `Devem entrar ${brl(c.rec)}.` : "Nenhuma entrada prevista."}</p>`;
   const entrou = round2(c.rec - c.frAReceber);
   // No mês atual, a partir do dia 3: os gastos lançados até hoje contra os do mês passado até o mesmo dia.
-  let contra = "";
+  let contra = null;
   if (c.fase === "atual") {
     const d = Number(hoje().slice(8, 10)), ant = addM(S.mes, -1), a = gastoAteODia(S.data.lancamentos, S.mes, d), b = gastoAteODia(S.data.lancamentos, ant, d), dif = round2(a - b);
-    if (d >= 3 && b > 0 && dif !== 0) contra = ` Nos gastos lançados até o dia ${d}: ${brl(Math.abs(dif))} ${dif > 0 ? "a mais" : "a menos"} que em ${nomeMes(ant)}.`;
+    if (d >= 3 && b > 0 && dif !== 0) contra = { rot: `Contra ${nomeMes(ant)}`, v: `${dif > 0 ? "+" : "−"} ${brl(Math.abs(dif))}`, cls: dif > 0 ? "ruim" : "bom", sub: `${dif > 0 ? "a mais" : "a menos"} até dia ${d}` };
   }
-  return `<h2 class="ocultavel">Saíram ${brl(round2(c.custo - faltaPagar))} em ${mes}.</h2><p class="ocultavel">${entrou > 0 ? `Entraram ${brl(entrou)}.` : "Nenhuma entrada ainda."}${faltaPagar > 0 ? ` Faltam pagar ${brl(faltaPagar)}.` : ""}${contra}</p>`;
+  // Três números pequenos lado a lado, cada um com o nome em cima: mais fácil de achar do que no meio de uma frase.
+  const caixa = (rot, v, cls = "", sub = "") => `<div class="ext-num ${cls}"><small>${rot}</small><b class="ocultavel">${v}</b>${sub ? `<span>${sub}</span>` : ""}</div>`;
+  const nums = [caixa("Entraram", entrou > 0 ? brl(entrou) : "nada ainda", "entrou"), ...(faltaPagar > 0 ? [caixa("Falta pagar", brl(faltaPagar), "falta")] : []), ...(contra ? [caixa(contra.rot, contra.v, contra.cls, contra.sub)] : [])];
+  return `<h2 class="ocultavel">Saíram ${brl(round2(c.custo - faltaPagar))} em ${mes}.</h2><div class="ext-nums n${nums.length}">${nums.join("")}</div>`;
 }
 /** As contas fixas e as faturas do mês no Extrato, pagas ou não. Conta no cartão fica de fora: ela já está dentro da fatura. */
 function contasDoExtrato(c) {
