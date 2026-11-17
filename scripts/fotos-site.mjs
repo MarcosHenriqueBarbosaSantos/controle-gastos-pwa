@@ -49,7 +49,7 @@ const FOTOS = {
   limites: () => foto("limites", "#demo", async (t) => { await t.clica('#bnav [data-nav="m"]'); await t.w(900); await t.clica('[data-pl-abre="cats"]'); await t.w(900); }),
   fatura: () => foto("fatura", "#demo", async ({ pg, w }) => { await pg.evaluate(() => document.getElementById("fIrCartoes")?.click()); await w(900); }),
   extrato: () => foto("extrato", "#demo", async ({ w, clica }) => { await clica('#bnav [data-nav="l"]'); await w(900); }),
-  motorista: () => foto("motorista", "#motorista", async ({ pg, w, clica }) => { await clica('#bnav [data-nav="mot"]'); await w(800); await clica('[data-mot-cat="UberX"]'); await w(500); await pg.locator("#motOdoIni").fill("84120"); await pg.evaluate(() => document.activeElement?.blur()); await clica('#bnav [data-nav="inicio"]'); await w(900); await pg.evaluate(() => window.scrollTo(0, 0)); }, { arquivo: "tela-motorista.jpg" }),
+  motorista: () => foto("motorista", "#motorista", async ({ pg, w, clica }) => { await clica('#bnav [data-nav="inicio"]'); await w(900); await pg.evaluate(() => window.scrollTo(0, 0)); }, { arquivo: "tela-motorista.jpg" }),
   computador: () => foto("computador", "#demo", async () => {}, { largura: 1280, altura: 800, escala: 1, celular: false }),
 };
 const pedidas = process.argv.slice(2).length ? process.argv.slice(2) : Object.keys(FOTOS);

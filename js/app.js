@@ -1222,7 +1222,7 @@ function renderKpis(c) {
     if ($("conviteComecar")) $("conviteComecar").onclick = () => guiaPasso("renda", true);
     if ($("conviteExtrato")) $("conviteExtrato").onclick = () => abrirExtrato();
   } else {
-  $("resumo").innerHTML = `${S.prefs.motorista?.ativo?.ini ? `<button type="button" class="mot-faixa" data-atalho="motorista"><span class="mot-pulso" aria-hidden="true"></span><span>Jornada em andamento desde ${hhmm(Number(S.prefs.motorista.ativo.ini))}</span><b>Parar</b></button>` : ""}${dMot ? `<div class="hero banco cheia est-neutro">${mesNaTela}
+  $("resumo").innerHTML = `${S.prefs.motorista?.ativo?.ini ? `<button type="button" class="mot-faixa" data-atalho="motorista"><span class="mot-pulso" aria-hidden="true"></span><span>Jornada em andamento desde ${hhmm(Number(S.prefs.motorista.ativo.ini))}</span><b>Parar</b></button>` : ""}${dMot ? `${atualM ? saudacaoDoDia() : ""}<div class="hero banco cheia est-neutro">${mesNaTela}
       <div class="hero-top"><span class="l">Seu dinheiro em ${mesNome}</span>
         <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
       <h2 class="hero-frase ocultavel">${dMot.meta.coberto ? `As contas de ${mesNome} estão cobertas.` : `Faltam ${brl(dMot.meta.falta)} para pagar as contas de ${mesNome}.`}</h2>
@@ -1237,12 +1237,12 @@ function renderKpis(c) {
       <span class="v convite">Falta contar o que você recebe</span>
       <span class="n ocultavel">Até agora o app só viu o que sai: ${brl(c.custo)} em contas e gastos. Diga quanto você recebe e ele mostra quanto sobra.</span>
       <button type="button" class="hero-bt" data-acao="recebi">Adicionar o que recebo</button>
-    </div>` : `<div class="hero banco cheia${atualM ? "" : " outro-mes"} est-${est.nivel}">${mesNaTela}
+    </div>` : `${atualM ? saudacaoDoDia() : ""}<div class="hero banco cheia${atualM ? "" : " outro-mes"} est-${est.nivel}">${mesNaTela}
     <div class="hero-top"><span class="l">${rotulo}</span>
       <button type="button" class="olho" id="olho" aria-pressed="${ocultos}" aria-label="${ocultos ? "Mostrar os valores" : "Esconder os valores"}">${ico(ocultos ? "olhoFechado" : "olho")}</button></div>
     ${frN || fraseDoMes ? `<h2 class="hero-frase ocultavel">${frN ? frN.frase : fraseDoMes}</h2>` : ""}
-    <span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>
-    ${sb.entra > 0 ? `<div class="hbar" aria-hidden="true"><i style="width:${usado}%"></i>${tempo ? `<u class="ritmo" style="left:${tempo}%"></u>` : ""}</div>
+    <div class="hero-valor"><span class="v ocultavel" data-det="saldo" role="button" tabindex="0" aria-label="${rotulo}: ${brl(Math.abs(rx.sobra))}. Abrir">${brl(Math.abs(rx.sobra))}</span>${sb.entra > 0 ? anelDoLivre(usado, tempo) : ""}</div>
+    ${sb.entra > 0 ? `
     <div class="hsub ocultavel"><span>${atualM || c.fase === "passado" ? (sb.livre < 0 ? `as contas do mês já passam das entradas em ${brl(-sb.livre)}` : falta ? `depois das contas, sobravam ${brl(sb.livre)} para o dia a dia` : atualM ? `ainda livres de ${brl(sb.livre)} depois das contas` : `de ${brl(sb.livre)} depois das contas`) : `previsto, depois das contas`}</span></div>` : ""}
     ${passos ? `<details class="ip-detalhe"><summary>Entenda esse número</summary>${passos}</details>` : ""}
     ${ficou}
@@ -2751,6 +2751,20 @@ function juntaReservasAntigas() {
   };
 }
 /** Os três cartões da primeira tela: o que importa agora, sem precisar rolar. */
+/** "Bom dia, Marcos": o primeiro nome que a pessoa já deu ao app (recibo ou Arrumar lançamentos). Sem nome, só o cumprimento. */
+function saudacaoDoDia() {
+  const h = new Date().getHours(), oi = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
+  const nome = String(S.prefs.meuNome || S.prefs.recibo?.nome || "").trim().split(/\s+/)[0] || "";
+  return `<p class="saudacao">${oi}${nome ? `, ${esc(nome.charAt(0).toUpperCase() + nome.slice(1))}` : ""} 👋</p>`;
+}
+/** O anel do Início: quanto do dinheiro livre do mês ainda resta (o arco) e onde deveria estar pelo dia de hoje (o tracinho). */
+function anelDoLivre(usado, tempo) {
+  const resta = Math.max(0, 100 - usado), r = 26, c = 2 * Math.PI * r, arco = (c * resta) / 100;
+  const ang = tempo ? ((100 - tempo) / 100) * 360 - 90 : null, tx = (a) => 32 + r * Math.cos((a * Math.PI) / 180), ty = (a) => 32 + r * Math.sin((a * Math.PI) / 180);
+  return `<div class="hero-anel ocultavel" role="img" aria-label="Ainda resta ${resta}% do dinheiro livre do mês${tempo ? `; pelo dia de hoje, o ideal seria ${100 - tempo}%` : ""}">
+    <svg viewBox="0 0 64 64" aria-hidden="true"><circle cx="32" cy="32" r="${r}" class="fundo"/><circle cx="32" cy="32" r="${r}" class="arco" stroke-dasharray="${arco.toFixed(1)} ${c.toFixed(1)}" transform="rotate(-90 32 32)"/>${ang !== null ? `<line x1="${tx(ang).toFixed(1)}" y1="${ty(ang).toFixed(1)}" x2="${(32 + (r - 7) * Math.cos((ang * Math.PI) / 180)).toFixed(1)}" y2="${(32 + (r - 7) * Math.sin((ang * Math.PI) / 180)).toFixed(1)}" class="ideal"/>` : ""}</svg>
+    <span><b>${resta}%</b><small>livre</small></span></div>`;
+}
 function htmlAgora(c, dMot) {
   const hj = hoje(), pg = dMot || semEntradaNoMes(c) ? null : podeGastarHoje(c, gastoAVistaDoDia(S.data, hj)), prox = proximosVencimentos(S.data, hj, 30)[0], a = metaPrincipal(metasEmAndamento(S.data, S.prefs.metas, hj));
   const quando = (d) => (d <= 0 ? "hoje" : d === 1 ? "amanhã" : `em ${d} dias`);
