@@ -515,6 +515,10 @@ picture{display:contents}
 .fica-oculto{display:none!important}
 .ver-mais{display:block;margin:18px auto 0;min-height:44px;padding:10px 22px;border:1px solid var(--line);border-radius:999px;background:var(--surface);color:var(--ink);font:inherit;font-weight:600;cursor:pointer}
 @media (max-width:700px){.so-largo{display:none} #recursos~section .larga{display:none} .usar .barra-app{display:none}}
+/* v267 vidro, igual ao app: manchas suaves de azul e ciano paradas atrás de tudo e cartões brancos meio transparentes */
+:root{--surface:rgba(255,255,255,.7)}
+body{background:#eaf0fa}
+body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;background:radial-gradient(60vmax 50vmax at -10% -5%,rgba(120,200,255,.55),transparent 60%),radial-gradient(55vmax 45vmax at 110% 15%,rgba(150,170,255,.45),transparent 60%),radial-gradient(60vmax 50vmax at 15% 70%,rgba(140,230,240,.38),transparent 60%),radial-gradient(60vmax 50vmax at 100% 100%,rgba(110,160,255,.4),transparent 60%),#eaf0fa}
 </style>
 <!-- v256: o site voltou ao claro de banco, igual ao app (o tema escuro antigo continua em tech.css, desligado) -->
 </head>

@@ -485,3 +485,30 @@ table.lanc td.num{font-family:var(--sans);letter-spacing:0;font-weight:700}
 :root[data-tema="escuro"] #lFiltros .seg{background:rgba(255,255,255,.06)}
 :root[data-tema="escuro"] #lFiltros .seg button[aria-pressed="true"]{background:#5fd4ff;color:#06203a}
 :root[data-tema="escuro"] table.lanc tr:not(.dia)::after{background:rgba(95,212,255,.14);color:#5fd4ff}
+
+/* v267: o bom-dia é um botão (toque para mudar o nome), mas continua com cara de título */
+button.saudacao{display:block;border:0;background:none;padding:0;text-align:left;cursor:pointer;min-height:32px}
+
+/* v267 "vidro": no tema claro, um fundo com manchas suaves de azul e ciano (paradas, atrás de tudo) e os cartões
+   brancos meio transparentes por cima, com borda clara, deixando a cor do fundo aparecer. As manchas já são borradas,
+   então não precisa de desfoque nos cartões (que pesaria em celular simples). Janelas e campos continuam brancos. */
+:root[data-tema="claro"]{
+  --surface:rgba(255,255,255,.66); --surface-2:rgba(255,255,255,.5); --sunk:rgba(220,230,245,.55); --border:rgba(255,255,255,.85);
+  --glass:rgba(255,255,255,.72);
+}
+:root[data-tema="claro"] body{background:#eaf0fa}
+:root[data-tema="claro"] body::before{content:"";position:fixed;inset:0;z-index:-1;pointer-events:none;
+  background:
+    radial-gradient(60vmax 50vmax at -10% -5%,rgba(120,200,255,.55),transparent 60%),
+    radial-gradient(55vmax 45vmax at 110% 15%,rgba(150,170,255,.45),transparent 60%),
+    radial-gradient(60vmax 50vmax at 15% 70%,rgba(140,230,240,.38),transparent 60%),
+    radial-gradient(60vmax 50vmax at 100% 100%,rgba(110,160,255,.4),transparent 60%),
+    #eaf0fa}
+:root[data-tema="claro"] .card,:root[data-tema="claro"] .panel,:root[data-tema="claro"] .ext-num,:root[data-tema="claro"] table.lanc tr:not(.dia),
+:root[data-tema="claro"] .agora-c,:root[data-tema="claro"] .mais-item,:root[data-tema="claro"] .hoje-item{box-shadow:0 8px 24px rgba(30,70,140,.08),inset 0 1px 0 rgba(255,255,255,.9)}
+:root[data-tema="claro"] .ext-num{background:var(--surface);border-color:var(--border)}
+:root[data-tema="claro"] dialog,:root[data-tema="claro"] .in,:root[data-tema="claro"] input,:root[data-tema="claro"] select,:root[data-tema="claro"] textarea{--surface:#fff;--surface-2:#f5f8fc;--sunk:#ebf0f7;--border:#d9e1ec}
+:root[data-tema="claro"] dialog{background:#fff}
+@media (max-width:700px){:root[data-tema="claro"] dialog,:root[data-tema="claro"] dialog::backdrop{background:#f2f5fa}}
+:root[data-tema="claro"] #bnav{background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);border-top-color:rgba(255,255,255,.9)}
+:root[data-tema="claro"] .wrap[data-tab="mot"] #listas,:root[data-tema="claro"] #app[data-view="listas"][data-tab="mot"] #listas,:root[data-tema="claro"] body:has(#app[data-view="listas"][data-tab="mot"]){background:transparent}

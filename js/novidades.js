@@ -1,5 +1,6 @@
 /* O que mudou em cada versão, em palavras de quem usa o app. A tela "Novidades" mostra as últimas. */
 export const NOVIDADES = [
+  { versao: "267", itens: ["Visual novo de vidro: o fundo tem manchas suaves de azul e os cartões ficam meio transparentes por cima. A barra de baixo ficou fosca.", "O bom-dia do Início usa o nome do seu e-mail. Toque nele para escolher outro nome ou não usar nome."] },
   { versao: "266", itens: ["Extrato: no topo, três quadrinhos mostram quanto entrou, quanto falta pagar e a comparação com o mês passado.", "A aba escolhida (Tudo, Gastos, Entradas...) fica em azul, e cada lançamento tem uma setinha redonda mostrando que abre."] },
   { versao: "265", itens: ["Jornada: um anel mostra quanto da meta de hoje você já fez, com quanto ainda falta logo ao lado.", "Os atalhos da Jornada (Lançar outro dia, Por prints, Meus ganhos, Recibo) ganharam as mesmas cores suaves do Início."] },
   { versao: "264", itens: ["Início com cara nova: um bom-dia no topo, um anel mostrando quanto do dinheiro livre do mês ainda resta (o tracinho amarelo é onde ele deveria estar hoje) e o valor em letra grande.", "Os atalhos (Recebi, Escanear, Falar) ganharam cores suaves diferentes, para reconhecer sem ler, e os cartões têm uma seta que mostra que abrem."] },

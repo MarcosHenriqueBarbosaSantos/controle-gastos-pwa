@@ -2754,9 +2754,24 @@ function juntaReservasAntigas() {
 /** "Bom dia, Marcos": o primeiro nome que a pessoa já deu ao app (recibo ou Arrumar lançamentos). Sem nome, só o cumprimento. */
 function saudacaoDoDia() {
   const h = new Date().getHours(), oi = h < 12 ? "Bom dia" : h < 18 ? "Boa tarde" : "Boa noite";
-  const nome = String(S.prefs.meuNome || S.prefs.recibo?.nome || "").trim().split(/\s+/)[0] || "";
-  return `<p class="saudacao">${oi}${nome ? `, ${esc(nome.charAt(0).toUpperCase() + nome.slice(1))}` : ""} 👋</p>`;
+  // O nome vem só do que a pessoa escolheu aqui ou do e-mail da conta. O nome do recibo e o "nome como no banco"
+  // podem ser de outra pessoa (o carro ou a conta no nome da esposa, por exemplo), então não servem para cumprimentar.
+  const nome = nomeDaSaudacao();
+  return `<button type="button" class="saudacao" id="saudaNome" aria-label="${oi}${nome ? ", " + esc(nome) : ""}. Toque para mudar como o app chama você">${oi}${nome ? `, ${esc(nome)}` : ""} 👋</button>`;
 }
+function nomeDaSaudacao() {
+  if (S.prefs.apelido !== undefined) return String(S.prefs.apelido || "").trim();
+  const n = String(nomeDoEmail($("whoName")?.textContent || "") || "").trim().split(/\s+/)[0] || "";
+  return n ? n.charAt(0).toUpperCase() + n.slice(1) : "";
+}
+/** Tocar no bom-dia: escolher como o app chama a pessoa (ou não usar nome). */
+function mudaApelido() {
+  openDlg(`<h3>Como quer ser chamado?</h3><p class="hint">Aparece só no bom-dia do Início. Deixe vazio para não usar nome.</p>
+    <label class="f wide">Seu nome<input class="in" id="apNome" maxlength="30" autocomplete="given-name" value="${esc(nomeDaSaudacao())}"></label>
+    <div class="mot-opcoes"><button class="btn primary" type="button" id="apSalva">Salvar</button><button class="btn" type="button" data-close>Cancelar</button></div>`);
+  $("apSalva").onclick = async () => { S.prefs.apelido = $("apNome").value.trim(); await salvaPrefs(); $("dlg").close(); render(); };
+}
+document.addEventListener("click", (e) => { if (e.target.closest?.("#saudaNome")) mudaApelido(); });
 /** O anel do Início: quanto do dinheiro livre do mês ainda resta (o arco) e onde deveria estar pelo dia de hoje (o tracinho). */
 function anelDoLivre(usado, tempo) {
   const resta = Math.max(0, 100 - usado), r = 26, c = 2 * Math.PI * r, arco = (c * resta) / 100;
